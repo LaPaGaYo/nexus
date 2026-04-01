@@ -1,0 +1,24 @@
+#!/usr/bin/env bun
+import { resolveInvocation } from '../lib/nexus/commands/index';
+
+const [, , rawCommand] = process.argv;
+
+if (!rawCommand) {
+  console.error('Usage: bun run bin/nexus.ts <command>');
+  process.exit(1);
+}
+
+try {
+  const invocation = resolveInvocation(rawCommand);
+  const result = await invocation.handler({
+    cwd: process.cwd(),
+    clock: () => new Date().toISOString(),
+    via: invocation.via,
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+  process.exit(1);
+}
