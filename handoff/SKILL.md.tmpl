@@ -1,0 +1,29 @@
+---
+name: handoff
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus governed handoff command. Records explicit routing, provider intent,
+  and handoff state before governed execution begins. Use after `/plan` declares the
+  work execution-ready. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /handoff — Nexus Governed Handoff
+
+Run:
+
+```bash
+bun run bin/nexus.ts handoff
+```
+
+Then read:
+
+- `.planning/nexus/current-run.json`
+- `.planning/current/handoff/status.json`
+- `.planning/current/handoff/governed-execution-routing.md`
+- `.planning/current/handoff/governed-handoff.md`

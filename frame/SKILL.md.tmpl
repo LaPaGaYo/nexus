@@ -1,0 +1,34 @@
+---
+name: frame
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus framing command. In v0.1 it is a scaffolded placeholder that records
+  framing intent, expected inputs, and blocked status without starting execution. Use
+  when discovery is complete enough to define scope and success criteria. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /frame — Nexus Framing Placeholder
+
+Purpose:
+- define scope and non-goals
+- capture success criteria and product shape
+- decide whether to proceed to `/plan`
+
+Run:
+
+```bash
+bun run bin/nexus.ts frame
+```
+
+Then read:
+
+- `.planning/nexus/current-run.json`
+- `.planning/current/frame/status.json`
+
+In v0.1 this command is scaffolded only. It records blocked, not-implemented state and does not start governed execution.

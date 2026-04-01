@@ -181,16 +181,20 @@ tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
 The skill has specialized workflows that produce better results than ad-hoc answers.
 
 Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Product ideas, "is this worth building", brainstorming → invoke discover
+- Scope definition, requirements framing, non-goals → invoke frame
+- Architecture review, execution readiness, implementation planning → invoke plan
+- Governed routing and handoff packaging → invoke handoff
+- Bounded implementation execution → invoke build
 - Bugs, errors, "why is this broken", 500 errors → invoke investigate
 - Ship, deploy, push, create PR → invoke ship
 - QA, test the site, find bugs → invoke qa
 - Code review, check my diff → invoke review
+- Final governed verification and closure → invoke closeout
 - Update docs after shipping → invoke document-release
 - Weekly retro → invoke retro
 - Design system, brand → invoke design-consultation
 - Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
 ```
 
 Then commit the change: `git add CLAUDE.md && git commit -m "chore: add gstack skill routing rules to CLAUDE.md"`
@@ -347,17 +351,19 @@ Use the Skill tool to invoke it. The skill has specialized workflows, checklists
 quality gates that produce better results than answering inline.
 
 **Routing rules — when you see these patterns, INVOKE the skill via the Skill tool:**
-- User describes a new idea, asks "is this worth building", wants to brainstorm → invoke `/office-hours`
-- User asks about strategy, scope, ambition, "think bigger" → invoke `/plan-ceo-review`
-- User asks to review architecture, lock in the plan → invoke `/plan-eng-review`
+- User describes a new idea, asks "is this worth building", wants to brainstorm → invoke `/discover`
+- User asks about strategy, scope, non-goals, or success criteria → invoke `/frame`
+- User asks to review architecture, lock in execution readiness, or turn scope into a plan → invoke `/plan`
 - User asks about design system, brand, visual identity → invoke `/design-consultation`
 - User asks to review design of a plan → invoke `/plan-design-review`
-- User wants all reviews done automatically → invoke `/autoplan`
+- User asks for governed routing or handoff packaging → invoke `/handoff`
+- User wants a bounded implementation executed → invoke `/build`
 - User reports a bug, error, broken behavior, asks "why is this broken" → invoke `/investigate`
 - User asks to test the site, find bugs, QA → invoke `/qa`
-- User asks to review code, check the diff, pre-landing review → invoke `/review`
+- User asks to review code, audit an implementation result, or check governed review output → invoke `/review`
 - User asks about visual polish, design audit of a live site → invoke `/design-review`
-- User asks to ship, deploy, push, create a PR → invoke `/ship`
+- User asks to ship, gate release readiness, or decide merge readiness → invoke `/ship`
+- User asks to formally conclude reviewed work or verify final governed state → invoke `/closeout`
 - User asks to update docs after shipping → invoke `/document-release`
 - User asks for a weekly retro, what did we ship → invoke `/retro`
 - User asks for a second opinion, codex review → invoke `/codex`

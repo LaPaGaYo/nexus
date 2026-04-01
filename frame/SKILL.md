@@ -1,10 +1,11 @@
 ---
-name: plan-eng-review
+name: frame
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Transitional alias for the canonical Nexus /frame command. Routes through Nexus and
-  does not own separate contract, artifact, or transition logic. (nexus alias)
+  Canonical Nexus framing command. In v0.1 it is a scaffolded placeholder that records
+  framing intent, expected inputs, and blocked status without starting execution. Use
+  when discovery is complete enough to define scope and success criteria. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -43,7 +44,7 @@ echo "TELEMETRY: ${_TEL:-off}"
 echo "TEL_PROMPTED: $_TEL_PROMPTED"
 mkdir -p ~/.gstack/analytics
 if [ "${_TEL:-off}" != "off" ]; then
-  echo '{"skill":"plan-eng-review","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+  echo '{"skill":"frame","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
 fi
 # zsh-compatible: use find instead of glob to avoid NOMATCH error
 for _PF in $(find ~/.gstack/analytics -maxdepth 1 -name '.pending-*' 2>/dev/null); do
@@ -337,17 +338,22 @@ Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
 file you are allowed to edit in plan mode. The plan file review report is part of the
 plan's living status.
 
-# /plan-eng-review — Transitional Alias
+# /frame — Nexus Framing Placeholder
 
-This alias routes to `/frame`.
+Purpose:
+- define scope and non-goals
+- capture success criteria and product shape
+- decide whether to proceed to `/plan`
 
 Run:
 
 ```bash
-bun run bin/nexus.ts plan-eng-review
+bun run bin/nexus.ts frame
 ```
 
 Then read:
 
 - `.planning/nexus/current-run.json`
 - `.planning/current/frame/status.json`
+
+In v0.1 this command is scaffolded only. It records blocked, not-implemented state and does not start governed execution.

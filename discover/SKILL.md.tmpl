@@ -1,0 +1,34 @@
+---
+name: discover
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus discovery command. In v0.1 it is a scaffolded placeholder that records
+  discovery intent, current-run state, and blocked status without advancing governed
+  execution. Use when the problem is still vague and needs clarification. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /discover — Nexus Discovery Placeholder
+
+Purpose:
+- clarify the problem
+- identify goals, constraints, and open questions
+- decide whether to proceed to `/frame`
+
+Run:
+
+```bash
+bun run bin/nexus.ts discover
+```
+
+Then read:
+
+- `.planning/nexus/current-run.json`
+- `.planning/current/discover/status.json`
+
+In v0.1 this command is scaffolded only. It records blocked, not-implemented state and does not advance governed execution.
