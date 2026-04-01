@@ -45,19 +45,19 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'session-awareness':        ['SKILL.md', 'SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],
 
   // QA (+ test-server dependency)
-  'qa-quick':       ['qa/**', 'browse/src/**', 'browse/test/test-server.ts'],
-  'qa-b6-static':   ['qa/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval.html', 'test/fixtures/qa-eval-ground-truth.json'],
-  'qa-b7-spa':      ['qa/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-spa.html', 'test/fixtures/qa-eval-spa-ground-truth.json'],
-  'qa-b8-checkout': ['qa/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-checkout.html', 'test/fixtures/qa-eval-checkout-ground-truth.json'],
+  'qa-quick':       ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts'],
+  'qa-b6-static':   ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval.html', 'test/fixtures/qa-eval-ground-truth.json'],
+  'qa-b7-spa':      ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-spa.html', 'test/fixtures/qa-eval-spa-ground-truth.json'],
+  'qa-b8-checkout': ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-checkout.html', 'test/fixtures/qa-eval-checkout-ground-truth.json'],
   'qa-only-no-fix': ['qa-only/**', 'qa/templates/**'],
   'qa-fix-loop':    ['qa/**', 'browse/src/**', 'browse/test/test-server.ts'],
   'qa-bootstrap':   ['qa/**', 'ship/**'],
 
   // Review
-  'review-sql-injection':     ['review/**', 'test/fixtures/review-eval-vuln.rb'],
-  'review-enum-completeness': ['review/**', 'test/fixtures/review-eval-enum*.rb'],
-  'review-base-branch':       ['review/**'],
-  'review-design-lite':       ['review/**', 'test/fixtures/review-eval-design-slop.*'],
+  'review-sql-injection':     ['review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-vuln.rb'],
+  'review-enum-completeness': ['review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-enum*.rb'],
+  'review-base-branch':       ['review/**', 'bin/nexus.ts', 'lib/nexus/**'],
+  'review-design-lite':       ['review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-design-slop.*'],
 
   // Review Army (specialist dispatch)
   'review-army-migration-safety': ['review/**', 'scripts/resolvers/review-army.ts', 'bin/gstack-diff-scope'],
@@ -69,25 +69,25 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'review-army-consensus':        ['review/**', 'scripts/resolvers/review-army.ts'],
 
   // Office Hours
-  'office-hours-spec-review':  ['office-hours/**', 'scripts/gen-skill-docs.ts'],
+  'office-hours-spec-review':  ['office-hours/**', 'discover/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
 
   // Plan reviews
-  'plan-ceo-review':           ['plan-ceo-review/**'],
-  'plan-ceo-review-selective': ['plan-ceo-review/**'],
-  'plan-ceo-review-benefits':  ['plan-ceo-review/**', 'scripts/gen-skill-docs.ts'],
-  'plan-eng-review':           ['plan-eng-review/**'],
-  'plan-eng-review-artifact':  ['plan-eng-review/**'],
-  'plan-review-report':        ['plan-eng-review/**', 'scripts/gen-skill-docs.ts'],
+  'plan-ceo-review':           ['plan-ceo-review/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**'],
+  'plan-ceo-review-selective': ['plan-ceo-review/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**'],
+  'plan-ceo-review-benefits':  ['plan-ceo-review/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
+  'plan-eng-review':           ['plan-eng-review/**', 'plan/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**'],
+  'plan-eng-review-artifact':  ['plan-eng-review/**', 'plan/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**'],
+  'plan-review-report':        ['plan-eng-review/**', 'plan/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
 
   // Codex offering verification
-  'codex-offered-office-hours':  ['office-hours/**', 'scripts/gen-skill-docs.ts'],
-  'codex-offered-ceo-review':    ['plan-ceo-review/**', 'scripts/gen-skill-docs.ts'],
+  'codex-offered-office-hours':  ['office-hours/**', 'discover/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
+  'codex-offered-ceo-review':    ['plan-ceo-review/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
   'codex-offered-design-review': ['plan-design-review/**', 'scripts/gen-skill-docs.ts'],
-  'codex-offered-eng-review':    ['plan-eng-review/**', 'scripts/gen-skill-docs.ts'],
+  'codex-offered-eng-review':    ['plan-eng-review/**', 'plan/**', 'frame/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
 
   // Ship
-  'ship-base-branch': ['ship/**', 'bin/gstack-repo-mode'],
-  'ship-local-workflow': ['ship/**', 'scripts/gen-skill-docs.ts'],
+  'ship-base-branch': ['ship/**', 'bin/nexus.ts', 'lib/nexus/**', 'bin/gstack-repo-mode'],
+  'ship-local-workflow': ['ship/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
   'review-dashboard-via': ['ship/**', 'scripts/resolvers/review.ts', 'codex/**', 'autoplan/**', 'land-and-deploy/**'],
   'ship-plan-completion': ['ship/**', 'scripts/gen-skill-docs.ts'],
   'ship-plan-verification': ['ship/**', 'scripts/gen-skill-docs.ts'],
@@ -165,7 +165,7 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'sidebar-css-interaction':       ['browse/src/server.ts', 'browse/src/sidebar-agent.ts', 'browse/src/write-commands.ts', 'browse/src/read-commands.ts', 'browse/src/cdp-inspector.ts', 'extension/**'],
 
   // Autoplan
-  'autoplan-core':  ['autoplan/**', 'plan-ceo-review/**', 'plan-eng-review/**', 'plan-design-review/**'],
+  'autoplan-core':  ['autoplan/**', 'plan/**', 'frame/**', 'plan-ceo-review/**', 'plan-eng-review/**', 'plan-design-review/**', 'bin/nexus.ts', 'lib/nexus/**'],
 
   // Skill routing — journey-stage tests (depend on ALL skill descriptions)
   'journey-ideation':       ['*/SKILL.md.tmpl', 'SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],

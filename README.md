@@ -38,6 +38,28 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 5. Run `/qa` on your staging URL
 6. Stop there. You'll know if this is for you.
 
+## Nexus v0.1 command surface
+
+Canonical Nexus commands:
+- `/discover`
+- `/frame`
+- `/plan`
+- `/handoff`
+- `/build`
+- `/review`
+- `/qa`
+- `/ship`
+- `/closeout`
+
+Milestone 1 implements the governed thin slice end to end:
+- `/plan -> /handoff -> /build -> /review -> /closeout`
+
+The following legacy names remain as compatibility aliases and route through the same Nexus runtime:
+- `/office-hours -> /discover`
+- `/plan-ceo-review -> /frame`
+- `/plan-eng-review -> /frame`
+- `/autoplan -> /plan`
+
 ## Install — 30 seconds
 
 **Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+, [Node.js](https://nodejs.org/) (Windows only)

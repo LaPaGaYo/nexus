@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'bun:test';
 import { COMMAND_DESCRIPTIONS } from '../browse/src/commands';
 import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -100,6 +101,24 @@ describe('gen-skill-docs', () => {
   test('creates the new canonical directories', () => {
     for (const dir of ['discover', 'frame', 'plan', 'handoff', 'build', 'closeout']) {
       expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+    }
+  });
+
+  test('nexus canonical directories stay aligned with the manifest', () => {
+    expect(new Set(Object.keys(CANONICAL_MANIFEST))).toEqual(NEXUS_CANONICAL_SKILLS);
+    for (const dir of NEXUS_CANONICAL_SKILLS) {
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md'))).toBe(true);
+    }
+  });
+
+  test('nexus alias wrappers stay aligned with the alias map', () => {
+    expect(new Set(Object.keys(LEGACY_ALIASES))).toEqual(
+      new Set(['office-hours', 'plan-ceo-review', 'plan-eng-review', 'autoplan', 'start-work', 'execute-wave', 'governed-execute', 'verify-close']),
+    );
+    for (const dir of NEXUS_ALIAS_SKILLS) {
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md'))).toBe(true);
     }
   });
 

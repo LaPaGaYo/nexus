@@ -2,6 +2,34 @@
 
 Detailed guides for every gstack skill — philosophy, workflow, and examples.
 
+## Nexus v0.1 command surface
+
+Canonical Nexus commands:
+- `/discover`
+- `/frame`
+- `/plan`
+- `/handoff`
+- `/build`
+- `/review`
+- `/qa`
+- `/ship`
+- `/closeout`
+
+Implemented thin slice:
+- `/plan -> /handoff -> /build -> /review -> /closeout`
+
+Documented placeholder commands in v0.1:
+- `/discover`
+- `/frame`
+- `/qa`
+- `/ship`
+
+Legacy compatibility aliases route through the same Nexus runtime:
+- `/office-hours -> /discover`
+- `/plan-ceo-review -> /frame`
+- `/plan-eng-review -> /frame`
+- `/autoplan -> /plan`
+
 | Skill | Your specialist | What they do |
 |-------|----------------|--------------|
 | [`/office-hours`](#office-hours) | **YC Office Hours** | Start here. Six forcing questions that reframe your product before you write code. Pushes back on your framing, challenges premises, generates implementation alternatives. Design doc feeds into every downstream skill. |

@@ -67,7 +67,8 @@ if (evalsEnabled && process.env.EVALS_TIER) {
 function installSkills(tmpDir: string) {
   const skillDirs = [
     '', // root gstack SKILL.md
-    'qa', 'qa-only', 'ship', 'review', 'plan-ceo-review', 'plan-eng-review',
+    'discover', 'frame', 'plan', 'handoff', 'build', 'review', 'qa', 'ship', 'closeout',
+    'qa-only', 'plan-ceo-review', 'plan-eng-review',
     'plan-design-review', 'design-review', 'design-consultation', 'retro',
     'document-release', 'investigate', 'office-hours', 'browse', 'setup-browser-cookies',
     'gstack-upgrade', 'humanizer',
@@ -106,7 +107,11 @@ tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
 The skill has specialized workflows that produce better results than ad-hoc answers.
 
 Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Product ideas, "is this worth building", brainstorming → invoke discover
+- Scope definition, requirements framing, non-goals → invoke frame
+- Architecture review, execution readiness, implementation planning → invoke plan
+- Governed routing and handoff packaging → invoke handoff
+- Bounded implementation execution → invoke build
 - Bugs, errors, "why is this broken", 500 errors → invoke investigate
 - Ship, deploy, push, create PR → invoke ship
 - QA, test the site, find bugs → invoke qa
@@ -115,7 +120,7 @@ Key routing rules:
 - Weekly retro → invoke retro
 - Design system, brand → invoke design-consultation
 - Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
+- Final governed verification and closure → invoke closeout
 `);
 }
 
@@ -195,7 +200,7 @@ describeE2E('Skill Routing E2E — Developer Journey', () => {
     try {
 
       const testName = 'journey-ideation';
-      const expectedSkill = 'office-hours';
+      const expectedSkill = 'discover';
       const result = await runSkillTest({
         prompt: "I've been thinking about building a waitlist management tool for restaurants. The existing solutions are expensive and overcomplicated. I want something simple — a tablet app where hosts can add parties, see wait times, and text customers when their table is ready. Help me think through whether this is worth building and what the key design decisions are.",
         workingDirectory: tmpDir,
@@ -245,7 +250,7 @@ describeE2E('Skill Routing E2E — Developer Journey', () => {
       spawnSync('git', ['commit', '-m', 'initial'], { cwd: tmpDir, stdio: 'pipe', timeout: 5000 });
 
       const testName = 'journey-plan-eng';
-      const expectedSkill = 'plan-eng-review';
+      const expectedSkill = 'plan';
       const result = await runSkillTest({
         prompt: "I wrote up a plan for the waitlist app in plan.md. Can you take a look at the architecture and make sure I'm not missing any edge cases or failure modes before I start coding?",
         workingDirectory: tmpDir,
