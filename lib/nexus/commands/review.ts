@@ -5,7 +5,7 @@ import { gateRequiresArchive, assertSameRunId } from '../governance';
 import { readLedger, writeLedger } from '../ledger';
 import { readStageStatus, writeStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import type { ArtifactPointer, StageStatus } from '../types';
+import type { ArtifactPointer, RequestedRouteRecord, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -17,6 +17,20 @@ function artifactPointerFor(path: string): ArtifactPointer {
 
 function writeRepoFile(cwd: string, relativePath: string, content: string): void {
   writeFileSync(join(cwd, relativePath), content);
+}
+
+function requestedRouteForReview(): RequestedRouteRecord {
+  return {
+    command: 'build',
+    governed: true,
+    planner: 'claude+pm-gsd',
+    generator: 'codex-via-ccb',
+    evaluator_a: 'codex-via-ccb',
+    evaluator_b: 'gemini-via-ccb',
+    synthesizer: 'claude',
+    substrate: 'superpowers-core',
+    fallback_policy: 'disabled',
+  };
 }
 
 export async function runReview(ctx: CommandContext): Promise<CommandResult> {
@@ -39,6 +53,15 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
   const metaPath = '.planning/audits/current/meta.json';
   const reviewStatusPath = stageStatusPath('review');
   const gateDecisionMarkdown = '# Gate Decision\n\nGate: pass\n';
+  const requestedRoute = {
+    ...requestedRouteForReview(),
+    planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
+    generator: ledger.route_intent.generator ?? 'codex-via-ccb',
+    evaluator_a: ledger.route_intent.evaluator_a ?? 'codex-via-ccb',
+    evaluator_b: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
+    synthesizer: ledger.route_intent.synthesizer ?? 'claude',
+    substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+  };
 
   mkdirSync(join(ctx.cwd, '.planning', 'audits', 'current'), { recursive: true });
   mkdirSync(join(ctx.cwd, '.planning', 'current', 'review'), { recursive: true });
@@ -57,6 +80,11 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
         implementation_path: '.planning/current/build/build-result.md',
         implementation_route: ledger.route_intent.generator ?? 'codex-via-ccb',
         implementation_substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+        implementation: {
+          path: '.planning/current/build/build-result.md',
+          requested_route: requestedRoute,
+          actual_route: null,
+        },
         codex_audit: {
           provider: 'codex',
           path: codexPath,
@@ -100,8 +128,12 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
     started_at: startedAt,
     completed_at: startedAt,
     errors: [],
+    requested_route: requestedRoute,
+    actual_route: null,
+    review_complete: true,
     audit_set_complete: true,
     provenance_consistent: true,
+    gate_decision: 'pass',
     archive_required: gateRequiresArchive(gateDecisionMarkdown),
     archive_state: gateRequiresArchive(gateDecisionMarkdown) ? 'pending' : 'not_required',
   };

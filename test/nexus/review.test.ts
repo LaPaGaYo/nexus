@@ -13,13 +13,25 @@ describe('nexus review', () => {
         stage: 'review',
         state: 'completed',
         decision: 'audit_recorded',
+        review_complete: true,
         audit_set_complete: true,
         provenance_consistent: true,
+        gate_decision: 'pass',
       });
 
       expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
         run_id: expect.any(String),
-        implementation_route: expect.any(String),
+        implementation: {
+          path: expect.any(String),
+          requested_route: expect.objectContaining({
+            command: 'build',
+            governed: true,
+            generator: expect.any(String),
+            substrate: expect.any(String),
+            fallback_policy: 'disabled',
+          }),
+          actual_route: null,
+        },
         codex_audit: expect.any(Object),
         gemini_audit: expect.any(Object),
       });

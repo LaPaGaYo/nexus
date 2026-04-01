@@ -34,9 +34,48 @@ export const STAGE_DECISIONS = [
 ] as const;
 export type StageDecision = (typeof STAGE_DECISIONS)[number];
 
+export const ROUTE_VALIDATION_TRANSPORTS = ['ccb', 'none'] as const;
+export type RouteValidationTransport = (typeof ROUTE_VALIDATION_TRANSPORTS)[number];
+
+export const ACTUAL_ROUTE_TRANSPORTS = ['ccb', null] as const;
+export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
+
 export interface ArtifactPointer {
   kind: 'markdown' | 'json';
   path: string;
+}
+
+export interface RequestedRouteRecord {
+  command: CanonicalCommandId;
+  governed: boolean;
+  planner: string | null;
+  generator: string | null;
+  evaluator_a: string | null;
+  evaluator_b: string | null;
+  synthesizer: string | null;
+  substrate: string | null;
+  fallback_policy: 'disabled';
+}
+
+export interface ActualRouteRecord {
+  provider: string | null;
+  route: string | null;
+  substrate: string | null;
+  transport: ActualRouteTransport;
+  receipt_path: string | null;
+}
+
+export interface RouteValidationRecord {
+  transport: RouteValidationTransport;
+  available: boolean;
+  approved: boolean;
+  reason: string;
+}
+
+export interface ImplementationProvenanceRecord {
+  path: string;
+  requested_route: RequestedRouteRecord;
+  actual_route: ActualRouteRecord | null;
 }
 
 export interface StageStatus {
@@ -50,8 +89,13 @@ export interface StageStatus {
   started_at: string;
   completed_at: string | null;
   errors: string[];
+  requested_route?: RequestedRouteRecord | null;
+  actual_route?: ActualRouteRecord | null;
+  route_validation?: RouteValidationRecord | null;
+  review_complete?: boolean;
   audit_set_complete?: boolean;
   provenance_consistent?: boolean;
+  gate_decision?: 'pass' | 'fail' | 'blocked' | null;
   archive_required?: boolean;
   archive_state?: 'pending' | 'archived' | 'not_required' | 'failed';
 }

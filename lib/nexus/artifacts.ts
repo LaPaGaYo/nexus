@@ -8,6 +8,26 @@ export function stageStatusPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/status.json`;
 }
 
+export function stageAdapterRequestPath(stage: CanonicalCommandId): string {
+  return `${CURRENT_ROOT}/${stage}/adapter-request.json`;
+}
+
+export function stageAdapterOutputPath(stage: CanonicalCommandId): string {
+  return `${CURRENT_ROOT}/${stage}/adapter-output.json`;
+}
+
+export function stageNormalizationPath(stage: CanonicalCommandId): string {
+  return `${CURRENT_ROOT}/${stage}/normalization.json`;
+}
+
+export function stageConflictPath(stage: CanonicalCommandId, adapter: string): string {
+  return `${CURRENT_ROOT}/conflicts/${stage}-${adapter}.json`;
+}
+
+export function stageConflictMarkdownPath(stage: CanonicalCommandId, adapter: string): string {
+  return `${CURRENT_ROOT}/conflicts/${stage}-${adapter}.md`;
+}
+
 export function currentAuditPointer(
   name: 'codex' | 'gemini' | 'synthesis' | 'gate-decision' | 'meta',
 ): ArtifactPointer {
