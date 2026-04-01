@@ -11,7 +11,7 @@ interface TempRepoRun {
 }
 
 export async function runInTempRepo(
-  fn: (ctx: { run: TempRepoRun }) => Promise<void>,
+  fn: (ctx: { cwd: string; run: TempRepoRun }) => Promise<void>,
 ): Promise<void> {
   const cwd = mkdtempSync(join(tmpdir(), 'nexus-plan-'));
   mkdirSync(join(cwd, '.planning'), { recursive: true });
@@ -34,7 +34,7 @@ export async function runInTempRepo(
   ) as TempRepoRun;
 
   try {
-    await fn({ run });
+    await fn({ cwd, run });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
