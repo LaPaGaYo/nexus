@@ -52,6 +52,10 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         generator?: string | null;
         substrate?: string | null;
       };
+      actual_route?: {
+        route?: string | null;
+        substrate?: string | null;
+      } | null;
     };
   };
   const gateDecisionMarkdown = readFileSync(join(ctx.cwd, gateDecisionPath), 'utf8');
@@ -67,6 +71,16 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
 
   if (reviewedSubstrate !== ledger.route_intent.substrate) {
     throw new Error('Reviewed provenance substrate does not match ledger route intent');
+  }
+
+  if (
+    meta.implementation?.actual_route
+    && (
+      meta.implementation.actual_route.route !== reviewedGenerator
+      || meta.implementation.actual_route.substrate !== reviewedSubstrate
+    )
+  ) {
+    throw new Error('Reviewed actual route does not match reviewed requested route');
   }
 
   const archiveRequired = gateRequiresArchive(gateDecisionMarkdown);

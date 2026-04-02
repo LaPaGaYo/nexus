@@ -66,6 +66,32 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('prefers nested implementation provenance over flat compatibility fields', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const metaPath = join(cwd, '.planning/audits/current/meta.json');
+      const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
+        implementation_route: string;
+        implementation_substrate: string;
+      };
+      meta.implementation_route = 'local-claude';
+      meta.implementation_substrate = 'local-agent';
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n');
+
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        provenance_consistent: true,
+      });
+    });
+  });
+
   test('normalizes a GSD closeout result only after Nexus closeout gates pass', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');

@@ -1,6 +1,7 @@
 import { createDefaultPmAdapter } from './pm';
 import { createDefaultGsdAdapter } from './gsd';
-import type { AdapterRegistryShape, AdapterResult, CcbAdapter, NexusAdapters, SuperpowersAdapter } from './types';
+import { createDefaultCcbAdapter } from './ccb';
+import type { AdapterRegistryShape, AdapterResult, NexusAdapters, SuperpowersAdapter } from './types';
 
 const DEFAULT_REGISTRY: AdapterRegistryShape = {
   discover: { pm: 'active' },
@@ -30,15 +31,6 @@ function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
     build_discipline: async () => inactiveResult('superpowers'),
     review_discipline: async () => inactiveResult('superpowers'),
     ship_discipline: async () => inactiveResult('superpowers'),
-  };
-}
-
-function createDefaultCcbAdapter(): CcbAdapter {
-  return {
-    resolve_route: async () => inactiveResult('ccb'),
-    execute_generator: async () => inactiveResult('ccb'),
-    execute_audit_a: async () => inactiveResult('ccb'),
-    execute_audit_b: async () => inactiveResult('ccb'),
   };
 }
 

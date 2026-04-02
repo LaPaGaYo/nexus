@@ -1,11 +1,19 @@
-import { mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
 import { assertSameRunId } from '../governance';
-import { readLedger, writeLedger } from '../ledger';
-import { readStageStatus, writeStageStatus } from '../status';
+import { readLedger } from '../ledger';
+import { applyNormalizationPlan } from '../normalizers';
+import {
+  buildCcbTraceabilityPayloads,
+  buildGovernedExecutionRoutingMarkdown,
+  buildGovernedHandoffMarkdown,
+  normalizeHandoffRouteValidation,
+  requestedBuildRouteFromLedger,
+} from '../normalizers/ccb';
+import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import type { ArtifactPointer, StageStatus } from '../types';
+import type { CcbResolveRouteRaw } from '../adapters/ccb';
+import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -15,8 +23,21 @@ function artifactPointerFor(path: string): ArtifactPointer {
   };
 }
 
-function writeRepoFile(cwd: string, relativePath: string, content: string): void {
-  writeFileSync(join(cwd, relativePath), content);
+function nextLedger(
+  ledger: RunLedger,
+  status: RunLedger['status'],
+  at: string,
+  via: string | null,
+): RunLedger {
+  return {
+    ...ledger,
+    status,
+    previous_stage: 'plan',
+    current_command: 'handoff',
+    current_stage: 'handoff',
+    allowed_next_stages: status === 'active' ? getAllowedNextStages('handoff') : [],
+    command_history: [...ledger.command_history, { command: 'handoff', at, via }],
+  };
 }
 
 export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
@@ -32,69 +53,171 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   assertLegalTransition(ledger.current_stage, 'handoff');
 
   const startedAt = ctx.clock();
-  const handoffDir = join(ctx.cwd, '.planning', 'current', 'handoff');
+  const manifest = CANONICAL_MANIFEST.handoff;
+  const requestedRoute = requestedBuildRouteFromLedger({
+    ...ledger,
+    route_intent: {
+      planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
+      generator: ledger.route_intent.generator ?? 'codex-via-ccb',
+      evaluator_a: ledger.route_intent.evaluator_a ?? 'codex-via-ccb',
+      evaluator_b: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
+      synthesizer: ledger.route_intent.synthesizer ?? 'claude',
+      substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+      fallback_policy: 'disabled',
+    },
+  });
   const routingPath = '.planning/current/handoff/governed-execution-routing.md';
   const handoffPath = '.planning/current/handoff/governed-handoff.md';
   const statusPath = stageStatusPath('handoff');
+  const result = await ctx.adapters.ccb.resolve_route({
+    cwd: ctx.cwd,
+    run_id: ledger.run_id,
+    command: 'handoff',
+    stage: 'handoff',
+    ledger,
+    manifest,
+    predecessor_artifacts: [artifactPointerFor(planStatusPath)],
+    requested_route: requestedRoute,
+  }) as Awaited<ReturnType<typeof ctx.adapters.ccb.resolve_route>> & { raw_output: CcbResolveRouteRaw };
+  const routeValidation = result.outcome === 'success'
+    ? normalizeHandoffRouteValidation(requestedRoute, result)
+    : {
+        route_validation: {
+          transport: 'ccb' as const,
+          available: false,
+          approved: false,
+          reason: result.outcome === 'refused'
+            ? 'CCB route validation refused the governed route'
+            : 'CCB route validation blocked the governed route',
+        },
+        approved: false,
+      };
 
-  mkdirSync(handoffDir, { recursive: true });
-  writeRepoFile(
-    ctx.cwd,
-    routingPath,
-    '# Governed Execution Routing\n\nGenerator: codex-via-ccb\n\nFallback: disabled\n',
-  );
-  writeRepoFile(
-    ctx.cwd,
-    handoffPath,
-    '# Governed Handoff\n\nPlanner: claude+pm-gsd\n\nExecution substrate: superpowers-core\n',
-  );
-
+  const canonicalWrites = [
+    {
+      path: routingPath,
+      content: buildGovernedExecutionRoutingMarkdown(requestedRoute, routeValidation.route_validation),
+    },
+    {
+      path: handoffPath,
+      content: buildGovernedHandoffMarkdown(requestedRoute, routeValidation.route_validation),
+    },
+  ];
   const outputs = [
     artifactPointerFor(routingPath),
     artifactPointerFor(handoffPath),
     artifactPointerFor(statusPath),
   ];
-
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'handoff',
-    state: 'completed',
-    decision: 'route_recorded',
-    ready: true,
+    state: result.outcome === 'refused'
+      ? 'refused'
+      : routeValidation.approved
+        ? 'completed'
+        : 'blocked',
+    decision: result.outcome === 'refused' ? 'refused' : 'route_recorded',
+    ready: routeValidation.approved,
     inputs: [artifactPointerFor(planStatusPath)],
     outputs,
     started_at: startedAt,
     completed_at: startedAt,
-    errors: [],
+    errors: routeValidation.approved ? [] : [routeValidation.route_validation.reason],
+    requested_route: requestedRoute,
+    route_validation: routeValidation.route_validation,
   };
-
-  ledger.status = 'active';
-  ledger.previous_stage = 'plan';
-  ledger.current_command = 'handoff';
-  ledger.current_stage = 'handoff';
-  ledger.allowed_next_stages = getAllowedNextStages('handoff');
-  ledger.command_history = [
-    ...ledger.command_history,
-    { command: 'handoff', at: startedAt, via: ctx.via },
-  ];
-  ledger.route_intent = {
-    planner: 'claude+pm-gsd',
-    generator: 'codex-via-ccb',
-    evaluator_a: 'codex-via-ccb',
-    evaluator_b: 'gemini-via-ccb',
-    synthesizer: 'claude',
-    substrate: 'superpowers-core',
-    fallback_policy: 'disabled',
-  };
-  ledger.artifact_index = {
-    ...ledger.artifact_index,
+  const next = nextLedger(
+    {
+      ...ledger,
+      route_intent: {
+        planner: requestedRoute.planner,
+        generator: requestedRoute.generator,
+        evaluator_a: requestedRoute.evaluator_a,
+        evaluator_b: requestedRoute.evaluator_b,
+        synthesizer: requestedRoute.synthesizer,
+        substrate: requestedRoute.substrate,
+        fallback_policy: requestedRoute.fallback_policy,
+      },
+    },
+    routeValidation.approved ? 'active' : result.outcome === 'refused' ? 'refused' : 'blocked',
+    startedAt,
+    ctx.via,
+  );
+  next.artifact_index = {
+    ...next.artifact_index,
     [routingPath]: artifactPointerFor(routingPath),
     [handoffPath]: artifactPointerFor(handoffPath),
     [statusPath]: artifactPointerFor(statusPath),
   };
 
-  writeStageStatus(statusPath, status, ctx.cwd);
-  writeLedger(ledger, ctx.cwd);
+  if (result.outcome !== 'success' || routeValidation.approved !== true) {
+    const conflict: ConflictRecord = {
+      stage: 'handoff',
+      adapter: 'ccb',
+      kind: 'backend_conflict',
+      message: routeValidation.route_validation.reason,
+      canonical_paths: [routingPath, handoffPath, statusPath],
+      trace_paths: [
+        '.planning/current/handoff/adapter-request.json',
+        '.planning/current/handoff/adapter-output.json',
+        '.planning/current/handoff/normalization.json',
+      ],
+    };
+
+    await applyNormalizationPlan({
+      cwd: ctx.cwd,
+      stage: 'handoff',
+      statusPath,
+      canonicalWrites,
+      traceWrites: buildCcbTraceabilityPayloads(
+        'handoff',
+        ledger.run_id,
+        [planStatusPath],
+        {
+          adapter: 'ccb',
+          stage: 'handoff',
+          requested_route: requestedRoute,
+        },
+        result,
+        {
+          outcome: result.outcome === 'success' ? 'blocked' : result.outcome,
+          route_validation: routeValidation.route_validation,
+          status: { state: status.state, decision: status.decision, ready: status.ready },
+        },
+      ),
+      status,
+      ledger: next,
+      conflicts: [conflict, ...result.conflict_candidates],
+    });
+
+    throw new Error('Governed route is not approved by Nexus');
+  }
+
+  await applyNormalizationPlan({
+    cwd: ctx.cwd,
+    stage: 'handoff',
+    statusPath,
+    canonicalWrites,
+    traceWrites: buildCcbTraceabilityPayloads(
+      'handoff',
+      ledger.run_id,
+      [planStatusPath],
+      {
+        adapter: 'ccb',
+        stage: 'handoff',
+        requested_route: requestedRoute,
+      },
+      result,
+      {
+        outcome: 'success',
+        route_validation: routeValidation.route_validation,
+        canonical_paths: canonicalWrites.map((write) => write.path),
+        status: { state: status.state, decision: status.decision, ready: status.ready },
+      },
+    ),
+    status,
+    ledger: next,
+  });
 
   return { command: 'handoff', status };
 }

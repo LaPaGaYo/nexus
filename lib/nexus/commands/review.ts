@@ -5,7 +5,7 @@ import { gateRequiresArchive, assertSameRunId } from '../governance';
 import { readLedger, writeLedger } from '../ledger';
 import { readStageStatus, writeStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import type { ArtifactPointer, RequestedRouteRecord, StageStatus } from '../types';
+import type { ArtifactPointer, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -17,20 +17,6 @@ function artifactPointerFor(path: string): ArtifactPointer {
 
 function writeRepoFile(cwd: string, relativePath: string, content: string): void {
   writeFileSync(join(cwd, relativePath), content);
-}
-
-function requestedRouteForReview(): RequestedRouteRecord {
-  return {
-    command: 'build',
-    governed: true,
-    planner: 'claude+pm-gsd',
-    generator: 'codex-via-ccb',
-    evaluator_a: 'codex-via-ccb',
-    evaluator_b: 'gemini-via-ccb',
-    synthesizer: 'claude',
-    substrate: 'superpowers-core',
-    fallback_policy: 'disabled',
-  };
 }
 
 export async function runReview(ctx: CommandContext): Promise<CommandResult> {
@@ -45,6 +31,16 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
   assertSameRunId(ledger.run_id, buildStatus.run_id, 'build status');
   assertLegalTransition(ledger.current_stage, 'review');
 
+  if (!buildStatus.requested_route || !buildStatus.actual_route) {
+    throw new Error('Build must record requested and actual route before review');
+  }
+
+  const provenanceConsistent = buildStatus.requested_route.generator === buildStatus.actual_route.route
+    && buildStatus.requested_route.substrate === buildStatus.actual_route.substrate;
+  if (!provenanceConsistent) {
+    throw new Error('Build provenance is inconsistent before review');
+  }
+
   const startedAt = ctx.clock();
   const codexPath = '.planning/audits/current/codex.md';
   const geminiPath = '.planning/audits/current/gemini.md';
@@ -53,15 +49,8 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
   const metaPath = '.planning/audits/current/meta.json';
   const reviewStatusPath = stageStatusPath('review');
   const gateDecisionMarkdown = '# Gate Decision\n\nGate: pass\n';
-  const requestedRoute = {
-    ...requestedRouteForReview(),
-    planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
-    generator: ledger.route_intent.generator ?? 'codex-via-ccb',
-    evaluator_a: ledger.route_intent.evaluator_a ?? 'codex-via-ccb',
-    evaluator_b: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
-    synthesizer: ledger.route_intent.synthesizer ?? 'claude',
-    substrate: ledger.route_intent.substrate ?? 'superpowers-core',
-  };
+  const requestedRoute = buildStatus.requested_route;
+  const actualRoute = buildStatus.actual_route;
 
   mkdirSync(join(ctx.cwd, '.planning', 'audits', 'current'), { recursive: true });
   mkdirSync(join(ctx.cwd, '.planning', 'current', 'review'), { recursive: true });
@@ -78,12 +67,12 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
         run_id: ledger.run_id,
         implementation_provider: 'codex',
         implementation_path: '.planning/current/build/build-result.md',
-        implementation_route: ledger.route_intent.generator ?? 'codex-via-ccb',
-        implementation_substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+        implementation_route: requestedRoute.generator,
+        implementation_substrate: requestedRoute.substrate,
         implementation: {
           path: '.planning/current/build/build-result.md',
           requested_route: requestedRoute,
-          actual_route: null,
+          actual_route: actualRoute,
         },
         codex_audit: {
           provider: 'codex',
@@ -129,10 +118,10 @@ export async function runReview(ctx: CommandContext): Promise<CommandResult> {
     completed_at: startedAt,
     errors: [],
     requested_route: requestedRoute,
-    actual_route: null,
+    actual_route: actualRoute,
     review_complete: true,
     audit_set_complete: true,
-    provenance_consistent: true,
+    provenance_consistent: provenanceConsistent,
     gate_decision: 'pass',
     archive_required: gateRequiresArchive(gateDecisionMarkdown),
     archive_state: gateRequiresArchive(gateDecisionMarkdown) ? 'pending' : 'not_required',
