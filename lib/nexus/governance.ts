@@ -1,4 +1,4 @@
-import { cpSync, existsSync } from 'fs';
+import { cpSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { archiveRootFor } from './artifacts';
 import type { RunLedger, StageStatus } from './types';
@@ -38,6 +38,29 @@ export function archiveAuditWorkspace(runId: string, cwd = process.cwd()): strin
   const destination = join(cwd, archiveRootFor(runId));
   cpSync(source, destination, { recursive: true, force: true });
   return archiveRootFor(runId);
+}
+
+export function assertArchiveConsistency(runId: string, reviewStatus: StageStatus, cwd = process.cwd()): void {
+  if (reviewStatus.archive_required !== true) {
+    return;
+  }
+
+  const archiveRoot = join(cwd, archiveRootFor(runId));
+  for (const file of ['codex.md', 'gemini.md', 'synthesis.md', 'gate-decision.md', 'meta.json']) {
+    const filePath = join(archiveRoot, file);
+    if (!existsSync(filePath)) {
+      throw new Error(`Missing archived audit artifact: ${file}`);
+    }
+
+    const content = readFileSync(filePath, 'utf8').trim();
+    if (!content) {
+      throw new Error(`Missing archived audit artifact: ${file}`);
+    }
+  }
+}
+
+export function archiveExists(runId: string, cwd = process.cwd()): boolean {
+  return existsSync(join(cwd, archiveRootFor(runId)));
 }
 
 export function assertReviewReadyForCloseout(reviewStatus: StageStatus, cwd = process.cwd()): void {

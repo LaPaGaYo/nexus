@@ -1,5 +1,6 @@
 import { createDefaultPmAdapter } from './pm';
-import type { AdapterRegistryShape, AdapterResult, CcbAdapter, GsdAdapter, NexusAdapters, SuperpowersAdapter } from './types';
+import { createDefaultGsdAdapter } from './gsd';
+import type { AdapterRegistryShape, AdapterResult, CcbAdapter, NexusAdapters, SuperpowersAdapter } from './types';
 
 const DEFAULT_REGISTRY: AdapterRegistryShape = {
   discover: { pm: 'active' },
@@ -21,13 +22,6 @@ function inactiveResult(adapter_id: string): AdapterResult<null> {
     actual_route: null,
     notices: ['Adapter invoked before seam implementation'],
     conflict_candidates: [],
-  };
-}
-
-function createDefaultGsdAdapter(): GsdAdapter {
-  return {
-    plan: async () => inactiveResult('gsd'),
-    closeout: async () => inactiveResult('gsd'),
   };
 }
 
