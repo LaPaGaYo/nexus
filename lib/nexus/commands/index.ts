@@ -1,5 +1,6 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
+import type { NexusAdapters } from '../adapters/types';
 import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
 import { makeRunId, readLedger, startLedger, writeLedger } from '../ledger';
@@ -15,6 +16,7 @@ export interface CommandContext {
   cwd: string;
   clock: () => string;
   via: string | null;
+  adapters: NexusAdapters;
 }
 
 export interface CommandResult {

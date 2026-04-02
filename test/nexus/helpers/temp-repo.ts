@@ -1,12 +1,12 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { join, resolve } from 'path';
-import { spawnSync } from 'child_process';
-
-const ROOT = resolve(import.meta.dir, '../../..');
+import { join } from 'path';
+import { getDefaultNexusAdapters } from '../../../lib/nexus/adapters/registry';
+import type { NexusAdapters } from '../../../lib/nexus/adapters/types';
+import { resolveInvocation } from '../../../lib/nexus/commands/index';
 
 interface TempRepoRun {
-  (command: string): Promise<void>;
+  (command: string, adapters?: NexusAdapters): Promise<void>;
   readJson: (path: string) => Promise<any>;
 }
 
@@ -17,16 +17,14 @@ export async function runInTempRepo(
   mkdirSync(join(cwd, '.planning'), { recursive: true });
 
   const run = Object.assign(
-    async (command: string) => {
-      const result = spawnSync('bun', ['run', join(ROOT, 'bin/nexus.ts'), command], {
+    async (command: string, adapters = getDefaultNexusAdapters()) => {
+      const invocation = resolveInvocation(command);
+      await invocation.handler({
         cwd,
-        stdio: 'pipe',
-        encoding: 'utf8',
+        clock: () => new Date().toISOString(),
+        via: invocation.via,
+        adapters,
       });
-
-      if (result.status !== 0) {
-        throw new Error(result.stderr || result.stdout);
-      }
     },
     {
       readJson: async (path: string) => JSON.parse(readFileSync(join(cwd, path), 'utf8')),

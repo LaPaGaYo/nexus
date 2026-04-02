@@ -78,6 +78,20 @@ export interface ImplementationProvenanceRecord {
   actual_route: ActualRouteRecord | null;
 }
 
+export interface ConflictRecord {
+  stage: CanonicalCommandId;
+  adapter: string;
+  kind:
+    | 'route_mismatch'
+    | 'partial_write_failure'
+    | 'backend_conflict'
+    | 'illegal_transition'
+    | 'status_precedence';
+  message: string;
+  canonical_paths: string[];
+  trace_paths: string[];
+}
+
 export interface StageStatus {
   run_id: string;
   stage: CanonicalCommandId;
