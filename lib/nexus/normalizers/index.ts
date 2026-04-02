@@ -51,6 +51,9 @@ export async function applyNormalizationPlan(input: ApplyNormalizationPlanInput)
     if (input.ledger) {
       writeLedger(input.ledger, input.cwd);
     }
+    if (input.conflicts && input.conflicts.length > 0) {
+      writeConflictArtifacts(input.cwd, input.stage, input.conflicts);
+    }
   } catch (error) {
     const blockedStatus: StageStatus = {
       ...input.status,

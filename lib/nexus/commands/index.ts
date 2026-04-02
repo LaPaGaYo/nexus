@@ -8,6 +8,8 @@ import { writeStageStatus } from '../status';
 import { PLACEHOLDER_OUTCOME, type ArtifactPointer, type CanonicalCommandId, type StageStatus } from '../types';
 import { runBuild } from './build';
 import { runCloseout } from './closeout';
+import { runDiscover } from './discover';
+import { runFrame } from './frame';
 import { runHandoff } from './handoff';
 import { runPlan } from './plan';
 import { runReview } from './review';
@@ -88,8 +90,8 @@ export async function runPlaceholder(
 }
 
 const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
-  discover: async (ctx) => runPlaceholder('discover', ctx),
-  frame: async (ctx) => runPlaceholder('frame', ctx),
+  discover: runDiscover,
+  frame: runFrame,
   plan: runPlan,
   handoff: runHandoff,
   build: runBuild,

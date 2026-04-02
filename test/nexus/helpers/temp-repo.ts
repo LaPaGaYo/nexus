@@ -8,6 +8,7 @@ import { resolveInvocation } from '../../../lib/nexus/commands/index';
 interface TempRepoRun {
   (command: string, adapters?: NexusAdapters): Promise<void>;
   readJson: (path: string) => Promise<any>;
+  readFile: (path: string) => Promise<string>;
 }
 
 export async function runInTempRepo(
@@ -28,6 +29,7 @@ export async function runInTempRepo(
     },
     {
       readJson: async (path: string) => JSON.parse(readFileSync(join(cwd, path), 'utf8')),
+      readFile: async (path: string) => readFileSync(join(cwd, path), 'utf8'),
     },
   ) as TempRepoRun;
 
