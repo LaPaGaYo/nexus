@@ -1,0 +1,6 @@
+# Gstack Host Migration Inventory
+
+| inventory_id | source_system | source_path_or_ref | capability_or_structure | classification | milestone_state | canonical_nexus_commands | nexus_adapter_seams | governed_artifact_boundaries | normalization_required | conflict_policy | conflict_artifact_paths | host_structure | current_host_role | truth_risk | host_disposition | cleanup_phase | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gstack-skill-shell | gstack | top-level command directories | generated skill shell | defer | identified | discover, frame, plan, handoff, build, review, qa, ship, closeout | none | none | host only; no governed writeback | block_or_refuse | .planning/current/conflicts/host-skill-shell.json | top-level command wrappers | shell entrypoint | high | retain_as_host | post-m2 | identification only; not source of truth |
+| gstack-scripts-routing | gstack | scripts/resolvers/preamble.ts | host routing preamble | defer | identified | discover, frame, plan, handoff, build, review, qa, ship, closeout | none | none | host only; alias routing must terminate in lib/nexus | block_or_refuse | .planning/current/conflicts/host-routing.json | resolver preamble | wrapper dispatch | medium | retain_until_adapter_stable | post-m2 | identification only; no cleanup in M2 |
