@@ -142,16 +142,27 @@ export function buildBuildResultMarkdown(
   requestedRoute: RequestedRouteRecord,
   actualRoute: ActualRouteRecord,
   receipt: string,
+  verificationSummary: string | null = null,
 ): string {
-  return [
+  const lines = [
     '# Build Result',
     '',
+  ];
+
+  if (verificationSummary) {
+    lines.push(`Verification: ${verificationSummary}`);
+    lines.push('');
+  }
+
+  lines.push(
     'Status: ready for review',
     `Requested route: ${requestedRoute.generator ?? 'unset'}`,
     `Actual route: ${actualRoute.route ?? 'unset'}`,
     `Receipt: ${receipt}`,
     '',
-  ].join('\n');
+  );
+
+  return lines.join('\n');
 }
 
 export function buildCcbTraceabilityPayloads(

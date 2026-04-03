@@ -1,7 +1,8 @@
 import { createDefaultPmAdapter } from './pm';
 import { createDefaultGsdAdapter } from './gsd';
 import { createDefaultCcbAdapter } from './ccb';
-import type { AdapterRegistryShape, AdapterResult, NexusAdapters, SuperpowersAdapter } from './types';
+import { createDefaultSuperpowersAdapter } from './superpowers';
+import type { AdapterRegistryShape, NexusAdapters } from './types';
 
 const DEFAULT_REGISTRY: AdapterRegistryShape = {
   discover: { pm: 'active' },
@@ -13,26 +14,6 @@ const DEFAULT_REGISTRY: AdapterRegistryShape = {
   ship: { superpowers: 'reserved_future' },
   closeout: { gsd: 'active' },
 };
-
-function inactiveResult(adapter_id: string): AdapterResult<null> {
-  return {
-    adapter_id,
-    outcome: 'blocked',
-    raw_output: null,
-    requested_route: null,
-    actual_route: null,
-    notices: ['Adapter invoked before seam implementation'],
-    conflict_candidates: [],
-  };
-}
-
-function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
-  return {
-    build_discipline: async () => inactiveResult('superpowers'),
-    review_discipline: async () => inactiveResult('superpowers'),
-    ship_discipline: async () => inactiveResult('superpowers'),
-  };
-}
 
 export function getDefaultAdapterRegistry(): AdapterRegistryShape {
   return {
