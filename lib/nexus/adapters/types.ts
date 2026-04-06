@@ -21,6 +21,11 @@ export interface NexusAdapterContext {
   requested_route: RequestedRouteRecord | null;
 }
 
+export interface AdapterTraceability {
+  absorbed_capability: string;
+  source_map: string[];
+}
+
 export interface AdapterResult<TRaw> {
   adapter_id: string;
   outcome: 'success' | 'blocked' | 'refused' | 'error';
@@ -29,6 +34,7 @@ export interface AdapterResult<TRaw> {
   actual_route: ActualRouteRecord | null;
   notices: string[];
   conflict_candidates: ConflictRecord[];
+  traceability?: AdapterTraceability;
 }
 
 export interface PmAdapter {

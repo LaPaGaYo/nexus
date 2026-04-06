@@ -12,6 +12,9 @@ export const CANONICAL_COMMANDS = [
 
 export type CanonicalCommandId = (typeof CANONICAL_COMMANDS)[number];
 
+export const ABSORBED_SOURCE_SYSTEMS = ['pm-skills', 'gsd', 'superpowers', 'ccb'] as const;
+export type AbsorbedSourceSystem = (typeof ABSORBED_SOURCE_SYSTEMS)[number];
+
 export const IMPLEMENTATION_STATUSES = ['implemented', 'placeholder'] as const;
 export type ImplementationStatus = (typeof IMPLEMENTATION_STATUSES)[number];
 

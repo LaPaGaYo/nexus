@@ -4,6 +4,8 @@ These directories are imported upstream source material for Nexus absorption wor
 
 They are not runtime front doors, and they do not own governed lifecycle truth.
 
+Nexus-owned absorbed capability maps live under `lib/nexus/absorption/` and trace back to these imported sources.
+
 ## Imported Sources
 
 - `pm-skills`
