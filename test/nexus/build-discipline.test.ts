@@ -17,6 +17,10 @@ describe('nexus superpowers build discipline', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'superpowers-build-discipline',
+              source_map: ['upstream/superpowers/skills/test-driven-development/SKILL.md'],
+            },
           }),
         },
       });
@@ -26,6 +30,20 @@ describe('nexus superpowers build discipline', () => {
       await run('build', adapters);
 
       expect(await run.readFile('.planning/current/build/build-result.md')).toContain('TDD checks passed');
+      expect(await run.readJson('.planning/current/build/adapter-output.json')).toMatchObject({
+        discipline: {
+          adapter_id: 'superpowers',
+          traceability: {
+            absorbed_capability: 'superpowers-build-discipline',
+          },
+        },
+        transport: {
+          adapter_id: 'ccb',
+          traceability: {
+            absorbed_capability: 'ccb-execution',
+          },
+        },
+      });
     });
   });
 

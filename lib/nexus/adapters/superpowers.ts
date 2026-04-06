@@ -1,10 +1,11 @@
-import type { AdapterResult, SuperpowersAdapter } from './types';
+import { buildSuperpowersBuildTraceability, buildVerificationSummary } from '../absorption';
+import type { AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
 
 export interface SuperpowersBuildDisciplineRaw {
   verification_summary: string;
 }
 
-function successResult<TRaw>(raw_output: TRaw): AdapterResult<TRaw> {
+function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
   return {
     adapter_id: 'superpowers',
     outcome: 'success',
@@ -13,6 +14,7 @@ function successResult<TRaw>(raw_output: TRaw): AdapterResult<TRaw> {
     actual_route: null,
     notices: [],
     conflict_candidates: [],
+    traceability,
   };
 }
 
@@ -30,10 +32,10 @@ function reservedFutureResult(): AdapterResult<null> {
 
 export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
   return {
-    build_discipline: async () =>
+    build_discipline: async (ctx) =>
       successResult<SuperpowersBuildDisciplineRaw>({
-        verification_summary: 'TDD checks passed',
-      }),
+        verification_summary: buildVerificationSummary(ctx),
+      }, buildSuperpowersBuildTraceability()),
     review_discipline: async () => reservedFutureResult(),
     ship_discipline: async () => reservedFutureResult(),
   };

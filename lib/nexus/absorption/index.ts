@@ -6,4 +6,7 @@ export * from './gsd/source-map';
 export * from './gsd/plan';
 export * from './gsd/closeout';
 export * from './superpowers/source-map';
+export * from './superpowers/build';
 export * from './ccb/source-map';
+export * from './ccb/handoff';
+export * from './ccb/build';

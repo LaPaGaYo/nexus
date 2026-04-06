@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { startLedger } from '../../lib/nexus/ledger';
+import { createDefaultCcbAdapter } from '../../lib/nexus/adapters/ccb';
 import { createDefaultGsdAdapter } from '../../lib/nexus/adapters/gsd';
 import { createDefaultPmAdapter } from '../../lib/nexus/adapters/pm';
+import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
+import { createDefaultSuperpowersAdapter } from '../../lib/nexus/adapters/superpowers';
 
 describe('nexus absorbed runtime', () => {
   test('pm adapter reports absorbed capability ids for discover and frame', async () => {
@@ -65,5 +68,64 @@ describe('nexus absorbed runtime', () => {
     expect(plan.traceability?.source_map).toContain('upstream/gsd/commands/gsd/plan-phase.md');
     expect(closeout.traceability?.absorbed_capability).toBe('gsd-closeout');
     expect(closeout.traceability?.source_map).toContain('upstream/gsd/commands/gsd/complete-milestone.md');
+  });
+
+  test('superpowers and ccb adapters report absorbed capability ids without activating reserved seams', async () => {
+    const superpowers = createDefaultSuperpowersAdapter();
+    const ccb = createDefaultCcbAdapter();
+    const registry = getDefaultAdapterRegistry();
+    const ledger = startLedger('run-test', 'handoff');
+    const requestedRoute = {
+      command: 'build' as const,
+      governed: true,
+      planner: 'claude+pm-gsd',
+      generator: 'codex-via-ccb',
+      evaluator_a: 'codex-via-ccb',
+      evaluator_b: 'gemini-via-ccb',
+      synthesizer: 'claude',
+      substrate: 'superpowers-core',
+      fallback_policy: 'disabled' as const,
+    };
+
+    const discipline = await superpowers.build_discipline({
+      cwd: process.cwd(),
+      command: 'build',
+      stage: 'build',
+      run_id: 'run-test',
+      ledger: { ...ledger, current_command: 'build', current_stage: 'build' },
+      manifest: CANONICAL_MANIFEST.build,
+      predecessor_artifacts: [],
+      requested_route: requestedRoute,
+    });
+    const routing = await ccb.resolve_route({
+      cwd: process.cwd(),
+      command: 'handoff',
+      stage: 'handoff',
+      run_id: 'run-test',
+      ledger,
+      manifest: CANONICAL_MANIFEST.handoff,
+      predecessor_artifacts: [],
+      requested_route: requestedRoute,
+    });
+    const execution = await ccb.execute_generator({
+      cwd: process.cwd(),
+      command: 'build',
+      stage: 'build',
+      run_id: 'run-test',
+      ledger: { ...ledger, current_command: 'build', current_stage: 'build' },
+      manifest: CANONICAL_MANIFEST.build,
+      predecessor_artifacts: [],
+      requested_route: requestedRoute,
+    });
+
+    expect(discipline.traceability?.absorbed_capability).toBe('superpowers-build-discipline');
+    expect(discipline.traceability?.source_map).toContain('upstream/superpowers/skills/test-driven-development/SKILL.md');
+    expect(routing.traceability?.absorbed_capability).toBe('ccb-routing');
+    expect(routing.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/providers.py');
+    expect(execution.traceability?.absorbed_capability).toBe('ccb-execution');
+    expect(execution.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/codex_comm.py');
+    expect(registry.review.superpowers).toBe('reserved_future');
+    expect(registry.review.ccb).toBe('reserved_future');
+    expect(registry.ship.superpowers).toBe('reserved_future');
   });
 });

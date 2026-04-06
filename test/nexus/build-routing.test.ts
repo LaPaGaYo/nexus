@@ -21,6 +21,10 @@ describe('nexus build routing', () => {
             },
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'ccb-routing',
+              source_map: ['upstream/claude-code-bridge/lib/providers.py'],
+            },
           }),
         },
       });
@@ -42,6 +46,12 @@ describe('nexus build routing', () => {
           available: true,
           approved: true,
           reason: 'Nexus approved the requested governed route',
+        },
+      });
+      expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
+        adapter_id: 'ccb',
+        traceability: {
+          absorbed_capability: 'ccb-routing',
         },
       });
     });

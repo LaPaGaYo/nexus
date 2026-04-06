@@ -1,6 +1,11 @@
-import { stageAdapterOutputPath } from '../artifacts';
+import {
+  buildCcbExecutionTraceability,
+  buildCcbRoutingTraceability,
+  buildGeneratorExecution,
+  buildResolvedRoute,
+} from '../absorption';
 import type { ActualRouteRecord } from '../types';
-import type { AdapterResult, CcbAdapter } from './types';
+import type { AdapterResult, AdapterTraceability, CcbAdapter } from './types';
 
 export interface CcbResolveRouteRaw {
   available: boolean;
@@ -15,6 +20,7 @@ function successResult<TRaw>(
   raw_output: TRaw,
   actual_route: ActualRouteRecord | null,
   requested_route: AdapterResult<TRaw>['requested_route'],
+  traceability: AdapterTraceability,
 ): AdapterResult<TRaw> {
   return {
     adapter_id: 'ccb',
@@ -24,6 +30,7 @@ function successResult<TRaw>(
     actual_route,
     notices: [],
     conflict_candidates: [],
+    traceability,
   };
 }
 
@@ -41,35 +48,26 @@ function inactiveResult(): AdapterResult<null> {
 
 export function createDefaultCcbAdapter(): CcbAdapter {
   return {
-    resolve_route: async (ctx) =>
-      successResult<CcbResolveRouteRaw>(
-        {
-          available: true,
-          provider: 'codex',
-        },
-        {
-          provider: 'codex',
-          route: ctx.requested_route?.generator ?? 'codex-via-ccb',
-          substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
-          transport: 'ccb',
-          receipt_path: stageAdapterOutputPath('handoff'),
-        },
+    resolve_route: async (ctx) => {
+      const resolved = buildResolvedRoute(ctx);
+
+      return successResult<CcbResolveRouteRaw>(
+        resolved.raw_output,
+        resolved.actual_route,
         ctx.requested_route,
-      ),
-    execute_generator: async (ctx) =>
-      successResult<CcbExecuteGeneratorRaw>(
-        {
-          receipt: 'ccb-default',
-        },
-        {
-          provider: 'codex',
-          route: ctx.requested_route?.generator ?? 'codex-via-ccb',
-          substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
-          transport: 'ccb',
-          receipt_path: stageAdapterOutputPath('build'),
-        },
+        buildCcbRoutingTraceability(),
+      );
+    },
+    execute_generator: async (ctx) => {
+      const execution = buildGeneratorExecution(ctx);
+
+      return successResult<CcbExecuteGeneratorRaw>(
+        execution.raw_output,
+        execution.actual_route,
         ctx.requested_route,
-      ),
+        buildCcbExecutionTraceability(),
+      );
+    },
     execute_audit_a: async () => inactiveResult(),
     execute_audit_b: async () => inactiveResult(),
   };
