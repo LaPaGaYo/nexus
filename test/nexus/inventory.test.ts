@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
 
@@ -10,6 +10,13 @@ const INVENTORIES = [
   'upstream-notes/gstack-host-migration-inventory.md',
 ] as const;
 
+const IMPORTED_SOURCE_INVENTORIES = [
+  'upstream-notes/pm-skills-inventory.md',
+  'upstream-notes/gsd-inventory.md',
+  'upstream-notes/superpowers-inventory.md',
+  'upstream-notes/ccb-inventory.md',
+] as const;
+
 const MANDATORY_FIELDS = [
   'classification',
   'milestone_state',
@@ -19,6 +26,14 @@ const MANDATORY_FIELDS = [
   'normalization_required',
   'conflict_policy',
   'conflict_artifact_paths',
+] as const;
+
+const PROVENANCE_FIELDS = [
+  'upstream_repo_url',
+  'pinned_commit',
+  'imported_path',
+  'absorption_intent',
+  'forbidden_authorities',
 ] as const;
 
 function parseInventory(markdown: string): Array<Record<string, string>> {
@@ -57,6 +72,25 @@ describe('nexus inventories', () => {
       for (const row of rows) {
         expect(row[field]).not.toBe('');
       }
+    }
+  });
+
+  test.each(IMPORTED_SOURCE_INVENTORIES)('%s includes populated upstream provenance fields', (path) => {
+    const markdown = readFileSync(path, 'utf8');
+    const rows = parseInventory(markdown);
+
+    for (const field of PROVENANCE_FIELDS) {
+      expect(markdown).toContain(field);
+      for (const row of rows) {
+        expect(row[field]).not.toBe('');
+      }
+    }
+
+    for (const row of rows) {
+      expect(row.upstream_repo_url).toMatch(/^https:\/\/github\.com\/.+\.git$/);
+      expect(row.pinned_commit).toMatch(/^[0-9a-f]{40}$/);
+      expect(row.imported_path.startsWith('upstream/')).toBe(true);
+      expect(existsSync(row.imported_path)).toBe(true);
     }
   });
 
