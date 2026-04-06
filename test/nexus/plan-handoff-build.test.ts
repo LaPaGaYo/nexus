@@ -42,6 +42,10 @@ describe('nexus plan -> handoff -> build', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'gsd-plan',
+              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+            },
           }),
         },
       });
@@ -58,6 +62,9 @@ describe('nexus plan -> handoff -> build', () => {
       expect(await run.readJson('.planning/current/plan/adapter-output.json')).toMatchObject({
         adapter_id: 'gsd',
         outcome: 'success',
+        traceability: {
+          absorbed_capability: 'gsd-plan',
+        },
       });
     });
   });

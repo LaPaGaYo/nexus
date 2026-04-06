@@ -113,6 +113,10 @@ describe('nexus closeout', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'gsd-closeout',
+              source_map: ['upstream/gsd/commands/gsd/complete-milestone.md'],
+            },
           }),
         },
       });
@@ -128,6 +132,13 @@ describe('nexus closeout', () => {
         provenance_consistent: true,
       });
       expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain('merge ready');
+      expect(await run.readJson('.planning/current/closeout/adapter-output.json')).toMatchObject({
+        adapter_id: 'gsd',
+        outcome: 'success',
+        traceability: {
+          absorbed_capability: 'gsd-closeout',
+        },
+      });
       expect(readFileSync(join(cwd, '.planning/audits/archive', closeout.run_id, 'meta.json'), 'utf8')).toContain(
         closeout.run_id,
       );
@@ -164,6 +175,10 @@ describe('nexus closeout', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'gsd-closeout',
+              source_map: ['upstream/gsd/commands/gsd/complete-milestone.md'],
+            },
           }),
         },
       });

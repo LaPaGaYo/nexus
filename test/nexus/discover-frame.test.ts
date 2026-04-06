@@ -17,6 +17,10 @@ describe('nexus discover/frame PM seams', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'pm-discover',
+              source_map: ['upstream/pm-skills/commands/discover.md'],
+            },
           }),
         },
       });
@@ -37,6 +41,9 @@ describe('nexus discover/frame PM seams', () => {
       expect(await run.readJson('.planning/current/discover/adapter-output.json')).toMatchObject({
         adapter_id: 'pm',
         outcome: 'success',
+        traceability: {
+          absorbed_capability: 'pm-discover',
+        },
       });
     });
   });
@@ -57,6 +64,10 @@ describe('nexus discover/frame PM seams', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
           }),
         },
       });
@@ -71,6 +82,13 @@ describe('nexus discover/frame PM seams', () => {
       });
       expect(await run.readFile('docs/product/decision-brief.md')).toContain('Decision Brief');
       expect(await run.readFile('docs/product/prd.md')).toContain('PRD');
+      expect(await run.readJson('.planning/current/frame/adapter-output.json')).toMatchObject({
+        adapter_id: 'pm',
+        outcome: 'success',
+        traceability: {
+          absorbed_capability: 'pm-frame',
+        },
+      });
     });
   });
 
@@ -88,6 +106,10 @@ describe('nexus discover/frame PM seams', () => {
             actual_route: null,
             notices: [],
             conflict_candidates: [],
+            traceability: {
+              absorbed_capability: 'pm-discover',
+              source_map: ['upstream/pm-skills/commands/discover.md'],
+            },
           }),
         },
       });

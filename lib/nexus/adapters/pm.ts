@@ -1,4 +1,11 @@
-import type { AdapterResult, PmAdapter } from './types';
+import {
+  buildPmDecisionBrief,
+  buildPmDiscoverIdeaBrief,
+  buildPmDiscoverTraceability,
+  buildPmFrameTraceability,
+  buildPmPrd,
+} from '../absorption';
+import type { AdapterResult, AdapterTraceability, PmAdapter } from './types';
 
 export interface PmDiscoverRaw {
   idea_brief_markdown: string;
@@ -9,7 +16,7 @@ export interface PmFrameRaw {
   prd_markdown: string;
 }
 
-function successResult<TRaw>(raw_output: TRaw): AdapterResult<TRaw> {
+function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
   return {
     adapter_id: 'pm',
     outcome: 'success',
@@ -18,19 +25,20 @@ function successResult<TRaw>(raw_output: TRaw): AdapterResult<TRaw> {
     actual_route: null,
     notices: [],
     conflict_candidates: [],
+    traceability,
   };
 }
 
 export function createDefaultPmAdapter(): PmAdapter {
   return {
-    discover: async () =>
+    discover: async (ctx) =>
       successResult<PmDiscoverRaw>({
-        idea_brief_markdown: '# Idea Brief\n\nProblem: normalized by Nexus\n',
-      }),
-    frame: async () =>
+        idea_brief_markdown: buildPmDiscoverIdeaBrief(ctx),
+      }, buildPmDiscoverTraceability()),
+    frame: async (ctx) =>
       successResult<PmFrameRaw>({
-        decision_brief_markdown: '# Decision Brief\n\nScope: Nexus PM seam\n',
-        prd_markdown: '# PRD\n\nSuccess: repo-visible PM outputs\n',
-      }),
+        decision_brief_markdown: buildPmDecisionBrief(ctx),
+        prd_markdown: buildPmPrd(ctx),
+      }, buildPmFrameTraceability()),
   };
 }

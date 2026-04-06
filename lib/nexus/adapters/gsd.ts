@@ -1,4 +1,11 @@
-import type { AdapterResult, GsdAdapter } from './types';
+import {
+  buildCloseoutRecord,
+  buildExecutionReadinessPacket,
+  buildGsdCloseoutTraceability,
+  buildGsdPlanTraceability,
+  buildSprintContract,
+} from '../absorption';
+import type { AdapterResult, AdapterTraceability, GsdAdapter } from './types';
 
 export interface GsdPlanRaw {
   execution_readiness_packet: string;
@@ -12,7 +19,7 @@ export interface GsdCloseoutRaw {
   merge_ready: boolean;
 }
 
-function successResult<TRaw>(raw_output: TRaw): AdapterResult<TRaw> {
+function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
   return {
     adapter_id: 'gsd',
     outcome: 'success',
@@ -21,22 +28,23 @@ function successResult<TRaw>(raw_output: TRaw): AdapterResult<TRaw> {
     actual_route: null,
     notices: [],
     conflict_candidates: [],
+    traceability,
   };
 }
 
 export function createDefaultGsdAdapter(): GsdAdapter {
   return {
-    plan: async () =>
+    plan: async (ctx) =>
       successResult<GsdPlanRaw>({
-        execution_readiness_packet: '# Execution Readiness Packet\n\nStatus: ready\n\nScope: governed thin slice\n',
-        sprint_contract: '# Sprint Contract\n\nScope: governed thin slice\n\nVerification: review then closeout\n',
+        execution_readiness_packet: buildExecutionReadinessPacket(ctx),
+        sprint_contract: buildSprintContract(ctx),
         ready: true,
-      }),
-    closeout: async () =>
+      }, buildGsdPlanTraceability()),
+    closeout: async (ctx) =>
       successResult<GsdCloseoutRaw>({
-        closeout_record: '# Closeout Record\n\nResult: merge ready\n',
+        closeout_record: buildCloseoutRecord(ctx),
         archive_required: true,
         merge_ready: true,
-      }),
+      }, buildGsdCloseoutTraceability()),
   };
 }
