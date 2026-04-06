@@ -4,6 +4,7 @@ import {
   LEGACY_ALIASES,
   resolveCommandName,
 } from '../../lib/nexus/command-manifest';
+import { assertCanonicalLifecycleEntrypoint } from '../../lib/nexus/migration-safety';
 
 describe('nexus command manifest', () => {
   test('declares all canonical commands exactly once', () => {
@@ -28,5 +29,10 @@ describe('nexus command manifest', () => {
     expect(resolveCommandName('office-hours')).toBe('discover');
     expect(resolveCommandName('autoplan')).toBe('plan');
     expect(resolveCommandName('verify-close')).toBe('closeout');
+  });
+
+  test('keeps backend-native command names outside the documented lifecycle surface', () => {
+    expect(() => assertCanonicalLifecycleEntrypoint('write-prd')).toThrow(/non-canonical/i);
+    expect(() => assertCanonicalLifecycleEntrypoint('plan-phase')).toThrow(/non-canonical/i);
   });
 });

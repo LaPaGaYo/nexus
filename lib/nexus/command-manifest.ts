@@ -164,3 +164,7 @@ export function resolveCommandName(name: string): CanonicalCommandId {
 
   return resolved;
 }
+
+export function documentedLifecycleEntrypoints(): string[] {
+  return [...Object.keys(CANONICAL_MANIFEST), ...Object.keys(LEGACY_ALIASES)];
+}

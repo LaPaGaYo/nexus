@@ -4,6 +4,7 @@ import type { NexusAdapters } from '../adapters/types';
 import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
 import { makeRunId, readLedger, startLedger, writeLedger } from '../ledger';
+import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
 import { writeStageStatus } from '../status';
 import { PLACEHOLDER_OUTCOME, type ArtifactPointer, type CanonicalCommandId, type StageStatus } from '../types';
 import { runBuild } from './build';
@@ -102,6 +103,7 @@ const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
 };
 
 export function resolveInvocation(name: string): CommandInvocation {
+  assertCanonicalLifecycleEntrypoint(name);
   const command = resolveCommandName(name);
   const via = name === command ? null : name;
   const handler = COMMAND_HANDLERS[command];
