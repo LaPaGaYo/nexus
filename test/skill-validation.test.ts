@@ -250,6 +250,16 @@ describe('Generated SKILL.md freshness', () => {
   });
 });
 
+describe('Nexus routing boundary', () => {
+  test('canonical Nexus wrappers do not present gstack-owned routing contract prose', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'discover', 'SKILL.md'), 'utf-8');
+
+    expect(content).toContain('Add Nexus invocation guidance to CLAUDE.md');
+    expect(content).not.toContain('gstack works best when');
+    expect(content).not.toContain('specialized workflows that produce better results than ad-hoc answers');
+  });
+});
+
 // --- Update check preamble validation ---
 
 describe('Update check preamble', () => {

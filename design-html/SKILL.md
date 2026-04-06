@@ -75,9 +75,9 @@ if [ -f "$_LEARN_FILE" ]; then
 else
   echo "LEARNINGS: 0"
 fi
-# Check if CLAUDE.md has routing rules
+# Check if CLAUDE.md has Nexus routing guidance
 _HAS_ROUTING="no"
-if [ -f CLAUDE.md ] && grep -q "## Skill routing" CLAUDE.md 2>/dev/null; then
+if [ -f CLAUDE.md ] && grep -q "## Nexus Skill Routing" CLAUDE.md 2>/dev/null; then
   _HAS_ROUTING="yes"
 fi
 _ROUTING_DECLINED=$(~/.claude/skills/gstack/bin/gstack-config get routing_declined 2>/dev/null || echo "false")
@@ -169,23 +169,24 @@ Check if a CLAUDE.md file exists in the project root. If it does not exist, crea
 
 Use AskUserQuestion:
 
-> gstack works best when your project's CLAUDE.md includes skill routing rules.
-> This tells Claude to use specialized workflows (like /ship, /investigate, /qa)
-> instead of answering directly. It's a one-time addition, about 15 lines.
+> Nexus works best when your project's CLAUDE.md includes canonical Nexus command
+> routing guidance. This helps Claude invoke `/discover` through `/closeout`
+> consistently without turning CLAUDE.md into a second contract layer.
 
 Options:
-- A) Add routing rules to CLAUDE.md (recommended)
-- B) No thanks, I'll invoke skills manually
+- A) Add Nexus invocation guidance to CLAUDE.md (recommended)
+- B) No thanks, I'll invoke Nexus commands manually
 
 If A: Append this section to the end of CLAUDE.md:
 
 ```markdown
 
-## Skill routing
+## Nexus Skill Routing
 
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
+When the user's request matches a canonical Nexus command, invoke that command first.
+This guidance helps command discovery only.
+Contracts, transitions, governed artifacts, and lifecycle truth are owned by `lib/nexus/`
+and canonical `.planning/` artifacts.
 
 Key routing rules:
 - Product ideas, "is this worth building", brainstorming → invoke discover
@@ -193,21 +194,16 @@ Key routing rules:
 - Architecture review, execution readiness, implementation planning → invoke plan
 - Governed routing and handoff packaging → invoke handoff
 - Bounded implementation execution → invoke build
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
 - Code review, check my diff → invoke review
+- QA, test the site, find bugs → invoke qa
+- Ship, deploy, push, create PR → invoke ship
 - Final governed verification and closure → invoke closeout
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
 ```
 
-Then commit the change: `git add CLAUDE.md && git commit -m "chore: add gstack skill routing rules to CLAUDE.md"`
+Then commit the change: `git add CLAUDE.md && git commit -m "chore: add nexus skill routing guidance to CLAUDE.md"`
 
 If B: run `~/.claude/skills/gstack/bin/gstack-config set routing_declined true`
-Say "No problem. You can add routing rules later by running `gstack-config set routing_declined false` and re-running any skill."
+Say "No problem. You can add routing guidance later by running `gstack-config set routing_declined false` and re-running any Nexus skill."
 
 This only happens once per project. If `HAS_ROUTING` is `yes` or `ROUTING_DECLINED` is `true`, skip this entirely.
 

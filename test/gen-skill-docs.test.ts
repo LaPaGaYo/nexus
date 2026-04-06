@@ -1390,7 +1390,7 @@ describe('preamble routing injection', () => {
   const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('preamble bash checks for routing section in CLAUDE.md', () => {
-    expect(shipContent).toContain('grep -q "## Skill routing" CLAUDE.md');
+    expect(shipContent).toContain('Nexus Skill Routing');
     expect(shipContent).toContain('HAS_ROUTING');
   });
 
@@ -1400,8 +1400,8 @@ describe('preamble routing injection', () => {
   });
 
   test('preamble includes routing injection AskUserQuestion', () => {
-    expect(shipContent).toContain('Add routing rules to CLAUDE.md');
-    expect(shipContent).toContain("I'll invoke skills manually");
+    expect(shipContent).toContain('Add Nexus invocation guidance to CLAUDE.md');
+    expect(shipContent).toContain("I'll invoke Nexus commands manually");
   });
 
   test('routing injection respects prior decline', () => {
@@ -1416,13 +1416,17 @@ describe('preamble routing injection', () => {
     expect(shipContent).toContain('PROACTIVE_PROMPTED');
   });
 
-  test('routing section content includes key routing rules', () => {
+  test('routing section content includes only canonical Nexus routing rules', () => {
     expect(shipContent).toContain('invoke discover');
     expect(shipContent).toContain('invoke frame');
     expect(shipContent).toContain('invoke plan');
-    expect(shipContent).toContain('invoke investigate');
+    expect(shipContent).toContain('invoke handoff');
+    expect(shipContent).toContain('invoke build');
+    expect(shipContent).toContain('invoke review');
     expect(shipContent).toContain('invoke ship');
     expect(shipContent).toContain('invoke qa');
+    expect(shipContent).toContain('invoke closeout');
+    expect(shipContent).not.toContain('invoke investigate');
   });
 });
 

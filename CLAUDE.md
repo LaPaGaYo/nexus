@@ -1,5 +1,23 @@
 # gstack development
 
+## Nexus Skill Routing
+
+When the user's request matches a canonical Nexus command, invoke that command first.
+This guidance helps command discovery only.
+Contracts, transitions, governed artifacts, and lifecycle truth are owned by `lib/nexus/`
+and canonical `.planning/` artifacts.
+
+Key routing rules:
+- Product ideas, vague problems, discovery -> invoke discover
+- Scope definition, requirements, non-goals -> invoke frame
+- Execution readiness and implementation planning -> invoke plan
+- Governed routing and handoff packaging -> invoke handoff
+- Bounded implementation execution -> invoke build
+- Formal review and audit state -> invoke review
+- QA validation -> invoke qa
+- Governed release gate -> invoke ship
+- Final governed verification and closure -> invoke closeout
+
 ## Commands
 
 ```bash
