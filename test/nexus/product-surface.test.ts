@@ -53,4 +53,26 @@ describe('nexus product surface contract', () => {
     expect(existsSync(join(ROOT, 'bin', 'gstack-uninstall'))).toBe(true);
     expect(existsSync(join(ROOT, 'bin', 'gstack-update-check'))).toBe(true);
   });
+
+  test('nexus helpers own implementation while gstack helpers are shims', () => {
+    const nexusConfig = readFileSync(join(ROOT, 'bin', 'nexus-config'), 'utf8');
+    const nexusRelink = readFileSync(join(ROOT, 'bin', 'nexus-relink'), 'utf8');
+    const nexusUninstall = readFileSync(join(ROOT, 'bin', 'nexus-uninstall'), 'utf8');
+    const nexusUpdateCheck = readFileSync(join(ROOT, 'bin', 'nexus-update-check'), 'utf8');
+
+    const gstackConfig = readFileSync(join(ROOT, 'bin', 'gstack-config'), 'utf8');
+    const gstackRelink = readFileSync(join(ROOT, 'bin', 'gstack-relink'), 'utf8');
+    const gstackUninstall = readFileSync(join(ROOT, 'bin', 'gstack-uninstall'), 'utf8');
+    const gstackUpdateCheck = readFileSync(join(ROOT, 'bin', 'gstack-update-check'), 'utf8');
+
+    expect(nexusConfig).not.toContain('exec "$SCRIPT_DIR/gstack-config"');
+    expect(nexusRelink).not.toContain('exec "$SCRIPT_DIR/gstack-relink"');
+    expect(nexusUninstall).not.toContain('exec "$SCRIPT_DIR/gstack-uninstall"');
+    expect(nexusUpdateCheck).not.toContain('exec "$SCRIPT_DIR/gstack-update-check"');
+
+    expect(gstackConfig).toContain('exec "$SCRIPT_DIR/nexus-config"');
+    expect(gstackRelink).toContain('exec "$SCRIPT_DIR/nexus-relink"');
+    expect(gstackUninstall).toContain('exec "$SCRIPT_DIR/nexus-uninstall"');
+    expect(gstackUpdateCheck).toContain('exec "$SCRIPT_DIR/nexus-update-check"');
+  });
 });

@@ -38,9 +38,17 @@ function setupMockInstall(skills: string[]): void {
   fs.mkdirSync(mockBin, { recursive: true });
   fs.copyFileSync(path.join(BIN, 'gstack-config'), path.join(mockBin, 'gstack-config'));
   fs.chmodSync(path.join(mockBin, 'gstack-config'), 0o755);
+  if (fs.existsSync(path.join(BIN, 'nexus-config'))) {
+    fs.copyFileSync(path.join(BIN, 'nexus-config'), path.join(mockBin, 'nexus-config'));
+    fs.chmodSync(path.join(mockBin, 'nexus-config'), 0o755);
+  }
   if (fs.existsSync(path.join(BIN, 'gstack-relink'))) {
     fs.copyFileSync(path.join(BIN, 'gstack-relink'), path.join(mockBin, 'gstack-relink'));
     fs.chmodSync(path.join(mockBin, 'gstack-relink'), 0o755);
+  }
+  if (fs.existsSync(path.join(BIN, 'nexus-relink'))) {
+    fs.copyFileSync(path.join(BIN, 'nexus-relink'), path.join(mockBin, 'nexus-relink'));
+    fs.chmodSync(path.join(mockBin, 'nexus-relink'), 0o755);
   }
   if (fs.existsSync(path.join(BIN, 'gstack-patch-names'))) {
     fs.copyFileSync(path.join(BIN, 'gstack-patch-names'), path.join(mockBin, 'gstack-patch-names'));
@@ -144,6 +152,22 @@ describe('gstack-relink (#578)', () => {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
+  });
+
+  test('nexus-config and nexus-relink prefer NEXUS_STATE_DIR over GSTACK_STATE_DIR', () => {
+    setupMockInstall(['qa', 'ship']);
+    const nexusStateDir = path.join(tmpDir, 'nexus-state');
+
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`, {
+      NEXUS_STATE_DIR: nexusStateDir,
+      GSTACK_INSTALL_DIR: installDir,
+      GSTACK_SKILLS_DIR: skillsDir,
+    });
+
+    expect(fs.existsSync(path.join(nexusStateDir, 'config.yaml'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'config.yaml'))).toBe(false);
     expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
     expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
   });

@@ -125,6 +125,27 @@ describe('gstack-uninstall', () => {
       expect(fs.existsSync(path.join(mockHome, '.gstack', 'config.json'))).toBe(true);
     });
 
+    test('nexus-uninstall prefers NEXUS_STATE_DIR over GSTACK_STATE_DIR', () => {
+      fs.mkdirSync(path.join(mockHome, '.nexus', 'projects'), { recursive: true });
+      fs.writeFileSync(path.join(mockHome, '.nexus', 'config.json'), '{}');
+
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          HOME: mockHome,
+          NEXUS_STATE_DIR: path.join(mockHome, '.nexus'),
+          GSTACK_DIR: path.join(mockHome, '.claude', 'skills', 'gstack'),
+          GSTACK_STATE_DIR: path.join(mockHome, '.gstack'),
+        },
+        cwd: mockGitRoot,
+      });
+
+      expect(result.status).toBe(0);
+      expect(fs.existsSync(path.join(mockHome, '.nexus'))).toBe(false);
+      expect(fs.existsSync(path.join(mockHome, '.gstack'))).toBe(true);
+    });
+
     test('clean system outputs nothing to remove', () => {
       const cleanHome = path.join(tmpDir, 'clean-home');
       fs.mkdirSync(cleanHome, { recursive: true });

@@ -1,6 +1,217 @@
 #!/usr/bin/env bash
-# nexus-uninstall — Nexus-primary wrapper for gstack-uninstall
-set -euo pipefail
+# nexus-uninstall — primary entrypoint for removing Nexus skills, state, and
+# browse daemons during compatibility cutover
+#
+# Usage:
+#   nexus-uninstall               — interactive uninstall (preferred)
+#   nexus-uninstall --force       — remove everything without prompting
+#   nexus-uninstall --keep-state  — remove skills but keep active host state
+#   gstack-uninstall ...          — compatibility alias
+#
+# Env overrides (for testing):
+#   GSTACK_DIR        — override auto-detected install root
+#   NEXUS_STATE_DIR   — override primary Nexus state directory
+#   GSTACK_STATE_DIR  — override compatibility state directory
+#
+# NOTE: Uses set -uo pipefail (no -e) — uninstall must never abort partway.
+set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/gstack-uninstall" "$@"
+if [ -z "${HOME:-}" ]; then
+  echo "ERROR: \$HOME is not set" >&2
+  exit 1
+fi
+
+GSTACK_DIR="${GSTACK_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-$HOME/.gstack}}"
+_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+FORCE=0
+KEEP_STATE=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    --keep-state) KEEP_STATE=1; shift ;;
+    -h|--help)
+      sed -n '2,/^[^#]/{ /^#/s/^# \{0,1\}//p; }' "$0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      echo "Usage: nexus-uninstall [--force] [--keep-state]" >&2
+      echo "Compatibility: gstack-uninstall remains available." >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$FORCE" -eq 0 ]; then
+  echo "This will remove Nexus from your system:"
+  { [ -d "$HOME/.claude/skills/gstack" ] || [ -L "$HOME/.claude/skills/gstack" ]; } && echo "  ~/.claude/skills/gstack (+ per-skill symlinks)"
+  [ -d "$HOME/.codex/skills" ] && echo "  ~/.codex/skills/gstack*"
+  [ -d "$HOME/.factory/skills" ] && echo "  ~/.factory/skills/gstack*"
+  [ -d "$HOME/.kiro/skills" ] && echo "  ~/.kiro/skills/gstack*"
+  [ "$KEEP_STATE" -eq 0 ] && [ -d "$STATE_DIR" ] && echo "  $STATE_DIR"
+
+  if [ -n "$_GIT_ROOT" ]; then
+    [ -d "$_GIT_ROOT/.claude/skills/gstack" ] && echo "  $_GIT_ROOT/.claude/skills/gstack (project-local)"
+    [ -d "$_GIT_ROOT/.gstack" ] && echo "  $_GIT_ROOT/.gstack/ (browse state + reports)"
+    [ -d "$_GIT_ROOT/.gstack-worktrees" ] && echo "  $_GIT_ROOT/.gstack-worktrees/"
+    [ -d "$_GIT_ROOT/.agents/skills/gstack" ] && echo "  $_GIT_ROOT/.agents/skills/gstack*"
+  fi
+
+  if [ -n "$_GIT_ROOT" ] && [ -f "$_GIT_ROOT/.gstack/browse.json" ]; then
+    _PREVIEW_PID="$(awk -F'[:,]' '/"pid"/ { for(i=1;i<=NF;i++) if($i ~ /"pid"/) { gsub(/[^0-9]/, "", $(i+1)); print $(i+1); exit } }' "$_GIT_ROOT/.gstack/browse.json" 2>/dev/null || true)"
+    [ -n "$_PREVIEW_PID" ] && kill -0 "$_PREVIEW_PID" 2>/dev/null && echo "  browse daemon (PID $_PREVIEW_PID) will be stopped"
+  fi
+
+  printf "\nContinue? [y/N] "
+  read -r REPLY
+  case "$REPLY" in
+    y|Y|yes|YES) ;;
+    *) echo "Aborted."; exit 0 ;;
+  esac
+fi
+
+REMOVED=()
+
+stop_browse_daemon() {
+  local state_file="$1"
+  if [ ! -f "$state_file" ]; then
+    return
+  fi
+  local pid
+  pid="$(awk -F'[:,]' '/"pid"/ { for(i=1;i<=NF;i++) if($i ~ /"pid"/) { gsub(/[^0-9]/, "", $(i+1)); print $(i+1); exit } }' "$state_file" 2>/dev/null || true)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    local waited=0
+    while [ "$waited" -lt 4 ] && kill -0 "$pid" 2>/dev/null; do
+      sleep 0.5
+      waited=$(( waited + 1 ))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+    REMOVED+=("browse daemon (PID $pid)")
+  fi
+}
+
+if [ -n "$_GIT_ROOT" ] && [ -f "$_GIT_ROOT/.gstack/browse.json" ]; then
+  stop_browse_daemon "$_GIT_ROOT/.gstack/browse.json"
+fi
+
+if [ -d "$STATE_DIR/projects" ]; then
+  while IFS= read -r _BJ; do
+    stop_browse_daemon "$_BJ"
+  done < <(find "$STATE_DIR/projects" -name browse.json -path '*/.gstack/*' 2>/dev/null || true)
+fi
+
+CLAUDE_SKILLS="$HOME/.claude/skills"
+if [ -d "$CLAUDE_SKILLS/gstack" ] || [ -L "$CLAUDE_SKILLS/gstack" ]; then
+  for _LINK in "$CLAUDE_SKILLS"/*; do
+    [ -L "$_LINK" ] || continue
+    _NAME="$(basename "$_LINK")"
+    [ "$_NAME" = "gstack" ] && continue
+    _TARGET="$(readlink "$_LINK" 2>/dev/null || true)"
+    case "$_TARGET" in
+      gstack/*|*/gstack/*) rm -f "$_LINK"; REMOVED+=("claude/$_NAME") ;;
+    esac
+  done
+
+  rm -rf "$CLAUDE_SKILLS/gstack"
+  REMOVED+=("~/.claude/skills/gstack")
+fi
+
+if [ -n "$_GIT_ROOT" ] && [ -d "$_GIT_ROOT/.claude/skills" ]; then
+  for _LINK in "$_GIT_ROOT/.claude/skills"/*; do
+    [ -L "$_LINK" ] || continue
+    _TARGET="$(readlink "$_LINK" 2>/dev/null || true)"
+    case "$_TARGET" in
+      gstack/*|*/gstack/*) rm -f "$_LINK"; REMOVED+=("local claude/$(basename "$_LINK")") ;;
+    esac
+  done
+  if [ -d "$_GIT_ROOT/.claude/skills/gstack" ] || [ -L "$_GIT_ROOT/.claude/skills/gstack" ]; then
+    rm -rf "$_GIT_ROOT/.claude/skills/gstack"
+    REMOVED+=("$_GIT_ROOT/.claude/skills/gstack")
+  fi
+fi
+
+CODEX_SKILLS="$HOME/.codex/skills"
+if [ -d "$CODEX_SKILLS" ]; then
+  for _ITEM in "$CODEX_SKILLS"/gstack*; do
+    [ -e "$_ITEM" ] || [ -L "$_ITEM" ] || continue
+    rm -rf "$_ITEM"
+    REMOVED+=("codex/$(basename "$_ITEM")")
+  done
+fi
+
+FACTORY_SKILLS="$HOME/.factory/skills"
+if [ -d "$FACTORY_SKILLS" ]; then
+  for _ITEM in "$FACTORY_SKILLS"/gstack*; do
+    [ -e "$_ITEM" ] || [ -L "$_ITEM" ] || continue
+    rm -rf "$_ITEM"
+    REMOVED+=("factory/$(basename "$_ITEM")")
+  done
+fi
+
+KIRO_SKILLS="$HOME/.kiro/skills"
+if [ -d "$KIRO_SKILLS" ]; then
+  for _ITEM in "$KIRO_SKILLS"/gstack*; do
+    [ -e "$_ITEM" ] || [ -L "$_ITEM" ] || continue
+    rm -rf "$_ITEM"
+    REMOVED+=("kiro/$(basename "$_ITEM")")
+  done
+fi
+
+if [ -n "$_GIT_ROOT" ] && [ -d "$_GIT_ROOT/.agents/skills" ]; then
+  for _ITEM in "$_GIT_ROOT/.agents/skills"/gstack*; do
+    [ -e "$_ITEM" ] || [ -L "$_ITEM" ] || continue
+    rm -rf "$_ITEM"
+    REMOVED+=("agents/$(basename "$_ITEM")")
+  done
+
+  rmdir "$_GIT_ROOT/.agents/skills" 2>/dev/null || true
+  rmdir "$_GIT_ROOT/.agents" 2>/dev/null || true
+fi
+
+if [ -n "$_GIT_ROOT" ] && [ -d "$_GIT_ROOT/.factory/skills" ]; then
+  for _ITEM in "$_GIT_ROOT/.factory/skills"/gstack*; do
+    [ -e "$_ITEM" ] || [ -L "$_ITEM" ] || continue
+    rm -rf "$_ITEM"
+    REMOVED+=("factory/$(basename "$_ITEM")")
+  done
+
+  rmdir "$_GIT_ROOT/.factory/skills" 2>/dev/null || true
+  rmdir "$_GIT_ROOT/.factory" 2>/dev/null || true
+fi
+
+if [ -n "$_GIT_ROOT" ]; then
+  if [ -d "$_GIT_ROOT/.gstack" ]; then
+    rm -rf "$_GIT_ROOT/.gstack"
+    REMOVED+=("$_GIT_ROOT/.gstack/")
+  fi
+  if [ -d "$_GIT_ROOT/.gstack-worktrees" ]; then
+    rm -rf "$_GIT_ROOT/.gstack-worktrees"
+    REMOVED+=("$_GIT_ROOT/.gstack-worktrees/")
+  fi
+fi
+
+if [ "$KEEP_STATE" -eq 0 ] && [ -d "$STATE_DIR" ]; then
+  rm -rf "$STATE_DIR"
+  REMOVED+=("$STATE_DIR")
+fi
+
+for _TMP in /tmp/gstack-latest-version /tmp/gstack-sketch-*.html /tmp/gstack-sketch.png /tmp/gstack-sync-*; do
+  if [ -e "$_TMP" ]; then
+    rm -f "$_TMP"
+    REMOVED+=("$(basename "$_TMP")")
+  fi
+done
+
+if [ ${#REMOVED[@]} -gt 0 ]; then
+  echo "Removed: ${REMOVED[*]}"
+  echo "Nexus uninstalled."
+else
+  echo "Nothing to remove — Nexus is not installed."
+fi
+
+exit 0
