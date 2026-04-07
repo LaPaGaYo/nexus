@@ -77,21 +77,21 @@ echo "HAS_ROUTING: $_HAS_ROUTING"
 echo "ROUTING_DECLINED: $_ROUTING_DECLINED"
 ```
 
-If `PROACTIVE` is `"false"`, do not proactively suggest gstack skills AND do not
+If `PROACTIVE` is `"false"`, do not proactively suggest Nexus commands AND do not
 auto-invoke skills based on conversation context. Only run skills the user explicitly
 types (e.g., /qa, /ship). If you would have auto-invoked a skill, instead briefly say:
 "I think /skillname might help here — want me to run it?" and wait for confirmation.
 The user opted out of proactive behavior.
 
-If `SKILL_PREFIX` is `"true"`, the user has namespaced skill names. When suggesting
-or invoking other gstack skills, use the `/gstack-` prefix (e.g., `/gstack-qa` instead
+If `SKILL_PREFIX` is `"true"`, the user has namespaced Nexus commands. When suggesting
+or invoking other Nexus commands, use the `/gstack-` prefix (e.g., `/gstack-qa` instead
 of `/qa`, `/gstack-ship` instead of `/ship`). Disk paths are unaffected — always use
 `~/.claude/skills/gstack/[skill-name]/SKILL.md` for reading skill files.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). If `JUST_UPGRADED <from> <to>`: tell user "Running gstack v{to} (just updated!)" and continue.
+If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). If `JUST_UPGRADED <from> <to>`: tell user "Running Nexus v{to} (just updated!)" and continue.
 
 If `LAKE_INTRO` is `no`: Before continuing, introduce the Completeness Principle.
-Tell the user: "gstack follows the **Boil the Lake** principle — always do the complete
+Tell the user: "Nexus follows the **Boil the Lake** principle — always do the complete
 thing when AI makes the marginal cost near-zero. Read more: https://garryslist.org/posts/boil-the-ocean"
 Then offer to open the essay in their default browser:
 
@@ -105,20 +105,20 @@ Only run `open` if the user says yes. Always run `touch` to mark as seen. This o
 If `TEL_PROMPTED` is `no` AND `LAKE_INTRO` is `yes`: After the lake intro is handled,
 ask the user about telemetry. Use AskUserQuestion:
 
-> Help gstack get better! Community mode shares usage data (which skills you use, how long
+> Help Nexus get better! Community mode shares usage data (which skills you use, how long
 > they take, crash info) with a stable device ID so we can track trends and fix bugs faster.
 > No code, file paths, or repo names are ever sent.
 > Change anytime with `gstack-config set telemetry off`.
 
 Options:
-- A) Help gstack get better! (recommended)
+- A) Help Nexus get better! (recommended)
 - B) No thanks
 
 If A: run `~/.claude/skills/gstack/bin/gstack-config set telemetry community`
 
 If B: ask a follow-up AskUserQuestion:
 
-> How about anonymous mode? We just learn that *someone* used gstack — no unique ID,
+> How about anonymous mode? We just learn that *someone* used Nexus — no unique ID,
 > no way to connect sessions. Just a counter that helps us know if anyone's out there.
 
 Options:
@@ -138,7 +138,7 @@ This only happens once. If `TEL_PROMPTED` is `yes`, skip this entirely.
 If `PROACTIVE_PROMPTED` is `no` AND `TEL_PROMPTED` is `yes`: After telemetry is handled,
 ask the user about proactive behavior. Use AskUserQuestion:
 
-> gstack can proactively figure out when you might need a skill while you work —
+> Nexus can proactively figure out when you might need a skill while you work —
 > like suggesting /qa when you say "does this work?" or /investigate when you hit
 > a bug. We recommend keeping this on — it speeds up every part of your workflow.
 

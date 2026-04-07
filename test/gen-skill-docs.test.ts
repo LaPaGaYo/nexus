@@ -2322,7 +2322,7 @@ describe('telemetry', () => {
   test('generated SKILL.md contains telemetry opt-in prompt', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('.telemetry-prompted');
-    expect(content).toContain('Help gstack get better');
+    expect(content).toContain('Help Nexus get better');
     expect(content).toContain('gstack-config set telemetry community');
     expect(content).toContain('gstack-config set telemetry anonymous');
     expect(content).toContain('gstack-config set telemetry off');
@@ -2343,6 +2343,14 @@ describe('telemetry', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('.pending');
     expect(content).toContain('_pending_finalize');
+  });
+
+  test('generated SKILL.md uses Nexus-primary preamble prose', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
+    expect(content).toContain('Nexus follows the **Boil the Lake** principle');
+    expect(content).toContain('Nexus can proactively figure out when you might need a skill while you work');
+    expect(content).toContain('Running Nexus v{to} (just updated!)');
+    expect(content).not.toContain('Running gstack v{to} (just updated!)');
   });
 
   test('telemetry blocks appear in all skill files that use PREAMBLE', () => {
