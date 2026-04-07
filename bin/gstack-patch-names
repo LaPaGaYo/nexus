@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gstack-patch-names — patch name: field in SKILL.md frontmatter for prefix mode
+# gstack-patch-names — patch name: field in SKILL.md frontmatter for Nexus prefix mode
 # Usage: gstack-patch-names <gstack-dir> <true|false|1|0>
 set -euo pipefail
 
@@ -18,12 +18,25 @@ for skill_dir in "$GSTACK_DIR"/*/; do
   [ -z "$cur" ] && continue
   [ "$cur" = "gstack" ] && continue  # never prefix root skill
   if [ "$DO_PREFIX" -eq 1 ]; then
-    case "$cur" in gstack-*) continue ;; esac
-    new="gstack-$cur"
+    case "$cur" in
+      nexus-*) continue ;;
+      gstack-*)
+        [ "$dir_name" = "$cur" ] && continue
+        new="nexus-${cur#gstack-}"
+        ;;
+      *)
+        new="nexus-$cur"
+        ;;
+    esac
   else
-    case "$cur" in gstack-*) ;; *) continue ;; esac
-    [ "$dir_name" = "$cur" ] && continue  # inherently prefixed (gstack-upgrade)
-    new="${cur#gstack-}"
+    case "$cur" in
+      nexus-*) new="${cur#nexus-}" ;;
+      gstack-*)
+        [ "$dir_name" = "$cur" ] && continue
+        new="${cur#gstack-}"
+        ;;
+      *) continue ;;
+    esac
   fi
   tmp="$(mktemp "${skill_dir}/SKILL.md.XXXXXX")"
   sed "1,/^---$/s/^name:[[:space:]]*${cur}/name: ${new}/" "$skill_dir/SKILL.md" > "$tmp" && mv "$tmp" "$skill_dir/SKILL.md"

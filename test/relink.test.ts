@@ -66,21 +66,19 @@ afterEach(() => {
 });
 
 describe('gstack-relink (#578)', () => {
-  // Test 11: prefixed symlinks when skill_prefix=true
-  test('creates gstack-* symlinks when skill_prefix=true', () => {
+  test('creates nexus-* symlinks when skill_prefix=true', () => {
     setupMockInstall(['qa', 'ship', 'review']);
-    // Set config to prefix mode
+    fs.symlinkSync(path.join(installDir, 'qa'), path.join(skillsDir, 'gstack-qa'));
     run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    // Run relink with env pointing to the mock install
     const output = run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    // Verify gstack-* symlinks exist
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-qa'))).toBe(true);
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-ship'))).toBe(true);
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-review'))).toBe(true);
-    expect(output).toContain('gstack-');
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-review'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'gstack-qa'))).toBe(false);
+    expect(output).toContain('nexus-');
   });
 
   // Test 12: flat symlinks when skill_prefix=false
@@ -100,23 +98,22 @@ describe('gstack-relink (#578)', () => {
   // Test 13: cleans stale symlinks from opposite mode
   test('cleans up stale symlinks from opposite mode', () => {
     setupMockInstall(['qa', 'ship']);
-    // Create prefixed symlinks first
     run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
     run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-qa'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
+    fs.symlinkSync(path.join(installDir, 'qa'), path.join(skillsDir, 'gstack-qa'));
 
-    // Switch to flat mode
     run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix false`);
     run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
 
-    // Flat symlinks should exist, prefixed should be gone
     expect(fs.existsSync(path.join(skillsDir, 'qa'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(false);
     expect(fs.existsSync(path.join(skillsDir, 'gstack-qa'))).toBe(false);
   });
 
@@ -129,7 +126,6 @@ describe('gstack-relink (#578)', () => {
     expect(output).toContain('setup');
   });
 
-  // Test: gstack-upgrade does NOT get double-prefixed
   test('does not double-prefix gstack-upgrade directory', () => {
     setupMockInstall(['qa', 'ship', 'gstack-upgrade']);
     run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
@@ -137,24 +133,19 @@ describe('gstack-relink (#578)', () => {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    // gstack-upgrade should keep its name, NOT become gstack-gstack-upgrade
     expect(fs.existsSync(path.join(skillsDir, 'gstack-upgrade'))).toBe(true);
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-gstack-upgrade'))).toBe(false);
-    // Regular skills still get prefixed
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-qa'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-gstack-upgrade'))).toBe(false);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
   });
 
-  // Test 15: gstack-config set skill_prefix triggers relink
   test('gstack-config set skill_prefix triggers relink', () => {
     setupMockInstall(['qa', 'ship']);
-    // Run gstack-config set which should auto-trigger relink
     run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    // If relink was triggered, symlinks should exist
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-qa'))).toBe(true);
-    expect(fs.existsSync(path.join(skillsDir, 'gstack-ship'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
   });
 });
 
@@ -173,10 +164,9 @@ describe('gstack-patch-names (#620/#578)', () => {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    // Verify name: field is patched with gstack- prefix
-    expect(readSkillName(path.join(installDir, 'qa'))).toBe('gstack-qa');
-    expect(readSkillName(path.join(installDir, 'ship'))).toBe('gstack-ship');
-    expect(readSkillName(path.join(installDir, 'review'))).toBe('gstack-review');
+    expect(readSkillName(path.join(installDir, 'qa'))).toBe('nexus-qa');
+    expect(readSkillName(path.join(installDir, 'ship'))).toBe('nexus-ship');
+    expect(readSkillName(path.join(installDir, 'review'))).toBe('nexus-review');
   });
 
   test('prefix=false restores name: field in SKILL.md', () => {
@@ -187,7 +177,7 @@ describe('gstack-patch-names (#620/#578)', () => {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    expect(readSkillName(path.join(installDir, 'qa'))).toBe('gstack-qa');
+    expect(readSkillName(path.join(installDir, 'qa'))).toBe('nexus-qa');
     // Now switch to flat mode
     run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix false`);
     run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
@@ -206,10 +196,8 @@ describe('gstack-patch-names (#620/#578)', () => {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
-    // gstack-upgrade should keep its name, NOT become gstack-gstack-upgrade
     expect(readSkillName(path.join(installDir, 'gstack-upgrade'))).toBe('gstack-upgrade');
-    // Regular skill should be prefixed
-    expect(readSkillName(path.join(installDir, 'qa'))).toBe('gstack-qa');
+    expect(readSkillName(path.join(installDir, 'qa'))).toBe('nexus-qa');
   });
 
   test('SKILL.md without frontmatter is a no-op', () => {

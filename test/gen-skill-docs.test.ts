@@ -2193,12 +2193,12 @@ describe('setup script validation', () => {
 
   // --- Symlink prefix tests (PR #503) ---
 
-  test('link_claude_skill_dirs applies gstack- prefix by default', () => {
+  test('link_claude_skill_dirs applies nexus- prefix in namespaced mode', () => {
     const fnStart = setupContent.indexOf('link_claude_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('SKILL_PREFIX');
-    expect(fnBody).toContain('link_name="gstack-$skill_name"');
+    expect(fnBody).toContain('link_name="nexus-$skill_name"');
   });
 
   test('link_claude_skill_dirs preserves already-prefixed dirs', () => {
@@ -2254,6 +2254,8 @@ describe('setup script validation', () => {
   test('interactive prompt shows when no config', () => {
     expect(setupContent).toContain('Short names');
     expect(setupContent).toContain('Namespaced');
+    expect(setupContent).toContain('/nexus-qa');
+    expect(setupContent).toContain('/nexus-ship');
     expect(setupContent).toContain('Choice [1/2]');
   });
 
@@ -2268,7 +2270,7 @@ describe('setup script validation', () => {
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('removed[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('readlink');
-    expect(fnBody).toContain('gstack-$skill_name');
+    expect(fnBody).toContain('nexus-$skill_name');
   });
 
   test('reverse cleanup runs before link when prefix is disabled', () => {
@@ -2280,8 +2282,7 @@ describe('setup script validation', () => {
   });
 
   test('welcome message references SKILL_PREFIX', () => {
-    // gstack-upgrade is always called gstack-upgrade (it's the actual dir name)
-    // but the welcome section should exist near the prefix logic
+    expect(setupContent).toContain('Nexus ready');
     expect(setupContent).toContain('Run /gstack-upgrade anytime');
   });
 });

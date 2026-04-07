@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gstack setup — build browser binary + register skills with Claude Code / Codex
+# nexus setup — build browser binary + register skills with Claude Code / Codex
 set -e
 
 if ! command -v bun >/dev/null 2>&1; then
@@ -62,13 +62,13 @@ if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
     # No saved preference — prompt interactively (or default flat for non-TTY)
     if [ -t 0 ]; then
       echo ""
-      echo "Skill naming: how should gstack skills appear?"
+      echo "Skill naming: how should Nexus skills appear?"
       echo ""
       echo "  1) Short names: /qa, /ship, /review"
       echo "     Recommended. Clean and fast to type."
       echo ""
-      echo "  2) Namespaced: /gstack-qa, /gstack-ship, /gstack-review"
-      echo "     Use this if you run other skill packs alongside gstack to avoid conflicts."
+      echo "  2) Namespaced: /nexus-qa, /nexus-ship, /nexus-review"
+      echo "     Use this if you run other skill packs alongside Nexus to avoid conflicts."
       echo ""
       printf "Choice [1/2] (default: 1, auto-selects in 10s): "
       read -t 10 -r _prefix_choice </dev/tty 2>/dev/null || _prefix_choice=""
@@ -263,8 +263,8 @@ fi
 mkdir -p "$HOME/.gstack/projects"
 
 # ─── Helper: link Claude skill subdirectories into a skills parent directory ──
-# When SKILL_PREFIX=1 (default), symlinks are prefixed with "gstack-" to avoid
-# namespace pollution (e.g., gstack-review instead of review).
+# When SKILL_PREFIX=1, symlinks are prefixed with "nexus-" to make Nexus the
+# visible namespace owner (e.g., nexus-review instead of review).
 # Use --no-prefix to restore the old flat names.
 link_claude_skill_dirs() {
   local gstack_dir="$1"
@@ -278,11 +278,11 @@ link_claude_skill_dirs() {
       # Use frontmatter name: if present (e.g., run-tests/ with name: test → symlink as "test")
       skill_name=$(grep -m1 '^name:' "$skill_dir/SKILL.md" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]')
       [ -z "$skill_name" ] && skill_name="$dir_name"
-      # Apply gstack- prefix unless --no-prefix or already prefixed
+      # Apply nexus- prefix unless --no-prefix or already inherently prefixed
       if [ "$SKILL_PREFIX" -eq 1 ]; then
         case "$skill_name" in
           gstack-*) link_name="$skill_name" ;;
-          *)        link_name="gstack-$skill_name" ;;
+          *)        link_name="nexus-$skill_name" ;;
         esac
       else
         link_name="$skill_name"
@@ -292,6 +292,15 @@ link_claude_skill_dirs() {
       if [ -L "$target" ] || [ ! -e "$target" ]; then
         ln -snf "gstack/$dir_name" "$target"
         linked+=("$link_name")
+      fi
+      if [ "$SKILL_PREFIX" -eq 1 ]; then
+        case "$skill_name" in
+          gstack-*) ;;
+          *)
+            [ -L "$skills_dir/$skill_name" ] && rm -f "$skills_dir/$skill_name"
+            [ -L "$skills_dir/gstack-$skill_name" ] && rm -f "$skills_dir/gstack-$skill_name"
+            ;;
+        esac
       fi
     fi
   done
@@ -332,8 +341,9 @@ cleanup_old_claude_symlinks() {
 }
 
 # ─── Helper: remove old prefixed Claude skill symlinks ────────────────────────
-# Reverse migration: when switching from gstack- prefixed names to flat names,
-# clean up stale gstack-* symlinks that point into the gstack directory.
+# Reverse migration: when switching from prefixed names to flat names,
+# clean up stale nexus-* and legacy gstack-* symlinks that point into the
+# gstack directory.
 cleanup_prefixed_claude_symlinks() {
   local gstack_dir="$1"
   local skills_dir="$2"
@@ -345,17 +355,17 @@ cleanup_prefixed_claude_symlinks() {
       # Only clean up prefixed symlinks for dirs that AREN'T already prefixed
       # (e.g., remove gstack-qa but NOT gstack-upgrade which is the real dir name)
       case "$skill_name" in gstack-*) continue ;; esac
-      prefixed_target="$skills_dir/gstack-$skill_name"
-      # Only remove if it's a symlink pointing into gstack/
-      if [ -L "$prefixed_target" ]; then
-        link_dest="$(readlink "$prefixed_target" 2>/dev/null || true)"
-        case "$link_dest" in
-          gstack/*|*/gstack/*)
-            rm -f "$prefixed_target"
-            removed+=("gstack-$skill_name")
-            ;;
-        esac
-      fi
+      for prefixed_target in "$skills_dir/nexus-$skill_name" "$skills_dir/gstack-$skill_name"; do
+        if [ -L "$prefixed_target" ]; then
+          link_dest="$(readlink "$prefixed_target" 2>/dev/null || true)"
+          case "$link_dest" in
+            gstack/*|*/gstack/*)
+              rm -f "$prefixed_target"
+              removed+=("$(basename "$prefixed_target")")
+              ;;
+          esac
+        fi
+      done
     fi
   done
   if [ ${#removed[@]} -gt 0 ]; then
@@ -571,14 +581,14 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     "$SOURCE_GSTACK_DIR/bin/gstack-patch-names" "$SOURCE_GSTACK_DIR" "$SKILL_PREFIX"
     link_claude_skill_dirs "$SOURCE_GSTACK_DIR" "$INSTALL_SKILLS_DIR"
     if [ "$LOCAL_INSTALL" -eq 1 ]; then
-      echo "gstack ready (project-local)."
+      echo "Nexus ready (project-local)."
       echo "  skills: $INSTALL_SKILLS_DIR"
     else
-      echo "gstack ready (claude)."
+      echo "Nexus ready (claude)."
     fi
     echo "  browse: $BROWSE_BIN"
   else
-    echo "gstack ready (claude)."
+    echo "Nexus ready (claude)."
     echo "  browse: $BROWSE_BIN"
     echo "  (skipped skill symlinks — not inside .claude/skills/)"
   fi
@@ -600,7 +610,7 @@ if [ "$INSTALL_CODEX" -eq 1 ]; then
   # Install generated Codex-format skills (not Claude source dirs)
   link_codex_skill_dirs "$SOURCE_GSTACK_DIR" "$CODEX_SKILLS"
 
-  echo "gstack ready (codex)."
+  echo "Nexus ready (codex)."
   echo "  browse: $BROWSE_BIN"
   echo "  codex skills: $CODEX_SKILLS"
 fi
@@ -655,7 +665,7 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
           -e "s|~/.claude/skills/gstack|~/.kiro/skills/gstack|g" \
           "$skill_dir/SKILL.md" > "$target_dir/SKILL.md"
     done
-    echo "gstack ready (kiro)."
+    echo "Nexus ready (kiro)."
     echo "  browse: $BROWSE_BIN"
     echo "  kiro skills: $KIRO_SKILLS"
   fi
@@ -666,7 +676,7 @@ if [ "$INSTALL_FACTORY" -eq 1 ]; then
   mkdir -p "$FACTORY_SKILLS"
   create_factory_runtime_root "$SOURCE_GSTACK_DIR" "$FACTORY_GSTACK"
   link_factory_skill_dirs "$SOURCE_GSTACK_DIR" "$FACTORY_SKILLS"
-  echo "gstack ready (factory)."
+  echo "Nexus ready (factory)."
   echo "  browse: $BROWSE_BIN"
   echo "  factory skills: $FACTORY_SKILLS"
 fi
@@ -680,7 +690,7 @@ fi
 
 # 8. First-time welcome + legacy cleanup
 if [ ! -f "$HOME/.gstack/.welcome-seen" ]; then
-  echo "  Welcome! Run /gstack-upgrade anytime to stay current."
+  echo "  Welcome to Nexus! Run /gstack-upgrade anytime to stay current."
   touch "$HOME/.gstack/.welcome-seen"
 fi
 rm -f /tmp/gstack-latest-version

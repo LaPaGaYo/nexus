@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gstack-config — read/write ~/.gstack/config.yaml
+# gstack-config — read/write Nexus compatibility config in ~/.gstack/config.yaml
 #
 # Usage:
 #   gstack-config get <key>          — read a config value
@@ -14,8 +14,8 @@ STATE_DIR="${GSTACK_STATE_DIR:-$HOME/.gstack}"
 CONFIG_FILE="$STATE_DIR/config.yaml"
 
 # Annotated header for new config files. Written once on first `set`.
-CONFIG_HEADER='# gstack configuration — edit freely, changes take effect on next skill run.
-# Docs: https://github.com/garrytan/gstack
+CONFIG_HEADER='# Nexus configuration (stored in ~/.gstack for compatibility) — edit freely,
+# changes take effect on next skill run.
 #
 # ─── Behavior ────────────────────────────────────────────────────────
 # proactive: true           # Auto-invoke skills when your request matches one.
@@ -35,12 +35,12 @@ CONFIG_HEADER='# gstack configuration — edit freely, changes take effect on ne
 # update_check: true        # false = suppress version check notifications
 #
 # ─── Skill naming ────────────────────────────────────────────────────
-# skill_prefix: false       # true = namespace skills as /gstack-qa, /gstack-ship
+# skill_prefix: false       # true = namespace skills as /nexus-qa, /nexus-ship
 #                           # false = short names /qa, /ship
 #
 # ─── Advanced ────────────────────────────────────────────────────────
 # codex_reviews: enabled    # disabled = skip Codex adversarial reviews in /ship
-# gstack_contributor: false # true = file field reports when gstack misbehaves
+# gstack_contributor: false # true = file field reports when Nexus misbehaves
 # skip_eng_review: false    # true = skip eng review gate in /ship (not recommended)
 #
 '
