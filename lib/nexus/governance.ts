@@ -33,6 +33,22 @@ export function assertExpectedHistory(
   }
 }
 
+export function assertExpectedHistoryOneOf(
+  ledger: RunLedger,
+  expectedHistories: RunLedger['command_history'][number]['command'][][],
+): void {
+  for (const expected of expectedHistories) {
+    try {
+      assertExpectedHistory(ledger, expected);
+      return;
+    } catch {
+      // Try the next expected history.
+    }
+  }
+
+  throw new Error('Illegal Nexus transition history');
+}
+
 export function archiveAuditWorkspace(runId: string, cwd = process.cwd()): string {
   const source = join(cwd, '.planning', 'audits', 'current');
   const destination = join(cwd, archiveRootFor(runId));
@@ -85,5 +101,20 @@ export function assertReviewReadyForCloseout(reviewStatus: StageStatus, cwd = pr
     if (!existsSync(join(cwd, path))) {
       throw new Error(`Missing required audit artifact: ${path}`);
     }
+  }
+}
+
+export function assertQaReadyForCloseout(qaStatus: StageStatus | null): void {
+  if (!qaStatus) {
+    return;
+  }
+
+  if (
+    qaStatus.stage !== 'qa'
+    || qaStatus.state !== 'completed'
+    || qaStatus.decision !== 'qa_recorded'
+    || qaStatus.ready !== true
+  ) {
+    throw new Error('QA must be ready before closeout');
   }
 }

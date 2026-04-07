@@ -191,6 +191,7 @@ export interface StageStatus {
   gate_decision?: 'pass' | 'fail' | 'blocked' | null;
   archive_required?: boolean;
   archive_state?: 'pending' | 'archived' | 'not_required' | 'failed';
+  findings_count?: number;
 }
 
 export interface RunLedger {

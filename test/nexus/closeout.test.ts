@@ -132,6 +132,65 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('allows closeout after a ready QA stage', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        provenance_consistent: true,
+      });
+    });
+  });
+
+  test('blocks closeout when QA exists and is not ready', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const adapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              report_markdown: '# QA Report\n\nResult: fail\n\n- Login form is broken\n',
+              ready: false,
+              findings: ['Login form is broken'],
+              receipt: 'qa-fail',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/qa/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-qa-pack',
+              absorbed_capability: 'ccb-qa',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('qa', adapters);
+      await expect(run('closeout')).rejects.toThrow('QA must be ready before closeout');
+    });
+  });
+
   test('normalizes a GSD closeout result only after Nexus closeout gates pass', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');

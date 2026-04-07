@@ -4,7 +4,7 @@ import {
   stageNormalizationPath,
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
-import type { CcbExecuteAuditRaw, CcbExecuteGeneratorRaw, CcbResolveRouteRaw } from '../adapters/ccb';
+import type { CcbExecuteAuditRaw, CcbExecuteGeneratorRaw, CcbExecuteQaRaw, CcbResolveRouteRaw } from '../adapters/ccb';
 import type {
   ActualRouteRecord,
   ReviewRequestedRouteRecord,
@@ -19,7 +19,7 @@ interface ArtifactWrite {
 }
 
 function buildTraceWrites(
-  stage: 'handoff' | 'build' | 'review',
+  stage: 'handoff' | 'build' | 'review' | 'qa',
   requestPayload: Record<string, unknown>,
   result: AdapterResult<unknown>,
   normalizationPayload: Record<string, unknown>,
@@ -273,4 +273,38 @@ export function buildReviewTraceabilityPayloads(
       content: JSON.stringify(normalizationPayload, null, 2) + '\n',
     },
   ];
+}
+
+export function requestedQaRouteFromLedger(ledger: RunLedger): RequestedRouteRecord {
+  return {
+    command: 'qa',
+    governed: true,
+    planner: null,
+    generator: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
+    evaluator_a: null,
+    evaluator_b: null,
+    synthesizer: null,
+    substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+    fallback_policy: 'disabled',
+  };
+}
+
+export function buildQaTraceabilityPayloads(
+  runId: string,
+  inputs: string[],
+  requestedRoute: RequestedRouteRecord,
+  result: AdapterResult<CcbExecuteQaRaw>,
+  normalizationPayload: Record<string, unknown>,
+): ArtifactWrite[] {
+  return buildTraceWrites(
+    'qa',
+    {
+      run_id: runId,
+      inputs,
+      adapter_chain: ['ccb'],
+      requested_route: requestedRoute,
+    },
+    result,
+    normalizationPayload,
+  );
 }

@@ -1,4 +1,4 @@
-import { createBuildStagePack, createHandoffStagePack, createReviewStagePack } from '../stage-packs';
+import { createBuildStagePack, createHandoffStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
 import type { ActualRouteRecord } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter } from './types';
 
@@ -13,6 +13,13 @@ export interface CcbExecuteGeneratorRaw {
 
 export interface CcbExecuteAuditRaw {
   markdown: string;
+  receipt: string;
+}
+
+export interface CcbExecuteQaRaw {
+  report_markdown: string;
+  ready: boolean;
+  findings: string[];
   receipt: string;
 }
 
@@ -50,6 +57,7 @@ export function createDefaultCcbAdapter(): CcbAdapter {
   const handoffPack = createHandoffStagePack();
   const buildPack = createBuildStagePack();
   const reviewPack = createReviewStagePack();
+  const qaPack = createQaStagePack();
 
   return {
     resolve_route: async (ctx) => {
@@ -104,6 +112,23 @@ export function createDefaultCcbAdapter(): CcbAdapter {
         ctx.requested_route,
         reviewPack.auditTraceability('gemini'),
       ),
-    execute_qa: async () => inactiveResult(),
+    execute_qa: async (ctx) =>
+      successResult<CcbExecuteQaRaw>(
+        {
+          report_markdown: '# QA Report\n\nResult: pass\n',
+          ready: true,
+          findings: [],
+          receipt: 'ccb-qa',
+        },
+        {
+          provider: 'gemini',
+          route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+          substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+          transport: 'ccb',
+          receipt_path: '.planning/current/qa/adapter-output.json',
+        },
+        ctx.requested_route,
+        qaPack.validationTraceability(),
+      ),
   };
 }
