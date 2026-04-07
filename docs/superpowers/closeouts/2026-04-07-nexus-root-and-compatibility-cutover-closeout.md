@@ -28,22 +28,18 @@ The repo-visible inventories now reflect the cutover:
 
 ## Verification
 
-Completed during the inventory closeout task:
+Completed verification for this milestone:
 
 - `bun test test/nexus/inventory.test.ts`
+- `bun test test/nexus/*.test.ts`
+- `bun test test/gen-skill-docs.test.ts test/skill-validation.test.ts test/skill-routing-e2e.test.ts test/relink.test.ts test/uninstall.test.ts`
+- `bun run gen:skill-docs --host codex`
 - `git diff --check`
 
 Observed results:
 
 - inventory regression: `19 passed, 0 failed`
+- Nexus regression: `104 passed, 0 failed`
+- host/install regression: `454 passed, 0 failed, 225 skipped`
+- host doc generation: success
 - formatting check: clean
-
-## Remaining Final Verification
-
-The final milestone regression still runs in the next task:
-
-- `bun test test/nexus/*.test.ts`
-- `bun test test/gen-skill-docs.test.ts test/skill-validation.test.ts test/skill-routing-e2e.test.ts test/relink.test.ts test/uninstall.test.ts`
-- `bun run gen:skill-docs --host codex`
-
-These commands do not change the cutover contract; they validate it end to end.
