@@ -129,6 +129,12 @@ describe('nexus inventories', () => {
     const markdown = readFileSync('upstream-notes/gstack-host-migration-inventory.md', 'utf8');
     const rows = parseInventory(markdown);
 
+    expect(markdown).toContain('Nexus-primary');
+    expect(markdown).toContain('~/.nexus');
+    expect(markdown).toContain('~/.gstack');
+    expect(markdown).toContain('nexus-*');
+    expect(markdown).toContain('gstack-*');
+
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.cleanup_phase).toMatch(/^post-m\d+$/);
@@ -147,6 +153,10 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(markdown).toContain('Nexus-owned stage packs');
     expect(markdown).toContain('source material only');
     expect(markdown).toContain('`lib/nexus/stage-packs/`');
+    expect(markdown).toContain('`~/.nexus` is now the primary host support state root');
+    expect(markdown).toContain('`~/.gstack` remains compatibility-only');
+    expect(markdown).toContain('`nexus-*` host helpers are the preferred entrypoints');
+    expect(markdown).toContain('`gstack-*` host binaries still work as shims');
   });
 
   test.each(SURFACE_DOCS)('%s keeps upstream identity secondary to Nexus stage packs', (path) => {
