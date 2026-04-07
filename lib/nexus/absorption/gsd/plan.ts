@@ -1,16 +1,11 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
-import { GSD_SOURCE_MAP } from './source-map';
-
-function planSourceMap(): string[] {
-  return GSD_SOURCE_MAP
-    .filter((entry) => entry.absorbed_capability === 'gsd-plan')
-    .map((entry) => entry.upstream_file);
-}
+import { getStagePackSourceMap } from '../../stage-packs';
 
 export function buildGsdPlanTraceability(): AdapterTraceability {
   return {
+    nexus_stage_pack: 'nexus-plan-pack',
     absorbed_capability: 'gsd-plan',
-    source_map: planSourceMap(),
+    source_map: getStagePackSourceMap('nexus-plan-pack'),
   };
 }
 

@@ -1,12 +1,6 @@
 import { stageAdapterOutputPath } from '../../artifacts';
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
-import { CCB_SOURCE_MAP } from './source-map';
-
-function executionSourceMap(): string[] {
-  return CCB_SOURCE_MAP
-    .filter((entry) => entry.absorbed_capability === 'ccb-execution')
-    .map((entry) => entry.upstream_file);
-}
+import { getStagePackSourceMap } from '../../stage-packs';
 
 function expectedProvider(generator: string | null): string | null {
   if (generator?.startsWith('codex')) {
@@ -22,8 +16,9 @@ function expectedProvider(generator: string | null): string | null {
 
 export function buildCcbExecutionTraceability(): AdapterTraceability {
   return {
+    nexus_stage_pack: 'nexus-build-pack',
     absorbed_capability: 'ccb-execution',
-    source_map: executionSourceMap(),
+    source_map: getStagePackSourceMap('nexus-build-pack'),
   };
 }
 

@@ -1,16 +1,11 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
-import { GSD_SOURCE_MAP } from './source-map';
-
-function closeoutSourceMap(): string[] {
-  return GSD_SOURCE_MAP
-    .filter((entry) => entry.absorbed_capability === 'gsd-closeout')
-    .map((entry) => entry.upstream_file);
-}
+import { getStagePackSourceMap } from '../../stage-packs';
 
 export function buildGsdCloseoutTraceability(): AdapterTraceability {
   return {
+    nexus_stage_pack: 'nexus-closeout-pack',
     absorbed_capability: 'gsd-closeout',
-    source_map: closeoutSourceMap(),
+    source_map: getStagePackSourceMap('nexus-closeout-pack'),
   };
 }
 

@@ -33,8 +33,10 @@ describe('nexus absorbed runtime', () => {
       requested_route: null,
     });
 
+    expect(discover.traceability?.nexus_stage_pack).toBe('nexus-discover-pack');
     expect(discover.traceability?.absorbed_capability).toBe('pm-discover');
     expect(discover.traceability?.source_map).toContain('upstream/pm-skills/commands/discover.md');
+    expect(frame.traceability?.nexus_stage_pack).toBe('nexus-frame-pack');
     expect(frame.traceability?.absorbed_capability).toBe('pm-frame');
     expect(frame.traceability?.source_map).toContain('upstream/pm-skills/commands/write-prd.md');
   });
@@ -64,8 +66,10 @@ describe('nexus absorbed runtime', () => {
       requested_route: null,
     });
 
+    expect(plan.traceability?.nexus_stage_pack).toBe('nexus-plan-pack');
     expect(plan.traceability?.absorbed_capability).toBe('gsd-plan');
     expect(plan.traceability?.source_map).toContain('upstream/gsd/commands/gsd/plan-phase.md');
+    expect(closeout.traceability?.nexus_stage_pack).toBe('nexus-closeout-pack');
     expect(closeout.traceability?.absorbed_capability).toBe('gsd-closeout');
     expect(closeout.traceability?.source_map).toContain('upstream/gsd/commands/gsd/complete-milestone.md');
   });
@@ -118,10 +122,13 @@ describe('nexus absorbed runtime', () => {
       requested_route: requestedRoute,
     });
 
+    expect(discipline.traceability?.nexus_stage_pack).toBe('nexus-build-pack');
     expect(discipline.traceability?.absorbed_capability).toBe('superpowers-build-discipline');
     expect(discipline.traceability?.source_map).toContain('upstream/superpowers/skills/test-driven-development/SKILL.md');
+    expect(routing.traceability?.nexus_stage_pack).toBe('nexus-handoff-pack');
     expect(routing.traceability?.absorbed_capability).toBe('ccb-routing');
     expect(routing.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/providers.py');
+    expect(execution.traceability?.nexus_stage_pack).toBe('nexus-build-pack');
     expect(execution.traceability?.absorbed_capability).toBe('ccb-execution');
     expect(execution.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/codex_comm.py');
     expect(registry.review.superpowers).toBe('reserved_future');

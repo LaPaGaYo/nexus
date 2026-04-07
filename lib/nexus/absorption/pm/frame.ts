@@ -1,16 +1,11 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
-import { PM_SOURCE_MAP } from './source-map';
-
-function frameSourceMap(): string[] {
-  return PM_SOURCE_MAP
-    .filter((entry) => entry.absorbed_capability === 'pm-frame')
-    .map((entry) => entry.upstream_file);
-}
+import { getStagePackSourceMap } from '../../stage-packs';
 
 export function buildPmFrameTraceability(): AdapterTraceability {
   return {
+    nexus_stage_pack: 'nexus-frame-pack',
     absorbed_capability: 'pm-frame',
-    source_map: frameSourceMap(),
+    source_map: getStagePackSourceMap('nexus-frame-pack'),
   };
 }
 

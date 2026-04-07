@@ -1,16 +1,11 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
-import { PM_SOURCE_MAP } from './source-map';
-
-function discoverSourceMap(): string[] {
-  return PM_SOURCE_MAP
-    .filter((entry) => entry.absorbed_capability === 'pm-discover')
-    .map((entry) => entry.upstream_file);
-}
+import { getStagePackSourceMap } from '../../stage-packs';
 
 export function buildPmDiscoverTraceability(): AdapterTraceability {
   return {
+    nexus_stage_pack: 'nexus-discover-pack',
     absorbed_capability: 'pm-discover',
-    source_map: discoverSourceMap(),
+    source_map: getStagePackSourceMap('nexus-discover-pack'),
   };
 }
 

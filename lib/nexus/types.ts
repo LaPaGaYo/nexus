@@ -15,6 +15,16 @@ export type CanonicalCommandId = (typeof CANONICAL_COMMANDS)[number];
 export const ABSORBED_SOURCE_SYSTEMS = ['pm-skills', 'gsd', 'superpowers', 'ccb'] as const;
 export type AbsorbedSourceSystem = (typeof ABSORBED_SOURCE_SYSTEMS)[number];
 
+export const NEXUS_STAGE_PACKS = [
+  'nexus-discover-pack',
+  'nexus-frame-pack',
+  'nexus-plan-pack',
+  'nexus-handoff-pack',
+  'nexus-build-pack',
+  'nexus-closeout-pack',
+] as const;
+export type NexusStagePackId = (typeof NEXUS_STAGE_PACKS)[number];
+
 export const IMPLEMENTATION_STATUSES = ['implemented', 'placeholder'] as const;
 export type ImplementationStatus = (typeof IMPLEMENTATION_STATUSES)[number];
 

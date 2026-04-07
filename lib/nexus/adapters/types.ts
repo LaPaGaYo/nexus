@@ -7,6 +7,7 @@ import type {
   RunLedger,
 } from '../types';
 import type { CommandContract } from '../command-manifest';
+import type { StagePackTraceability } from '../stage-packs/types';
 
 export type AdapterActivationState = 'inactive' | 'reserved_future' | 'active';
 
@@ -21,9 +22,8 @@ export interface NexusAdapterContext {
   requested_route: RequestedRouteRecord | null;
 }
 
-export interface AdapterTraceability {
+export interface AdapterTraceability extends StagePackTraceability {
   absorbed_capability: string;
-  source_map: string[];
 }
 
 export interface AdapterResult<TRaw> {

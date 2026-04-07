@@ -1,16 +1,11 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
-import { SUPERPOWERS_SOURCE_MAP } from './source-map';
-
-function buildSourceMap(): string[] {
-  return SUPERPOWERS_SOURCE_MAP
-    .filter((entry) => entry.canonical_stage === 'build')
-    .map((entry) => entry.upstream_file);
-}
+import { getStagePackSourceMap } from '../../stage-packs';
 
 export function buildSuperpowersBuildTraceability(): AdapterTraceability {
   return {
+    nexus_stage_pack: 'nexus-build-pack',
     absorbed_capability: 'superpowers-build-discipline',
-    source_map: buildSourceMap(),
+    source_map: getStagePackSourceMap('nexus-build-pack'),
   };
 }
 
