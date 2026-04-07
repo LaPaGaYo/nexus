@@ -42,6 +42,8 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 
 Nexus is the only command surface.
 PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.
+Nexus-owned stage packs under `lib/nexus/stage-packs/` are the active internal runtime units.
+Imported upstream repos remain source material only and do not own lifecycle truth.
 Legacy gstack aliases remain compatibility-only entrypoints and do not own separate contract,
 artifact, or transition logic.
 

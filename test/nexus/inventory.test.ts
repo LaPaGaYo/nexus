@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
+import { NEXUS_STAGE_PACKS } from '../../lib/nexus/types';
 
 const INVENTORIES = [
   'upstream-notes/pm-skills-inventory.md',
@@ -16,6 +17,8 @@ const IMPORTED_SOURCE_INVENTORIES = [
   'upstream-notes/superpowers-inventory.md',
   'upstream-notes/ccb-inventory.md',
 ] as const;
+
+const SURFACE_DOCS = ['README.md', 'docs/skills.md'] as const;
 
 const MANDATORY_FIELDS = [
   'classification',
@@ -62,6 +65,13 @@ function parseInventory(markdown: string): Array<Record<string, string>> {
   });
 }
 
+function parseCsvField(value: string): string[] {
+  return value
+    .split(',')
+    .map((cell) => cell.trim())
+    .filter(Boolean);
+}
+
 describe('nexus inventories', () => {
   test.each(INVENTORIES)('%s includes populated mandatory fields', (path) => {
     const markdown = readFileSync(path, 'utf8');
@@ -94,6 +104,26 @@ describe('nexus inventories', () => {
     }
   });
 
+  test.each(IMPORTED_SOURCE_INVENTORIES)('%s links active rows to Nexus-owned stage packs', (path) => {
+    const markdown = readFileSync(path, 'utf8');
+    const rows = parseInventory(markdown);
+
+    expect(markdown).toContain('nexus_stage_packs');
+
+    for (const row of rows) {
+      const isActiveRow = row.milestone_state === 'integrating' || row.activation_state === 'active_m2';
+      if (!isActiveRow) {
+        continue;
+      }
+
+      const packIds = parseCsvField(row.nexus_stage_packs);
+      expect(packIds.length).toBeGreaterThan(0);
+      for (const packId of packIds) {
+        expect(NEXUS_STAGE_PACKS.includes(packId as (typeof NEXUS_STAGE_PACKS)[number])).toBe(true);
+      }
+    }
+  });
+
   test('gstack host migration inventory stays identification-only and post-m2', () => {
     const markdown = readFileSync('upstream-notes/gstack-host-migration-inventory.md', 'utf8');
     const rows = parseInventory(markdown);
@@ -106,6 +136,23 @@ describe('nexus inventories', () => {
         true,
       );
     }
+  });
+});
+
+describe('nexus docs describe absorbed upstreams as source material', () => {
+  test('absorption status locks stage packs as the active Nexus-owned units', () => {
+    const markdown = readFileSync('upstream-notes/absorption-status.md', 'utf8');
+
+    expect(markdown).toContain('Nexus-owned stage packs');
+    expect(markdown).toContain('source material only');
+    expect(markdown).toContain('`lib/nexus/stage-packs/`');
+  });
+
+  test.each(SURFACE_DOCS)('%s keeps upstream identity secondary to Nexus stage packs', (path) => {
+    const markdown = readFileSync(path, 'utf8');
+
+    expect(markdown).toContain('Nexus-owned stage packs');
+    expect(markdown).toContain('source material');
   });
 });
 

@@ -2,6 +2,8 @@
 
 Nexus is the only command surface.
 PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.
+Nexus-owned stage packs under `lib/nexus/stage-packs/` are the active internal runtime units.
+Imported upstream repos remain source material only and do not own lifecycle truth.
 Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 
