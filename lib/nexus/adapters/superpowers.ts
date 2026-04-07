@@ -1,4 +1,4 @@
-import { createBuildStagePack, createReviewStagePack } from '../stage-packs';
+import { createBuildStagePack, createReviewStagePack, createShipStagePack } from '../stage-packs';
 import type { AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
 
 export interface SuperpowersBuildDisciplineRaw {
@@ -7,6 +7,16 @@ export interface SuperpowersBuildDisciplineRaw {
 
 export interface SuperpowersReviewDisciplineRaw {
   discipline_summary: string;
+}
+
+export interface SuperpowersShipDisciplineRaw {
+  release_gate_record: string;
+  checklist: {
+    review_complete: boolean;
+    qa_ready: boolean;
+    merge_ready: boolean;
+  };
+  merge_ready: boolean;
 }
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
@@ -22,21 +32,10 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-function reservedFutureResult(): AdapterResult<null> {
-  return {
-    adapter_id: 'superpowers',
-    outcome: 'blocked',
-    raw_output: null,
-    requested_route: null,
-    actual_route: null,
-    notices: ['Superpowers seam is reserved for a later milestone'],
-    conflict_candidates: [],
-  };
-}
-
 export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
   const buildPack = createBuildStagePack();
   const reviewPack = createReviewStagePack();
+  const shipPack = createShipStagePack();
 
   return {
     build_discipline: async (ctx) =>
@@ -47,6 +46,15 @@ export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
       successResult<SuperpowersReviewDisciplineRaw>({
         discipline_summary: 'Verification-before-completion passed',
       }, reviewPack.disciplineTraceability()),
-    ship_discipline: async () => reservedFutureResult(),
+    ship_discipline: async (ctx) =>
+      successResult<SuperpowersShipDisciplineRaw>({
+        release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+        checklist: {
+          review_complete: true,
+          qa_ready: true,
+          merge_ready: true,
+        },
+        merge_ready: true,
+      }, shipPack.disciplineTraceability()),
   };
 }

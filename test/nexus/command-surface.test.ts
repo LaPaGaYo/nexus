@@ -27,19 +27,9 @@ describe('nexus command dispatcher', () => {
     expect(invocation.via).toBe('office-hours');
   });
 
-  test('keeps qa on the implemented canonical runtime while ship remains a placeholder', async () => {
+  test('keeps qa and ship on the implemented canonical runtime', async () => {
     expect(resolveInvocation('qa').contract.implementation).toBe('implemented');
-
-    const invocation = resolveInvocation('ship');
-    const result = await invocation.handler({
-      cwd: makeTempRepo(),
-      clock: () => '2026-03-31T12:00:00Z',
-      via: null,
-      adapters: getDefaultNexusAdapters(),
-    });
-
-    expect(result.status.state).toBe('blocked');
-    expect(result.status.decision).toBe('not_implemented');
-    expect(result.status.ready).toBe(false);
+    expect(resolveInvocation('ship').contract.implementation).toBe('implemented');
+    expect(getDefaultNexusAdapters().registry.ship.superpowers).toBe('active');
   });
 });

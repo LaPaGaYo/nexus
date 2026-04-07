@@ -72,3 +72,33 @@ export function buildBuildStageTraceabilityPayloads(
     },
   ];
 }
+
+export function buildShipStageTraceabilityPayloads(
+  runId: string,
+  inputs: string[],
+  result: AdapterResult<unknown>,
+  normalizationPayload: Record<string, unknown>,
+): ArtifactWrite[] {
+  return [
+    {
+      path: stageAdapterRequestPath('ship'),
+      content: JSON.stringify(
+        {
+          run_id: runId,
+          inputs,
+          adapter_chain: ['superpowers'],
+        },
+        null,
+        2,
+      ) + '\n',
+    },
+    {
+      path: stageAdapterOutputPath('ship'),
+      content: JSON.stringify(result, null, 2) + '\n',
+    },
+    {
+      path: stageNormalizationPath('ship'),
+      content: JSON.stringify(normalizationPayload, null, 2) + '\n',
+    },
+  ];
+}

@@ -15,6 +15,7 @@ import { runHandoff } from './handoff';
 import { runPlan } from './plan';
 import { runQa } from './qa';
 import { runReview } from './review';
+import { runShip } from './ship';
 
 export interface CommandContext {
   cwd: string;
@@ -99,7 +100,7 @@ const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
   build: runBuild,
   review: runReview,
   qa: runQa,
-  ship: async (ctx) => runPlaceholder('ship', ctx),
+  ship: runShip,
   closeout: runCloseout,
 };
 
