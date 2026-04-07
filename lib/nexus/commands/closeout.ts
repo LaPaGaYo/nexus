@@ -6,10 +6,11 @@ import {
   archiveAuditWorkspace,
   archiveExists,
   assertArchiveConsistency,
-  assertExpectedHistoryOneOf,
+  assertCloseoutHistory,
   assertQaReadyForCloseout,
   assertReviewReadyForCloseout,
   assertSameRunId,
+  assertShipReadyForCloseout,
   gateRequiresArchive,
 } from '../governance';
 import { readLedger } from '../ledger';
@@ -32,8 +33,10 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const reviewStatusPath = stageStatusPath('review');
   const qaStatusPath = stageStatusPath('qa');
+  const shipStatusPath = stageStatusPath('ship');
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
   const qaStatus = readStageStatus(qaStatusPath, ctx.cwd);
+  const shipStatus = readStageStatus(shipStatusPath, ctx.cwd);
 
   if (!ledger || !reviewStatus) {
     throw new Error('Review must be completed before closeout');
@@ -43,13 +46,14 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   if (qaStatus) {
     assertSameRunId(ledger.run_id, qaStatus.run_id, 'qa status');
   }
+  if (shipStatus) {
+    assertSameRunId(ledger.run_id, shipStatus.run_id, 'ship status');
+  }
   assertLegalTransition(ledger.current_stage, 'closeout');
-  assertExpectedHistoryOneOf(ledger, [
-    ['plan', 'handoff', 'build', 'review'],
-    ['plan', 'handoff', 'build', 'review', 'qa'],
-  ]);
+  assertCloseoutHistory(ledger, { qaRecorded: Boolean(qaStatus), shipRecorded: Boolean(shipStatus) });
   assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
   assertQaReadyForCloseout(qaStatus);
+  assertShipReadyForCloseout(shipStatus);
 
   const metaPath = '.planning/audits/current/meta.json';
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
@@ -119,6 +123,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     predecessor_artifacts: [
       artifactPointerFor(reviewStatusPath),
       ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
+      ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
       artifactPointerFor(metaPath),
     ],
     requested_route: null,
@@ -134,6 +139,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       inputs: [
         artifactPointerFor(reviewStatusPath),
         ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
+        ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
         artifactPointerFor(metaPath),
       ],
       outputs: [artifactPointerFor(closeoutStatusPath)],
@@ -152,7 +158,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
-        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), metaPath],
+        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), ...(shipStatus ? [shipStatusPath] : []), metaPath],
         { adapter: 'gsd', stage: 'closeout', archive_path: archivePath },
         result,
         {
@@ -184,6 +190,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       inputs: [
         artifactPointerFor(reviewStatusPath),
         ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
+        ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
         artifactPointerFor(metaPath),
       ],
       outputs: [
@@ -200,7 +207,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     const nextLedger = {
       ...ledger,
       status: result.raw_output.merge_ready ? 'completed' : 'blocked',
-      previous_stage: (qaStatus ? 'qa' : 'review') as 'review' | 'qa',
+      previous_stage: (shipStatus ? 'ship' : qaStatus ? 'qa' : 'review') as 'review' | 'qa' | 'ship',
       current_command: 'closeout' as const,
       current_stage: 'closeout' as const,
       allowed_next_stages: [],
@@ -220,7 +227,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
-        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), metaPath],
+        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), ...(shipStatus ? [shipStatusPath] : []), metaPath],
         { adapter: 'gsd', stage: 'closeout', archive_path: archivePath },
         result,
         {
@@ -256,6 +263,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       inputs: [
         artifactPointerFor(reviewStatusPath),
         ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
+        ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
         artifactPointerFor(metaPath),
       ],
       outputs: [artifactPointerFor(closeoutStatusPath)],
@@ -274,7 +282,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
-        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), metaPath],
+        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), ...(shipStatus ? [shipStatusPath] : []), metaPath],
         { adapter: 'gsd', stage: 'closeout', archive_path: archivePath },
         result,
         {

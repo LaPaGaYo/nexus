@@ -191,6 +191,86 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('allows closeout after a ready ship stage', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('ship');
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        provenance_consistent: true,
+      });
+    });
+  });
+
+  test('blocks closeout when ship exists and is not ready', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const shipAdapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: blocked\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: false,
+              },
+              merge_ready: false,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      await run('ship', shipAdapters);
+      await expect(run('closeout')).rejects.toThrow('Ship must be ready before closeout');
+    });
+  });
+
+  test('rejects illegal tail-stage history when ship is recorded without its legal predecessor chain', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('ship');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+        command_history: Array<{ command: string; at: string; via: string | null }>;
+      };
+      ledger.command_history = [
+        { command: 'plan', at: ledger.command_history[0]!.at, via: null },
+        { command: 'handoff', at: ledger.command_history[1]!.at, via: null },
+        { command: 'build', at: ledger.command_history[2]!.at, via: null },
+        { command: 'ship', at: ledger.command_history.at(-1)!.at, via: null },
+      ];
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      await expect(run('closeout')).rejects.toThrow('Illegal Nexus transition history');
+    });
+  });
+
   test('normalizes a GSD closeout result only after Nexus closeout gates pass', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');
