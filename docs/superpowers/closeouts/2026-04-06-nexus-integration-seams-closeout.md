@@ -125,8 +125,16 @@ Result:
 
 ## Recommended Next Step
 
-Begin Milestone 3 planning for Gstack host cleanup/reduction.
+Milestone 3 planning is complete and its Phase 1 absorption baseline has landed. See:
 
-That planning should use `upstream-notes/gstack-host-migration-inventory.md` as the migration inventory and should keep the following rule unchanged:
+- `docs/superpowers/specs/2026-04-06-nexus-absorption-and-surface-unification-design.md`
+- `docs/superpowers/plans/2026-04-06-nexus-absorption-and-surface-unification.md`
+- `docs/superpowers/closeouts/2026-04-06-nexus-absorption-phase-1-closeout.md`
+
+The next remaining reduction work is host cleanup and deeper surface unification after the
+Phase 1 absorbed packs baseline.
+
+That work should continue using `upstream-notes/gstack-host-migration-inventory.md` as
+the migration inventory and should keep the following rule unchanged:
 
 Nexus owns contracts, governance, transitions, artifacts, and repo-visible lifecycle truth; Gstack remains host shell only until cleanup is explicitly planned and executed.
