@@ -25,6 +25,19 @@ export const NEXUS_STAGE_PACKS = [
 ] as const;
 export type NexusStagePackId = (typeof NEXUS_STAGE_PACKS)[number];
 
+export const NEXUS_STAGE_CONTENT = [
+  'nexus-discover-content',
+  'nexus-frame-content',
+  'nexus-plan-content',
+  'nexus-handoff-content',
+  'nexus-build-content',
+  'nexus-review-content',
+  'nexus-qa-content',
+  'nexus-ship-content',
+  'nexus-closeout-content',
+] as const;
+export type NexusStageContentId = (typeof NEXUS_STAGE_CONTENT)[number];
+
 export const IMPLEMENTATION_STATUSES = ['implemented', 'placeholder'] as const;
 export type ImplementationStatus = (typeof IMPLEMENTATION_STATUSES)[number];
 
