@@ -17,29 +17,29 @@ function generatePreambleBash(ctx: TemplateContext): string {
   const hostConfigDir: Record<string, string> = { codex: '.codex', factory: '.factory' };
   const runtimeRoot = (ctx.host !== 'claude')
     ? `_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-GSTACK_ROOT="$HOME/${hostConfigDir[ctx.host]}/skills/gstack"
-[ -n "$_ROOT" ] && [ -d "$_ROOT/${ctx.paths.localSkillRoot}" ] && GSTACK_ROOT="$_ROOT/${ctx.paths.localSkillRoot}"
-GSTACK_BIN="$GSTACK_ROOT/bin"
-GSTACK_BROWSE="$GSTACK_ROOT/browse/dist"
-GSTACK_DESIGN="$GSTACK_ROOT/design/dist"
+NEXUS_ROOT="$HOME/${hostConfigDir[ctx.host]}/skills/nexus"
+[ -n "$_ROOT" ] && [ -d "$_ROOT/${ctx.paths.localSkillRoot}" ] && NEXUS_ROOT="$_ROOT/${ctx.paths.localSkillRoot}"
+NEXUS_BIN="$NEXUS_ROOT/bin"
+NEXUS_BROWSE="$NEXUS_ROOT/browse/dist"
+NEXUS_DESIGN="$NEXUS_ROOT/design/dist"
 `
     : '';
 
   return `## Preamble (run first)
 
 \`\`\`bash
-${runtimeRoot}_UPD=$(${ctx.paths.binDir}/gstack-update-check 2>/dev/null || ${ctx.paths.localSkillRoot}/bin/gstack-update-check 2>/dev/null || true)
+${runtimeRoot}_UPD=$(${ctx.paths.binDir}/nexus-update-check 2>/dev/null || ${ctx.paths.localSkillRoot}/bin/nexus-update-check 2>/dev/null || true)
 [ -n "$_UPD" ] && echo "$_UPD" || true
 mkdir -p ~/.gstack/sessions
 touch ~/.gstack/sessions/"$PPID"
 _SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
 find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
-_CONTRIB=$(${ctx.paths.binDir}/gstack-config get gstack_contributor 2>/dev/null || true)
-_PROACTIVE=$(${ctx.paths.binDir}/gstack-config get proactive 2>/dev/null || echo "true")
+_CONTRIB=$(${ctx.paths.binDir}/nexus-config get gstack_contributor 2>/dev/null || true)
+_PROACTIVE=$(${ctx.paths.binDir}/nexus-config get proactive 2>/dev/null || echo "true")
 _PROACTIVE_PROMPTED=$([ -f ~/.gstack/.proactive-prompted ] && echo "yes" || echo "no")
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-_SKILL_PREFIX=$(${ctx.paths.binDir}/gstack-config get skill_prefix 2>/dev/null || echo "false")
+_SKILL_PREFIX=$(${ctx.paths.binDir}/nexus-config get skill_prefix 2>/dev/null || echo "false")
 echo "PROACTIVE: $_PROACTIVE"
 echo "PROACTIVE_PROMPTED: $_PROACTIVE_PROMPTED"
 echo "SKILL_PREFIX: $_SKILL_PREFIX"
@@ -48,7 +48,7 @@ REPO_MODE=\${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
 _LAKE_SEEN=$([ -f ~/.gstack/.completeness-intro-seen ] && echo "yes" || echo "no")
 echo "LAKE_INTRO: $_LAKE_SEEN"
-_TEL=$(${ctx.paths.binDir}/gstack-config get telemetry 2>/dev/null || true)
+_TEL=$(${ctx.paths.binDir}/nexus-config get telemetry 2>/dev/null || true)
 _TEL_PROMPTED=$([ -f ~/.gstack/.telemetry-prompted ] && echo "yes" || echo "no")
 _TEL_START=$(date +%s)
 _SESSION_ID="$$-$(date +%s)"
@@ -82,7 +82,7 @@ _HAS_ROUTING="no"
 if [ -f CLAUDE.md ] && grep -q "## Nexus Skill Routing" CLAUDE.md 2>/dev/null; then
   _HAS_ROUTING="yes"
 fi
-_ROUTING_DECLINED=$(${ctx.paths.binDir}/gstack-config get routing_declined 2>/dev/null || echo "false")
+_ROUTING_DECLINED=$(${ctx.paths.binDir}/nexus-config get routing_declined 2>/dev/null || echo "false")
 echo "HAS_ROUTING: $_HAS_ROUTING"
 echo "ROUTING_DECLINED: $_ROUTING_DECLINED"
 \`\`\``;
@@ -96,11 +96,11 @@ types (e.g., /qa, /ship). If you would have auto-invoked a skill, instead briefl
 The user opted out of proactive behavior.
 
 If \`SKILL_PREFIX\` is \`"true"\`, the user has namespaced Nexus commands. When suggesting
-or invoking other Nexus commands, use the \`/gstack-\` prefix (e.g., \`/gstack-qa\` instead
-of \`/qa\`, \`/gstack-ship\` instead of \`/ship\`). Disk paths are unaffected — always use
+or invoking other Nexus commands, use the \`/nexus-\` prefix (e.g., \`/nexus-qa\` instead
+of \`/qa\`, \`/nexus-ship\` instead of \`/ship\`). Disk paths are unaffected — always use
 \`${ctx.paths.skillRoot}/[skill-name]/SKILL.md\` for reading skill files.
 
-If output shows \`UPGRADE_AVAILABLE <old> <new>\`: read \`${ctx.paths.skillRoot}/gstack-upgrade/SKILL.md\` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). If \`JUST_UPGRADED <from> <to>\`: tell user "Running Nexus v{to} (just updated!)" and continue.`;
+If output shows \`UPGRADE_AVAILABLE <old> <new>\`: read \`${ctx.paths.skillRoot}/nexus-upgrade/SKILL.md\` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). If \`JUST_UPGRADED <from> <to>\`: tell user "Running Nexus v{to} (just updated!)" and continue.`;
 }
 
 function generateLakeIntro(): string {
@@ -124,13 +124,13 @@ ask the user about telemetry. Use AskUserQuestion:
 > Help Nexus get better! Community mode shares usage data (which skills you use, how long
 > they take, crash info) with a stable device ID so we can track trends and fix bugs faster.
 > No code, file paths, or repo names are ever sent.
-> Change anytime with \`gstack-config set telemetry off\`.
+> Change anytime with \`nexus-config set telemetry off\`.
 
 Options:
 - A) Help Nexus get better! (recommended)
 - B) No thanks
 
-If A: run \`${ctx.paths.binDir}/gstack-config set telemetry community\`
+If A: run \`${ctx.paths.binDir}/nexus-config set telemetry community\`
 
 If B: ask a follow-up AskUserQuestion:
 
@@ -141,8 +141,8 @@ Options:
 - A) Sure, anonymous is fine
 - B) No thanks, fully off
 
-If B→A: run \`${ctx.paths.binDir}/gstack-config set telemetry anonymous\`
-If B→B: run \`${ctx.paths.binDir}/gstack-config set telemetry off\`
+If B→A: run \`${ctx.paths.binDir}/nexus-config set telemetry anonymous\`
+If B→B: run \`${ctx.paths.binDir}/nexus-config set telemetry off\`
 
 Always run:
 \`\`\`bash
@@ -164,8 +164,8 @@ Options:
 - A) Keep it on (recommended)
 - B) Turn it off — I'll type /commands myself
 
-If A: run \`${ctx.paths.binDir}/gstack-config set proactive true\`
-If B: run \`${ctx.paths.binDir}/gstack-config set proactive false\`
+If A: run \`${ctx.paths.binDir}/nexus-config set proactive true\`
+If B: run \`${ctx.paths.binDir}/nexus-config set proactive false\`
 
 Always run:
 \`\`\`bash
@@ -214,8 +214,8 @@ Key routing rules:
 
 Then commit the change: \`git add CLAUDE.md && git commit -m "chore: add nexus skill routing guidance to CLAUDE.md"\`
 
-If B: run \`${ctx.paths.binDir}/gstack-config set routing_declined true\`
-Say "No problem. You can add routing guidance later by running \`gstack-config set routing_declined false\` and re-running any Nexus skill."
+If B: run \`${ctx.paths.binDir}/nexus-config set routing_declined true\`
+Say "No problem. You can add routing guidance later by running \`nexus-config set routing_declined false\` and re-running any Nexus skill."
 
 This only happens once per project. If \`HAS_ROUTING\` is \`yes\` or \`ROUTING_DECLINED\` is \`true\`, skip this entirely.`;
 }

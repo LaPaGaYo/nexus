@@ -1,6 +1,6 @@
 interface:
-  display_name: "gstack"
-  short_description: "AI builder framework — CEO strategy, eng review, design audit, QA testing, security audit, headless browser, deploy pipeline, and retrospectives. Full PM/dev/eng/CEO/QA in a box."
-  default_prompt: "Use $gstack to locate the bundled gstack skills."
+  display_name: "nexus"
+  short_description: "Fast headless browser for QA testing and site dogfooding. Navigate pages, interact with elements, verify state, diff..."
+  default_prompt: "Use $nexus to locate the bundled Nexus skills."
 policy:
   allow_implicit_invocation: true

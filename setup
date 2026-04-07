@@ -18,9 +18,9 @@ SOURCE_GSTACK_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 INSTALL_SKILLS_DIR="$(dirname "$INSTALL_GSTACK_DIR")"
 BROWSE_BIN="$SOURCE_GSTACK_DIR/browse/dist/browse"
 CODEX_SKILLS="$HOME/.codex/skills"
-CODEX_GSTACK="$CODEX_SKILLS/gstack"
+CODEX_GSTACK="$CODEX_SKILLS/nexus"
 FACTORY_SKILLS="$HOME/.factory/skills"
-FACTORY_GSTACK="$FACTORY_SKILLS/gstack"
+FACTORY_GSTACK="$FACTORY_SKILLS/nexus"
 
 IS_WINDOWS=0
 case "$(uname -s)" in
@@ -126,7 +126,7 @@ fi
 migrate_direct_codex_install() {
   local gstack_dir="$1"
   local codex_gstack="$2"
-  local migrated_dir="$HOME/.gstack/repos/gstack"
+  local migrated_dir="$HOME/.nexus/repos/nexus"
 
   [ "$gstack_dir" = "$codex_gstack" ] || return 0
   [ -L "$gstack_dir" ] && return 0
@@ -300,7 +300,7 @@ link_claude_skill_dirs() {
       target="$skills_dir/$link_name"
       # Create or update symlink; skip if a real file/directory exists
       if [ -L "$target" ] || [ ! -e "$target" ]; then
-        ln -snf "gstack/$dir_name" "$target"
+        ln -snf "nexus/$dir_name" "$target"
         linked+=("$link_name")
       fi
       if [ "$SKILL_PREFIX" -eq 1 ]; then
@@ -337,7 +337,7 @@ cleanup_old_claude_symlinks() {
       if [ -L "$old_target" ]; then
         link_dest="$(readlink "$old_target" 2>/dev/null || true)"
         case "$link_dest" in
-          gstack/*|*/gstack/*)
+          nexus/*|*/nexus/*)
             rm -f "$old_target"
             removed+=("$skill_name")
             ;;
@@ -369,7 +369,7 @@ cleanup_prefixed_claude_symlinks() {
         if [ -L "$prefixed_target" ]; then
           link_dest="$(readlink "$prefixed_target" 2>/dev/null || true)"
           case "$link_dest" in
-            gstack/*|*/gstack/*)
+            nexus/*|*/nexus/*)
               rm -f "$prefixed_target"
               removed+=("$(basename "$prefixed_target")")
               ;;
@@ -384,7 +384,7 @@ cleanup_prefixed_claude_symlinks() {
 }
 
 # ─── Helper: link generated Codex skills into a skills parent directory ──
-# Installs from .agents/skills/gstack-* (the generated Codex-format skills)
+# Installs from .agents/skills/nexus-* (the generated Codex-format skills)
 # instead of source dirs (which have Claude paths).
 link_codex_skill_dirs() {
   local gstack_dir="$1"
@@ -402,13 +402,13 @@ link_codex_skill_dirs() {
     return 1
   fi
 
-  for skill_dir in "$agents_dir"/gstack*/; do
+  for skill_dir in "$agents_dir"/nexus*/; do
     if [ -f "$skill_dir/SKILL.md" ]; then
       skill_name="$(basename "$skill_dir")"
       # Skip the sidecar directory — it contains runtime asset symlinks (bin/,
-      # browse/), not a skill. Linking it would overwrite the root gstack
+      # browse/), not a skill. Linking it would overwrite the root nexus
       # symlink that Step 5 already pointed at the repo root.
-      [ "$skill_name" = "gstack" ] && continue
+      [ "$skill_name" = "nexus" ] && continue
       target="$skills_dir/$skill_name"
       # Create or update symlink
       if [ -L "$target" ] || [ ! -e "$target" ]; then
@@ -422,19 +422,19 @@ link_codex_skill_dirs() {
   fi
 }
 
-# ─── Helper: create .agents/skills/gstack/ sidecar symlinks ──────────
+# ─── Helper: create .agents/skills/nexus/ sidecar symlinks ──────────
 # Codex/Gemini/Cursor read skills from .agents/skills/. We link runtime
 # assets (bin/, browse/dist/, review/, qa/, etc.) so skill templates can
 # resolve paths like $SKILL_ROOT/review/design-checklist.md.
 create_agents_sidecar() {
   local repo_root="$1"
-  local agents_gstack="$repo_root/.agents/skills/gstack"
-  mkdir -p "$agents_gstack"
+  local agents_nexus="$repo_root/.agents/skills/nexus"
+  mkdir -p "$agents_nexus"
 
   # Sidecar directories that skills reference at runtime
   for asset in bin browse review qa; do
     local src="$SOURCE_GSTACK_DIR/$asset"
-    local dst="$agents_gstack/$asset"
+    local dst="$agents_nexus/$asset"
     if [ -d "$src" ] || [ -f "$src" ]; then
       if [ -L "$dst" ] || [ ! -e "$dst" ]; then
         ln -snf "$src" "$dst"
@@ -445,7 +445,7 @@ create_agents_sidecar() {
   # Sidecar files that skills reference at runtime
   for file in ETHOS.md; do
     local src="$SOURCE_GSTACK_DIR/$file"
-    local dst="$agents_gstack/$file"
+    local dst="$agents_nexus/$file"
     if [ -f "$src" ]; then
       if [ -L "$dst" ] || [ ! -e "$dst" ]; then
         ln -snf "$src" "$dst"
@@ -454,7 +454,7 @@ create_agents_sidecar() {
   done
 }
 
-# ─── Helper: create a minimal ~/.codex/skills/gstack runtime root ───────────
+# ─── Helper: create a minimal ~/.codex/skills/nexus runtime root ───────────
 # Codex scans ~/.codex/skills recursively. Exposing the whole repo here causes
 # duplicate skills because source SKILL.md files and generated Codex skills are
 # both discoverable. Keep this directory limited to runtime assets + root skill.
@@ -471,10 +471,10 @@ create_codex_runtime_root() {
     rm -rf "$codex_gstack"
   fi
 
-  mkdir -p "$codex_gstack" "$codex_gstack/browse" "$codex_gstack/gstack-upgrade" "$codex_gstack/review"
+  mkdir -p "$codex_gstack" "$codex_gstack/browse" "$codex_gstack/nexus-upgrade" "$codex_gstack/review"
 
-  if [ -f "$agents_dir/gstack/SKILL.md" ]; then
-    ln -snf "$agents_dir/gstack/SKILL.md" "$codex_gstack/SKILL.md"
+  if [ -f "$agents_dir/nexus/SKILL.md" ]; then
+    ln -snf "$agents_dir/nexus/SKILL.md" "$codex_gstack/SKILL.md"
   fi
   if [ -d "$gstack_dir/bin" ]; then
     ln -snf "$gstack_dir/bin" "$codex_gstack/bin"
@@ -485,8 +485,8 @@ create_codex_runtime_root() {
   if [ -d "$gstack_dir/browse/bin" ]; then
     ln -snf "$gstack_dir/browse/bin" "$codex_gstack/browse/bin"
   fi
-  if [ -f "$agents_dir/gstack-upgrade/SKILL.md" ]; then
-    ln -snf "$agents_dir/gstack-upgrade/SKILL.md" "$codex_gstack/gstack-upgrade/SKILL.md"
+  if [ -f "$agents_dir/nexus-upgrade/SKILL.md" ]; then
+    ln -snf "$agents_dir/nexus-upgrade/SKILL.md" "$codex_gstack/nexus-upgrade/SKILL.md"
   fi
   # Review runtime assets (individual files, NOT the whole review/ dir which has SKILL.md)
   for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
@@ -511,10 +511,10 @@ create_factory_runtime_root() {
     rm -rf "$factory_gstack"
   fi
 
-  mkdir -p "$factory_gstack" "$factory_gstack/browse" "$factory_gstack/gstack-upgrade" "$factory_gstack/review"
+  mkdir -p "$factory_gstack" "$factory_gstack/browse" "$factory_gstack/nexus-upgrade" "$factory_gstack/review"
 
-  if [ -f "$factory_dir/gstack/SKILL.md" ]; then
-    ln -snf "$factory_dir/gstack/SKILL.md" "$factory_gstack/SKILL.md"
+  if [ -f "$factory_dir/nexus/SKILL.md" ]; then
+    ln -snf "$factory_dir/nexus/SKILL.md" "$factory_gstack/SKILL.md"
   fi
   if [ -d "$gstack_dir/bin" ]; then
     ln -snf "$gstack_dir/bin" "$factory_gstack/bin"
@@ -525,8 +525,8 @@ create_factory_runtime_root() {
   if [ -d "$gstack_dir/browse/bin" ]; then
     ln -snf "$gstack_dir/browse/bin" "$factory_gstack/browse/bin"
   fi
-  if [ -f "$factory_dir/gstack-upgrade/SKILL.md" ]; then
-    ln -snf "$factory_dir/gstack-upgrade/SKILL.md" "$factory_gstack/gstack-upgrade/SKILL.md"
+  if [ -f "$factory_dir/nexus-upgrade/SKILL.md" ]; then
+    ln -snf "$factory_dir/nexus-upgrade/SKILL.md" "$factory_gstack/nexus-upgrade/SKILL.md"
   fi
   for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
     if [ -f "$gstack_dir/review/$f" ]; then
@@ -554,10 +554,10 @@ link_factory_skill_dirs() {
     return 1
   fi
 
-  for skill_dir in "$factory_dir"/gstack*/; do
+  for skill_dir in "$factory_dir"/nexus*/; do
     if [ -f "$skill_dir/SKILL.md" ]; then
       skill_name="$(basename "$skill_dir")"
-      [ "$skill_name" = "gstack" ] && continue
+      [ "$skill_name" = "nexus" ] && continue
       target="$skills_dir/$skill_name"
       if [ -L "$target" ] || [ ! -e "$target" ]; then
         ln -snf "$skill_dir" "$target"
@@ -632,10 +632,10 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   mkdir -p "$KIRO_SKILLS"
 
   # Create gstack dir with symlinks for runtime assets, copy+sed for SKILL.md
-  KIRO_GSTACK="$KIRO_SKILLS/gstack"
+  KIRO_GSTACK="$KIRO_SKILLS/nexus"
   # Remove old whole-dir symlink from previous installs
   [ -L "$KIRO_GSTACK" ] && rm -f "$KIRO_GSTACK"
-  mkdir -p "$KIRO_GSTACK" "$KIRO_GSTACK/browse" "$KIRO_GSTACK/gstack-upgrade" "$KIRO_GSTACK/review"
+  mkdir -p "$KIRO_GSTACK" "$KIRO_GSTACK/browse" "$KIRO_GSTACK/nexus-upgrade" "$KIRO_GSTACK/review"
   ln -snf "$SOURCE_GSTACK_DIR/bin" "$KIRO_GSTACK/bin"
   ln -snf "$SOURCE_GSTACK_DIR/browse/dist" "$KIRO_GSTACK/browse/dist"
   ln -snf "$SOURCE_GSTACK_DIR/browse/bin" "$KIRO_GSTACK/browse/bin"
@@ -643,9 +643,9 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   if [ -f "$SOURCE_GSTACK_DIR/ETHOS.md" ]; then
     ln -snf "$SOURCE_GSTACK_DIR/ETHOS.md" "$KIRO_GSTACK/ETHOS.md"
   fi
-  # gstack-upgrade skill
-  if [ -f "$AGENTS_DIR/gstack-upgrade/SKILL.md" ]; then
-    ln -snf "$AGENTS_DIR/gstack-upgrade/SKILL.md" "$KIRO_GSTACK/gstack-upgrade/SKILL.md"
+  # nexus-upgrade skill
+  if [ -f "$AGENTS_DIR/nexus-upgrade/SKILL.md" ]; then
+    ln -snf "$AGENTS_DIR/nexus-upgrade/SKILL.md" "$KIRO_GSTACK/nexus-upgrade/SKILL.md"
   fi
   # Review runtime assets (individual files, not whole dir)
   for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
@@ -655,24 +655,24 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   done
 
   # Rewrite root SKILL.md paths for Kiro
-  sed -e "s|~/.claude/skills/gstack|~/.kiro/skills/gstack|g" \
-      -e "s|\.claude/skills/gstack|.kiro/skills/gstack|g" \
+  sed -e "s|~/.claude/skills/nexus|~/.kiro/skills/nexus|g" \
+      -e "s|\.claude/skills/nexus|.kiro/skills/nexus|g" \
       -e "s|\.claude/skills|.kiro/skills|g" \
       "$SOURCE_GSTACK_DIR/SKILL.md" > "$KIRO_GSTACK/SKILL.md"
 
   if [ ! -d "$AGENTS_DIR" ]; then
     echo "  warning: no .agents/skills/ directory found — run 'bun run build' first" >&2
   else
-    for skill_dir in "$AGENTS_DIR"/gstack*/; do
+    for skill_dir in "$AGENTS_DIR"/nexus*/; do
       [ -f "$skill_dir/SKILL.md" ] || continue
       skill_name="$(basename "$skill_dir")"
       target_dir="$KIRO_SKILLS/$skill_name"
       mkdir -p "$target_dir"
-      # Generated Codex skills use $HOME/.codex (not ~/), plus $GSTACK_ROOT variables.
-      # Rewrite the default GSTACK_ROOT value and any remaining literal paths.
-      sed -e 's|\$HOME/.codex/skills/gstack|$HOME/.kiro/skills/gstack|g' \
-          -e "s|~/.codex/skills/gstack|~/.kiro/skills/gstack|g" \
-          -e "s|~/.claude/skills/gstack|~/.kiro/skills/gstack|g" \
+      # Generated Codex skills use $HOME/.codex (not ~/), plus $NEXUS_ROOT variables.
+      # Rewrite the default NEXUS_ROOT value and any remaining literal paths.
+      sed -e 's|\$HOME/.codex/skills/nexus|$HOME/.kiro/skills/nexus|g' \
+          -e "s|~/.codex/skills/nexus|~/.kiro/skills/nexus|g" \
+          -e "s|~/.claude/skills/nexus|~/.kiro/skills/nexus|g" \
           "$skill_dir/SKILL.md" > "$target_dir/SKILL.md"
     done
     echo "Nexus ready (kiro)."
@@ -692,7 +692,7 @@ if [ "$INSTALL_FACTORY" -eq 1 ]; then
 fi
 
 # 7. Create .agents/ sidecar symlinks for the real Codex skill target.
-# The root Codex skill ends up pointing at $SOURCE_GSTACK_DIR/.agents/skills/gstack,
+# The root Codex skill ends up pointing at $SOURCE_GSTACK_DIR/.agents/skills/nexus,
 # so the runtime assets must live there for both global and repo-local installs.
 if [ "$INSTALL_CODEX" -eq 1 ]; then
   create_agents_sidecar "$SOURCE_GSTACK_DIR"

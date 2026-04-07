@@ -10,25 +10,25 @@ export interface HostPaths {
 
 export const HOST_PATHS: Record<Host, HostPaths> = {
   claude: {
-    skillRoot: '~/.claude/skills/gstack',
-    localSkillRoot: '.claude/skills/gstack',
-    binDir: '~/.claude/skills/gstack/bin',
-    browseDir: '~/.claude/skills/gstack/browse/dist',
-    designDir: '~/.claude/skills/gstack/design/dist',
+    skillRoot: '~/.claude/skills/nexus',
+    localSkillRoot: '.claude/skills/nexus',
+    binDir: '~/.claude/skills/nexus/bin',
+    browseDir: '~/.claude/skills/nexus/browse/dist',
+    designDir: '~/.claude/skills/nexus/design/dist',
   },
   codex: {
-    skillRoot: '$GSTACK_ROOT',
-    localSkillRoot: '.agents/skills/gstack',
-    binDir: '$GSTACK_BIN',
-    browseDir: '$GSTACK_BROWSE',
-    designDir: '$GSTACK_DESIGN',
+    skillRoot: '$NEXUS_ROOT',
+    localSkillRoot: '.agents/skills/nexus',
+    binDir: '$NEXUS_BIN',
+    browseDir: '$NEXUS_BROWSE',
+    designDir: '$NEXUS_DESIGN',
   },
   factory: {
-    skillRoot: '$GSTACK_ROOT',
-    localSkillRoot: '.factory/skills/gstack',
-    binDir: '$GSTACK_BIN',
-    browseDir: '$GSTACK_BROWSE',
-    designDir: '$GSTACK_DESIGN',
+    skillRoot: '$NEXUS_ROOT',
+    localSkillRoot: '.factory/skills/nexus',
+    binDir: '$NEXUS_BIN',
+    browseDir: '$NEXUS_BROWSE',
+    designDir: '$NEXUS_DESIGN',
   },
 };
 

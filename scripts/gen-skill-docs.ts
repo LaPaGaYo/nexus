@@ -85,13 +85,13 @@ const OPENAI_LITMUS_CHECKS = [
 // Re-export local copy for use in this file (matches codex-helpers.ts)
 // Accepts optional frontmatter name to support directory/invocation name divergence
 function externalSkillName(skillDir: string, frontmatterName?: string): string {
-  // Root skill (skillDir === '' or '.') always maps to 'gstack' regardless of frontmatter
-  if (skillDir === '.' || skillDir === '') return 'gstack';
+  // Root skill (skillDir === '' or '.') always maps to 'nexus' regardless of frontmatter
+  if (skillDir === '.' || skillDir === '') return 'nexus';
   // Use frontmatter name when it differs from directory name (e.g., run-tests/ with name: test)
   const baseName = frontmatterName && frontmatterName !== skillDir ? frontmatterName : skillDir;
-  // Don't double-prefix: gstack-upgrade → gstack-upgrade (not gstack-gstack-upgrade)
-  if (baseName.startsWith('gstack-')) return baseName;
-  return `gstack-${baseName}`;
+  if (baseName.startsWith('nexus-')) return baseName;
+  if (baseName.startsWith('gstack-')) return `nexus-${baseName.slice('gstack-'.length)}`;
+  return `nexus-${baseName}`;
 }
 
 function extractNameAndDescription(content: string): { name: string; description: string } {
@@ -149,7 +149,7 @@ function generateOpenAIYaml(displayName: string, shortDescription: string): stri
   return `interface:
   display_name: ${JSON.stringify(displayName)}
   short_description: ${JSON.stringify(shortDescription)}
-  default_prompt: ${JSON.stringify(`Use ${displayName} for this task.`)}
+  default_prompt: ${JSON.stringify(`Use $${displayName} to locate the bundled Nexus skills.`)}
 policy:
   allow_implicit_invocation: true
 `;
@@ -161,7 +161,7 @@ policy:
  * Codex: keeps name + description only, enforces 1024-char limit.
  * Factory: keeps name + description + user-invocable, conditionally adds disable-model-invocation.
  */
-function transformFrontmatter(content: string, host: Host): string {
+function transformFrontmatter(content: string, host: Host, nameOverride?: string): string {
   if (host === 'claude') {
     // Strip sensitive: field from Claude output (only Factory uses it)
     return content.replace(/^sensitive:\s*true\n/m, '');
@@ -174,24 +174,25 @@ function transformFrontmatter(content: string, host: Host): string {
   const frontmatter = content.slice(fmStart + 4, fmEnd);
   const body = content.slice(fmEnd + 4); // includes the leading \n after ---
   const { name, description } = extractNameAndDescription(content);
+  const emittedName = nameOverride ?? name;
 
   if (host === 'codex') {
     // Codex 1024-char description limit — fail build, don't ship broken skills
     const MAX_DESC = 1024;
     if (description.length > MAX_DESC) {
       throw new Error(
-        `Codex description for "${name}" is ${description.length} chars (max ${MAX_DESC}). ` +
+        `Codex description for "${emittedName}" is ${description.length} chars (max ${MAX_DESC}). ` +
         `Compress the description in the .tmpl file.`
       );
     }
     const indentedDesc = description.split('\n').map(l => `  ${l}`).join('\n');
-    return `---\nname: ${name}\ndescription: |\n${indentedDesc}\n---` + body;
+    return `---\nname: ${emittedName}\ndescription: |\n${indentedDesc}\n---` + body;
   }
 
   if (host === 'factory') {
     const sensitive = /^sensitive:\s*true/m.test(frontmatter);
     const indentedDesc = description.split('\n').map(l => `  ${l}`).join('\n');
-    let fm = `---\nname: ${name}\ndescription: |\n${indentedDesc}\nuser-invocable: true\n`;
+    let fm = `---\nname: ${emittedName}\ndescription: |\n${indentedDesc}\nuser-invocable: true\n`;
     if (sensitive) fm += `disable-model-invocation: true\n`;
     fm += '---';
     return fm + body;
@@ -286,7 +287,7 @@ function processExternalHost(
   const safetyProse = extractHookSafetyProse(tmplContent);
 
   // Transform frontmatter (host-aware)
-  let result = transformFrontmatter(content, host);
+  let result = transformFrontmatter(content, host, name);
 
   // Insert safety advisory at the top of the body (after frontmatter)
   if (safetyProse) {
@@ -316,6 +317,11 @@ function processExternalHost(
     fs.mkdirSync(agentsDir, { recursive: true });
     const shortDescription = condenseOpenAIShortDescription(extractedDescription);
     fs.writeFileSync(path.join(agentsDir, 'openai.yaml'), generateOpenAIYaml(name, shortDescription));
+    if (host === 'codex' && (skillDir === '.' || skillDir === '')) {
+      const rootAgentsDir = path.join(ROOT, 'agents');
+      fs.mkdirSync(rootAgentsDir, { recursive: true });
+      fs.writeFileSync(path.join(rootAgentsDir, 'openai.yaml'), generateOpenAIYaml(name, shortDescription));
+    }
   }
 
   return { content: result, outputPath, outputDir, symlinkLoop };
@@ -395,6 +401,22 @@ function findTemplates(): string[] {
   return discoverTemplates(ROOT).map(t => path.join(ROOT, t.tmpl));
 }
 
+function cleanupLegacyExternalHostOutputs(host: Host): void {
+  if (DRY_RUN || host === 'claude') return;
+
+  const config = EXTERNAL_HOST_CONFIG[host];
+  if (!config) return;
+
+  const skillsDir = path.join(ROOT, config.hostSubdir, 'skills');
+  if (!fs.existsSync(skillsDir)) return;
+
+  for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name.startsWith('gstack')) {
+      fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
+    }
+  }
+}
+
 const ALL_HOSTS: Host[] = ['claude', 'codex', 'factory'];
 const hostsToRun: Host[] = HOST_ARG_VAL === 'all' ? ALL_HOSTS : [HOST];
 const failures: { host: string; error: Error }[] = [];
@@ -405,6 +427,8 @@ for (const currentHost of hostsToRun) {
   try {
     let hasChanges = false;
     const tokenBudget: Array<{ skill: string; lines: number; tokens: number }> = [];
+
+    cleanupLegacyExternalHostOutputs(currentHost);
 
     for (const tmplPath of findTemplates()) {
       // Skip /codex skill for non-Claude hosts (it's a Claude wrapper around codex exec)
