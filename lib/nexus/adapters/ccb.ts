@@ -1,9 +1,4 @@
-import {
-  buildCcbExecutionTraceability,
-  buildCcbRoutingTraceability,
-  buildGeneratorExecution,
-  buildResolvedRoute,
-} from '../absorption';
+import { createBuildStagePack, createHandoffStagePack } from '../stage-packs';
 import type { ActualRouteRecord } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter } from './types';
 
@@ -47,25 +42,28 @@ function inactiveResult(): AdapterResult<null> {
 }
 
 export function createDefaultCcbAdapter(): CcbAdapter {
+  const handoffPack = createHandoffStagePack();
+  const buildPack = createBuildStagePack();
+
   return {
     resolve_route: async (ctx) => {
-      const resolved = buildResolvedRoute(ctx);
+      const resolved = handoffPack.buildResolvedRoute(ctx);
 
       return successResult<CcbResolveRouteRaw>(
         resolved.raw_output,
         resolved.actual_route,
         ctx.requested_route,
-        buildCcbRoutingTraceability(),
+        handoffPack.traceability(),
       );
     },
     execute_generator: async (ctx) => {
-      const execution = buildGeneratorExecution(ctx);
+      const execution = buildPack.buildGeneratorExecution(ctx);
 
       return successResult<CcbExecuteGeneratorRaw>(
         execution.raw_output,
         execution.actual_route,
         ctx.requested_route,
-        buildCcbExecutionTraceability(),
+        buildPack.executionTraceability(),
       );
     },
     execute_audit_a: async () => inactiveResult(),

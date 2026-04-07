@@ -18,6 +18,7 @@ describe('nexus superpowers build discipline', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-build-pack',
               absorbed_capability: 'superpowers-build-discipline',
               source_map: ['upstream/superpowers/skills/test-driven-development/SKILL.md'],
             },
@@ -34,12 +35,14 @@ describe('nexus superpowers build discipline', () => {
         discipline: {
           adapter_id: 'superpowers',
           traceability: {
+            nexus_stage_pack: 'nexus-build-pack',
             absorbed_capability: 'superpowers-build-discipline',
           },
         },
         transport: {
           adapter_id: 'ccb',
           traceability: {
+            nexus_stage_pack: 'nexus-build-pack',
             absorbed_capability: 'ccb-execution',
           },
         },

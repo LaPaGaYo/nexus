@@ -1,8 +1,24 @@
 import { describe, expect, test } from 'bun:test';
+import { createBuildStagePack } from '../../lib/nexus/stage-packs/build';
+import { createHandoffStagePack } from '../../lib/nexus/stage-packs/handoff';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus build routing', () => {
+  test('build and handoff stage packs stay Nexus-owned internal units', () => {
+    const handoffPack = createHandoffStagePack();
+    const buildPack = createBuildStagePack();
+
+    expect(handoffPack.id).toBe('nexus-handoff-pack');
+    expect(handoffPack.stage).toBe('handoff');
+    expect(handoffPack.source_binding.absorbed_capabilities).toContain('ccb-routing');
+
+    expect(buildPack.id).toBe('nexus-build-pack');
+    expect(buildPack.stage).toBe('build');
+    expect(buildPack.source_binding.absorbed_capabilities).toContain('superpowers-build-discipline');
+    expect(buildPack.source_binding.absorbed_capabilities).toContain('ccb-execution');
+  });
+
   test('records route availability and explicit Nexus approval as separate fields', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
@@ -22,6 +38,7 @@ describe('nexus build routing', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-handoff-pack',
               absorbed_capability: 'ccb-routing',
               source_map: ['upstream/claude-code-bridge/lib/providers.py'],
             },
@@ -51,6 +68,7 @@ describe('nexus build routing', () => {
       expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
         adapter_id: 'ccb',
         traceability: {
+          nexus_stage_pack: 'nexus-handoff-pack',
           absorbed_capability: 'ccb-routing',
         },
       });

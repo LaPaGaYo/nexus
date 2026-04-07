@@ -1,4 +1,4 @@
-import { buildSuperpowersBuildTraceability, buildVerificationSummary } from '../absorption';
+import { createBuildStagePack } from '../stage-packs';
 import type { AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
 
 export interface SuperpowersBuildDisciplineRaw {
@@ -31,11 +31,13 @@ function reservedFutureResult(): AdapterResult<null> {
 }
 
 export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
+  const buildPack = createBuildStagePack();
+
   return {
     build_discipline: async (ctx) =>
       successResult<SuperpowersBuildDisciplineRaw>({
-        verification_summary: buildVerificationSummary(ctx),
-      }, buildSuperpowersBuildTraceability()),
+        verification_summary: buildPack.buildVerificationSummary(ctx),
+      }, buildPack.disciplineTraceability()),
     review_discipline: async () => reservedFutureResult(),
     ship_discipline: async () => reservedFutureResult(),
   };
