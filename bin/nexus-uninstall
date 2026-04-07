@@ -22,8 +22,44 @@ if [ -z "${HOME:-}" ]; then
 fi
 
 GSTACK_DIR="${GSTACK_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
-STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-$HOME/.gstack}}"
+PRIMARY_STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
+LEGACY_STATE_DIR="${GSTACK_STATE_DIR:-$HOME/.gstack}"
+MIGRATION_MARKER=".migrated-from-gstack"
+INCOMPLETE_MARKER=".migration-incomplete"
+STATE_DIR="$PRIMARY_STATE_DIR"
 _GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+resolve_state_dir() {
+  if [ -n "${NEXUS_STATE_DIR:-}" ]; then
+    STATE_DIR="$NEXUS_STATE_DIR"
+    return
+  fi
+
+  if [ -n "${GSTACK_STATE_DIR:-}" ]; then
+    STATE_DIR="$GSTACK_STATE_DIR"
+    return
+  fi
+
+  if [ -d "$PRIMARY_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ] && [ ! -f "$PRIMARY_STATE_DIR/$MIGRATION_MARKER" ]; then
+    touch "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER"
+    STATE_DIR="$LEGACY_STATE_DIR"
+    return
+  fi
+
+  if [ -d "$PRIMARY_STATE_DIR" ]; then
+    STATE_DIR="$PRIMARY_STATE_DIR"
+    return
+  fi
+
+  if [ -d "$LEGACY_STATE_DIR" ]; then
+    STATE_DIR="$LEGACY_STATE_DIR"
+    return
+  fi
+
+  STATE_DIR="$PRIMARY_STATE_DIR"
+}
+
+resolve_state_dir
 
 FORCE=0
 KEEP_STATE=0

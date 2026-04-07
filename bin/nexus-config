@@ -12,7 +12,44 @@
 #   GSTACK_STATE_DIR  — override compatibility ~/.gstack state directory
 set -euo pipefail
 
-STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-$HOME/.gstack}}"
+PRIMARY_STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
+LEGACY_STATE_DIR="${GSTACK_STATE_DIR:-$HOME/.gstack}"
+MIGRATION_MARKER=".migrated-from-gstack"
+INCOMPLETE_MARKER=".migration-incomplete"
+STATE_DIR="$PRIMARY_STATE_DIR"
+
+resolve_state_dir() {
+  if [ -n "${NEXUS_STATE_DIR:-}" ]; then
+    STATE_DIR="$NEXUS_STATE_DIR"
+    return
+  fi
+
+  if [ -n "${GSTACK_STATE_DIR:-}" ]; then
+    STATE_DIR="$GSTACK_STATE_DIR"
+    return
+  fi
+
+  if [ ! -d "$PRIMARY_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ]; then
+    mkdir -p "$PRIMARY_STATE_DIR"
+    cp -R "$LEGACY_STATE_DIR"/. "$PRIMARY_STATE_DIR"/ 2>/dev/null || true
+    touch "$PRIMARY_STATE_DIR/$MIGRATION_MARKER"
+    rm -f "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER"
+    STATE_DIR="$PRIMARY_STATE_DIR"
+    return
+  fi
+
+  if [ -d "$PRIMARY_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ] && [ ! -f "$PRIMARY_STATE_DIR/$MIGRATION_MARKER" ]; then
+    touch "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER"
+    STATE_DIR="$LEGACY_STATE_DIR"
+    return
+  fi
+
+  mkdir -p "$PRIMARY_STATE_DIR"
+  rm -f "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER" 2>/dev/null || true
+  STATE_DIR="$PRIMARY_STATE_DIR"
+}
+
+resolve_state_dir
 CONFIG_FILE="$STATE_DIR/config.yaml"
 
 CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root) — edit freely,

@@ -98,4 +98,65 @@ describe('nexus host root contract', () => {
       migration_from: '/Users/tester/.gstack',
     });
   });
+
+  test('assesses migration completeness conservatively when both roots exist', async () => {
+    expect(existsSync(HOST_ROOTS_MODULE)).toBe(true);
+    if (!existsSync(HOST_ROOTS_MODULE)) {
+      return;
+    }
+
+    const mod = await import('../../lib/nexus/host-roots');
+
+    expect(mod.NEXUS_STATE_MIGRATION_MARKER).toBe('.migrated-from-gstack');
+    expect(mod.NEXUS_STATE_INCOMPLETE_MARKER).toBe('.migration-incomplete');
+    expect(mod.getStateMigrationMarkerPath('/Users/tester/.nexus')).toBe('/Users/tester/.nexus/.migrated-from-gstack');
+    expect(mod.getIncompleteMigrationMarkerPath('/Users/tester/.nexus')).toBe('/Users/tester/.nexus/.migration-incomplete');
+
+    expect(
+      mod.assessHostStateMigration({
+        nexusStateExists: false,
+        legacyStateExists: true,
+        migrationMarkerExists: false,
+      }),
+    ).toEqual({
+      status: 'needs_migration',
+      use_legacy_fallback: false,
+    });
+
+    expect(
+      mod.assessHostStateMigration({
+        nexusStateExists: true,
+        legacyStateExists: true,
+        migrationMarkerExists: false,
+      }),
+    ).toEqual({
+      status: 'partial',
+      use_legacy_fallback: true,
+    });
+
+    expect(
+      mod.assessHostStateMigration({
+        nexusStateExists: true,
+        legacyStateExists: true,
+        migrationMarkerExists: true,
+      }),
+    ).toEqual({
+      status: 'complete',
+      use_legacy_fallback: false,
+    });
+
+    expect(
+      mod.resolveManagedHostStateRoot({
+        env: {},
+        homeDir: '/Users/tester',
+        nexusStateExists: true,
+        legacyStateExists: true,
+        migrationMarkerExists: false,
+      }),
+    ).toEqual({
+      root: '/Users/tester/.gstack',
+      source: 'fallback:gstack',
+      migration_from: '/Users/tester/.gstack',
+    });
+  });
 });

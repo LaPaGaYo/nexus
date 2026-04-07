@@ -7,6 +7,7 @@ import * as os from 'os';
 const ROOT = path.resolve(import.meta.dir, '..');
 const UNINSTALL = path.join(ROOT, 'bin', 'gstack-uninstall');
 const NEXUS_UNINSTALL = path.join(ROOT, 'bin', 'nexus-uninstall');
+const NEXUS_CONFIG = path.join(ROOT, 'bin', 'nexus-config');
 
 describe('gstack-uninstall', () => {
   test('syntax check passes', () => {
@@ -144,6 +145,44 @@ describe('gstack-uninstall', () => {
       expect(result.status).toBe(0);
       expect(fs.existsSync(path.join(mockHome, '.nexus'))).toBe(false);
       expect(fs.existsSync(path.join(mockHome, '.gstack'))).toBe(true);
+    });
+
+    test('nexus-config migrates legacy ~/.gstack state into ~/.nexus with a marker', () => {
+      fs.writeFileSync(path.join(mockHome, '.gstack', 'config.yaml'), 'skill_prefix: true\n');
+
+      const result = spawnSync('bash', [NEXUS_CONFIG, 'get', 'skill_prefix'], {
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          HOME: mockHome,
+        },
+        cwd: mockGitRoot,
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout.toString().trim()).toBe('true');
+      expect(fs.existsSync(path.join(mockHome, '.nexus', 'config.yaml'))).toBe(true);
+      expect(fs.existsSync(path.join(mockHome, '.nexus', '.migrated-from-gstack'))).toBe(true);
+      expect(fs.existsSync(path.join(mockHome, '.gstack', 'config.yaml'))).toBe(true);
+    });
+
+    test('nexus-config falls back to ~/.gstack when ~/.nexus exists without migration marker', () => {
+      fs.mkdirSync(path.join(mockHome, '.nexus'), { recursive: true });
+      fs.writeFileSync(path.join(mockHome, '.nexus', 'config.yaml'), 'skill_prefix: false\n');
+      fs.writeFileSync(path.join(mockHome, '.gstack', 'config.yaml'), 'skill_prefix: true\n');
+
+      const result = spawnSync('bash', [NEXUS_CONFIG, 'get', 'skill_prefix'], {
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          HOME: mockHome,
+        },
+        cwd: mockGitRoot,
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout.toString().trim()).toBe('true');
+      expect(fs.existsSync(path.join(mockHome, '.nexus', '.migration-incomplete'))).toBe(true);
     });
 
     test('clean system outputs nothing to remove', () => {

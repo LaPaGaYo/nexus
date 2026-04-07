@@ -259,8 +259,18 @@ if ! ensure_playwright_browser; then
   exit 1
 fi
 
-# 3. Ensure ~/.gstack global state directory exists
-mkdir -p "$HOME/.gstack/projects"
+# 3. Ensure ~/.nexus global state directory exists, migrating compatibility
+# state from ~/.gstack when needed
+NEXUS_STATE_DIR="$HOME/.nexus"
+LEGACY_STATE_DIR="$HOME/.gstack"
+if [ ! -d "$NEXUS_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ]; then
+  mkdir -p "$NEXUS_STATE_DIR"
+  cp -R "$LEGACY_STATE_DIR"/. "$NEXUS_STATE_DIR"/ 2>/dev/null || true
+  touch "$NEXUS_STATE_DIR/.migrated-from-gstack"
+elif [ -d "$NEXUS_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ] && [ ! -f "$NEXUS_STATE_DIR/.migrated-from-gstack" ]; then
+  touch "$NEXUS_STATE_DIR/.migration-incomplete"
+fi
+mkdir -p "$NEXUS_STATE_DIR/projects"
 
 # ─── Helper: link Claude skill subdirectories into a skills parent directory ──
 # When SKILL_PREFIX=1, symlinks are prefixed with "nexus-" to make Nexus the
@@ -689,9 +699,9 @@ if [ "$INSTALL_CODEX" -eq 1 ]; then
 fi
 
 # 8. First-time welcome + legacy cleanup
-if [ ! -f "$HOME/.gstack/.welcome-seen" ]; then
+if [ ! -f "$HOME/.nexus/.welcome-seen" ]; then
   echo "  Welcome to Nexus! Run /gstack-upgrade anytime to stay current."
   echo "  Host helpers: nexus-config, nexus-relink, nexus-uninstall"
-  touch "$HOME/.gstack/.welcome-seen"
+  touch "$HOME/.nexus/.welcome-seen"
 fi
 rm -f /tmp/gstack-latest-version
