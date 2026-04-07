@@ -17,6 +17,12 @@ import { generateLearningsSearch, generateLearningsLog } from './learnings';
 import { generateConfidenceCalibration } from './confidence';
 import { generateInvokeSkill } from './composition';
 import { generateReviewArmy } from './review-army';
+import {
+  generateNexusStageOverview,
+  generateNexusStageChecklist,
+  generateNexusStageArtifactContract,
+  generateNexusStageRouting,
+} from './nexus-stage-content';
 
 export const RESOLVERS: Record<string, ResolverFn> = {
   SLUG_EVAL: generateSlugEval,
@@ -59,4 +65,8 @@ export const RESOLVERS: Record<string, ResolverFn> = {
   INVOKE_SKILL: generateInvokeSkill,
   CHANGELOG_WORKFLOW: generateChangelogWorkflow,
   REVIEW_ARMY: generateReviewArmy,
+  NEXUS_STAGE_OVERVIEW: generateNexusStageOverview,
+  NEXUS_STAGE_CHECKLIST: generateNexusStageChecklist,
+  NEXUS_STAGE_ARTIFACT_CONTRACT: generateNexusStageArtifactContract,
+  NEXUS_STAGE_ROUTING: generateNexusStageRouting,
 };

@@ -122,6 +122,17 @@ describe('gen-skill-docs', () => {
     }
   });
 
+  test('canonical lifecycle templates source their body from Nexus stage-content placeholders', () => {
+    for (const dir of NEXUS_CANONICAL_SKILLS) {
+      const template = readTemplate(dir);
+
+      expect(template).toContain('{{NEXUS_STAGE_OVERVIEW}}');
+      expect(template).toContain('{{NEXUS_STAGE_CHECKLIST}}');
+      expect(template).toContain('{{NEXUS_STAGE_ARTIFACT_CONTRACT}}');
+      expect(template).toContain('{{NEXUS_STAGE_ROUTING}}');
+    }
+  });
+
   test('generated SKILL.md contains all command categories', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     const categories = new Set(Object.values(COMMAND_DESCRIPTIONS).map(d => d.category));
@@ -1434,7 +1445,7 @@ describe('Nexus-first wrapper language', () => {
   test('canonical wrappers stay Nexus-first even after upstream imports exist', () => {
     const content = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
 
-    expect(content).toContain('This command is the only supported planning lifecycle entrypoint.');
+    expect(content).toContain('Nexus-owned planning guidance for execution readiness and bounded scope.');
     expect(content).not.toMatch(/GSD-native command|PM-native command|Superpowers-native command/i);
   });
 

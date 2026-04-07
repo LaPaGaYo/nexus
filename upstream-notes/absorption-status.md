@@ -1,16 +1,30 @@
 # Nexus Absorption Status
 
 This file tracks which imported upstream capability sources have been absorbed into
-Nexus-owned stage packs and which seams remain inactive.
+Nexus-owned stage content and stage packs, and which seams remain inactive.
 
 ## Imported upstream sources
 
 | Source | Imported path | Current role in Nexus |
 | --- | --- | --- |
-| PM Skills | `upstream/pm-skills` | Source material only for the discovery and framing stage packs |
-| GSD | `upstream/gsd` | Source material only for the planning and closeout stage packs |
-| Superpowers | `upstream/superpowers` | Source material only for the build stage pack |
-| CCB | `upstream/claude-code-bridge` | Source material only for handoff/build transport under Nexus control |
+| PM Skills | `upstream/pm-skills` | Source material only for the discovery and framing stage content and stage packs |
+| GSD | `upstream/gsd` | Source material only for the planning and closeout stage content and stage packs |
+| Superpowers | `upstream/superpowers` | Source material only for the build stage content and stage pack |
+| CCB | `upstream/claude-code-bridge` | Source material only for handoff/build routing content and transport under Nexus control |
+
+## Active Nexus-owned stage content
+
+| Nexus content | Content path | Source systems | Canonical commands |
+| --- | --- | --- | --- |
+| `nexus-discover-content` | `lib/nexus/stage-content/discover/` | PM Skills | `/discover` |
+| `nexus-frame-content` | `lib/nexus/stage-content/frame/` | PM Skills | `/frame` |
+| `nexus-plan-content` | `lib/nexus/stage-content/plan/` | GSD | `/plan` |
+| `nexus-handoff-content` | `lib/nexus/stage-content/handoff/` | CCB | `/handoff` |
+| `nexus-build-content` | `lib/nexus/stage-content/build/` | Superpowers, CCB | `/build` |
+| `nexus-review-content` | `lib/nexus/stage-content/review/` | Superpowers, GSD | `/review` |
+| `nexus-qa-content` | `lib/nexus/stage-content/qa/` | Superpowers, GSD | `/qa` |
+| `nexus-ship-content` | `lib/nexus/stage-content/ship/` | Superpowers, CCB | `/ship` |
+| `nexus-closeout-content` | `lib/nexus/stage-content/closeout/` | GSD | `/closeout` |
 
 ## Active Nexus-owned stage packs
 
@@ -24,7 +38,8 @@ Nexus-owned stage packs and which seams remain inactive.
 | `nexus-closeout-pack` | `lib/nexus/stage-packs/closeout.ts` | GSD | `/closeout` |
 
 The absorbed builders under `lib/nexus/absorption/` remain implementation detail only.
-The active Nexus-owned units are the stage packs under `lib/nexus/stage-packs/`.
+The active Nexus-owned units are the canonical stage content under `lib/nexus/stage-content/`
+and the runtime stage packs under `lib/nexus/stage-packs/`.
 
 ## Reserved future seams
 

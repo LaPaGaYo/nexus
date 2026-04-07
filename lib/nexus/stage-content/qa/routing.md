@@ -1,1 +1,1 @@
-QA content must not bypass review or create governed advancement outside Nexus.
+QA content must not bypass review and does not advance governed execution outside Nexus.

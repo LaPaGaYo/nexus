@@ -336,23 +336,24 @@ plan's living status.
 
 # /discover — Nexus Discovery
 
-This command is the only supported discovery lifecycle entrypoint.
-Absorbed PM methods may contribute discovery structure behind the scenes, but Nexus owns
-the stage status, artifact writeback, and lifecycle decision.
+Nexus-owned discovery guidance for clarifying the problem before framing.
 
-Purpose:
-- clarify the problem
-- identify goals, constraints, and open questions
-- decide whether to proceed to `/frame`
+## Operator Checklist
+
+- capture goals
+- capture constraints
+- record open questions
+
+## Artifact Contract
+
+Writes `docs/product/idea-brief.md` and `.planning/current/discover/status.json`.
+
+## Routing
+
+Advance to `/frame` only after Nexus writes the discovery artifacts.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts discover
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/discover/status.json`
-- `docs/product/idea-brief.md`

@@ -15,19 +15,22 @@ allowed-tools:
 
 # /plan — Nexus Canonical Planning Command
 
-This command is the only supported planning lifecycle entrypoint.
-Absorbed GSD methods may contribute planning structure behind the scenes, but `/plan`
-remains the only lifecycle front door for execution readiness.
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
 
 Run:
 
 ```bash
 bun run bin/nexus.ts plan
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/plan/status.json`
-- `.planning/current/plan/execution-readiness-packet.md`
-- `.planning/current/plan/sprint-contract.md`

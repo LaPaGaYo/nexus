@@ -335,19 +335,24 @@ plan's living status.
 
 # /qa — Nexus QA Placeholder
 
-This command is the only supported QA lifecycle entrypoint.
-Future absorbed QA methods must still normalize through Nexus before they can affect
-governed state.
+Nexus-owned QA guidance for explicit validation scope beyond code review.
+
+## Operator Checklist
+
+- define validation scope
+- record findings
+- keep runtime status explicit
+
+## Artifact Contract
+
+Currently writes `.planning/current/qa/status.json` while broader QA runtime depth remains staged.
+
+## Routing
+
+QA content must not bypass review and does not advance governed execution outside Nexus.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts qa
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/qa/status.json`
-
-Tell the user that QA remains scaffolded in Nexus v0.1 and does not advance governed execution.

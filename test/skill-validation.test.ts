@@ -403,8 +403,8 @@ describe('Nexus wrapper skill validation', () => {
 
   test('implemented discovery and framing wrappers no longer present as placeholders', () => {
     const expectations = {
-      discover: 'This command is the only supported discovery lifecycle entrypoint.',
-      frame: 'This command is the only supported framing lifecycle entrypoint.',
+      discover: 'Nexus-owned discovery guidance for clarifying the problem before framing.',
+      frame: 'Nexus-owned framing guidance for scope, non-goals, and success criteria.',
     } as const;
 
     for (const [skill, phrase] of Object.entries(expectations)) {
@@ -413,6 +413,20 @@ describe('Nexus wrapper skill validation', () => {
       expect(content).not.toContain('Nexus Framing Placeholder');
       expect(content).toContain(phrase);
       expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
+    }
+  });
+
+  test('generated canonical wrappers include Nexus-authored stage content', () => {
+    const expectations = {
+      discover: 'Advance to `/frame` only after Nexus writes the discovery artifacts.',
+      plan: 'Advance to `/handoff` only after Nexus declares execution ready.',
+      review: 'Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state.',
+      ship: 'Ship content must not imply implemented release authority before Nexus runtime says so;',
+    } as const;
+
+    for (const [skill, phrase] of Object.entries(expectations)) {
+      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      expect(content).toContain(phrase);
     }
   });
 

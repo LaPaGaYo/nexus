@@ -336,19 +336,24 @@ plan's living status.
 
 # /plan — Nexus Canonical Planning Command
 
-This command is the only supported planning lifecycle entrypoint.
-Absorbed GSD methods may contribute planning structure behind the scenes, but `/plan`
-remains the only lifecycle front door for execution readiness.
+Nexus-owned planning guidance for execution readiness and bounded scope.
+
+## Operator Checklist
+
+- verify framing inputs
+- produce readiness packet
+- produce sprint contract
+
+## Artifact Contract
+
+Writes `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, and `.planning/current/plan/status.json`.
+
+## Routing
+
+Advance to `/handoff` only after Nexus declares execution ready.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts plan
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/plan/status.json`
-- `.planning/current/plan/execution-readiness-packet.md`
-- `.planning/current/plan/sprint-contract.md`

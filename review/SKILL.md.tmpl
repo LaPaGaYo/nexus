@@ -14,21 +14,22 @@ allowed-tools:
 
 # /review — Nexus Governed Review
 
-This command is the only supported review lifecycle entrypoint.
-Nexus owns the audit workspace, structured review completion state, and governed
-provenance even when future absorbed review seams are activated.
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
 
 Run:
 
 ```bash
 bun run bin/nexus.ts review
 ```
-
-Then read:
-
-- `.planning/current/review/status.json`
-- `.planning/audits/current/codex.md`
-- `.planning/audits/current/gemini.md`
-- `.planning/audits/current/synthesis.md`
-- `.planning/audits/current/gate-decision.md`
-- `.planning/audits/current/meta.json`

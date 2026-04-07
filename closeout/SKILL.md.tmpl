@@ -14,18 +14,22 @@ allowed-tools:
 
 # /closeout — Nexus Governed Closeout
 
-This command is the only supported closeout lifecycle entrypoint.
-Absorbed GSD closeout methods may contribute structure behind the scenes, but Nexus owns
-archive verification, transition legality, and final governed readiness.
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
 
 Run:
 
 ```bash
 bun run bin/nexus.ts closeout
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/closeout/status.json`
-- `.planning/current/closeout/CLOSEOUT-RECORD.md`

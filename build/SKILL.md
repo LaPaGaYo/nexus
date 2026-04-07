@@ -335,20 +335,24 @@ plan's living status.
 
 # /build — Nexus Governed Build
 
-This command is the only supported governed build lifecycle entrypoint.
-Absorbed Superpowers discipline and CCB transport may contribute execution behavior behind
-the scenes, but Nexus owns requested route, actual route, canonical build artifacts, and
-stage status.
+Nexus-owned build guidance for disciplined implementation under governed routing.
+
+## Operator Checklist
+
+- run build discipline before transport
+- preserve requested route
+- record actual route separately
+
+## Artifact Contract
+
+Writes `.planning/current/build/build-request.json`, `.planning/current/build/build-result.md`, and `.planning/current/build/status.json`.
+
+## Routing
+
+Advance to `/review` only after Nexus records a bounded build result with requested and actual route provenance kept distinct.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts build
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/build/status.json`
-- `.planning/current/build/build-request.json`
-- `.planning/current/build/build-result.md`

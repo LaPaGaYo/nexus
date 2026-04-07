@@ -14,20 +14,22 @@ allowed-tools:
 
 # /build — Nexus Governed Build
 
-This command is the only supported governed build lifecycle entrypoint.
-Absorbed Superpowers discipline and CCB transport may contribute execution behavior behind
-the scenes, but Nexus owns requested route, actual route, canonical build artifacts, and
-stage status.
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
 
 Run:
 
 ```bash
 bun run bin/nexus.ts build
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/build/status.json`
-- `.planning/current/build/build-request.json`
-- `.planning/current/build/build-result.md`

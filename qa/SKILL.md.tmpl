@@ -14,19 +14,22 @@ allowed-tools:
 
 # /qa — Nexus QA Placeholder
 
-This command is the only supported QA lifecycle entrypoint.
-Future absorbed QA methods must still normalize through Nexus before they can affect
-governed state.
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
 
 Run:
 
 ```bash
 bun run bin/nexus.ts qa
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/qa/status.json`
-
-Tell the user that QA remains scaffolded in Nexus v0.1 and does not advance governed execution.

@@ -336,19 +336,24 @@ plan's living status.
 
 # /handoff — Nexus Governed Handoff
 
-This command is the only supported governed handoff lifecycle entrypoint.
-Absorbed CCB routing consultation may inform route availability, but Nexus alone approves
-the governed route, writes the canonical handoff artifacts, and advances lifecycle state.
+Nexus-owned governed handoff guidance for explicit routing and route approval.
+
+## Operator Checklist
+
+- record requested route
+- validate transport availability
+- require separate Nexus approval
+
+## Artifact Contract
+
+Writes `.planning/current/handoff/governed-execution-routing.md`, `.planning/current/handoff/governed-handoff.md`, and `.planning/current/handoff/status.json`.
+
+## Routing
+
+Advance to `/build` only after Nexus records an approved governed handoff. Transport availability alone is never sufficient without an approved route.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts handoff
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/handoff/status.json`
-- `.planning/current/handoff/governed-execution-routing.md`
-- `.planning/current/handoff/governed-handoff.md`

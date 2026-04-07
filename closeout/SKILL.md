@@ -335,18 +335,24 @@ plan's living status.
 
 # /closeout — Nexus Governed Closeout
 
-This command is the only supported closeout lifecycle entrypoint.
-Absorbed GSD closeout methods may contribute structure behind the scenes, but Nexus owns
-archive verification, transition legality, and final governed readiness.
+Nexus-owned closeout guidance for archive verification, provenance consistency, and final readiness.
+
+## Operator Checklist
+
+- verify audit completeness
+- verify archive state
+- verify legal transition history
+
+## Artifact Contract
+
+Writes `.planning/current/closeout/CLOSEOUT-RECORD.md` and `.planning/current/closeout/status.json`.
+
+## Routing
+
+Closeout is the final governed conclusion of the work unit and must remain blocked if archive or provenance checks are inconsistent.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts closeout
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/closeout/status.json`
-- `.planning/current/closeout/CLOSEOUT-RECORD.md`

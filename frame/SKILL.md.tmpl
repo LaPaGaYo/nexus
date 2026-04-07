@@ -15,24 +15,22 @@ allowed-tools:
 
 # /frame — Nexus Framing
 
-This command is the only supported framing lifecycle entrypoint.
-Absorbed PM methods may contribute framing structure behind the scenes, but Nexus owns
-the stage status, artifact writeback, and lifecycle decision.
+{{NEXUS_STAGE_OVERVIEW}}
 
-Purpose:
-- define scope and non-goals
-- capture success criteria and product shape
-- decide whether to proceed to `/plan`
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
 
 Run:
 
 ```bash
 bun run bin/nexus.ts frame
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/frame/status.json`
-- `docs/product/decision-brief.md`
-- `docs/product/prd.md`

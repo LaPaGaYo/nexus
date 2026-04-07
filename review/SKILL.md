@@ -335,21 +335,24 @@ plan's living status.
 
 # /review — Nexus Governed Review
 
-This command is the only supported review lifecycle entrypoint.
-Nexus owns the audit workspace, structured review completion state, and governed
-provenance even when future absorbed review seams are activated.
+Nexus-owned review guidance for audit completion, synthesis, and explicit gate state.
+
+## Operator Checklist
+
+- write the audit set
+- verify provenance consistency
+- record gate decision
+
+## Artifact Contract
+
+Writes `.planning/audits/current/*` and `.planning/current/review/status.json`.
+
+## Routing
+
+Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Reserved future transport seams do not change lifecycle authority.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts review
 ```
-
-Then read:
-
-- `.planning/current/review/status.json`
-- `.planning/audits/current/codex.md`
-- `.planning/audits/current/gemini.md`
-- `.planning/audits/current/synthesis.md`
-- `.planning/audits/current/gate-decision.md`
-- `.planning/audits/current/meta.json`

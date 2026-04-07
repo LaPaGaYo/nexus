@@ -336,19 +336,24 @@ plan's living status.
 
 # /ship — Nexus Ship Placeholder
 
-This command is the only supported release-gate lifecycle entrypoint.
-Future absorbed ship discipline must still normalize through Nexus before it can affect
-governed state.
+Nexus-owned ship guidance for conservative release gating and merge readiness.
+
+## Operator Checklist
+
+- require review artifacts
+- require governed gate state
+- keep release semantics explicit
+
+## Artifact Contract
+
+Currently writes `.planning/current/ship/status.json` while full release-gate runtime remains staged.
+
+## Routing
+
+Ship content must not imply implemented release authority before Nexus runtime says so; it must not imply any bypass of review, audit persistence, or closeout.
 
 Run:
 
 ```bash
 bun run bin/nexus.ts ship
 ```
-
-Then read:
-
-- `.planning/nexus/current-run.json`
-- `.planning/current/ship/status.json`
-
-Tell the user that `/ship` remains scaffolded in Nexus v0.1 and cannot bypass review, audit persistence, or closeout.
