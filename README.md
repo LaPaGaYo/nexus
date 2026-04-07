@@ -116,11 +116,11 @@ Nexus works on any agent that supports the [SKILL.md standard](https://github.co
 Install to one repo:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .agents/skills/gstack
-cd .agents/skills/gstack && ./setup --host codex
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .agents/skills/nexus
+cd .agents/skills/nexus && ./setup --host codex
 ```
 
-When setup runs from `.agents/skills/gstack`, it installs the generated Codex skills next to it in the same repo and does not write to `~/.codex/skills`.
+When setup runs from `.agents/skills/nexus`, it installs the generated Codex skills next to it in the same repo and does not write to `~/.codex/skills`.
 
 Install once for your user account:
 
@@ -129,7 +129,7 @@ git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gst
 cd ~/gstack && ./setup --host codex
 ```
 
-`setup --host codex` creates the runtime root at `~/.codex/skills/gstack` and
+`setup --host codex` creates the runtime root at `~/.codex/skills/nexus` and
 links the generated Codex skills at the top level. This avoids duplicate skill
 discovery from the source repo checkout.
 
@@ -140,7 +140,7 @@ git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gst
 cd ~/gstack && ./setup --host auto
 ```
 
-For Codex-compatible hosts, setup supports both repo-local installs from `.agents/skills/gstack` and user-global installs from `~/.codex/skills/gstack`. The compatibility path remains `gstack` for now, but the visible product surface, lifecycle, and command meaning are all Nexus-owned.
+For Codex-compatible hosts, setup supports both repo-local installs from `.agents/skills/nexus` and user-global installs from `~/.codex/skills/nexus`. Existing `gstack` roots still work through compatibility shims, but Nexus is the primary install surface.
 
 ### Factory Droid
 
@@ -151,7 +151,7 @@ git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gst
 cd ~/gstack && ./setup --host factory
 ```
 
-Skills install to `~/.factory/skills/gstack-*/`. Restart `droid` to rescan skills, then type `/qa` to get started.
+Skills install to `~/.factory/skills/nexus-*/`. Restart `droid` to rescan skills, then type `/qa` to get started.
 
 ## See it work
 
@@ -198,7 +198,7 @@ You said "daily briefing app." The agent said "you're building a chief of staff 
 
 ## The sprint
 
-gstack is a process, not a collection of tools. The skills run in the order a sprint runs:
+Nexus is a process, not a collection of tools. The skills run in the order a sprint runs:
 
 **Think → Plan → Build → Review → Test → Ship → Reflect**
 
@@ -241,19 +241,19 @@ Each skill feeds into the next. `/office-hours` writes a design doc that `/plan-
 | `/unfreeze` | **Unlock** — remove the `/freeze` boundary. |
 | `/connect-chrome` | **Chrome Controller** — launch Chrome with the Side Panel extension. Watch every action live, inspect CSS on any element, clean up pages, and take screenshots. Each tab gets its own agent. |
 | `/setup-deploy` | **Deploy Configurator** — one-time setup for `/land-and-deploy`. Detects your platform, production URL, and deploy commands. |
-| `/gstack-upgrade` | **Self-Updater** — upgrade gstack to latest. Detects global vs vendored install, syncs both, shows what changed. |
+| `/nexus-upgrade` | **Self-Updater** — upgrade Nexus to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
 
 **[Deep dives with examples and philosophy for every skill →](docs/skills.md)**
 
 ## Parallel sprints
 
-gstack works well with one sprint. It gets interesting with ten running at once.
+Nexus works well with one sprint. It gets interesting with ten running at once.
 
 **Design is at the heart.** `/design-consultation` builds your design system from scratch, researches the space, proposes creative risks, and writes `DESIGN.md`. `/design-shotgun` generates multiple visual variants and opens a comparison board so you can pick a direction. `/design-html` takes that approved mockup and generates production-quality HTML with Pretext, where text actually reflows on resize instead of breaking with hardcoded heights. Then `/design-review` and `/plan-eng-review` read what you chose. Design decisions flow through the whole system.
 
 **`/qa` was a massive unlock.** It let me go from 6 to 12 parallel workers. Claude Code saying *"I SEE THE ISSUE"* and then actually fixing it, generating a regression test, and verifying the fix — that changed how I work. The agent has eyes now.
 
-**Smart review routing.** Just like at a well-run startup: CEO doesn't have to look at infra bug fixes, design review isn't needed for backend changes. gstack tracks what reviews are run, figures out what's appropriate, and just does the smart thing. The Review Readiness Dashboard tells you where you stand before you ship.
+**Smart review routing.** Just like at a well-run startup: CEO doesn't have to look at infra bug fixes, design review isn't needed for backend changes. Nexus tracks what reviews are run, figures out what's appropriate, and just does the smart thing. The Review Readiness Dashboard tells you where you stand before you ship.
 
 **Test everything.** `/ship` bootstraps test frameworks from scratch if your project doesn't have one. Every `/ship` run produces a coverage audit. Every `/qa` bug fix generates a regression test. 100% test coverage is the goal — tests make vibe coding safe instead of yolo coding.
 
@@ -271,11 +271,11 @@ gstack works well with one sprint. It gets interesting with ten running at once.
 
 **Safety guardrails on demand.** Say "be careful" and `/careful` warns before any destructive command — rm -rf, DROP TABLE, force-push, git reset --hard. `/freeze` locks edits to one directory while debugging so Claude can't accidentally "fix" unrelated code. `/guard` activates both. `/investigate` auto-freezes to the module being investigated.
 
-**Proactive skill suggestions.** gstack notices what stage you're in — brainstorming, reviewing, debugging, testing — and suggests the right skill. Don't like it? Say "stop suggesting" and it remembers across sessions.
+**Proactive skill suggestions.** Nexus notices what stage you're in — brainstorming, reviewing, debugging, testing — and suggests the right skill. Don't like it? Say "stop suggesting" and it remembers across sessions.
 
 ## 10-15 parallel sprints
 
-gstack is powerful with one sprint. It is transformative with ten running at once.
+Nexus is powerful with one sprint. It is transformative with ten running at once.
 
 [Conductor](https://conductor.build) runs multiple Claude Code sessions in parallel — each in its own isolated workspace. One session running `/office-hours` on a new idea, another doing `/review` on a PR, a third implementing a feature, a fourth running `/qa` on staging, and six more on other branches. All at the same time. I regularly run 10-15 parallel sprints — that's the practical max right now.
 
@@ -287,7 +287,7 @@ Free, MIT licensed, open source. No premium tier, no waitlist.
 
 I open sourced how I build software. You can fork it and make it your own.
 
-> **We're hiring.** Want to ship 10K+ LOC/day and help harden gstack?
+> **We're hiring.** Want to ship 10K+ LOC/day and help harden Nexus?
 > Come work at YC — [ycombinator.com/software](https://ycombinator.com/software)
 > Extremely competitive salary and equity. San Francisco, Dogpatch District.
 
@@ -304,13 +304,13 @@ I open sourced how I build software. You can fork it and make it your own.
 
 ## Privacy & Telemetry
 
-gstack includes **opt-in** usage telemetry to help improve the project. Here's exactly what happens:
+Nexus includes **opt-in** usage telemetry to help improve the project. Here's exactly what happens:
 
 - **Default is off.** Nothing is sent anywhere unless you explicitly say yes.
-- **On first run,** gstack asks if you want to share anonymous usage data. You can say no.
-- **What's sent (if you opt in):** skill name, duration, success/fail, gstack version, OS. That's it.
+- **On first run,** Nexus asks if you want to share anonymous usage data. You can say no.
+- **What's sent (if you opt in):** skill name, duration, success/fail, Nexus version, OS. That's it.
 - **What's never sent:** code, file paths, repo names, branch names, prompts, or any user-generated content.
-- **Change anytime:** `gstack-config set telemetry off` disables everything instantly.
+- **Change anytime:** `nexus-config set telemetry off` disables everything instantly.
 
 Data is stored in [Supabase](https://supabase.com) (open source Firebase alternative). The schema is in [`supabase/migrations/`](supabase/migrations/) — you can verify exactly what's collected. The Supabase publishable key in the repo is a public key (like a Firebase API key) — row-level security policies deny all direct access. Telemetry flows through validated edge functions that enforce schema checks, event type allowlists, and field length limits.
 
@@ -318,30 +318,30 @@ Data is stored in [Supabase](https://supabase.com) (open source Firebase alterna
 
 ## Troubleshooting
 
-**Skill not showing up?** `cd ~/.claude/skills/gstack && ./setup`
+**Skill not showing up?** `cd ~/.claude/skills/nexus && ./setup`
 
-**`/browse` fails?** `cd ~/.claude/skills/gstack && bun install && bun run build`
+**`/browse` fails?** `cd ~/.claude/skills/nexus && bun install && bun run build`
 
-**Stale install?** Run `/gstack-upgrade` — or set `auto_upgrade: true` in `~/.gstack/config.yaml`
+**Stale install?** Run `/nexus-upgrade` — or set `auto_upgrade: true` in `~/.nexus/config.yaml`
 
-**Want shorter commands?** `cd ~/.claude/skills/gstack && ./setup --no-prefix` — switches from `/gstack-qa` to `/qa`. Your choice is remembered for future upgrades.
+**Want shorter commands?** `cd ~/.claude/skills/nexus && ./setup --no-prefix` — switches from `/nexus-qa` to `/qa`. Your choice is remembered for future upgrades.
 
-**Want namespaced commands?** `cd ~/.claude/skills/gstack && ./setup --prefix` — switches from `/qa` to `/gstack-qa`. Useful if you run other skill packs alongside gstack.
+**Want namespaced commands?** `cd ~/.claude/skills/nexus && ./setup --prefix` — switches from `/qa` to `/nexus-qa`. Useful if you run other skill packs alongside Nexus.
 
-**Codex says "Skipped loading skill(s) due to invalid SKILL.md"?** Your Codex skill descriptions are stale. Fix: `cd ~/.codex/skills/gstack && git pull && ./setup --host codex` — or for repo-local installs: `cd "$(readlink -f .agents/skills/gstack)" && git pull && ./setup --host codex`
+**Codex says "Skipped loading skill(s) due to invalid SKILL.md"?** Your Codex skill descriptions are stale. Fix: `cd ~/.codex/skills/nexus && git pull && ./setup --host codex` — or for repo-local installs: `cd "$(readlink -f .agents/skills/nexus)" && git pull && ./setup --host codex`
 
-**Windows users:** gstack works on Windows 11 via Git Bash or WSL. Node.js is required in addition to Bun — Bun has a known bug with Playwright's pipe transport on Windows ([bun#4253](https://github.com/oven-sh/bun/issues/4253)). The browse server automatically falls back to Node.js. Make sure both `bun` and `node` are on your PATH.
+**Windows users:** Nexus works on Windows 11 via Git Bash or WSL. Node.js is required in addition to Bun — Bun has a known bug with Playwright's pipe transport on Windows ([bun#4253](https://github.com/oven-sh/bun/issues/4253)). The browse server automatically falls back to Node.js. Make sure both `bun` and `node` are on your PATH.
 
-**Claude says it can't see the skills?** Make sure your project's `CLAUDE.md` has a gstack section. Add this:
+**Claude says it can't see the skills?** Make sure your project's `CLAUDE.md` has a Nexus section. Add this:
 
 ```
-## gstack
-Use /browse from gstack for all web browsing. Never use mcp__claude-in-chrome__* tools.
+## Nexus
+Use /browse from Nexus for all web browsing. Never use mcp__claude-in-chrome__* tools.
 Available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review,
 /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy,
 /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review,
 /setup-browser-cookies, /setup-deploy, /retro, /investigate, /document-release, /codex,
-/cso, /autoplan, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn.
+/cso, /autoplan, /careful, /freeze, /guard, /unfreeze, /nexus-upgrade, /learn.
 ```
 
 ## License

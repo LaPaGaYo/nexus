@@ -80,7 +80,7 @@ Legacy compatibility aliases route through the same Nexus runtime:
 | [`/unfreeze`](#safety--guardrails) | **Unlock** | Remove the /freeze boundary, allowing edits everywhere again. |
 | [`/connect-chrome`](#connect-chrome) | **Chrome Controller** | Launch your real Chrome controlled by gstack with the Side Panel extension. Watch every action live. |
 | [`/setup-deploy`](#setup-deploy) | **Deploy Configurator** | One-time setup for `/land-and-deploy`. Detects your platform, production URL, and deploy commands. |
-| [`/gstack-upgrade`](#gstack-upgrade) | **Self-Updater** | Upgrade gstack to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
+| [`/nexus-upgrade`](#nexus-upgrade) | **Self-Updater** | Upgrade Nexus to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
 
 ---
 
@@ -135,7 +135,7 @@ Recommends A because you learn from real usage. CRM data comes naturally in week
 
 ### The design doc
 
-Both modes end with a design doc written to `~/.gstack/projects/` — and that doc feeds directly into `/plan-ceo-review` and `/plan-eng-review`. The full lifecycle is now: `office-hours → plan → implement → review → QA → ship → retro`.
+Both modes end with a design doc written to `~/.nexus/projects/` — and that doc feeds directly into `/plan-ceo-review` and `/plan-eng-review`. The full lifecycle is now: `office-hours → plan → implement → review → QA → ship → retro`.
 
 After the design doc is approved, `/office-hours` reflects on what it noticed about how you think — not generic praise, but specific callbacks to things you said during the session. The observations appear in the design doc too, so you re-encounter them when you re-read later.
 
@@ -189,7 +189,7 @@ It asks, **"what is the 10-star product hiding inside this request?"**
 - **HOLD SCOPE** — maximum rigor on the existing plan. No expansions surfaced.
 - **SCOPE REDUCTION** — find the minimum viable version. Cut everything else.
 
-Visions and decisions are persisted to `~/.gstack/projects/` so they survive beyond the conversation. Exceptional visions can be promoted to `docs/designs/` in your repo for the team.
+Visions and decisions are persisted to `~/.nexus/projects/` so they survive beyond the conversation. Exceptional visions can be promoted to `docs/designs/` in your repo for the team.
 
 ---
 
@@ -266,11 +266,11 @@ Every review (CEO, Eng, Design) logs its result. At the end of each review, you 
 +====================================================================+
 ```
 
-Eng Review is the only required gate (disable with `gstack-config set skip_eng_review true`). CEO and Design are informational — recommended for product and UI changes respectively.
+Eng Review is the only required gate (disable with `nexus-config set skip_eng_review true`). CEO and Design are informational — recommended for product and UI changes respectively.
 
 ### Plan-to-QA flow
 
-When `/plan-eng-review` finishes the test review section, it writes a test plan artifact to `~/.gstack/projects/`. When you later run `/qa`, it picks up that test plan automatically — your engineering review feeds directly into QA testing with no manual copy-paste.
+When `/plan-eng-review` finishes the test review section, it writes a test plan artifact to `~/.nexus/projects/`. When you later run `/qa`, it picks up that test plan automatically — your engineering review feeds directly into QA testing with no manual copy-paste.
 
 ---
 
@@ -465,7 +465,7 @@ You know the feeling. You have a feature, a page, a landing screen... and you're
 3. It generates 3 distinct design variants as PNGs
 4. A comparison board opens in your browser with all 3 side-by-side
 5. You click "Approve" on the one you like, or give feedback for another round
-6. The approved variant saves to `~/.gstack/projects/$SLUG/designs/` with an `approved.json`
+6. The approved variant saves to `~/.nexus/projects/$SLUG/designs/` with an `approved.json`
 
 That `approved.json` is what `/design-html` reads. The design pipeline chains: shotgun picks the direction, design-html renders it as working code.
 
@@ -487,7 +487,7 @@ Claude: [Generates 3 variants]
 
 You:    [Clicks "Approve" on Variant A in the browser]
 
-Claude: Approved Variant A. Saved to ~/.gstack/projects/myapp/designs/
+Claude: Approved Variant A. Saved to ~/.nexus/projects/myapp/designs/
         Next: run /design-html to generate production HTML from this mockup.
 ```
 
@@ -547,7 +547,7 @@ Claude: [Edits font-size and margin, browser auto-reloads]
 
 You:    Done
 
-Claude: Saved to ~/.gstack/projects/myapp/designs/hero-20260330/finalized.html
+Claude: Saved to ~/.nexus/projects/myapp/designs/hero-20260330/finalized.html
 ```
 
 ---
@@ -974,7 +974,7 @@ Claude: Plan complete. 9 decisions auto-resolved, 2 taste decisions approved.
 
 This is my **institutional memory mode**.
 
-gstack learns from every session. Patterns, pitfalls, preferences, architectural decisions... they accumulate in `~/.gstack/projects/$SLUG/learnings.jsonl`. Each learning has a confidence score, source attribution, and the files it references.
+Nexus learns from every session. Patterns, pitfalls, preferences, architectural decisions... they accumulate in `~/.nexus/projects/$SLUG/learnings.jsonl`. Each learning has a confidence score, source attribution, and the files it references.
 
 `/learn` lets you see what gstack has absorbed, search for specific patterns, prune stale entries (when referenced files no longer exist), and export learnings for team sharing. The real magic is in other skills... they automatically search learnings before making recommendations, and display "Prior learning applied" when a past insight is relevant.
 
@@ -1120,12 +1120,12 @@ Remove the `/freeze` boundary, allowing edits everywhere again. The hooks stay r
 
 ---
 
-## `/gstack-upgrade`
+## `/nexus-upgrade`
 
-Keep gstack current with one command. It detects your install type (global at `~/.claude/skills/gstack` vs vendored in your project at `.claude/skills/gstack`), runs the upgrade, syncs both copies if you have dual installs, and shows you what changed.
+Keep Nexus current with one command. It detects your install type (global at `~/.claude/skills/nexus` vs vendored in your project at `.claude/skills/nexus`), runs the upgrade, syncs both copies if you have dual installs, and shows you what changed.
 
 ```
-You:   /gstack-upgrade
+You:   /nexus-upgrade
 
 Claude: Current version: 0.7.4
         Latest version: 0.8.2
@@ -1140,7 +1140,7 @@ Claude: Current version: 0.7.4
         Upgraded to 0.8.2. Both global and project installs synced.
 ```
 
-Set `auto_upgrade: true` in `~/.gstack/config.yaml` to skip the prompt entirely — gstack upgrades silently at the start of each session when a new version is available.
+Set `auto_upgrade: true` in `~/.nexus/config.yaml` to skip the prompt entirely — Nexus upgrades silently at the start of each session when a new version is available.
 
 ---
 
@@ -1150,13 +1150,13 @@ Set `auto_upgrade: true` in `~/.gstack/config.yaml` to skip the prompt entirely 
 
 ### Setup
 
-Install Greptile on your GitHub repo at [greptile.com](https://greptile.com) — it takes about 30 seconds. Once it's reviewing your PRs, gstack picks up its comments automatically. No additional configuration.
+Install Greptile on your GitHub repo at [greptile.com](https://greptile.com) — it takes about 30 seconds. Once it's reviewing your PRs, Nexus picks up its comments automatically. No additional configuration.
 
 ### How it works
 
 The problem with any automated reviewer is triage. Greptile is good, but not every comment is a real issue. Some are false positives. Some flag things you already fixed three commits ago. Without a triage layer, the comments pile up and you start ignoring them — which defeats the purpose.
 
-gstack solves this. `/review` and `/ship` are now Greptile-aware. They read Greptile's comments, classify each one, and take action:
+Nexus solves this. `/review` and `/ship` are now Greptile-aware. They read Greptile's comments, classify each one, and take action:
 
 - **Valid issues** get added to the critical findings and fixed before shipping
 - **Already-fixed issues** get an auto-reply acknowledging the catch
@@ -1166,7 +1166,7 @@ The result is a two-layer review: Greptile catches things asynchronously on the 
 
 ### Learning from history
 
-Every false positive you confirm gets saved to `~/.gstack/greptile-history.md`. Future runs auto-skip known FP patterns for your codebase. And `/retro` tracks Greptile's batting average over time — so you can see whether the signal-to-noise ratio is improving.
+Every false positive you confirm gets saved to `~/.nexus/greptile-history.md`. Future runs auto-skip known FP patterns for your codebase. And `/retro` tracks Greptile's batting average over time — so you can see whether the signal-to-noise ratio is improving.
 
 ### Example
 

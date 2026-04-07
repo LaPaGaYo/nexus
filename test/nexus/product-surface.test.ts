@@ -30,8 +30,26 @@ describe('nexus product surface contract', () => {
 
     expect(readme).toContain('# Nexus');
     expect(readme).toContain('Nexus is the only command surface.');
+    expect(readme).toContain('~/.codex/skills/nexus');
+    expect(readme).toContain('~/.factory/skills/nexus');
+    expect(readme).toContain('/nexus-upgrade');
+    expect(readme).toContain('nexus-config set telemetry off');
+    expect(readme).toContain('~/.nexus/config.yaml');
+    expect(readme).not.toContain('~/.codex/skills/gstack');
+    expect(readme).not.toContain('~/.factory/skills/gstack');
+    expect(readme).not.toContain('/gstack-upgrade');
+    expect(readme).not.toContain('gstack-config set telemetry off');
+    expect(readme).not.toContain('~/.gstack/config.yaml');
     expect(skills).toContain('Nexus is the only command surface.');
     expect(skills).toContain('Canonical Nexus commands:');
+    expect(skills).toContain('/nexus-upgrade');
+    expect(skills).toContain('~/.nexus/projects/');
+    expect(skills).toContain('nexus-config set skip_eng_review true');
+    expect(skills).toContain('~/.nexus/greptile-history.md');
+    expect(skills).not.toContain('/gstack-upgrade');
+    expect(skills).not.toContain('~/.gstack/projects/');
+    expect(skills).not.toContain('gstack-config set skip_eng_review true');
+    expect(skills).not.toContain('~/.gstack/greptile-history.md');
   });
 
   test('package metadata is Nexus-primary', () => {
