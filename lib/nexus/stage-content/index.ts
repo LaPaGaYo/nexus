@@ -1,7 +1,10 @@
 import { NEXUS_STAGE_CONTENT, type NexusStageContentId } from '../types';
 import { createDiscoverStageContent } from './discover';
 import { createFrameStageContent } from './frame';
+import { createHandoffStageContent } from './handoff';
+import { createBuildStageContent } from './build';
 import { createPlanStageContent } from './plan';
+import { createCloseoutStageContent } from './closeout';
 import { getStageContentSourceBinding } from './source-map';
 import type { NexusStageContentPack } from './types';
 
@@ -9,26 +12,8 @@ const STAGE_CONTENT: Record<NexusStageContentId, NexusStageContentPack> = {
   'nexus-discover-content': createDiscoverStageContent(),
   'nexus-frame-content': createFrameStageContent(),
   'nexus-plan-content': createPlanStageContent(),
-  'nexus-handoff-content': {
-    id: 'nexus-handoff-content',
-    stage: 'handoff',
-    sections: {
-      overview: 'Nexus-owned governed handoff guidance for explicit routing and route approval.',
-      checklist: '- record requested route\n- validate transport availability\n- require separate Nexus approval',
-      artifact_contract: 'Writes .planning/current/handoff/governed-execution-routing.md, .planning/current/handoff/governed-handoff.md, and .planning/current/handoff/status.json.',
-      routing: 'Advance to /build only after Nexus records an approved governed handoff.',
-    },
-  },
-  'nexus-build-content': {
-    id: 'nexus-build-content',
-    stage: 'build',
-    sections: {
-      overview: 'Nexus-owned build guidance for disciplined implementation under governed routing.',
-      checklist: '- run build discipline\n- preserve requested route\n- record actual route separately',
-      artifact_contract: 'Writes .planning/current/build/build-request.json, .planning/current/build/build-result.md, and .planning/current/build/status.json.',
-      routing: 'Advance to /review only after Nexus records a bounded build result.',
-    },
-  },
+  'nexus-handoff-content': createHandoffStageContent(),
+  'nexus-build-content': createBuildStageContent(),
   'nexus-review-content': {
     id: 'nexus-review-content',
     stage: 'review',
@@ -59,16 +44,7 @@ const STAGE_CONTENT: Record<NexusStageContentId, NexusStageContentPack> = {
       routing: 'Ship content must not imply implemented release authority before Nexus runtime says so.',
     },
   },
-  'nexus-closeout-content': {
-    id: 'nexus-closeout-content',
-    stage: 'closeout',
-    sections: {
-      overview: 'Nexus-owned closeout guidance for archive verification, provenance consistency, and final readiness.',
-      checklist: '- verify audit completeness\n- verify archive state\n- verify legal transition history',
-      artifact_contract: 'Writes .planning/current/closeout/CLOSEOUT-RECORD.md and .planning/current/closeout/status.json.',
-      routing: 'Closeout is the final governed conclusion of the work unit.',
-    },
-  },
+  'nexus-closeout-content': createCloseoutStageContent(),
 };
 
 export { NEXUS_STAGE_CONTENT } from '../types';

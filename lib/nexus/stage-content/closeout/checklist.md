@@ -1,0 +1,3 @@
+- verify audit completeness
+- verify archive state
+- verify legal transition history

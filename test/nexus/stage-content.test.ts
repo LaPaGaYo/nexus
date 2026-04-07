@@ -78,4 +78,32 @@ describe('nexus stage content', () => {
     expect(getStageContent('nexus-frame-content').sections.overview).toContain('Nexus-owned');
     expect(getStageContent('nexus-plan-content').sections.overview).toContain('Nexus-owned');
   });
+
+  test('handoff, build, and closeout use dedicated Nexus-authored content directories', () => {
+    const contentFiles = [
+      'lib/nexus/stage-content/handoff/index.ts',
+      'lib/nexus/stage-content/handoff/overview.md',
+      'lib/nexus/stage-content/handoff/checklist.md',
+      'lib/nexus/stage-content/handoff/artifact-contract.md',
+      'lib/nexus/stage-content/handoff/routing.md',
+      'lib/nexus/stage-content/build/index.ts',
+      'lib/nexus/stage-content/build/overview.md',
+      'lib/nexus/stage-content/build/checklist.md',
+      'lib/nexus/stage-content/build/artifact-contract.md',
+      'lib/nexus/stage-content/build/routing.md',
+      'lib/nexus/stage-content/closeout/index.ts',
+      'lib/nexus/stage-content/closeout/overview.md',
+      'lib/nexus/stage-content/closeout/checklist.md',
+      'lib/nexus/stage-content/closeout/artifact-contract.md',
+      'lib/nexus/stage-content/closeout/routing.md',
+    ];
+
+    for (const file of contentFiles) {
+      expect(existsSync(resolve(import.meta.dir, '..', '..', file))).toBe(true);
+    }
+
+    expect(getStageContent('nexus-handoff-content').sections.routing).toContain('approved');
+    expect(getStageContent('nexus-build-content').sections.checklist).toContain('actual route');
+    expect(getStageContent('nexus-closeout-content').sections.checklist).toContain('archive state');
+  });
 });
