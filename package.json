@@ -1,7 +1,7 @@
 {
-  "name": "gstack",
+  "name": "nexus",
   "version": "0.14.5.0",
-  "description": "Garry's Stack — Claude Code skills + fast headless browser. One repo, one install, entire AI engineering workflow.",
+  "description": "Nexus — single-package AI engineering operating system for governed discovery, planning, build, review, QA, ship, and closeout.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -46,6 +46,7 @@
     "bun": ">=1.0.0"
   },
   "keywords": [
+    "nexus",
     "browser",
     "automation",
     "playwright",

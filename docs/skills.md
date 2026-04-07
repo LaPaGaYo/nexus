@@ -7,6 +7,7 @@ Nexus-owned stage packs under `lib/nexus/stage-packs/` remain the active interna
 Imported upstream repos remain source material only and do not own lifecycle truth.
 Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
+Legacy aliases and host utilities remain secondary compatibility surface only.
 
 ## Nexus v0.1 command surface
 

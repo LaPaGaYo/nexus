@@ -445,6 +445,9 @@ describe('Nexus wrapper skill validation', () => {
     const content = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
 
     expect(content).toContain('Nexus is the only command surface.');
+    expect(content).toContain('Nexus is a single-package AI engineering operating system.');
+    expect(content).toContain('Claude remains the only interactive front door.');
+    expect(content).not.toContain('**gstack is my answer.**');
     expect(content).toContain('/discover');
     expect(content).not.toMatch(/use GSD commands|use PM skills commands|use Superpowers commands/i);
   });
@@ -454,6 +457,7 @@ describe('Nexus wrapper skill validation', () => {
 
     expect(content).toContain('Nexus is the only command surface.');
     expect(content).toContain('PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.');
+    expect(content).toContain('Legacy aliases and host utilities remain secondary compatibility surface only.');
     expect(content).not.toMatch(/PM-native command|GSD-native command|Superpowers-native command/i);
   });
 });

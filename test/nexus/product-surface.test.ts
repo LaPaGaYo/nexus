@@ -30,6 +30,14 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('Canonical Nexus commands:');
   });
 
+  test('package metadata is Nexus-primary', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+
+    expect(pkg.name).toBe('nexus');
+    expect(pkg.description).toContain('Nexus');
+    expect(pkg.description).not.toContain("Garry's Stack");
+  });
+
   test('nexus-branded host helper entrypoints exist alongside compatibility helpers', () => {
     expect(existsSync(join(ROOT, 'bin', 'nexus-config'))).toBe(true);
     expect(existsSync(join(ROOT, 'bin', 'nexus-relink'))).toBe(true);
