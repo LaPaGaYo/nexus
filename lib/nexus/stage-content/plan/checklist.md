@@ -1,0 +1,3 @@
+- verify framing inputs
+- produce readiness packet
+- produce sprint contract

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync } from 'fs';
+import { resolve } from 'path';
 import {
   NEXUS_STAGE_CONTENT,
   getStageContent,
@@ -48,5 +49,33 @@ describe('nexus stage content', () => {
         expect(existsSync(entry.upstream_file)).toBe(true);
       }
     }
+  });
+
+  test('discover, frame, and plan use dedicated Nexus-authored content directories', () => {
+    const contentFiles = [
+      'lib/nexus/stage-content/discover/index.ts',
+      'lib/nexus/stage-content/discover/overview.md',
+      'lib/nexus/stage-content/discover/checklist.md',
+      'lib/nexus/stage-content/discover/artifact-contract.md',
+      'lib/nexus/stage-content/discover/routing.md',
+      'lib/nexus/stage-content/frame/index.ts',
+      'lib/nexus/stage-content/frame/overview.md',
+      'lib/nexus/stage-content/frame/checklist.md',
+      'lib/nexus/stage-content/frame/artifact-contract.md',
+      'lib/nexus/stage-content/frame/routing.md',
+      'lib/nexus/stage-content/plan/index.ts',
+      'lib/nexus/stage-content/plan/overview.md',
+      'lib/nexus/stage-content/plan/checklist.md',
+      'lib/nexus/stage-content/plan/artifact-contract.md',
+      'lib/nexus/stage-content/plan/routing.md',
+    ];
+
+    for (const file of contentFiles) {
+      expect(existsSync(resolve(import.meta.dir, '..', '..', file))).toBe(true);
+    }
+
+    expect(getStageContent('nexus-discover-content').sections.overview).toContain('Nexus-owned');
+    expect(getStageContent('nexus-frame-content').sections.overview).toContain('Nexus-owned');
+    expect(getStageContent('nexus-plan-content').sections.overview).toContain('Nexus-owned');
   });
 });

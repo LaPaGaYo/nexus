@@ -1,38 +1,14 @@
 import { NEXUS_STAGE_CONTENT, type NexusStageContentId } from '../types';
+import { createDiscoverStageContent } from './discover';
+import { createFrameStageContent } from './frame';
+import { createPlanStageContent } from './plan';
 import { getStageContentSourceBinding } from './source-map';
 import type { NexusStageContentPack } from './types';
 
 const STAGE_CONTENT: Record<NexusStageContentId, NexusStageContentPack> = {
-  'nexus-discover-content': {
-    id: 'nexus-discover-content',
-    stage: 'discover',
-    sections: {
-      overview: 'Nexus-owned discovery guidance for clarifying the problem before framing.',
-      checklist: '- capture goals\n- capture constraints\n- record open questions',
-      artifact_contract: 'Writes docs/product/idea-brief.md and .planning/current/discover/status.json.',
-      routing: 'Advance to /frame only after Nexus writes the discovery artifacts.',
-    },
-  },
-  'nexus-frame-content': {
-    id: 'nexus-frame-content',
-    stage: 'frame',
-    sections: {
-      overview: 'Nexus-owned framing guidance for scope, non-goals, and success criteria.',
-      checklist: '- define scope\n- define non-goals\n- define success criteria',
-      artifact_contract: 'Writes docs/product/decision-brief.md, docs/product/prd.md, and .planning/current/frame/status.json.',
-      routing: 'Advance to /plan only after Nexus writes the framing artifacts.',
-    },
-  },
-  'nexus-plan-content': {
-    id: 'nexus-plan-content',
-    stage: 'plan',
-    sections: {
-      overview: 'Nexus-owned planning guidance for execution readiness and bounded scope.',
-      checklist: '- verify framing inputs\n- produce readiness packet\n- produce sprint contract',
-      artifact_contract: 'Writes .planning/current/plan/execution-readiness-packet.md, .planning/current/plan/sprint-contract.md, and .planning/current/plan/status.json.',
-      routing: 'Advance to /handoff only after Nexus declares execution ready.',
-    },
-  },
+  'nexus-discover-content': createDiscoverStageContent(),
+  'nexus-frame-content': createFrameStageContent(),
+  'nexus-plan-content': createPlanStageContent(),
   'nexus-handoff-content': {
     id: 'nexus-handoff-content',
     stage: 'handoff',

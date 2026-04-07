@@ -1,0 +1,3 @@
+- capture goals
+- capture constraints
+- record open questions
