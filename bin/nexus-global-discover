@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# nexus-global-discover — nexus-owned wrapper for the TypeScript implementation
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec bun run "$SCRIPT_DIR/nexus-global-discover.ts" "$@"

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# nexus-review-log — atomically log a review result
+# Usage: nexus-review-log '{"skill":"...","timestamp":"...","status":"..."}'
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+eval "$("$SCRIPT_DIR/nexus-slug" 2>/dev/null)"
+STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-${GSTACK_HOME:-$HOME/.nexus}}}"
+mkdir -p "$STATE_DIR/projects/$SLUG"
+
+# Validate: input must be parseable JSON (reject malformed or injection attempts)
+INPUT="$1"
+if ! printf '%s' "$INPUT" | bun -e "JSON.parse(await Bun.stdin.text())" 2>/dev/null; then
+  # Not valid JSON — refuse to append
+  echo "nexus-review-log: invalid JSON, skipping" >&2
+  exit 1
+fi
+
+echo "$INPUT" >> "$STATE_DIR/projects/$SLUG/$BRANCH-reviews.jsonl"
