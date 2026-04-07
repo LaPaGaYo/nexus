@@ -4,9 +4,10 @@ import {
   stageNormalizationPath,
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
-import type { CcbExecuteGeneratorRaw, CcbResolveRouteRaw } from '../adapters/ccb';
+import type { CcbExecuteAuditRaw, CcbExecuteGeneratorRaw, CcbResolveRouteRaw } from '../adapters/ccb';
 import type {
   ActualRouteRecord,
+  ReviewRequestedRouteRecord,
   RequestedRouteRecord,
   RouteValidationRecord,
   RunLedger,
@@ -18,7 +19,7 @@ interface ArtifactWrite {
 }
 
 function buildTraceWrites(
-  stage: 'handoff' | 'build',
+  stage: 'handoff' | 'build' | 'review',
   requestPayload: Record<string, unknown>,
   result: AdapterResult<unknown>,
   normalizationPayload: Record<string, unknown>,
@@ -174,4 +175,102 @@ export function buildCcbTraceabilityPayloads(
   normalizationPayload: Record<string, unknown>,
 ): ArtifactWrite[] {
   return buildTraceWrites(stage, { run_id: runId, inputs, ...requestPayload }, result, normalizationPayload);
+}
+
+export function requestedAuditRouteFromBuild(
+  requestedRoute: RequestedRouteRecord,
+  provider: 'codex' | 'gemini',
+): ReviewRequestedRouteRecord {
+  return {
+    provider,
+    route: provider === 'codex' ? requestedRoute.evaluator_a : requestedRoute.evaluator_b,
+    substrate: requestedRoute.substrate,
+    transport: 'ccb',
+  };
+}
+
+export function requestedAndActualAuditRouteMatch(
+  requestedRoute: ReviewRequestedRouteRecord,
+  actualRoute: ActualRouteRecord | null,
+): boolean {
+  return actualRoute !== null
+    && actualRoute.provider === requestedRoute.provider
+    && actualRoute.route === requestedRoute.route
+    && actualRoute.substrate === requestedRoute.substrate
+    && actualRoute.transport === requestedRoute.transport;
+}
+
+export function buildReviewSynthesisMarkdown(
+  disciplineSummary: string,
+  codexMarkdown: string,
+  geminiMarkdown: string,
+): string {
+  return [
+    '# Synthesis',
+    '',
+    `Discipline: ${disciplineSummary}`,
+    '',
+    `Codex audit recorded: ${codexMarkdown.includes('Result: pass') ? 'yes' : 'no'}`,
+    `Gemini audit recorded: ${geminiMarkdown.includes('Result: pass') ? 'yes' : 'no'}`,
+    '',
+    'Result: review complete',
+    '',
+  ].join('\n');
+}
+
+export function buildReviewGateDecisionMarkdown(
+  gateDecision: 'pass' | 'fail' | 'blocked',
+): string {
+  return [
+    '# Gate Decision',
+    '',
+    `Gate: ${gateDecision}`,
+    '',
+  ].join('\n');
+}
+
+export function buildReviewTraceabilityPayloads(
+  runId: string,
+  inputs: string[],
+  requestedRoute: RequestedRouteRecord,
+  disciplineResult: AdapterResult<unknown> | null,
+  auditAResult: AdapterResult<CcbExecuteAuditRaw> | null,
+  auditBResult: AdapterResult<CcbExecuteAuditRaw> | null,
+  normalizationPayload: Record<string, unknown>,
+): ArtifactWrite[] {
+  return [
+    {
+      path: stageAdapterRequestPath('review'),
+      content: JSON.stringify(
+        {
+          run_id: runId,
+          inputs,
+          adapter_chain: ['superpowers', 'ccb', 'ccb'],
+          requested_route: requestedRoute,
+          requested_audit_routes: {
+            codex: requestedAuditRouteFromBuild(requestedRoute, 'codex'),
+            gemini: requestedAuditRouteFromBuild(requestedRoute, 'gemini'),
+          },
+        },
+        null,
+        2,
+      ) + '\n',
+    },
+    {
+      path: stageAdapterOutputPath('review'),
+      content: JSON.stringify(
+        {
+          discipline: disciplineResult,
+          audit_a: auditAResult,
+          audit_b: auditBResult,
+        },
+        null,
+        2,
+      ) + '\n',
+    },
+    {
+      path: stageNormalizationPath('review'),
+      content: JSON.stringify(normalizationPayload, null, 2) + '\n',
+    },
+  ];
 }

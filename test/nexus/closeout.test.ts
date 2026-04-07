@@ -92,6 +92,46 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('keeps working when review writes nested audit provenance', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const metaPath = join(cwd, '.planning/audits/current/meta.json');
+      const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
+        audits: {
+          codex: {
+            provider: string;
+            requested_route: { route: string };
+            actual_route: { route: string };
+          };
+          gemini: {
+            provider: string;
+            requested_route: { route: string };
+            actual_route: { route: string };
+          };
+        };
+      };
+
+      expect(meta.audits.codex.provider).toBe('codex');
+      expect(meta.audits.codex.requested_route.route).toBe('codex-via-ccb');
+      expect(meta.audits.codex.actual_route.route).toBe('codex-via-ccb');
+      expect(meta.audits.gemini.provider).toBe('gemini');
+      expect(meta.audits.gemini.requested_route.route).toBe('gemini-via-ccb');
+      expect(meta.audits.gemini.actual_route.route).toBe('gemini-via-ccb');
+
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        provenance_consistent: true,
+      });
+    });
+  });
+
   test('normalizes a GSD closeout result only after Nexus closeout gates pass', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');

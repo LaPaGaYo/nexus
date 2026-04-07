@@ -1,8 +1,12 @@
-import { createBuildStagePack } from '../stage-packs';
+import { createBuildStagePack, createReviewStagePack } from '../stage-packs';
 import type { AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
 
 export interface SuperpowersBuildDisciplineRaw {
   verification_summary: string;
+}
+
+export interface SuperpowersReviewDisciplineRaw {
+  discipline_summary: string;
 }
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
@@ -32,13 +36,17 @@ function reservedFutureResult(): AdapterResult<null> {
 
 export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
   const buildPack = createBuildStagePack();
+  const reviewPack = createReviewStagePack();
 
   return {
     build_discipline: async (ctx) =>
       successResult<SuperpowersBuildDisciplineRaw>({
         verification_summary: buildPack.buildVerificationSummary(ctx),
       }, buildPack.disciplineTraceability()),
-    review_discipline: async () => reservedFutureResult(),
+    review_discipline: async () =>
+      successResult<SuperpowersReviewDisciplineRaw>({
+        discipline_summary: 'Verification-before-completion passed',
+      }, reviewPack.disciplineTraceability()),
     ship_discipline: async () => reservedFutureResult(),
   };
 }

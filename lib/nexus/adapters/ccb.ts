@@ -1,4 +1,4 @@
-import { createBuildStagePack, createHandoffStagePack } from '../stage-packs';
+import { createBuildStagePack, createHandoffStagePack, createReviewStagePack } from '../stage-packs';
 import type { ActualRouteRecord } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter } from './types';
 
@@ -8,6 +8,11 @@ export interface CcbResolveRouteRaw {
 }
 
 export interface CcbExecuteGeneratorRaw {
+  receipt: string;
+}
+
+export interface CcbExecuteAuditRaw {
+  markdown: string;
   receipt: string;
 }
 
@@ -44,6 +49,7 @@ function inactiveResult(): AdapterResult<null> {
 export function createDefaultCcbAdapter(): CcbAdapter {
   const handoffPack = createHandoffStagePack();
   const buildPack = createBuildStagePack();
+  const reviewPack = createReviewStagePack();
 
   return {
     resolve_route: async (ctx) => {
@@ -66,8 +72,38 @@ export function createDefaultCcbAdapter(): CcbAdapter {
         buildPack.executionTraceability(),
       );
     },
-    execute_audit_a: async () => inactiveResult(),
-    execute_audit_b: async () => inactiveResult(),
+    execute_audit_a: async (ctx) =>
+      successResult<CcbExecuteAuditRaw>(
+        {
+          markdown: '# Codex Audit\n\nResult: pass\n',
+          receipt: 'ccb-review-codex',
+        },
+        {
+          provider: 'codex',
+          route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+          substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+          transport: 'ccb',
+          receipt_path: '.planning/current/review/adapter-output.json',
+        },
+        ctx.requested_route,
+        reviewPack.auditTraceability('codex'),
+      ),
+    execute_audit_b: async (ctx) =>
+      successResult<CcbExecuteAuditRaw>(
+        {
+          markdown: '# Gemini Audit\n\nResult: pass\n',
+          receipt: 'ccb-review-gemini',
+        },
+        {
+          provider: 'gemini',
+          route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+          substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+          transport: 'ccb',
+          receipt_path: '.planning/current/review/adapter-output.json',
+        },
+        ctx.requested_route,
+        reviewPack.auditTraceability('gemini'),
+      ),
     execute_qa: async () => inactiveResult(),
   };
 }

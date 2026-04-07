@@ -109,6 +109,54 @@ export interface ImplementationProvenanceRecord {
   actual_route: ActualRouteRecord | null;
 }
 
+export interface ReviewRequestedRouteRecord {
+  provider: string | null;
+  route: string | null;
+  substrate: string | null;
+  transport: 'ccb';
+}
+
+export interface ReviewAuditProvenanceRecord {
+  provider: string;
+  path: string;
+  requested_route: ReviewRequestedRouteRecord;
+  actual_route: ActualRouteRecord | null;
+}
+
+export interface ReviewMetaRecord {
+  run_id: string;
+  implementation_provider: string;
+  implementation_path: string;
+  implementation_route: string | null;
+  implementation_substrate: string | null;
+  implementation: ImplementationProvenanceRecord;
+  audits: {
+    codex: ReviewAuditProvenanceRecord;
+    gemini: ReviewAuditProvenanceRecord;
+  };
+  review_discipline: {
+    adapter: 'superpowers';
+    summary: string;
+  };
+  codex_audit: {
+    provider: 'codex';
+    path: string;
+    route: string | null;
+    substrate: string | null;
+  };
+  gemini_audit: {
+    provider: 'gemini';
+    path: string;
+    route: string | null;
+    substrate: string | null;
+  };
+  pm_skill: string;
+  execution_skill_chain: string[];
+  lifecycle_stage: 'review';
+  handoff_from: string;
+  handoff_to: string;
+}
+
 export interface ConflictRecord {
   stage: CanonicalCommandId;
   adapter: string;
