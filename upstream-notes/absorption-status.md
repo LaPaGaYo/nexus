@@ -55,6 +55,21 @@ The governed verification tail now runs through active Nexus-owned runtime seams
 
 These seams remain subordinate runtime inputs only. They do not own lifecycle authority, contract truth, or front-door command semantics.
 
+## Product surface status
+
+The visible product surface is now Nexus-primary across the main user entrypoints:
+
+- `package.json` now identifies the package as `nexus`
+- `README.md` and `docs/skills.md` present Nexus as the only product surface
+- setup and relink flows now prefer `nexus-*` names when namespacing is enabled
+- `bin/nexus-config`, `bin/nexus-relink`, `bin/nexus-uninstall`, and `bin/nexus-update-check` now exist as the preferred host helpers
+
+Compatibility substrate intentionally remains in place:
+
+- `~/.gstack` remains the compatibility state root
+- `gstack-*` host binaries still work as shims
+- compatibility install roots such as `~/.claude/skills/gstack` and `.agents/skills/gstack` remain in place until a later state-root migration
+
 ## Authority boundary
 
 - Nexus canonical commands are the only lifecycle entrypoints.

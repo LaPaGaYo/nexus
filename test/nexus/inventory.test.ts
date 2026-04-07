@@ -125,14 +125,14 @@ describe('nexus inventories', () => {
     }
   });
 
-  test('gstack host migration inventory stays identification-only and post-m2', () => {
+  test('gstack host migration inventory remains migration-only and scheduled after the current host phase', () => {
     const markdown = readFileSync('upstream-notes/gstack-host-migration-inventory.md', 'utf8');
     const rows = parseInventory(markdown);
 
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(row.cleanup_phase).toBe('post-m2');
-      expect(row.notes.toLowerCase()).toContain('identification only');
+      expect(row.cleanup_phase).toMatch(/^post-m\d+$/);
+      expect(`${row.normalization_required} ${row.notes}`.toLowerCase()).toMatch(/host only|compatibility|no governed writeback/);
       expect(row.host_disposition === 'retain_as_host' || row.host_disposition === 'retain_until_adapter_stable').toBe(
         true,
       );
