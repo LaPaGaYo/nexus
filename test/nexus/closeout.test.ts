@@ -114,6 +114,7 @@ describe('nexus closeout', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-closeout-pack',
               absorbed_capability: 'gsd-closeout',
               source_map: ['upstream/gsd/commands/gsd/complete-milestone.md'],
             },
@@ -136,6 +137,7 @@ describe('nexus closeout', () => {
         adapter_id: 'gsd',
         outcome: 'success',
         traceability: {
+          nexus_stage_pack: 'nexus-closeout-pack',
           absorbed_capability: 'gsd-closeout',
         },
       });
@@ -176,6 +178,7 @@ describe('nexus closeout', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-closeout-pack',
               absorbed_capability: 'gsd-closeout',
               source_map: ['upstream/gsd/commands/gsd/complete-milestone.md'],
             },

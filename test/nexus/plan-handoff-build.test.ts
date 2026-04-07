@@ -1,8 +1,23 @@
 import { describe, expect, test } from 'bun:test';
+import { createCloseoutStagePack } from '../../lib/nexus/stage-packs/closeout';
+import { createPlanStagePack } from '../../lib/nexus/stage-packs/plan';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus plan -> handoff -> build', () => {
+  test('gsd stage packs stay Nexus-owned internal units', () => {
+    const planPack = createPlanStagePack();
+    const closeoutPack = createCloseoutStagePack();
+
+    expect(planPack.id).toBe('nexus-plan-pack');
+    expect(planPack.stage).toBe('plan');
+    expect(planPack.source_binding.absorbed_capabilities).toContain('gsd-plan');
+
+    expect(closeoutPack.id).toBe('nexus-closeout-pack');
+    expect(closeoutPack.stage).toBe('closeout');
+    expect(closeoutPack.source_binding.absorbed_capabilities).toContain('gsd-closeout');
+  });
+
   test('writes ledger, stage statuses, and build request artifacts', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');
@@ -43,6 +58,7 @@ describe('nexus plan -> handoff -> build', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-plan-pack',
               absorbed_capability: 'gsd-plan',
               source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
             },
@@ -63,6 +79,7 @@ describe('nexus plan -> handoff -> build', () => {
         adapter_id: 'gsd',
         outcome: 'success',
         traceability: {
+          nexus_stage_pack: 'nexus-plan-pack',
           absorbed_capability: 'gsd-plan',
         },
       });

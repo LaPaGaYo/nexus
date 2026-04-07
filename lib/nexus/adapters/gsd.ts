@@ -1,10 +1,4 @@
-import {
-  buildCloseoutRecord,
-  buildExecutionReadinessPacket,
-  buildGsdCloseoutTraceability,
-  buildGsdPlanTraceability,
-  buildSprintContract,
-} from '../absorption';
+import { createCloseoutStagePack, createPlanStagePack } from '../stage-packs';
 import type { AdapterResult, AdapterTraceability, GsdAdapter } from './types';
 
 export interface GsdPlanRaw {
@@ -33,18 +27,21 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
 }
 
 export function createDefaultGsdAdapter(): GsdAdapter {
+  const planPack = createPlanStagePack();
+  const closeoutPack = createCloseoutStagePack();
+
   return {
     plan: async (ctx) =>
       successResult<GsdPlanRaw>({
-        execution_readiness_packet: buildExecutionReadinessPacket(ctx),
-        sprint_contract: buildSprintContract(ctx),
+        execution_readiness_packet: planPack.buildExecutionReadinessPacket(ctx),
+        sprint_contract: planPack.buildSprintContract(ctx),
         ready: true,
-      }, buildGsdPlanTraceability()),
+      }, planPack.traceability()),
     closeout: async (ctx) =>
       successResult<GsdCloseoutRaw>({
-        closeout_record: buildCloseoutRecord(ctx),
+        closeout_record: closeoutPack.buildCloseoutRecord(ctx),
         archive_required: true,
         merge_ready: true,
-      }, buildGsdCloseoutTraceability()),
+      }, closeoutPack.traceability()),
   };
 }
