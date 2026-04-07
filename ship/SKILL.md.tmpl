@@ -3,9 +3,8 @@ name: ship
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Canonical Nexus ship command. In v0.1 it is an explicit placeholder that records
-  governed release-gate intent as blocked and not implemented without bypassing review
-  or closeout requirements. (nexus)
+  Canonical Nexus ship command. Persists the governed release gate, checklist state,
+  and structured ship readiness for the governed Nexus lifecycle. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -14,7 +13,7 @@ sensitive: true
 
 {{PREAMBLE}}
 
-# /ship — Nexus Ship Placeholder
+# /ship — Nexus Governed Ship
 
 {{NEXUS_STAGE_OVERVIEW}}
 

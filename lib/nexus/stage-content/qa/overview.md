@@ -1,1 +1,1 @@
-Nexus-owned QA guidance for explicit validation scope beyond code review.
+Nexus-owned QA guidance for governed validation scope beyond code review.

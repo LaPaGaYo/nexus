@@ -3,9 +3,8 @@ name: ship
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Canonical Nexus ship command. In v0.1 it is an explicit placeholder that records
-  governed release-gate intent as blocked and not implemented without bypassing review
-  or closeout requirements. (nexus)
+  Canonical Nexus ship command. Persists the governed release gate, checklist state,
+  and structured ship readiness for the governed Nexus lifecycle. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -334,23 +333,23 @@ Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
 file you are allowed to edit in plan mode. The plan file review report is part of the
 plan's living status.
 
-# /ship — Nexus Ship Placeholder
+# /ship — Nexus Governed Ship
 
-Nexus-owned ship guidance for conservative release gating and merge readiness.
+Nexus-owned ship guidance for governed release gating and explicit merge readiness.
 
 ## Operator Checklist
 
-- require review artifacts
-- require governed gate state
-- keep release semantics explicit
+- require completed review artifacts
+- require ready QA when QA was run
+- keep merge and release readiness explicit in canonical gate artifacts
 
 ## Artifact Contract
 
-Currently writes `.planning/current/ship/status.json` while full release-gate runtime remains staged.
+Writes `.planning/current/ship/release-gate-record.md`, `.planning/current/ship/checklist.json`, and `.planning/current/ship/status.json`.
 
 ## Routing
 
-Ship content must not imply implemented release authority before Nexus runtime says so; it must not imply any bypass of review, audit persistence, or closeout.
+Ship content starts only after completed review and optional ready QA. It must not imply any bypass of review, audit persistence, or closeout. Superpowers ship discipline informs the release gate, but Nexus-owned ship artifacts remain the only release authority.
 
 Run:
 

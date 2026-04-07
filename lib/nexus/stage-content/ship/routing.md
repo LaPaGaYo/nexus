@@ -1,1 +1,1 @@
-Ship content must not imply implemented release authority before Nexus runtime says so; it must not imply any bypass of review, audit persistence, or closeout.
+Ship content starts only after completed review and optional ready QA. It must not imply any bypass of review, audit persistence, or closeout. Superpowers ship discipline informs the release gate, but Nexus-owned ship artifacts remain the only release authority.

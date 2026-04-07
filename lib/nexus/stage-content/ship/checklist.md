@@ -1,3 +1,3 @@
-- require review artifacts
-- require governed gate state
-- keep release semantics explicit
+- require completed review artifacts
+- require ready QA when QA was run
+- keep merge and release readiness explicit in canonical gate artifacts

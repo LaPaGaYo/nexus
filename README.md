@@ -1,4 +1,6 @@
-# gstack
+# Nexus
+
+> Current state: the repository is still transitioning from a Gstack-hosted foundation, but the product-facing lifecycle is now Nexus-owned. PM Skills, GSD, and Superpowers are absorbed capability sources; CCB remains dispatch and transport infrastructure only.
 
 > "I don't think I've typed like a line of code probably since December, basically, which is an extremely large change." — [Andrej Karpathy](https://fortune.com/2026/03/21/andrej-karpathy-openai-cofounder-ai-agents-coding-state-of-psychosis-openclaw/), No Priors podcast, March 2026
 
@@ -35,8 +37,10 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 2. Run `/discover` — describe the product, problem, or unknown
 3. Run `/frame` — lock scope, non-goals, and success criteria
 4. Run `/plan` — turn approved framing into execution-ready artifacts
-5. Run `/review` — inspect governed implementation output
-6. Use legacy aliases only when older material still references them
+5. Run `/review` — complete governed dual-audit review
+6. Run `/qa` — record explicit governed validation
+7. Run `/ship` — record conservative release-gate state
+8. Run `/closeout` — verify the governed work unit and archive state
 
 ## Nexus v0.1 command surface
 
@@ -67,13 +71,13 @@ Implemented canonical commands in the current milestone:
 - `/build`
 - `/review`
 - `/closeout`
-
-Placeholder canonical commands in the current milestone:
 - `/qa`
 - `/ship`
 
-The governed thin slice runs end to end:
-- `/plan -> /handoff -> /build -> /review -> /closeout`
+The governed lifecycle now runs end to end with real tail-runtime stages:
+- `/plan -> /handoff -> /build -> /review -> /qa -> /ship -> /closeout`
+
+`/qa` and `/ship` remain policy-optional in some flows, but they are no longer placeholders.
 
 The following legacy names remain as compatibility aliases and route through the same Nexus runtime:
 - `/office-hours -> /discover`

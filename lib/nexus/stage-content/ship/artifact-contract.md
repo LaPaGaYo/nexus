@@ -1,1 +1,1 @@
-Currently writes `.planning/current/ship/status.json` while full release-gate runtime remains staged.
+Writes `.planning/current/ship/release-gate-record.md`, `.planning/current/ship/checklist.json`, and `.planning/current/ship/status.json`.

@@ -395,6 +395,7 @@ describe('gen-skill-docs', () => {
     if (isNexusWrapperSkill('qa')) {
       expect(qaTmpl).not.toContain('{{QA_METHODOLOGY}}');
       expect(qaTmpl).toContain('bun run bin/nexus.ts qa');
+      expect(qaTmpl).toContain('# /qa — Nexus Governed QA');
     } else {
       expect(qaTmpl).toContain('{{QA_METHODOLOGY}}');
     }
@@ -410,7 +411,9 @@ describe('gen-skill-docs', () => {
     if (isNexusWrapperSkill('qa')) {
       expect(qaContent).toContain('bun run bin/nexus.ts qa');
       expect(qaContent).toContain('.planning/current/qa/status.json');
-      expect(qaContent).toContain('does not advance governed execution');
+      expect(qaContent).toContain('Nexus-owned QA guidance for governed validation scope beyond code review.');
+      expect(qaContent).toContain('CCB validation transport does not bypass Nexus-owned readiness decisions');
+      expect(qaContent).not.toContain('Nexus QA Placeholder');
     } else {
       expect(qaContent).toContain('Health Score Rubric');
       expect(qaContent).toContain('Framework-Specific Guidance');
@@ -2399,8 +2402,9 @@ describe('community fixes wave', () => {
   test('ship/SKILL.md contains feature signal detection in Step 4', () => {
     const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('ship')) {
-      expect(content).toContain('Nexus Ship Placeholder');
-      expect(content).toContain('blocked');
+      expect(content).toContain('Nexus Governed Ship');
+      expect(content).toContain('.planning/current/ship/status.json');
+      expect(content).toContain('Nexus-owned ship guidance for governed release gating and explicit merge readiness.');
     } else {
       expect(content.toLowerCase()).toContain('feature signal');
     }

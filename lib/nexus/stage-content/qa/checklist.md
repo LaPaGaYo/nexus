@@ -1,3 +1,3 @@
-- define validation scope
-- record findings
-- keep runtime status explicit
+- define governed validation scope after completed review
+- record findings and ready/not-ready state explicitly
+- keep provider route and runtime status explicit in canonical QA artifacts

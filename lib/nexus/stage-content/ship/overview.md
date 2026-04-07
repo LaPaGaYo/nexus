@@ -1,1 +1,1 @@
-Nexus-owned ship guidance for conservative release gating and merge readiness.
+Nexus-owned ship guidance for governed release gating and explicit merge readiness.

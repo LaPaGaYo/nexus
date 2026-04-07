@@ -9,8 +9,8 @@ Nexus-owned stage content and stage packs, and which seams remain inactive.
 | --- | --- | --- |
 | PM Skills | `upstream/pm-skills` | Source material only for the discovery and framing stage content and stage packs |
 | GSD | `upstream/gsd` | Source material only for the planning and closeout stage content and stage packs |
-| Superpowers | `upstream/superpowers` | Source material only for the build stage content and stage pack |
-| CCB | `upstream/claude-code-bridge` | Source material only for handoff/build routing content and transport under Nexus control |
+| Superpowers | `upstream/superpowers` | Source material only for the build, review, and ship stage content and stage packs |
+| CCB | `upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA routing/transport under Nexus control |
 
 ## Active Nexus-owned stage content
 
@@ -21,9 +21,9 @@ Nexus-owned stage content and stage packs, and which seams remain inactive.
 | `nexus-plan-content` | `lib/nexus/stage-content/plan/` | GSD | `/plan` |
 | `nexus-handoff-content` | `lib/nexus/stage-content/handoff/` | CCB | `/handoff` |
 | `nexus-build-content` | `lib/nexus/stage-content/build/` | Superpowers, CCB | `/build` |
-| `nexus-review-content` | `lib/nexus/stage-content/review/` | Superpowers, GSD | `/review` |
-| `nexus-qa-content` | `lib/nexus/stage-content/qa/` | Superpowers, GSD | `/qa` |
-| `nexus-ship-content` | `lib/nexus/stage-content/ship/` | Superpowers, CCB | `/ship` |
+| `nexus-review-content` | `lib/nexus/stage-content/review/` | Superpowers, CCB | `/review` |
+| `nexus-qa-content` | `lib/nexus/stage-content/qa/` | CCB | `/qa` |
+| `nexus-ship-content` | `lib/nexus/stage-content/ship/` | Superpowers | `/ship` |
 | `nexus-closeout-content` | `lib/nexus/stage-content/closeout/` | GSD | `/closeout` |
 
 ## Active Nexus-owned stage packs
@@ -35,21 +35,25 @@ Nexus-owned stage content and stage packs, and which seams remain inactive.
 | `nexus-plan-pack` | `lib/nexus/stage-packs/plan.ts` | GSD | `/plan` |
 | `nexus-handoff-pack` | `lib/nexus/stage-packs/handoff.ts` | CCB | `/handoff` |
 | `nexus-build-pack` | `lib/nexus/stage-packs/build.ts` | Superpowers, CCB | `/build` |
+| `nexus-review-pack` | `lib/nexus/stage-packs/review.ts` | Superpowers, CCB | `/review` |
+| `nexus-qa-pack` | `lib/nexus/stage-packs/qa.ts` | CCB | `/qa` |
+| `nexus-ship-pack` | `lib/nexus/stage-packs/ship.ts` | Superpowers | `/ship` |
 | `nexus-closeout-pack` | `lib/nexus/stage-packs/closeout.ts` | GSD | `/closeout` |
 
 The absorbed builders under `lib/nexus/absorption/` remain implementation detail only.
 The active Nexus-owned units are the canonical stage content under `lib/nexus/stage-content/`
 and the runtime stage packs under `lib/nexus/stage-packs/`.
 
-## Reserved future seams
+## Active governed tail seams
 
-The following seams are present in code shape but remain inactive in the runtime registry:
+The governed verification tail now runs through active Nexus-owned runtime seams:
 
 - `review.superpowers`
 - `review.ccb`
+- `qa.ccb`
 - `ship.superpowers`
 
-These seams do not own lifecycle authority and are not active front doors.
+These seams remain subordinate runtime inputs only. They do not own lifecycle authority, contract truth, or front-door command semantics.
 
 ## Authority boundary
 

@@ -335,13 +335,13 @@ plan's living status.
 
 # /review — Nexus Governed Review
 
-Nexus-owned review guidance for audit completion, synthesis, and explicit gate state.
+Nexus-owned review guidance for governed dual-audit completion, synthesis, and explicit gate state.
 
 ## Operator Checklist
 
-- write the audit set
-- verify provenance consistency
-- record gate decision
+- run dual audits through Nexus-owned review completion
+- verify implementation and audit provenance consistency
+- synthesize the audit set and record the gate decision
 
 ## Artifact Contract
 
@@ -349,7 +349,7 @@ Writes `.planning/audits/current/*` and `.planning/current/review/status.json`.
 
 ## Routing
 
-Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Reserved future transport seams do not change lifecycle authority.
+Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Superpowers review discipline and CCB dual-audit transport remain subordinate runtime seams and never own lifecycle authority.
 
 Run:
 

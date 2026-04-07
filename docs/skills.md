@@ -28,14 +28,14 @@ Implemented canonical commands in the current milestone:
 - `/handoff`
 - `/build`
 - `/review`
-- `/closeout`
-
-Governed thin slice:
-- `/plan -> /handoff -> /build -> /review -> /closeout`
-
-Documented placeholder commands in v0.1:
 - `/qa`
 - `/ship`
+- `/closeout`
+
+Governed lifecycle:
+- `/plan -> /handoff -> /build -> /review -> /qa -> /ship -> /closeout`
+
+`/qa` and `/ship` are now real governed runtime stages. They remain Nexus-owned lifecycle commands, not backend-native front doors.
 
 Legacy compatibility aliases route through the same Nexus runtime:
 - `/office-hours -> /discover`

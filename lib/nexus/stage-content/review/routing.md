@@ -1,1 +1,1 @@
-Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Reserved future transport seams do not change lifecycle authority.
+Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Superpowers review discipline and CCB dual-audit transport remain subordinate runtime seams and never own lifecycle authority.

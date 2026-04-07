@@ -3,8 +3,8 @@ name: qa
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Canonical Nexus QA command. In v0.1 it is an explicit placeholder that records blocked,
-  not-implemented QA state without advancing governed execution. (nexus)
+  Canonical Nexus QA command. Records governed validation scope, QA findings, and
+  structured readiness state for the governed Nexus lifecycle. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -333,23 +333,23 @@ Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
 file you are allowed to edit in plan mode. The plan file review report is part of the
 plan's living status.
 
-# /qa — Nexus QA Placeholder
+# /qa — Nexus Governed QA
 
-Nexus-owned QA guidance for explicit validation scope beyond code review.
+Nexus-owned QA guidance for governed validation scope beyond code review.
 
 ## Operator Checklist
 
-- define validation scope
-- record findings
-- keep runtime status explicit
+- define governed validation scope after completed review
+- record findings and ready/not-ready state explicitly
+- keep provider route and runtime status explicit in canonical QA artifacts
 
 ## Artifact Contract
 
-Currently writes `.planning/current/qa/status.json` while broader QA runtime depth remains staged.
+Writes `.planning/current/qa/qa-report.md` and `.planning/current/qa/status.json`.
 
 ## Routing
 
-QA content must not bypass review and does not advance governed execution outside Nexus.
+QA content starts only after completed review. CCB validation transport does not bypass Nexus-owned readiness decisions or advance governed execution outside Nexus.
 
 Run:
 

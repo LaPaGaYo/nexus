@@ -393,10 +393,20 @@ describe('Nexus wrapper skill validation', () => {
     }
   });
 
-  test('placeholder canonical wrappers stay explicit about blocked v0.1 status', () => {
-    for (const skill of ['qa', 'ship']) {
+  test('implemented qa and ship wrappers no longer present as placeholders', () => {
+    const expectations = {
+      qa: 'Nexus-owned QA guidance for governed validation scope beyond code review.',
+      ship: 'Nexus-owned ship guidance for governed release gating and explicit merge readiness.',
+    } as const;
+
+    for (const [skill, phrase] of Object.entries(expectations)) {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
-      expect(content.toLowerCase()).toContain('placeholder');
+      expect(content).not.toContain('Nexus QA Placeholder');
+      expect(content).not.toContain('Nexus Ship Placeholder');
+      expect(content).not.toContain('explicit placeholder');
+      expect(content).not.toContain('blocked, not-implemented QA state');
+      expect(content).not.toContain('release-gate intent as blocked and not implemented');
+      expect(content).toContain(phrase);
       expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
     }
   });
@@ -421,7 +431,8 @@ describe('Nexus wrapper skill validation', () => {
       discover: 'Advance to `/frame` only after Nexus writes the discovery artifacts.',
       plan: 'Advance to `/handoff` only after Nexus declares execution ready.',
       review: 'Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state.',
-      ship: 'Ship content must not imply implemented release authority before Nexus runtime says so;',
+      qa: 'CCB validation transport does not bypass Nexus-owned readiness decisions or advance governed execution outside Nexus.',
+      ship: 'Superpowers ship discipline informs the release gate, but Nexus-owned ship artifacts remain the only release authority.',
     } as const;
 
     for (const [skill, phrase] of Object.entries(expectations)) {
