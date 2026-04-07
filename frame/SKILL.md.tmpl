@@ -3,9 +3,9 @@ name: frame
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Canonical Nexus framing command. In v0.1 it is a scaffolded placeholder that records
-  framing intent, expected inputs, and blocked status without starting execution. Use
-  when discovery is complete enough to define scope and success criteria. (nexus)
+  Canonical Nexus framing command. Writes repo-visible framing artifacts and stage
+  status through Nexus-owned normalization and governance. Use when discovery is
+  complete enough to define scope and success criteria. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -13,7 +13,11 @@ allowed-tools:
 
 {{PREAMBLE}}
 
-# /frame — Nexus Framing Placeholder
+# /frame — Nexus Framing
+
+This command is the only supported framing lifecycle entrypoint.
+Absorbed PM methods may contribute framing structure behind the scenes, but Nexus owns
+the stage status, artifact writeback, and lifecycle decision.
 
 Purpose:
 - define scope and non-goals
@@ -30,5 +34,5 @@ Then read:
 
 - `.planning/nexus/current-run.json`
 - `.planning/current/frame/status.json`
-
-In v0.1 this command is scaffolded only. It records blocked, not-implemented state and does not start governed execution.
+- `docs/product/decision-brief.md`
+- `docs/product/prd.md`

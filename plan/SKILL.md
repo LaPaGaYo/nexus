@@ -336,6 +336,10 @@ plan's living status.
 
 # /plan — Nexus Canonical Planning Command
 
+This command is the only supported planning lifecycle entrypoint.
+Absorbed GSD methods may contribute planning structure behind the scenes, but `/plan`
+remains the only lifecycle front door for execution readiness.
+
 Run:
 
 ```bash

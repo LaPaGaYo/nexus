@@ -335,6 +335,10 @@ plan's living status.
 
 # /qa — Nexus QA Placeholder
 
+This command is the only supported QA lifecycle entrypoint.
+Future absorbed QA methods must still normalize through Nexus before they can affect
+governed state.
+
 Run:
 
 ```bash

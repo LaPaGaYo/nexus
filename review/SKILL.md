@@ -335,6 +335,10 @@ plan's living status.
 
 # /review — Nexus Governed Review
 
+This command is the only supported review lifecycle entrypoint.
+Nexus owns the audit workspace, structured review completion state, and governed
+provenance even when future absorbed review seams are activated.
+
 Run:
 
 ```bash

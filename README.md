@@ -31,14 +31,19 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 
 ## Quick start
 
-1. Install gstack (30 seconds — see below)
-2. Run `/office-hours` — describe what you're building
-3. Run `/plan-ceo-review` on any feature idea
-4. Run `/review` on any branch with changes
-5. Run `/qa` on your staging URL
-6. Stop there. You'll know if this is for you.
+1. Install gstack-hosted Nexus (30 seconds — see below)
+2. Run `/discover` — describe the product, problem, or unknown
+3. Run `/frame` — lock scope, non-goals, and success criteria
+4. Run `/plan` — turn approved framing into execution-ready artifacts
+5. Run `/review` — inspect governed implementation output
+6. Use legacy aliases only when older material still references them
 
 ## Nexus v0.1 command surface
+
+Nexus is the only command surface.
+PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.
+Legacy gstack aliases remain compatibility-only entrypoints and do not own separate contract,
+artifact, or transition logic.
 
 Canonical Nexus commands:
 - `/discover`
@@ -51,7 +56,20 @@ Canonical Nexus commands:
 - `/ship`
 - `/closeout`
 
-Milestone 1 implements the governed thin slice end to end:
+Implemented canonical commands in the current milestone:
+- `/discover`
+- `/frame`
+- `/plan`
+- `/handoff`
+- `/build`
+- `/review`
+- `/closeout`
+
+Placeholder canonical commands in the current milestone:
+- `/qa`
+- `/ship`
+
+The governed thin slice runs end to end:
 - `/plan -> /handoff -> /build -> /review -> /closeout`
 
 The following legacy names remain as compatibility aliases and route through the same Nexus runtime:

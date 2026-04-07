@@ -335,6 +335,11 @@ plan's living status.
 
 # /build — Nexus Governed Build
 
+This command is the only supported governed build lifecycle entrypoint.
+Absorbed Superpowers discipline and CCB transport may contribute execution behavior behind
+the scenes, but Nexus owns requested route, actual route, canonical build artifacts, and
+stage status.
+
 Run:
 
 ```bash

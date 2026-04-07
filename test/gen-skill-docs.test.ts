@@ -1430,6 +1430,23 @@ describe('preamble routing injection', () => {
   });
 });
 
+describe('Nexus-first wrapper language', () => {
+  test('canonical wrappers stay Nexus-first even after upstream imports exist', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
+
+    expect(content).toContain('This command is the only supported planning lifecycle entrypoint.');
+    expect(content).not.toMatch(/GSD-native command|PM-native command|Superpowers-native command/i);
+  });
+
+  test('transitional aliases remain compatibility-only wrappers', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+
+    expect(content).toContain('This alias routes to `/discover`.');
+    expect(content).toContain('does not own separate contract, artifact, or transition logic');
+    expect(content).not.toMatch(/primary backend owner|source of truth/i);
+  });
+});
+
 // --- {{DESIGN_OUTSIDE_VOICES}} resolver tests ---
 
 describe('DESIGN_OUTSIDE_VOICES resolver', () => {

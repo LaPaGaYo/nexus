@@ -336,6 +336,10 @@ plan's living status.
 
 # /handoff — Nexus Governed Handoff
 
+This command is the only supported governed handoff lifecycle entrypoint.
+Absorbed CCB routing consultation may inform route availability, but Nexus alone approves
+the governed route, writes the canonical handoff artifacts, and advances lifecycle state.
+
 Run:
 
 ```bash

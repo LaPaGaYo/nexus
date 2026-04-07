@@ -336,6 +336,8 @@ plan's living status.
 # /autoplan — Transitional Alias
 
 This alias routes to `/plan`.
+This alias does not own separate contract, artifact, or transition logic.
+Use `/plan` as the canonical lifecycle entrypoint.
 
 Run:
 

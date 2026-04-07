@@ -394,11 +394,42 @@ describe('Nexus wrapper skill validation', () => {
   });
 
   test('placeholder canonical wrappers stay explicit about blocked v0.1 status', () => {
-    for (const skill of ['discover', 'frame', 'qa', 'ship']) {
+    for (const skill of ['qa', 'ship']) {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
       expect(content.toLowerCase()).toContain('placeholder');
       expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
     }
+  });
+
+  test('implemented discovery and framing wrappers no longer present as placeholders', () => {
+    const expectations = {
+      discover: 'This command is the only supported discovery lifecycle entrypoint.',
+      frame: 'This command is the only supported framing lifecycle entrypoint.',
+    } as const;
+
+    for (const [skill, phrase] of Object.entries(expectations)) {
+      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      expect(content).not.toContain('Nexus Discovery Placeholder');
+      expect(content).not.toContain('Nexus Framing Placeholder');
+      expect(content).toContain(phrase);
+      expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
+    }
+  });
+
+  test('README presents Nexus as the only command surface', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
+
+    expect(content).toContain('Nexus is the only command surface.');
+    expect(content).toContain('/discover');
+    expect(content).not.toMatch(/use GSD commands|use PM skills commands|use Superpowers commands/i);
+  });
+
+  test('docs/skills.md presents absorbed systems as internal sources, not primary front doors', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'docs', 'skills.md'), 'utf-8');
+
+    expect(content).toContain('Nexus is the only command surface.');
+    expect(content).toContain('PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.');
+    expect(content).not.toMatch(/PM-native command|GSD-native command|Superpowers-native command/i);
   });
 });
 

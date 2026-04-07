@@ -336,6 +336,10 @@ plan's living status.
 
 # /ship — Nexus Ship Placeholder
 
+This command is the only supported release-gate lifecycle entrypoint.
+Future absorbed ship discipline must still normalize through Nexus before it can affect
+governed state.
+
 Run:
 
 ```bash

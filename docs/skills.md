@@ -1,6 +1,9 @@
-# Skill Deep Dives
+# Nexus Skill Deep Dives
 
-Detailed guides for every gstack skill — philosophy, workflow, and examples.
+Nexus is the only command surface.
+PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.
+Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
+but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 
 ## Nexus v0.1 command surface
 
@@ -15,12 +18,19 @@ Canonical Nexus commands:
 - `/ship`
 - `/closeout`
 
-Implemented thin slice:
+Implemented canonical commands in the current milestone:
+- `/discover`
+- `/frame`
+- `/plan`
+- `/handoff`
+- `/build`
+- `/review`
+- `/closeout`
+
+Governed thin slice:
 - `/plan -> /handoff -> /build -> /review -> /closeout`
 
 Documented placeholder commands in v0.1:
-- `/discover`
-- `/frame`
 - `/qa`
 - `/ship`
 

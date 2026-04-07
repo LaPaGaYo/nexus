@@ -336,6 +336,8 @@ plan's living status.
 # /office-hours — Transitional Alias
 
 This alias routes to `/discover`.
+This alias does not own separate contract, artifact, or transition logic.
+Use `/discover` as the canonical lifecycle entrypoint.
 
 Run:
 

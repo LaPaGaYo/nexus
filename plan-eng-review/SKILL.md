@@ -336,6 +336,8 @@ plan's living status.
 # /plan-eng-review — Transitional Alias
 
 This alias routes to `/frame`.
+This alias does not own separate contract, artifact, or transition logic.
+Use `/frame` as the canonical lifecycle entrypoint.
 
 Run:
 

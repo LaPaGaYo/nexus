@@ -3,9 +3,9 @@ name: discover
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Canonical Nexus discovery command. In v0.1 it is a scaffolded placeholder that records
-  discovery intent, current-run state, and blocked status without advancing governed
-  execution. Use when the problem is still vague and needs clarification. (nexus)
+  Canonical Nexus discovery command. Writes repo-visible discovery artifacts and stage
+  status through Nexus-owned normalization and governance. Use when the problem is still
+  vague and needs clarification. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -334,7 +334,11 @@ Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
 file you are allowed to edit in plan mode. The plan file review report is part of the
 plan's living status.
 
-# /discover — Nexus Discovery Placeholder
+# /discover — Nexus Discovery
+
+This command is the only supported discovery lifecycle entrypoint.
+Absorbed PM methods may contribute discovery structure behind the scenes, but Nexus owns
+the stage status, artifact writeback, and lifecycle decision.
 
 Purpose:
 - clarify the problem
@@ -351,5 +355,4 @@ Then read:
 
 - `.planning/nexus/current-run.json`
 - `.planning/current/discover/status.json`
-
-In v0.1 this command is scaffolded only. It records blocked, not-implemented state and does not advance governed execution.
+- `docs/product/idea-brief.md`

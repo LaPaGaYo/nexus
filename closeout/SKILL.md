@@ -335,6 +335,10 @@ plan's living status.
 
 # /closeout — Nexus Governed Closeout
 
+This command is the only supported closeout lifecycle entrypoint.
+Absorbed GSD closeout methods may contribute structure behind the scenes, but Nexus owns
+archive verification, transition legality, and final governed readiness.
+
 Run:
 
 ```bash
