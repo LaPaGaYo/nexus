@@ -1,0 +1,3 @@
+- write the audit set
+- verify provenance consistency
+- record gate decision

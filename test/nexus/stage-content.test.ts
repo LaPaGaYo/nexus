@@ -106,4 +106,32 @@ describe('nexus stage content', () => {
     expect(getStageContent('nexus-build-content').sections.checklist).toContain('actual route');
     expect(getStageContent('nexus-closeout-content').sections.checklist).toContain('archive state');
   });
+
+  test('review, qa, and ship use dedicated Nexus-authored content directories without implying runtime ownership', () => {
+    const contentFiles = [
+      'lib/nexus/stage-content/review/index.ts',
+      'lib/nexus/stage-content/review/overview.md',
+      'lib/nexus/stage-content/review/checklist.md',
+      'lib/nexus/stage-content/review/artifact-contract.md',
+      'lib/nexus/stage-content/review/routing.md',
+      'lib/nexus/stage-content/qa/index.ts',
+      'lib/nexus/stage-content/qa/overview.md',
+      'lib/nexus/stage-content/qa/checklist.md',
+      'lib/nexus/stage-content/qa/artifact-contract.md',
+      'lib/nexus/stage-content/qa/routing.md',
+      'lib/nexus/stage-content/ship/index.ts',
+      'lib/nexus/stage-content/ship/overview.md',
+      'lib/nexus/stage-content/ship/checklist.md',
+      'lib/nexus/stage-content/ship/artifact-contract.md',
+      'lib/nexus/stage-content/ship/routing.md',
+    ];
+
+    for (const file of contentFiles) {
+      expect(existsSync(resolve(import.meta.dir, '..', '..', file))).toBe(true);
+    }
+
+    expect(getStageContent('nexus-review-content').sections.overview).toContain('Nexus-owned');
+    expect(getStageContent('nexus-qa-content').sections.artifact_contract).toContain('status.json');
+    expect(getStageContent('nexus-ship-content').sections.routing).toContain('must not imply');
+  });
 });

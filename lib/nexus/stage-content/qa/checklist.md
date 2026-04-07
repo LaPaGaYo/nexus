@@ -1,0 +1,3 @@
+- define validation scope
+- record findings
+- keep runtime status explicit

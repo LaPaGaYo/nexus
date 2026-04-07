@@ -1,0 +1,3 @@
+- require review artifacts
+- require governed gate state
+- keep release semantics explicit

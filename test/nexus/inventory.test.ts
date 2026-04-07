@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
+import { getStageContent } from '../../lib/nexus/stage-content';
 import { NEXUS_STAGE_PACKS } from '../../lib/nexus/types';
 
 const INVENTORIES = [
@@ -166,5 +167,31 @@ describe('nexus runtime activation authority', () => {
     expect(registry.build.superpowers).toBe('active');
     expect(registry.build.ccb).toBe('active');
     expect(registry.handoff.ccb).toBe('active');
+  });
+
+  test('review, qa, and ship stage content exists without activating reserved future seams', () => {
+    for (const file of [
+      'lib/nexus/stage-content/review/index.ts',
+      'lib/nexus/stage-content/review/overview.md',
+      'lib/nexus/stage-content/review/checklist.md',
+      'lib/nexus/stage-content/review/artifact-contract.md',
+      'lib/nexus/stage-content/review/routing.md',
+      'lib/nexus/stage-content/qa/index.ts',
+      'lib/nexus/stage-content/qa/overview.md',
+      'lib/nexus/stage-content/qa/checklist.md',
+      'lib/nexus/stage-content/qa/artifact-contract.md',
+      'lib/nexus/stage-content/qa/routing.md',
+      'lib/nexus/stage-content/ship/index.ts',
+      'lib/nexus/stage-content/ship/overview.md',
+      'lib/nexus/stage-content/ship/checklist.md',
+      'lib/nexus/stage-content/ship/artifact-contract.md',
+      'lib/nexus/stage-content/ship/routing.md',
+    ]) {
+      expect(existsSync(file)).toBe(true);
+    }
+
+    expect(getStageContent('nexus-review-content').sections.overview).toContain('Nexus-owned');
+    expect(getStageContent('nexus-qa-content').sections.overview).toContain('Nexus-owned');
+    expect(getStageContent('nexus-ship-content').sections.overview).toContain('Nexus-owned');
   });
 });
