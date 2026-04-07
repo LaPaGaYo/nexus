@@ -58,6 +58,7 @@ export interface CcbAdapter {
   execute_generator(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_audit_a(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_audit_b(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+  execute_qa(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
 export interface AdapterRegistryShape {
@@ -67,6 +68,7 @@ export interface AdapterRegistryShape {
   handoff: { ccb: AdapterActivationState };
   build: { superpowers: AdapterActivationState; ccb: AdapterActivationState };
   review: { superpowers: AdapterActivationState; ccb: AdapterActivationState };
+  qa: { ccb: AdapterActivationState };
   ship: { superpowers: AdapterActivationState };
   closeout: { gsd: AdapterActivationState };
 }

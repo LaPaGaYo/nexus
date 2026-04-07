@@ -68,5 +68,6 @@ export function createDefaultCcbAdapter(): CcbAdapter {
     },
     execute_audit_a: async () => inactiveResult(),
     execute_audit_b: async () => inactiveResult(),
+    execute_qa: async () => inactiveResult(),
   };
 }

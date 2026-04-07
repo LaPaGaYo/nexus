@@ -6,7 +6,7 @@ import { applyNormalizationPlan } from '../../lib/nexus/normalizers';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus adapter registry', () => {
-  test('keeps review and ship seams reserved', () => {
+  test('activates only the governed tail seams required for milestone 6', () => {
     const registry = getDefaultAdapterRegistry();
 
     expect(registry.discover.pm).toBe('active');
@@ -15,9 +15,10 @@ describe('nexus adapter registry', () => {
     expect(registry.handoff.ccb).toBe('active');
     expect(registry.build.superpowers).toBe('active');
     expect(registry.build.ccb).toBe('active');
-    expect(registry.review.superpowers).toBe('reserved_future');
-    expect(registry.review.ccb).toBe('reserved_future');
-    expect(registry.ship.superpowers).toBe('reserved_future');
+    expect(registry.review.superpowers).toBe('active');
+    expect(registry.review.ccb).toBe('active');
+    expect(registry.qa.ccb).toBe('active');
+    expect(registry.ship.superpowers).toBe('active');
     expect(registry.closeout.gsd).toBe('active');
   });
 });

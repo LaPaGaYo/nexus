@@ -20,6 +20,18 @@ export function stageNormalizationPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/normalization.json`;
 }
 
+export function qaReportPath(): string {
+  return `${CURRENT_ROOT}/qa/qa-report.md`;
+}
+
+export function shipReleaseGateRecordPath(): string {
+  return `${CURRENT_ROOT}/ship/release-gate-record.md`;
+}
+
+export function shipChecklistPath(): string {
+  return `${CURRENT_ROOT}/ship/checklist.json`;
+}
+
 export function stageConflictPath(stage: CanonicalCommandId, adapter: string): string {
   return `${CURRENT_ROOT}/conflicts/${stage}-${adapter}.json`;
 }

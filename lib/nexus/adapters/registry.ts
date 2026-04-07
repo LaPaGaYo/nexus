@@ -10,8 +10,9 @@ const DEFAULT_REGISTRY: AdapterRegistryShape = {
   plan: { gsd: 'active' },
   handoff: { ccb: 'active' },
   build: { superpowers: 'active', ccb: 'active' },
-  review: { superpowers: 'reserved_future', ccb: 'reserved_future' },
-  ship: { superpowers: 'reserved_future' },
+  review: { superpowers: 'active', ccb: 'active' },
+  qa: { ccb: 'active' },
+  ship: { superpowers: 'active' },
   closeout: { gsd: 'active' },
 };
 
@@ -23,6 +24,7 @@ export function getDefaultAdapterRegistry(): AdapterRegistryShape {
     handoff: { ...DEFAULT_REGISTRY.handoff },
     build: { ...DEFAULT_REGISTRY.build },
     review: { ...DEFAULT_REGISTRY.review },
+    qa: { ...DEFAULT_REGISTRY.qa },
     ship: { ...DEFAULT_REGISTRY.ship },
     closeout: { ...DEFAULT_REGISTRY.closeout },
   };

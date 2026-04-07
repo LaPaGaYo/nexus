@@ -55,6 +55,8 @@ export const STAGE_DECISIONS = [
   'route_recorded',
   'build_recorded',
   'audit_recorded',
+  'qa_recorded',
+  'ship_recorded',
   'closeout_recorded',
   'refused',
 ] as const;

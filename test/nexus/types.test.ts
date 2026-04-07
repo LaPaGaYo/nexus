@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   ACTUAL_ROUTE_TRANSPORTS,
+  STAGE_DECISIONS,
   PLACEHOLDER_OUTCOME,
   RUN_STATUSES,
   ROUTE_VALIDATION_TRANSPORTS,
@@ -101,5 +102,10 @@ describe('nexus types', () => {
     expect(validation.approved).toBe(false);
     expect(provenance.path).toContain('build-result.md');
     expect(ROUTE_VALIDATION_TRANSPORTS).toEqual(['ccb', 'none']);
+  });
+
+  test('freezes the governed tail lifecycle decisions', () => {
+    expect(STAGE_DECISIONS).toContain('qa_recorded');
+    expect(STAGE_DECISIONS).toContain('ship_recorded');
   });
 });

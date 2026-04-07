@@ -25,6 +25,12 @@ describe('nexus command manifest', () => {
     expect(LEGACY_ALIASES['start-work']).toBe('discover');
   });
 
+  test('marks review qa and ship as implemented tail-lifecycle stages', () => {
+    expect(CANONICAL_MANIFEST.review.implementation).toBe('implemented');
+    expect(CANONICAL_MANIFEST.qa.implementation).toBe('implemented');
+    expect(CANONICAL_MANIFEST.ship.implementation).toBe('implemented');
+  });
+
   test('resolves aliases to canonical commands', () => {
     expect(resolveCommandName('office-hours')).toBe('discover');
     expect(resolveCommandName('autoplan')).toBe('plan');

@@ -109,22 +109,29 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
   qa: {
     id: 'qa',
     owner: 'audit-core',
-    implementation: 'placeholder',
+    implementation: 'implemented',
     purpose: 'Record explicit QA validation scope.',
     required_inputs: ['.planning/current/review/status.json'],
-    durable_outputs: ['.planning/current/qa/status.json'],
-    exit_condition: 'QA scope is recorded as blocked/not implemented.',
+    durable_outputs: [
+      '.planning/current/qa/qa-report.md',
+      '.planning/current/qa/status.json',
+    ],
+    exit_condition: 'QA scope is validated and recorded.',
     legal_predecessors: ['review'],
   },
   ship: {
     id: 'ship',
     owner: 'governance-core',
-    implementation: 'placeholder',
+    implementation: 'implemented',
     purpose: 'Record release-gate intent.',
     required_inputs: ['.planning/current/review/status.json'],
-    durable_outputs: ['.planning/current/ship/status.json'],
-    exit_condition: 'Ship scope is recorded as blocked/not implemented.',
-    legal_predecessors: ['review'],
+    durable_outputs: [
+      '.planning/current/ship/release-gate-record.md',
+      '.planning/current/ship/checklist.json',
+      '.planning/current/ship/status.json',
+    ],
+    exit_condition: 'Release-gate state is explicitly recorded.',
+    legal_predecessors: ['review', 'qa'],
   },
   closeout: {
     id: 'closeout',
@@ -137,7 +144,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
       '.planning/current/closeout/status.json',
     ],
     exit_condition: 'Final readiness status is explicit.',
-    legal_predecessors: ['review'],
+    legal_predecessors: ['review', 'qa', 'ship'],
   },
 };
 
