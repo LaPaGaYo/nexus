@@ -1,8 +1,23 @@
 import { describe, expect, test } from 'bun:test';
+import { createDiscoverStagePack } from '../../lib/nexus/stage-packs/discover';
+import { createFrameStagePack } from '../../lib/nexus/stage-packs/frame';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus discover/frame PM seams', () => {
+  test('pm stage packs stay Nexus-owned internal units', () => {
+    const discoverPack = createDiscoverStagePack();
+    const framePack = createFrameStagePack();
+
+    expect(discoverPack.id).toBe('nexus-discover-pack');
+    expect(discoverPack.stage).toBe('discover');
+    expect(discoverPack.source_binding.absorbed_capabilities).toContain('pm-discover');
+
+    expect(framePack.id).toBe('nexus-frame-pack');
+    expect(framePack.stage).toBe('frame');
+    expect(framePack.source_binding.absorbed_capabilities).toContain('pm-frame');
+  });
+
   test('normalizes a happy-path discover result into canonical docs and status', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
@@ -18,6 +33,7 @@ describe('nexus discover/frame PM seams', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-discover-pack',
               absorbed_capability: 'pm-discover',
               source_map: ['upstream/pm-skills/commands/discover.md'],
             },
@@ -42,6 +58,7 @@ describe('nexus discover/frame PM seams', () => {
         adapter_id: 'pm',
         outcome: 'success',
         traceability: {
+          nexus_stage_pack: 'nexus-discover-pack',
           absorbed_capability: 'pm-discover',
         },
       });
@@ -65,6 +82,7 @@ describe('nexus discover/frame PM seams', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
               source_map: ['upstream/pm-skills/commands/write-prd.md'],
             },
@@ -86,6 +104,7 @@ describe('nexus discover/frame PM seams', () => {
         adapter_id: 'pm',
         outcome: 'success',
         traceability: {
+          nexus_stage_pack: 'nexus-frame-pack',
           absorbed_capability: 'pm-frame',
         },
       });
@@ -107,6 +126,7 @@ describe('nexus discover/frame PM seams', () => {
             notices: [],
             conflict_candidates: [],
             traceability: {
+              nexus_stage_pack: 'nexus-discover-pack',
               absorbed_capability: 'pm-discover',
               source_map: ['upstream/pm-skills/commands/discover.md'],
             },
