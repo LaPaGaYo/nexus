@@ -325,7 +325,7 @@ describe('gen-skill-docs', () => {
   test('generated SKILL.md contains telemetry line', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('skill-usage.jsonl');
-    expect(content).toContain('~/.gstack/analytics');
+    expect(content).toContain('~/.nexus/analytics');
   });
 
   test('preamble .pending-* glob is zsh-safe (uses find, not shell glob)', () => {
@@ -335,7 +335,7 @@ describe('gen-skill-docs', () => {
       // Must NOT have a bare shell glob ".pending-*" outside of find's -name argument
       expect(content).not.toMatch(/for _PF in [^\n]*\/\.pending-\*/);
       // Must use find to avoid zsh NOMATCH error on glob expansion
-      expect(content).toContain("find ~/.gstack/analytics -maxdepth 1 -name '.pending-*'");
+      expect(content).toContain("find ~/.nexus/analytics -maxdepth 1 -name '.pending-*'");
     }
   });
 
@@ -1087,7 +1087,7 @@ describe('Plan status footer in preamble', () => {
     const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
     expect(content).toContain('Plan Status Footer');
     expect(content).toContain('GSTACK REVIEW REPORT');
-    expect(content).toContain('gstack-review-read');
+    expect(content).toContain('nexus-review-read');
     expect(content).toContain('ExitPlanMode');
     expect(content).toContain('NO REVIEWS YET');
   });
@@ -1832,7 +1832,7 @@ describe('Codex generation (--host codex)', () => {
       // No skill should reference Claude paths
       expect(content).not.toContain('~/.claude/skills');
       expect(content).not.toContain('.claude/skills');
-      if (content.includes('nexus-config') || content.includes('nexus-update-check') || content.includes('gstack-telemetry-log')) {
+      if (content.includes('nexus-config') || content.includes('nexus-update-check') || content.includes('nexus-telemetry-log')) {
         expect(content).toContain('$NEXUS_ROOT');
       }
       // If a skill references checklist.md, it must use the correct sidecar path
@@ -2336,7 +2336,7 @@ describe('telemetry', () => {
   test('generated SKILL.md contains telemetry epilogue', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('Telemetry (run last)');
-    expect(content).toContain('gstack-telemetry-log');
+    expect(content).toContain('nexus-telemetry-log');
     expect(content).toContain('_TEL_END');
     expect(content).toContain('_TEL_DUR');
     expect(content).toContain('SKILL_NAME');
@@ -2574,7 +2574,7 @@ describeLegacyPlanAliases('LEARNINGS_SEARCH resolver', () => {
     test(`${skill} generated SKILL.md contains learnings search`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
       expect(content).toContain('Prior Learnings');
-      expect(content).toContain('gstack-learnings-search');
+      expect(content).toContain('nexus-learnings-search');
     });
   }
 
@@ -2603,7 +2603,7 @@ describeLegacyReview('LEARNINGS_LOG resolver', () => {
     test(`${skill} generated SKILL.md contains learnings log`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
       expect(content).toContain('Capture Learnings');
-      expect(content).toContain('gstack-learnings-log');
+      expect(content).toContain('nexus-learnings-log');
     });
   }
 
