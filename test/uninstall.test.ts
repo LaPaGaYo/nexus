@@ -6,6 +6,7 @@ import * as os from 'os';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const UNINSTALL = path.join(ROOT, 'bin', 'gstack-uninstall');
+const NEXUS_UNINSTALL = path.join(ROOT, 'bin', 'nexus-uninstall');
 
 describe('gstack-uninstall', () => {
   test('syntax check passes', () => {
@@ -13,10 +14,17 @@ describe('gstack-uninstall', () => {
     expect(result.status).toBe(0);
   });
 
-  test('--help prints usage and exits 0', () => {
-    const result = spawnSync('bash', [UNINSTALL, '--help'], { stdio: 'pipe' });
+  test('nexus wrapper exists and syntax checks cleanly', () => {
+    expect(fs.existsSync(NEXUS_UNINSTALL)).toBe(true);
+    const result = spawnSync('bash', ['-n', NEXUS_UNINSTALL], { stdio: 'pipe' });
+    expect(result.status).toBe(0);
+  });
+
+  test('--help prints Nexus-primary usage and exits 0', () => {
+    const result = spawnSync('bash', [NEXUS_UNINSTALL, '--help'], { stdio: 'pipe' });
     expect(result.status).toBe(0);
     const output = result.stdout.toString();
+    expect(output).toContain('nexus-uninstall');
     expect(output).toContain('gstack-uninstall');
     expect(output).toContain('--force');
     expect(output).toContain('--keep-state');
@@ -66,7 +74,7 @@ describe('gstack-uninstall', () => {
     });
 
     test('--force removes global Claude skills and state', () => {
-      const result = spawnSync('bash', [UNINSTALL, '--force'], {
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
           ...process.env,
@@ -79,7 +87,7 @@ describe('gstack-uninstall', () => {
 
       expect(result.status).toBe(0);
       const output = result.stdout.toString();
-      expect(output).toContain('gstack uninstalled');
+      expect(output).toContain('Nexus uninstalled');
 
       // Global skill dir should be removed
       expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'gstack'))).toBe(false);
@@ -96,7 +104,7 @@ describe('gstack-uninstall', () => {
     });
 
     test('--keep-state preserves state directory', () => {
-      const result = spawnSync('bash', [UNINSTALL, '--force', '--keep-state'], {
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force', '--keep-state'], {
         stdio: 'pipe',
         env: {
           ...process.env,
@@ -121,7 +129,7 @@ describe('gstack-uninstall', () => {
       const cleanHome = path.join(tmpDir, 'clean-home');
       fs.mkdirSync(cleanHome, { recursive: true });
 
-      const result = spawnSync('bash', [UNINSTALL, '--force'], {
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
           ...process.env,
@@ -134,6 +142,7 @@ describe('gstack-uninstall', () => {
 
       expect(result.status).toBe(0);
       expect(result.stdout.toString()).toContain('Nothing to remove');
+      expect(result.stdout.toString()).toContain('Nexus');
     });
 
     test('upgrade path: prefixed install + uninstall cleans both old and new symlinks', () => {
@@ -141,7 +150,7 @@ describe('gstack-uninstall', () => {
       // Both old unprefixed and new prefixed symlinks exist
       // (mockHome already has both 'review' and 'gstack-ship' symlinks)
 
-      const result = spawnSync('bash', [UNINSTALL, '--force'], {
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
           ...process.env,

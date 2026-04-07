@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
   LEGACY_COMPAT_NAMESPACE,
@@ -28,5 +28,17 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('Nexus is the only command surface.');
     expect(skills).toContain('Nexus is the only command surface.');
     expect(skills).toContain('Canonical Nexus commands:');
+  });
+
+  test('nexus-branded host helper entrypoints exist alongside compatibility helpers', () => {
+    expect(existsSync(join(ROOT, 'bin', 'nexus-config'))).toBe(true);
+    expect(existsSync(join(ROOT, 'bin', 'nexus-relink'))).toBe(true);
+    expect(existsSync(join(ROOT, 'bin', 'nexus-uninstall'))).toBe(true);
+    expect(existsSync(join(ROOT, 'bin', 'nexus-update-check'))).toBe(true);
+
+    expect(existsSync(join(ROOT, 'bin', 'gstack-config'))).toBe(true);
+    expect(existsSync(join(ROOT, 'bin', 'gstack-relink'))).toBe(true);
+    expect(existsSync(join(ROOT, 'bin', 'gstack-uninstall'))).toBe(true);
+    expect(existsSync(join(ROOT, 'bin', 'gstack-update-check'))).toBe(true);
   });
 });

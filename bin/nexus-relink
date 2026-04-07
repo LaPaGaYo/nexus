@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# nexus-relink — Nexus-primary wrapper for gstack-relink
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$SCRIPT_DIR/gstack-relink" "$@"

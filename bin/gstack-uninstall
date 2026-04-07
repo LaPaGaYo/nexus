@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# gstack-uninstall — remove gstack skills, state, and browse daemons
+# gstack-uninstall — compatibility entrypoint for removing Nexus skills, state,
+# and browse daemons
 #
 # Usage:
-#   gstack-uninstall              — interactive uninstall (prompts before removing)
-#   gstack-uninstall --force      — remove everything without prompting
-#   gstack-uninstall --keep-state — remove skills but keep ~/.gstack/ data
+#   nexus-uninstall               — interactive uninstall (preferred)
+#   nexus-uninstall --force       — remove everything without prompting
+#   nexus-uninstall --keep-state  — remove skills but keep ~/.gstack/ data
+#   gstack-uninstall ...          — compatibility alias
 #
 # What gets REMOVED:
 #   ~/.claude/skills/gstack       — global Claude skill install (git clone or vendored)
@@ -53,7 +55,8 @@ while [ $# -gt 0 ]; do
       ;;
     *)
       echo "Unknown option: $1" >&2
-      echo "Usage: gstack-uninstall [--force] [--keep-state]" >&2
+      echo "Usage: nexus-uninstall [--force] [--keep-state]" >&2
+      echo "Compatibility: gstack-uninstall remains available." >&2
       exit 1
       ;;
   esac
@@ -61,7 +64,7 @@ done
 
 # ─── Confirmation ────────────────────────────────────────────
 if [ "$FORCE" -eq 0 ]; then
-  echo "This will remove gstack from your system:"
+  echo "This will remove Nexus from your system:"
   { [ -d "$HOME/.claude/skills/gstack" ] || [ -L "$HOME/.claude/skills/gstack" ]; } && echo "  ~/.claude/skills/gstack (+ per-skill symlinks)"
   [ -d "$HOME/.codex/skills" ] && echo "  ~/.codex/skills/gstack*"
   [ -d "$HOME/.factory/skills" ] && echo "  ~/.factory/skills/gstack*"
@@ -244,9 +247,9 @@ done
 # ─── Summary ────────────────────────────────────────────────
 if [ ${#REMOVED[@]} -gt 0 ]; then
   echo "Removed: ${REMOVED[*]}"
-  echo "gstack uninstalled."
+  echo "Nexus uninstalled."
 else
-  echo "Nothing to remove — gstack is not installed."
+  echo "Nothing to remove — Nexus is not installed."
 fi
 
 exit 0

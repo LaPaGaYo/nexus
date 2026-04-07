@@ -691,6 +691,7 @@ fi
 # 8. First-time welcome + legacy cleanup
 if [ ! -f "$HOME/.gstack/.welcome-seen" ]; then
   echo "  Welcome to Nexus! Run /gstack-upgrade anytime to stay current."
+  echo "  Host helpers: nexus-config, nexus-relink, nexus-uninstall"
   touch "$HOME/.gstack/.welcome-seen"
 fi
 rm -f /tmp/gstack-latest-version
