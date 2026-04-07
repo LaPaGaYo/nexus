@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
+  PRODUCT_SURFACE_RULES,
   LEGACY_COMPAT_NAMESPACE,
   LEGACY_STATE_ROOT,
   PRIMARY_NAMESPACE,
@@ -18,6 +19,9 @@ describe('nexus product surface contract', () => {
     expect(PRIMARY_NAMESPACE).toBe('nexus');
     expect(LEGACY_COMPAT_NAMESPACE).toBe('gstack');
     expect(LEGACY_STATE_ROOT).toBe('.gstack');
+    expect(PRODUCT_SURFACE_RULES.primary_state_root).toBe('.nexus');
+    expect(PRODUCT_SURFACE_RULES.nexus_state_env_var).toBe('NEXUS_STATE_DIR');
+    expect(PRODUCT_SURFACE_RULES.gstack_state_env_var).toBe('GSTACK_STATE_DIR');
   });
 
   test('readme and skills docs already anchor the lifecycle surface on Nexus', () => {
