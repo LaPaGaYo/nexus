@@ -158,18 +158,19 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
 });
 
 describe('nexus runtime activation authority', () => {
-  test('reserved future seams stay non-active in the runtime registry', () => {
+  test('governed tail seams are active in the runtime registry', () => {
     const registry = getDefaultAdapterRegistry();
 
-    expect(registry.review.superpowers).toBe('reserved_future');
-    expect(registry.review.ccb).toBe('reserved_future');
-    expect(registry.ship.superpowers).toBe('reserved_future');
+    expect(registry.review.superpowers).toBe('active');
+    expect(registry.review.ccb).toBe('active');
+    expect(registry.qa.ccb).toBe('active');
+    expect(registry.ship.superpowers).toBe('active');
     expect(registry.build.superpowers).toBe('active');
     expect(registry.build.ccb).toBe('active');
     expect(registry.handoff.ccb).toBe('active');
   });
 
-  test('review, qa, and ship stage content exists without activating reserved future seams', () => {
+  test('review, qa, and ship stage content and stage packs exist for the active governed tail', () => {
     for (const file of [
       'lib/nexus/stage-content/review/index.ts',
       'lib/nexus/stage-content/review/overview.md',
@@ -186,6 +187,9 @@ describe('nexus runtime activation authority', () => {
       'lib/nexus/stage-content/ship/checklist.md',
       'lib/nexus/stage-content/ship/artifact-contract.md',
       'lib/nexus/stage-content/ship/routing.md',
+      'lib/nexus/stage-packs/review.ts',
+      'lib/nexus/stage-packs/qa.ts',
+      'lib/nexus/stage-packs/ship.ts',
     ]) {
       expect(existsSync(file)).toBe(true);
     }

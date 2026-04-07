@@ -6,3 +6,6 @@ export * from './plan';
 export * from './closeout';
 export * from './handoff';
 export * from './build';
+export * from './review';
+export * from './qa';
+export * from './ship';

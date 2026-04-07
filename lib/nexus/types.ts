@@ -21,6 +21,9 @@ export const NEXUS_STAGE_PACKS = [
   'nexus-plan-pack',
   'nexus-handoff-pack',
   'nexus-build-pack',
+  'nexus-review-pack',
+  'nexus-qa-pack',
+  'nexus-ship-pack',
   'nexus-closeout-pack',
 ] as const;
 export type NexusStagePackId = (typeof NEXUS_STAGE_PACKS)[number];

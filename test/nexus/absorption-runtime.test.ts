@@ -6,6 +6,7 @@ import { createDefaultGsdAdapter } from '../../lib/nexus/adapters/gsd';
 import { createDefaultPmAdapter } from '../../lib/nexus/adapters/pm';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
 import { createDefaultSuperpowersAdapter } from '../../lib/nexus/adapters/superpowers';
+import { createQaStagePack, createReviewStagePack, createShipStagePack } from '../../lib/nexus/stage-packs';
 
 describe('nexus absorbed runtime', () => {
   test('pm adapter reports absorbed capability ids for discover and frame', async () => {
@@ -74,7 +75,7 @@ describe('nexus absorbed runtime', () => {
     expect(closeout.traceability?.source_map).toContain('upstream/gsd/commands/gsd/complete-milestone.md');
   });
 
-  test('superpowers and ccb adapters report absorbed capability ids without activating reserved seams', async () => {
+  test('superpowers and ccb adapters report absorbed capability ids while the governed tail seams stay active', async () => {
     const superpowers = createDefaultSuperpowersAdapter();
     const ccb = createDefaultCcbAdapter();
     const registry = getDefaultAdapterRegistry();
@@ -131,8 +132,30 @@ describe('nexus absorbed runtime', () => {
     expect(execution.traceability?.nexus_stage_pack).toBe('nexus-build-pack');
     expect(execution.traceability?.absorbed_capability).toBe('ccb-execution');
     expect(execution.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/codex_comm.py');
-    expect(registry.review.superpowers).toBe('reserved_future');
-    expect(registry.review.ccb).toBe('reserved_future');
-    expect(registry.ship.superpowers).toBe('reserved_future');
+    expect(registry.review.superpowers).toBe('active');
+    expect(registry.review.ccb).toBe('active');
+    expect(registry.qa.ccb).toBe('active');
+    expect(registry.ship.superpowers).toBe('active');
+  });
+
+  test('review qa and ship stage packs expose absorbed source traceability', () => {
+    const review = createReviewStagePack();
+    const qa = createQaStagePack();
+    const ship = createShipStagePack();
+
+    expect(review.id).toBe('nexus-review-pack');
+    expect(review.disciplineTraceability().absorbed_capability).toBe('superpowers-review-discipline');
+    expect(review.auditTraceability('codex').absorbed_capability).toBe('ccb-review-codex');
+    expect(review.auditTraceability('gemini').absorbed_capability).toBe('ccb-review-gemini');
+    expect(review.auditTraceability('codex').source_map).toContain('upstream/claude-code-bridge/lib/codex_comm.py');
+    expect(review.disciplineTraceability().source_map).toContain('upstream/superpowers/skills/verification-before-completion/SKILL.md');
+
+    expect(qa.id).toBe('nexus-qa-pack');
+    expect(qa.validationTraceability().absorbed_capability).toBe('ccb-qa');
+    expect(qa.validationTraceability().source_map).toContain('upstream/claude-code-bridge/lib/gemini_comm.py');
+
+    expect(ship.id).toBe('nexus-ship-pack');
+    expect(ship.disciplineTraceability().absorbed_capability).toBe('superpowers-ship-discipline');
+    expect(ship.disciplineTraceability().source_map).toContain('upstream/superpowers/skills/finishing-a-development-branch/SKILL.md');
   });
 });

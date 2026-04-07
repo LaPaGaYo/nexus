@@ -39,6 +39,27 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
       ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'build'),
     ],
   },
+  'nexus-review-pack': {
+    pack_id: 'nexus-review-pack',
+    canonical_stage: 'review',
+    absorbed_capabilities: ['superpowers-review-discipline', 'ccb-review-codex', 'ccb-review-gemini'],
+    source_refs: [
+      ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'review'),
+      ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'review'),
+    ],
+  },
+  'nexus-qa-pack': {
+    pack_id: 'nexus-qa-pack',
+    canonical_stage: 'qa',
+    absorbed_capabilities: ['ccb-qa'],
+    source_refs: CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'qa'),
+  },
+  'nexus-ship-pack': {
+    pack_id: 'nexus-ship-pack',
+    canonical_stage: 'ship',
+    absorbed_capabilities: ['superpowers-ship-discipline'],
+    source_refs: SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'ship'),
+  },
   'nexus-closeout-pack': {
     pack_id: 'nexus-closeout-pack',
     canonical_stage: 'closeout',
