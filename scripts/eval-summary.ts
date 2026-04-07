@@ -1,17 +1,16 @@
 #!/usr/bin/env bun
 /**
- * Aggregate summary of all eval runs from ~/.gstack-dev/evals/
+ * Aggregate summary of all eval runs from the Nexus eval roots.
  *
  * Usage: bun run eval:summary
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import type { EvalResult } from '../test/helpers/eval-store';
 import { getProjectEvalDir } from '../test/helpers/eval-store';
 
-const EVAL_DIR = getProjectEvalDir();
+const EVAL_DIR = getProjectEvalDir('read');
 
 let files: string[];
 try {

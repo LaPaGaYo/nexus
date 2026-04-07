@@ -11,11 +11,27 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { getLegacyDevRoot, getPrimaryDevRoot } from '../lib/nexus/support-surface';
 
-const GSTACK_DEV_DIR = path.join(os.homedir(), '.gstack-dev');
-const HEARTBEAT_PATH = path.join(GSTACK_DEV_DIR, 'e2e-live.json');
-const PARTIAL_PATH = path.join(GSTACK_DEV_DIR, 'evals', '_partial-e2e.json');
+const HOME_DIR = os.homedir();
+const PRIMARY_DEV_DIR = getPrimaryDevRoot(HOME_DIR);
+const LEGACY_DEV_DIR = getLegacyDevRoot(HOME_DIR);
 const STALE_THRESHOLD_SEC = 600; // 10 minutes
+
+function resolveReadableDevPath(...segments: string[]): { path: string; devRoot: string } {
+  const primaryPath = path.join(PRIMARY_DEV_DIR, ...segments);
+  const legacyPath = path.join(LEGACY_DEV_DIR, ...segments);
+
+  if (fs.existsSync(primaryPath)) {
+    return { path: primaryPath, devRoot: PRIMARY_DEV_DIR };
+  }
+
+  if (fs.existsSync(legacyPath)) {
+    return { path: legacyPath, devRoot: LEGACY_DEV_DIR };
+  }
+
+  return { path: primaryPath, devRoot: PRIMARY_DEV_DIR };
+}
 
 export interface HeartbeatData {
   runId: string;
@@ -71,14 +87,20 @@ function formatDuration(sec: number): string {
 }
 
 /** Render dashboard from heartbeat + partial data. Pure function for testability. */
-export function renderDashboard(heartbeat: HeartbeatData | null, partial: PartialData | null): string {
+export function renderDashboard(
+  heartbeat: HeartbeatData | null,
+  partial: PartialData | null,
+  devRoot: string = PRIMARY_DEV_DIR,
+): string {
   const lines: string[] = [];
+  const heartbeatPath = path.join(devRoot, 'e2e-live.json');
+  const partialPath = path.join(devRoot, 'evals', '_partial-e2e.json');
 
   if (!heartbeat && !partial) {
     lines.push('E2E Watch — No active run detected');
     lines.push('');
-    lines.push(`Heartbeat: ${HEARTBEAT_PATH} (not found)`);
-    lines.push(`Partial:   ${PARTIAL_PATH} (not found)`);
+    lines.push(`Heartbeat: ${heartbeatPath} (not found)`);
+    lines.push(`Partial:   ${partialPath} (not found)`);
     lines.push('');
     lines.push('Start a run with: EVALS=1 bun test test/skill-e2e-*.test.ts');
     return lines.join('\n');
@@ -125,7 +147,7 @@ export function renderDashboard(heartbeat: HeartbeatData | null, partial: Partia
   lines.push(` Completed: ${completedCount}  Running: ${running}  Cost: $${totalCost.toFixed(2)}  Elapsed: ${formatDuration(elapsed)}`);
 
   if (heartbeat?.runId) {
-    const logPath = path.join(GSTACK_DEV_DIR, 'e2e-runs', heartbeat.runId, 'progress.log');
+    const logPath = path.join(devRoot, 'e2e-runs', heartbeat.runId, 'progress.log');
     lines.push(` Logs: ${logPath}`);
   }
 
@@ -138,12 +160,15 @@ if (import.meta.main) {
   const showTail = process.argv.includes('--tail');
 
   const render = () => {
-    let heartbeat = readJSON<HeartbeatData>(HEARTBEAT_PATH);
-    const partial = readJSON<PartialData>(PARTIAL_PATH);
+    const heartbeatSource = resolveReadableDevPath('e2e-live.json');
+    let heartbeat = readJSON<HeartbeatData>(heartbeatSource.path);
+    const partialSource = resolveReadableDevPath('evals', '_partial-e2e.json');
+    const partial = readJSON<PartialData>(partialSource.path);
+    const activeDevRoot = heartbeat ? heartbeatSource.devRoot : partialSource.devRoot;
 
     // Auto-clear heartbeat if the process is dead
     if (heartbeat?.pid && !isProcessAlive(heartbeat.pid)) {
-      try { fs.unlinkSync(HEARTBEAT_PATH); } catch { /* already gone */ }
+      try { fs.unlinkSync(heartbeatSource.path); } catch { /* already gone */ }
       process.stdout.write('\x1B[2J\x1B[H');
       process.stdout.write(`Cleared stale heartbeat — PID ${heartbeat.pid} is no longer running.\n\n`);
       heartbeat = null;
@@ -151,11 +176,11 @@ if (import.meta.main) {
 
     // Clear screen
     process.stdout.write('\x1B[2J\x1B[H');
-    process.stdout.write(renderDashboard(heartbeat, partial) + '\n');
+    process.stdout.write(renderDashboard(heartbeat, partial, activeDevRoot) + '\n');
 
     // --tail: show last 10 lines of progress.log
     if (showTail && heartbeat?.runId) {
-      const logPath = path.join(GSTACK_DEV_DIR, 'e2e-runs', heartbeat.runId, 'progress.log');
+      const logPath = path.join(activeDevRoot, 'e2e-runs', heartbeat.runId, 'progress.log');
       try {
         const content = fs.readFileSync(logPath, 'utf-8');
         const tail = content.split('\n').filter(l => l.trim()).slice(-10);

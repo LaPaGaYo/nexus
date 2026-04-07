@@ -10,10 +10,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { getProjectEvalDir } from './eval-store';
+import { getPrimaryDevRoot } from '../../lib/nexus/support-surface';
 
-const GSTACK_DEV_DIR = path.join(os.homedir(), '.gstack-dev');
-const HEARTBEAT_PATH = path.join(GSTACK_DEV_DIR, 'e2e-live.json'); // heartbeat stays global
-const PROJECT_DIR = path.dirname(getProjectEvalDir()); // ~/.gstack/projects/$SLUG/
+const NEXUS_DEV_DIR = getPrimaryDevRoot(os.homedir());
+const HEARTBEAT_PATH = path.join(NEXUS_DEV_DIR, 'e2e-live.json'); // heartbeat stays global
+const PROJECT_DIR = path.dirname(getProjectEvalDir('write')); // ~/.nexus/projects/$SLUG/ or ~/.nexus-dev/
 
 /** Sanitize test name for use as filename: strip leading slashes, replace / with - */
 export function sanitizeTestName(name: string): string {
@@ -22,6 +23,7 @@ export function sanitizeTestName(name: string): string {
 
 /** Atomic write: write to .tmp then rename. Non-fatal on error. */
 function atomicWriteSync(filePath: string, data: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const tmp = filePath + '.tmp';
   fs.writeFileSync(tmp, data);
   fs.renameSync(tmp, filePath);
@@ -316,7 +318,7 @@ export async function runSkillTest(options: {
   // Save failure transcript to persistent run directory (or fallback to workingDirectory)
   if (browseErrors.length > 0 || exitReason !== 'success') {
     try {
-      const failureDir = runDir || path.join(workingDirectory, '.gstack', 'test-transcripts');
+      const failureDir = runDir || path.join(workingDirectory, '.nexus', 'test-transcripts');
       fs.mkdirSync(failureDir, { recursive: true });
       const failureName = safeName
         ? `${safeName}-failure.json`

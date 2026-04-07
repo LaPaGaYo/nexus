@@ -2,7 +2,7 @@
  * Eval result persistence and comparison.
  *
  * EvalCollector accumulates test results, writes them to
- * ~/.gstack/projects/$SLUG/evals/{version}-{branch}-{tier}-{timestamp}.json,
+ * ~/.nexus/projects/$SLUG/evals/{version}-{branch}-{tier}-{timestamp}.json,
  * prints a summary table, and auto-compares with the previous run.
  *
  * Comparison functions are exported for reuse by the eval:compare CLI.
@@ -12,34 +12,58 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawnSync } from 'child_process';
+import { getLegacyStatePath, getPrimaryStatePath } from '../../lib/nexus/host-roots';
+import { getLegacyDevRoot, getPrimaryDevRoot } from '../../lib/nexus/support-surface';
 
 const SCHEMA_VERSION = 1;
-const LEGACY_EVAL_DIR = path.join(os.homedir(), '.gstack-dev', 'evals');
+const HOME_DIR = os.homedir();
+const PRIMARY_EVAL_DIR = path.join(getPrimaryDevRoot(HOME_DIR), 'evals');
+const LEGACY_EVAL_DIR = path.join(getLegacyDevRoot(HOME_DIR), 'evals');
+const PRIMARY_PROJECT_ROOT = path.join(getPrimaryStatePath(HOME_DIR), 'projects');
+const LEGACY_PROJECT_ROOT = path.join(getLegacyStatePath(HOME_DIR), 'projects');
+const PRIMARY_SLUG_COMMAND = [
+  './bin/nexus-slug',
+  '.claude/skills/nexus/bin/nexus-slug',
+  '~/.claude/skills/nexus/bin/nexus-slug',
+  '.claude/skills/gstack/bin/gstack-slug',
+  '~/.claude/skills/gstack/bin/gstack-slug',
+].map((candidate) => `${candidate} 2>/dev/null`).join(' || ');
 
 /**
- * Detect project-scoped eval dir via gstack-slug.
- * Falls back to legacy ~/.gstack-dev/evals/ if slug detection fails.
+ * Detect project-scoped eval dir via nexus-slug.
+ * Writes land in Nexus-primary roots; read mode may fall back to legacy roots.
  */
-export function getProjectEvalDir(): string {
+export function getProjectEvalDir(mode: 'write' | 'read' = 'write'): string {
   try {
-    // Try repo-local gstack-slug first, then global install
-    const localSlug = spawnSync('bash', ['-c', '.claude/skills/gstack/bin/gstack-slug 2>/dev/null || ~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null'], {
+    const localSlug = spawnSync('bash', ['-c', PRIMARY_SLUG_COMMAND], {
       stdio: 'pipe', timeout: 3000,
     });
     const output = localSlug.stdout?.toString().trim();
     if (output) {
       const slugMatch = output.match(/^SLUG=(.+)$/m);
       if (slugMatch && slugMatch[1]) {
-        const dir = path.join(os.homedir(), '.gstack', 'projects', slugMatch[1], 'evals');
-        fs.mkdirSync(dir, { recursive: true });
-        return dir;
+        const primaryDir = path.join(PRIMARY_PROJECT_ROOT, slugMatch[1], 'evals');
+        const legacyDir = path.join(LEGACY_PROJECT_ROOT, slugMatch[1], 'evals');
+
+        if (mode === 'read' && !fs.existsSync(primaryDir) && fs.existsSync(legacyDir)) {
+          return legacyDir;
+        }
+
+        fs.mkdirSync(primaryDir, { recursive: true });
+        return primaryDir;
       }
     }
   } catch { /* fall through */ }
-  return LEGACY_EVAL_DIR;
+
+  if (mode === 'read' && !fs.existsSync(PRIMARY_EVAL_DIR) && fs.existsSync(LEGACY_EVAL_DIR)) {
+    return LEGACY_EVAL_DIR;
+  }
+
+  fs.mkdirSync(PRIMARY_EVAL_DIR, { recursive: true });
+  return PRIMARY_EVAL_DIR;
 }
 
-const DEFAULT_EVAL_DIR = getProjectEvalDir();
+const DEFAULT_EVAL_DIR = getProjectEvalDir('write');
 
 // --- Interfaces ---
 

@@ -35,13 +35,14 @@ describe('session-runner observability', () => {
     expect(sanitizeTestName('///leading')).toBe('leading');
   });
 
-  test('2: heartbeat file path uses ~/.gstack-dev/e2e-live.json', () => {
+  test('2: heartbeat file path uses ~/.nexus-dev/e2e-live.json', () => {
     // Just verify the constant is correct — actual write is tested by E2E
-    const expected = path.join(os.homedir(), '.gstack-dev', 'e2e-live.json');
+    const expected = path.join(os.homedir(), '.nexus-dev', 'e2e-live.json');
     // Import the module and check HEARTBEAT_PATH exists in the file
     const sessionRunnerSrc = fs.readFileSync(
       path.resolve(__dirname, 'session-runner.ts'), 'utf-8'
     );
+    expect(expected).toContain('.nexus-dev');
     expect(sessionRunnerSrc).toContain("'e2e-live.json'");
     expect(sessionRunnerSrc).toContain('atomicWriteSync');
   });
