@@ -2,6 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
+  PRIMARY_DEV_ROOT,
+  PRIMARY_SUPPORT_NAMESPACE,
+  PRIMARY_WORKTREE_ROOT,
+  LEGACY_DEV_ROOT,
+  LEGACY_SUPPORT_NAMESPACE,
+  LEGACY_WORKTREE_ROOT,
   PRODUCT_SURFACE_RULES,
   LEGACY_COMPAT_NAMESPACE,
   LEGACY_STATE_ROOT,
@@ -22,6 +28,18 @@ describe('nexus product surface contract', () => {
     expect(PRODUCT_SURFACE_RULES.primary_state_root).toBe('.nexus');
     expect(PRODUCT_SURFACE_RULES.nexus_state_env_var).toBe('NEXUS_STATE_DIR');
     expect(PRODUCT_SURFACE_RULES.gstack_state_env_var).toBe('GSTACK_STATE_DIR');
+    expect(PRIMARY_SUPPORT_NAMESPACE).toBe('nexus');
+    expect(LEGACY_SUPPORT_NAMESPACE).toBe('gstack');
+    expect(PRIMARY_WORKTREE_ROOT).toBe('.nexus-worktrees');
+    expect(LEGACY_WORKTREE_ROOT).toBe('.gstack-worktrees');
+    expect(PRIMARY_DEV_ROOT).toBe('.nexus-dev');
+    expect(LEGACY_DEV_ROOT).toBe('.gstack-dev');
+    expect(PRODUCT_SURFACE_RULES.primary_support_namespace).toBe('nexus');
+    expect(PRODUCT_SURFACE_RULES.legacy_support_namespace).toBe('gstack');
+    expect(PRODUCT_SURFACE_RULES.primary_worktree_root).toBe('.nexus-worktrees');
+    expect(PRODUCT_SURFACE_RULES.legacy_worktree_root).toBe('.gstack-worktrees');
+    expect(PRODUCT_SURFACE_RULES.primary_dev_root).toBe('.nexus-dev');
+    expect(PRODUCT_SURFACE_RULES.legacy_dev_root).toBe('.gstack-dev');
   });
 
   test('readme and skills docs already anchor the lifecycle surface on Nexus', () => {
