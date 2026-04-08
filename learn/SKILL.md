@@ -3,7 +3,7 @@ name: learn
 preamble-tier: 2
 version: 1.0.0
 description: |
-  Manage project learnings. Review, search, prune, and export what gstack
+  Manage project learnings. Review, search, prune, and export what Nexus
   has learned across sessions. Use when asked to "what have we learned",
   "show learnings", "prune stale learnings", or "export learnings".
   Proactively suggest when the user asks about past patterns or wonders
@@ -29,7 +29,7 @@ mkdir -p ~/.nexus/sessions
 touch ~/.nexus/sessions/"$PPID"
 _SESSIONS=$(find ~/.nexus/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
 find ~/.nexus/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
-_CONTRIB=$(~/.claude/skills/nexus/bin/nexus-config get gstack_contributor 2>/dev/null || true)
+_CONTRIB=$(~/.claude/skills/nexus/bin/nexus-config get nexus_contributor 2>/dev/null || true)
 _PROACTIVE=$(~/.claude/skills/nexus/bin/nexus-config get proactive 2>/dev/null || echo "true")
 _PROACTIVE_PROMPTED=$([ -f ~/.nexus/.proactive-prompted ] && echo "yes" || echo "no")
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
@@ -374,7 +374,7 @@ or get independent opinions. They do NOT modify project source files.
 
 When you are in plan mode and about to call ExitPlanMode:
 
-1. Check if the plan file already has a `## GSTACK REVIEW REPORT` section.
+1. Check if the plan file already has a `## NEXUS REVIEW REPORT` section.
 2. If it DOES — skip (a review skill already wrote a richer report).
 3. If it does NOT — run this command:
 
@@ -382,7 +382,7 @@ When you are in plan mode and about to call ExitPlanMode:
 ~/.claude/skills/nexus/bin/nexus-review-read
 \`\`\`
 
-Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
+Then write a `## NEXUS REVIEW REPORT` section to the end of the plan file:
 
 - If the output contains review entries (JSONL lines before `---CONFIG---`): format the
   standard report table with runs/status/findings per skill, same format as the review
@@ -390,7 +390,7 @@ Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
 - If the output is `NO_REVIEWS` or empty: write this placeholder table:
 
 \`\`\`markdown
-## GSTACK REVIEW REPORT
+## NEXUS REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
@@ -409,7 +409,7 @@ plan's living status.
 # Project Learnings Manager
 
 You are a **Staff Engineer who maintains the team wiki**. Your job is to help the user
-see what gstack has learned across sessions on this project, search for relevant
+see what Nexus has learned across sessions on this project, search for relevant
 knowledge, and prune stale or contradictory entries.
 
 **HARD GATE:** Do NOT implement code changes. This skill manages learnings only.
@@ -434,21 +434,21 @@ Parse the user's input to determine which command to run:
 Show the most recent 20 learnings, grouped by type.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-~/.claude/skills/gstack/bin/gstack-learnings-search --limit 20 2>/dev/null || echo "No learnings yet."
+eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
+~/.claude/skills/nexus/bin/nexus-learnings-search --limit 20 2>/dev/null || echo "No learnings yet."
 ```
 
 Present the output in a readable format. If no learnings exist, tell the user:
 "No learnings recorded yet. As you use /review, /ship, /investigate, and other skills,
-gstack will automatically capture patterns, pitfalls, and insights it discovers."
+Nexus will automatically capture patterns, pitfalls, and insights it discovers."
 
 ---
 
 ## Search
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-~/.claude/skills/gstack/bin/gstack-learnings-search --query "USER_QUERY" --limit 20 2>/dev/null || echo "No matches."
+eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
+~/.claude/skills/nexus/bin/nexus-learnings-search --query "USER_QUERY" --limit 20 2>/dev/null || echo "No matches."
 ```
 
 Replace USER_QUERY with the user's search terms. Present results clearly.
@@ -460,8 +460,8 @@ Replace USER_QUERY with the user's search terms. Present results clearly.
 Check learnings for staleness and contradictions.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-~/.claude/skills/gstack/bin/gstack-learnings-search --limit 100 2>/dev/null
+eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
+~/.claude/skills/nexus/bin/nexus-learnings-search --limit 100 2>/dev/null
 ```
 
 For each learning in the output:
@@ -490,8 +490,8 @@ latest entry wins).
 Export learnings as markdown suitable for adding to CLAUDE.md or project documentation.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-~/.claude/skills/gstack/bin/gstack-learnings-search --limit 50 2>/dev/null
+eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
+~/.claude/skills/nexus/bin/nexus-learnings-search --limit 50 2>/dev/null
 ```
 
 Format the output as a markdown section:
@@ -522,9 +522,9 @@ or save it as a separate file.
 Show summary statistics about the project's learnings.
 
 ```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-GSTACK_HOME="${GSTACK_HOME:-$HOME/.gstack}"
-LEARN_FILE="$GSTACK_HOME/projects/$SLUG/learnings.jsonl"
+eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
+NEXUS_HOME="${NEXUS_HOME:-$HOME/.nexus}"
+LEARN_FILE="$NEXUS_HOME/projects/$SLUG/learnings.jsonl"
 if [ -f "$LEARN_FILE" ]; then
   TOTAL=$(wc -l < "$LEARN_FILE" | tr -d ' ')
   echo "TOTAL: $TOTAL entries"
@@ -575,5 +575,5 @@ The user wants to manually add a learning. Use AskUserQuestion to gather:
 Then log it:
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-learnings-log '{"skill":"learn","type":"TYPE","key":"KEY","insight":"INSIGHT","confidence":N,"source":"user-stated","files":["FILE1"]}'
+~/.claude/skills/nexus/bin/nexus-learnings-log '{"skill":"learn","type":"TYPE","key":"KEY","insight":"INSIGHT","confidence":N,"source":"user-stated","files":["FILE1"]}'
 ```

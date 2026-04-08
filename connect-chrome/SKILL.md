@@ -2,7 +2,7 @@
 name: connect-chrome
 version: 0.1.0
 description: |
-  Launch real Chrome controlled by gstack with the Side Panel extension auto-loaded.
+  Launch real Chrome controlled by Nexus with the Side Panel extension auto-loaded.
   One command: connects Claude to a visible Chrome window where you can watch every
   action in real time. The extension shows a live activity feed in the Side Panel.
   Use when asked to "connect chrome", "open chrome", "real browser", "launch chrome",
@@ -25,7 +25,7 @@ mkdir -p ~/.nexus/sessions
 touch ~/.nexus/sessions/"$PPID"
 _SESSIONS=$(find ~/.nexus/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
 find ~/.nexus/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
-_CONTRIB=$(~/.claude/skills/nexus/bin/nexus-config get gstack_contributor 2>/dev/null || true)
+_CONTRIB=$(~/.claude/skills/nexus/bin/nexus-config get nexus_contributor 2>/dev/null || true)
 _PROACTIVE=$(~/.claude/skills/nexus/bin/nexus-config get proactive 2>/dev/null || echo "true")
 _PROACTIVE_PROMPTED=$([ -f ~/.nexus/.proactive-prompted ] && echo "yes" || echo "no")
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
@@ -388,7 +388,7 @@ or get independent opinions. They do NOT modify project source files.
 
 When you are in plan mode and about to call ExitPlanMode:
 
-1. Check if the plan file already has a `## GSTACK REVIEW REPORT` section.
+1. Check if the plan file already has a `## NEXUS REVIEW REPORT` section.
 2. If it DOES — skip (a review skill already wrote a richer report).
 3. If it does NOT — run this command:
 
@@ -396,7 +396,7 @@ When you are in plan mode and about to call ExitPlanMode:
 ~/.claude/skills/nexus/bin/nexus-review-read
 \`\`\`
 
-Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
+Then write a `## NEXUS REVIEW REPORT` section to the end of the plan file:
 
 - If the output contains review entries (JSONL lines before `---CONFIG---`): format the
   standard report table with runs/status/findings per skill, same format as the review
@@ -404,7 +404,7 @@ Then write a `## GSTACK REVIEW REPORT` section to the end of the plan file:
 - If the output is `NO_REVIEWS` or empty: write this placeholder table:
 
 \`\`\`markdown
-## GSTACK REVIEW REPORT
+## NEXUS REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
@@ -422,7 +422,7 @@ plan's living status.
 
 # /connect-chrome — Launch Real Chrome with Side Panel
 
-Connect Claude to a visible Chrome window with the gstack extension auto-loaded.
+Connect Claude to a visible Chrome window with the Nexus extension auto-loaded.
 You see every click, every navigation, every action in real time.
 
 ## SETUP (run this check BEFORE any browse command)
@@ -440,7 +440,7 @@ fi
 ```
 
 If `NEEDS_SETUP`:
-1. Tell the user: "gstack browse needs a one-time build (~10 seconds). OK to proceed?" Then STOP and wait.
+1. Tell the user: "nexus browse needs a one-time build (~10 seconds). OK to proceed?" Then STOP and wait.
 2. Run: `cd <SKILL_DIR> && ./setup`
 3. If `bun` is not installed:
    ```bash
@@ -469,15 +469,15 @@ positives and Chromium profile lock conflicts.
 
 ```bash
 # Kill any existing browse server
-if [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.gstack/browse.json" ]; then
-  _OLD_PID=$(cat "$(git rev-parse --show-toplevel)/.gstack/browse.json" 2>/dev/null | grep -o '"pid":[0-9]*' | grep -o '[0-9]*')
+if [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.nexus/browse.json" ]; then
+  _OLD_PID=$(cat "$(git rev-parse --show-toplevel)/.nexus/browse.json" 2>/dev/null | grep -o '"pid":[0-9]*' | grep -o '[0-9]*')
   [ -n "$_OLD_PID" ] && kill "$_OLD_PID" 2>/dev/null || true
   sleep 1
   [ -n "$_OLD_PID" ] && kill -9 "$_OLD_PID" 2>/dev/null || true
-  rm -f "$(git rev-parse --show-toplevel)/.gstack/browse.json"
+  rm -f "$(git rev-parse --show-toplevel)/.nexus/browse.json"
 fi
 # Clean Chromium profile locks (can persist after crashes)
-_PROFILE_DIR="$HOME/.gstack/chromium-profile"
+_PROFILE_DIR="$HOME/.nexus/chromium-profile"
 for _LF in SingletonLock SingletonSocket SingletonCookie; do
   rm -f "$_PROFILE_DIR/$_LF" 2>/dev/null || true
 done
@@ -492,11 +492,11 @@ $B connect
 
 This launches Playwright's bundled Chromium in headed mode with:
 - A visible window you can watch (not your regular Chrome — it stays untouched)
-- The gstack Chrome extension auto-loaded via `launchPersistentContext`
+- The Nexus Chrome extension auto-loaded via `launchPersistentContext`
 - A golden shimmer line at the top of every page so you know which window is controlled
 - A sidebar agent process for chat commands
 
-The `connect` command auto-discovers the extension from the gstack install
+The `connect` command auto-discovers the extension from the Nexus install
 directory. It always uses port **34567** so the extension can auto-connect.
 
 After connecting, print the full output to the user. Confirm you see
@@ -514,7 +514,7 @@ $B status
 Confirm the output shows `Mode: headed`. Read the port from the state file:
 
 ```bash
-cat "$(git rev-parse --show-toplevel 2>/dev/null)/.gstack/browse.json" 2>/dev/null | grep -o '"port":[0-9]*' | grep -o '[0-9]*'
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.nexus/browse.json" 2>/dev/null | grep -o '"port":[0-9]*' | grep -o '[0-9]*'
 ```
 
 The port should be **34567**. If it's different, note it — the user may need it
@@ -525,8 +525,8 @@ Also find the extension path so you can help the user if they need to load it ma
 ```bash
 _EXT_PATH=""
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-[ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/gstack/extension/manifest.json" ] && _EXT_PATH="$_ROOT/.claude/skills/gstack/extension"
-[ -z "$_EXT_PATH" ] && [ -f "$HOME/.claude/skills/gstack/extension/manifest.json" ] && _EXT_PATH="$HOME/.claude/skills/gstack/extension"
+[ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/nexus/extension/manifest.json" ] && _EXT_PATH="$_ROOT/.claude/skills/nexus/extension"
+[ -z "$_EXT_PATH" ] && [ -f "$HOME/.claude/skills/nexus/extension/manifest.json" ] && _EXT_PATH="$HOME/.claude/skills/nexus/extension"
 echo "EXTENSION_PATH: ${_EXT_PATH:-NOT FOUND}"
 ```
 
@@ -534,14 +534,14 @@ echo "EXTENSION_PATH: ${_EXT_PATH:-NOT FOUND}"
 
 Use AskUserQuestion:
 
-> Chrome is launched with gstack control. You should see Playwright's Chromium
+> Chrome is launched with Nexus control. You should see Playwright's Chromium
 > (not your regular Chrome) with a golden shimmer line at the top of the page.
 >
 > The Side Panel extension should be auto-loaded. To open it:
 > 1. Look for the **puzzle piece icon** (Extensions) in the toolbar — it may
->    already show the gstack icon if the extension loaded successfully
-> 2. Click the **puzzle piece** → find **gstack browse** → click the **pin icon**
-> 3. Click the pinned **gstack icon** in the toolbar
+>    already show the Nexus icon if the extension loaded successfully
+> 2. Click the **puzzle piece** → find **nexus browse** → click the **pin icon**
+> 3. Click the pinned **Nexus icon** in the toolbar
 > 4. The Side Panel should open on the right showing a live activity feed
 >
 > **Port:** 34567 (auto-detected — the extension connects automatically in the
@@ -558,7 +558,7 @@ If B: Tell the user:
 > sometimes it doesn't appear immediately. Try these steps:
 >
 > 1. Type `chrome://extensions` in the address bar
-> 2. Look for **"gstack browse"** — it should be listed and enabled
+> 2. Look for **"nexus browse"** — it should be listed and enabled
 > 3. If it's there but not pinned, go back to any page, click the puzzle piece
 >    icon, and pin it
 > 4. If it's NOT listed at all, click **"Load unpacked"** and navigate to:
@@ -568,7 +568,7 @@ If B: Tell the user:
 >
 > After loading, pin it and click the icon to open the Side Panel.
 >
-> If the Side Panel badge stays gray (disconnected), click the gstack icon
+> If the Side Panel badge stays gray (disconnected), click the Nexus icon
 > and enter port **34567** manually.
 
 If C:
@@ -616,7 +616,7 @@ Tell the user:
 > You're all set! Here's what you can do with the connected Chrome:
 >
 > **Watch Claude work in real time:**
-> - Run any gstack skill (`/qa`, `/design-review`, `/benchmark`) and watch
+> - Run any Nexus skill (`/qa`, `/design-review`, `/benchmark`) and watch
 >   every action happen in the visible Chrome window + Side Panel feed
 > - No cookie import needed — the Playwright browser shares its own session
 >

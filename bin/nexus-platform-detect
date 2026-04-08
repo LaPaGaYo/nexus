@@ -10,30 +10,15 @@ for entry in "claude:claude" "codex:codex" "droid:factory" "kiro-cli:kiro"; do
   if command -v "$bin" >/dev/null 2>&1; then
     ver=$("$bin" --version 2>/dev/null | head -1 || echo "unknown")
     case "$label" in
-      claude)
-        primary="$HOME/.claude/skills/nexus"
-        legacy="$HOME/.claude/skills/gstack"
-        ;;
-      codex)
-        primary="$HOME/.codex/skills/nexus"
-        legacy="$HOME/.codex/skills/gstack"
-        ;;
-      factory)
-        primary="$HOME/.factory/skills/nexus"
-        legacy="$HOME/.factory/skills/gstack"
-        ;;
-      kiro)
-        primary="$HOME/.kiro/skills/nexus"
-        legacy="$HOME/.kiro/skills/gstack"
-        ;;
+      claude) primary="$HOME/.claude/skills/nexus" ;;
+      codex) primary="$HOME/.codex/skills/nexus" ;;
+      factory) primary="$HOME/.factory/skills/nexus" ;;
+      kiro) primary="$HOME/.kiro/skills/nexus" ;;
     esac
 
     if [ -d "$primary" ]; then
       spath="$primary"
       status="INSTALLED"
-    elif [ -d "$legacy" ]; then
-      spath="$legacy"
-      status="COMPAT"
     else
       spath="$primary"
       status="NOT INSTALLED"

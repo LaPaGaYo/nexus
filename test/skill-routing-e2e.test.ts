@@ -22,18 +22,16 @@ const evalCollector = evalsEnabled ? new EvalCollector('e2e-routing') : null;
 const runId = new Date().toISOString().replace(/[:.]/g, '').replace('T', '-').slice(0, 15);
 
 describe('upgrade routing surface', () => {
-  test('nexus-upgrade is the canonical installed skill while gstack-upgrade stays compatibility-only', () => {
+  test('nexus-upgrade is the canonical installed skill and gstack-upgrade is removed', () => {
     const nexusUpgradePath = path.join(ROOT, 'nexus-upgrade', 'SKILL.md');
     const gstackUpgradePath = path.join(ROOT, 'gstack-upgrade', 'SKILL.md');
 
     expect(fs.existsSync(nexusUpgradePath)).toBe(true);
+    expect(fs.existsSync(gstackUpgradePath)).toBe(false);
 
     const nexusUpgrade = fs.readFileSync(nexusUpgradePath, 'utf-8');
-    const gstackUpgrade = fs.readFileSync(gstackUpgradePath, 'utf-8');
 
     expect(nexusUpgrade).toContain('name: nexus-upgrade');
-    expect(gstackUpgrade).toContain('/nexus-upgrade');
-    expect(gstackUpgrade).toContain('compatibility alias');
   });
 });
 

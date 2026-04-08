@@ -1,5 +1,5 @@
 /**
- * gstack browse — background service worker
+ * nexus browse — background service worker
  *
  * Polls /health every 10s to detect browse server.
  * Fetches /refs on snapshot completion, relays to content script.
@@ -247,7 +247,7 @@ async function sendToContentScript(tabId, message) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Security: only accept messages from this extension's own scripts
   if (sender.id !== chrome.runtime.id) {
-    console.warn('[gstack] Rejected message from unknown sender:', sender.id);
+    console.warn('[nexus] Rejected message from unknown sender:', sender.id);
     return;
   }
 
@@ -260,7 +260,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     'inspectResult'
   ]);
   if (!ALLOWED_TYPES.has(msg.type)) {
-    console.warn('[gstack] Rejected unknown message type:', msg.type);
+    console.warn('[nexus] Rejected unknown message type:', msg.type);
     return;
   }
 

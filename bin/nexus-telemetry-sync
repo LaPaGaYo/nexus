@@ -11,8 +11,8 @@
 #   NEXUS_SUPABASE_URL         — override Supabase project URL
 set -uo pipefail
 
-NEXUS_DIR="${NEXUS_DIR:-${GSTACK_DIR:-$(cd "$(dirname "$0")/.." && pwd)}}"
-STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-$HOME/.nexus}}"
+NEXUS_DIR="${NEXUS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 ANALYTICS_DIR="$STATE_DIR/analytics"
 JSONL_FILE="$ANALYTICS_DIR/skill-usage.jsonl"
 CURSOR_FILE="$ANALYTICS_DIR/.last-sync-line"
@@ -20,11 +20,11 @@ RATE_FILE="$ANALYTICS_DIR/.last-sync-time"
 CONFIG_CMD="$NEXUS_DIR/bin/nexus-config"
 
 # Source Supabase config if not overridden by env
-if [ -z "${NEXUS_SUPABASE_URL:-${GSTACK_SUPABASE_URL:-}}" ] && [ -f "$NEXUS_DIR/supabase/config.sh" ]; then
+if [ -z "${NEXUS_SUPABASE_URL:-}" ] && [ -f "$NEXUS_DIR/supabase/config.sh" ]; then
   . "$NEXUS_DIR/supabase/config.sh"
 fi
-SUPABASE_URL="${NEXUS_SUPABASE_URL:-${GSTACK_SUPABASE_URL:-}}"
-ANON_KEY="${NEXUS_SUPABASE_ANON_KEY:-${GSTACK_SUPABASE_ANON_KEY:-}}"
+SUPABASE_URL="${NEXUS_SUPABASE_URL:-}"
+ANON_KEY="${NEXUS_SUPABASE_ANON_KEY:-}"
 
 # ─── Pre-checks ──────────────────────────────────────────────
 # No Supabase URL configured yet → exit silently
@@ -107,7 +107,7 @@ BATCH="$BATCH]"
 [ "$COUNT" -eq 0 ] && exit 0
 
 # ─── POST to edge function ───────────────────────────────────
-RESP_FILE="$(mktemp /tmp/gstack-sync-XXXXXX 2>/dev/null || echo "/tmp/gstack-sync-$$")"
+RESP_FILE="$(mktemp /tmp/nexus-sync-XXXXXX 2>/dev/null || echo "/tmp/nexus-sync-$$")"
 HTTP_CODE="$(curl -s -w '%{http_code}' --max-time 10 \
   -X POST "${SUPABASE_URL}/functions/v1/telemetry-ingest" \
   -H "Content-Type: application/json" \

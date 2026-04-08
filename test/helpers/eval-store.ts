@@ -25,8 +25,8 @@ const PRIMARY_SLUG_COMMAND = [
   './bin/nexus-slug',
   '.claude/skills/nexus/bin/nexus-slug',
   '~/.claude/skills/nexus/bin/nexus-slug',
-  '.claude/skills/gstack/bin/gstack-slug',
-  '~/.claude/skills/gstack/bin/gstack-slug',
+  '.claude/skills/nexus/bin/nexus-slug',
+  '~/.claude/skills/nexus/bin/nexus-slug',
 ].map((candidate) => `${candidate} 2>/dev/null`).join(' || ');
 
 /**

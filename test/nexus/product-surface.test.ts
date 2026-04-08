@@ -2,154 +2,105 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  PRIMARY_DEV_ROOT,
-  PRIMARY_SUPPORT_NAMESPACE,
-  PRIMARY_WORKTREE_ROOT,
-  LEGACY_DEV_ROOT,
-  LEGACY_SUPPORT_NAMESPACE,
-  LEGACY_WORKTREE_ROOT,
-  PRODUCT_SURFACE_RULES,
   LEGACY_COMPAT_NAMESPACE,
   LEGACY_STATE_ROOT,
+  PRIMARY_DEV_ROOT,
   PRIMARY_NAMESPACE,
   PRIMARY_PACKAGE_NAME,
   PRIMARY_PRODUCT_NAME,
+  PRIMARY_SUPPORT_NAMESPACE,
+  PRIMARY_WORKTREE_ROOT,
+  PRODUCT_SURFACE_RULES,
 } from '../../lib/nexus/product-surface';
 import {
-  ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
-  RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+  HISTORICAL_GSTACK_REFERENCES,
+  REMOVED_GSTACK_RUNTIME_IDENTITIES,
+  REMOVED_GSTACK_BOUNDARY_SHIMS,
 } from '../../lib/nexus/compatibility-surface';
 
 const ROOT = join(import.meta.dir, '..', '..');
 
 describe('nexus product surface contract', () => {
-  test('freezes the primary and compatibility product identity', () => {
+  test('freezes Nexus as the only active product identity', () => {
     expect(PRIMARY_PRODUCT_NAME).toBe('Nexus');
     expect(PRIMARY_PACKAGE_NAME).toBe('nexus');
     expect(PRIMARY_NAMESPACE).toBe('nexus');
+    expect(PRIMARY_SUPPORT_NAMESPACE).toBe('nexus');
+    expect(PRIMARY_WORKTREE_ROOT).toBe('.nexus-worktrees');
+    expect(PRIMARY_DEV_ROOT).toBe('.nexus-dev');
+
     expect(LEGACY_COMPAT_NAMESPACE).toBe('gstack');
     expect(LEGACY_STATE_ROOT).toBe('.gstack');
     expect(PRODUCT_SURFACE_RULES.primary_state_root).toBe('.nexus');
     expect(PRODUCT_SURFACE_RULES.nexus_state_env_var).toBe('NEXUS_STATE_DIR');
-    expect(PRODUCT_SURFACE_RULES.gstack_state_env_var).toBe('GSTACK_STATE_DIR');
-    expect(PRIMARY_SUPPORT_NAMESPACE).toBe('nexus');
-    expect(LEGACY_SUPPORT_NAMESPACE).toBe('gstack');
-    expect(PRIMARY_WORKTREE_ROOT).toBe('.nexus-worktrees');
-    expect(LEGACY_WORKTREE_ROOT).toBe('.gstack-worktrees');
-    expect(PRIMARY_DEV_ROOT).toBe('.nexus-dev');
-    expect(LEGACY_DEV_ROOT).toBe('.gstack-dev');
-    expect(PRODUCT_SURFACE_RULES.primary_support_namespace).toBe('nexus');
-    expect(PRODUCT_SURFACE_RULES.legacy_support_namespace).toBe('gstack');
-    expect(PRODUCT_SURFACE_RULES.primary_worktree_root).toBe('.nexus-worktrees');
-    expect(PRODUCT_SURFACE_RULES.legacy_worktree_root).toBe('.gstack-worktrees');
-    expect(PRODUCT_SURFACE_RULES.primary_dev_root).toBe('.nexus-dev');
-    expect(PRODUCT_SURFACE_RULES.legacy_dev_root).toBe('.gstack-dev');
   });
 
-  test('readme and skills docs already anchor the lifecycle surface on Nexus', () => {
+  test('readme and skills docs describe a Nexus-only active surface', () => {
     const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
     const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
 
     expect(readme).toContain('# Nexus');
     expect(readme).toContain('Nexus is the only command surface.');
     expect(readme).toContain('~/.claude/skills/nexus');
-    expect(readme).toContain('.claude/skills/nexus');
-    expect(readme).toContain('~/.codex/skills/nexus');
-    expect(readme).toContain('~/.factory/skills/nexus');
-    expect(readme).toContain('/nexus-upgrade');
-    expect(readme).toContain('nexus-analytics');
-    expect(readme).toContain('nexus-config set telemetry off');
     expect(readme).toContain('~/.nexus/config.yaml');
-    expect(readme).not.toContain('/gstack-upgrade');
-    expect(readme).not.toContain('gstack-analytics');
-    expect(readme).not.toContain('gstack-config set telemetry off');
-    expect(readme).not.toContain('~/.gstack/config.yaml');
+    expect(readme).not.toContain('compatibility shims');
+
     expect(skills).toContain('Nexus is the only command surface.');
-    expect(skills).toContain('Canonical Nexus commands:');
+    expect(skills).toContain('Nexus-owned stage packs');
     expect(skills).toContain('/nexus-upgrade');
-    expect(skills).toContain('~/.nexus/projects/');
-    expect(skills).toContain('nexus-config set skip_eng_review true');
-    expect(skills).toContain('~/.nexus/greptile-history.md');
-    expect(skills).not.toContain('/gstack-upgrade');
-    expect(skills).not.toContain('~/.gstack/projects/');
-    expect(skills).not.toContain('gstack-config set skip_eng_review true');
-    expect(skills).not.toContain('~/.gstack/greptile-history.md');
+    expect(skills).not.toContain('Manage what gstack learned');
+    expect(skills).not.toContain('controlled by gstack');
   });
 
-  test('setup presents Nexus as the active install and helper surface', () => {
-    const setup = readFileSync(join(ROOT, 'setup'), 'utf8');
-
-    expect(setup).toContain('nexus-config');
-    expect(setup).toContain('bin/nexus-patch-names');
-    expect(setup).toContain('/nexus-upgrade');
-    expect(setup).toContain('~/.nexus');
-    expect(setup).toContain('$HOME/.nexus/repos/nexus');
-    expect(setup).not.toContain('bin/gstack-patch-names');
-    expect(setup).not.toContain('gstack setup failed');
-    expect(setup).not.toContain('/gstack-upgrade');
-  });
-
-  test('package metadata is Nexus-primary', () => {
+  test('package metadata and setup are Nexus-primary', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    const setup = readFileSync(join(ROOT, 'setup'), 'utf8');
 
     expect(pkg.name).toBe('nexus');
     expect(pkg.description).toContain('Nexus');
-    expect(pkg.description).not.toContain("Garry's Stack");
+    expect(pkg.description).not.toContain('gstack');
+
+    expect(setup).toContain('nexus setup');
+    expect(setup).toContain('~/.claude/skills/nexus');
+    expect(setup).not.toContain('.claude/skills/gstack');
+    expect(setup).not.toContain('.gstack-worktrees');
   });
 
-  test('nexus-branded host helper entrypoints exist alongside compatibility helpers', () => {
-    expect(existsSync(join(ROOT, 'bin', 'nexus-config'))).toBe(true);
-    expect(existsSync(join(ROOT, 'bin', 'nexus-relink'))).toBe(true);
-    expect(existsSync(join(ROOT, 'bin', 'nexus-uninstall'))).toBe(true);
-    expect(existsSync(join(ROOT, 'bin', 'nexus-update-check'))).toBe(true);
+  test('only nexus helper entrypoints exist in the active bin surface', () => {
+    for (const helper of ['nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
+      expect(existsSync(join(ROOT, 'bin', helper))).toBe(true);
+    }
 
-    expect(existsSync(join(ROOT, 'bin', 'gstack-config'))).toBe(true);
-    expect(existsSync(join(ROOT, 'bin', 'gstack-relink'))).toBe(true);
-    expect(existsSync(join(ROOT, 'bin', 'gstack-uninstall'))).toBe(true);
-    expect(existsSync(join(ROOT, 'bin', 'gstack-update-check'))).toBe(true);
+    for (const helper of REMOVED_GSTACK_BOUNDARY_SHIMS) {
+      expect(existsSync(join(ROOT, helper))).toBe(false);
+    }
   });
 
-  test('nexus helpers own implementation while gstack helpers are shims', () => {
+  test('active helper implementations are Nexus-only', () => {
     const nexusConfig = readFileSync(join(ROOT, 'bin', 'nexus-config'), 'utf8');
     const nexusRelink = readFileSync(join(ROOT, 'bin', 'nexus-relink'), 'utf8');
     const nexusUninstall = readFileSync(join(ROOT, 'bin', 'nexus-uninstall'), 'utf8');
     const nexusUpdateCheck = readFileSync(join(ROOT, 'bin', 'nexus-update-check'), 'utf8');
 
-    const gstackConfig = readFileSync(join(ROOT, 'bin', 'gstack-config'), 'utf8');
-    const gstackRelink = readFileSync(join(ROOT, 'bin', 'gstack-relink'), 'utf8');
-    const gstackUninstall = readFileSync(join(ROOT, 'bin', 'gstack-uninstall'), 'utf8');
-    const gstackUpdateCheck = readFileSync(join(ROOT, 'bin', 'gstack-update-check'), 'utf8');
+    expect(nexusConfig).not.toContain('GSTACK_STATE_DIR');
+    expect(nexusConfig).not.toContain('GSTACK_SETUP_RUNNING');
 
-    expect(nexusConfig).not.toContain('exec "$SCRIPT_DIR/gstack-config"');
-    expect(nexusRelink).not.toContain('exec "$SCRIPT_DIR/gstack-relink"');
-    expect(nexusUninstall).not.toContain('exec "$SCRIPT_DIR/gstack-uninstall"');
-    expect(nexusUpdateCheck).not.toContain('exec "$SCRIPT_DIR/gstack-update-check"');
-
-    expect(gstackConfig).toContain('exec "$SCRIPT_DIR/nexus-config"');
-    expect(gstackRelink).toContain('exec "$SCRIPT_DIR/nexus-relink"');
-    expect(gstackUninstall).toContain('exec "$SCRIPT_DIR/nexus-uninstall"');
-    expect(gstackUpdateCheck).toContain('exec "$SCRIPT_DIR/nexus-update-check"');
-  });
-
-  test('nexus relink and update-check use Nexus-owned internal utilities', () => {
-    const nexusRelink = readFileSync(join(ROOT, 'bin', 'nexus-relink'), 'utf8');
-    const nexusUpdateCheck = readFileSync(join(ROOT, 'bin', 'nexus-update-check'), 'utf8');
-
+    expect(nexusRelink).toContain('NEXUS_INSTALL_DIR');
     expect(nexusRelink).toContain('bin/nexus-patch-names');
-    expect(nexusRelink).not.toContain('bin/gstack-patch-names');
-    expect(nexusUpdateCheck).toContain('bin/nexus-telemetry-log');
-    expect(nexusUpdateCheck).not.toContain('bin/gstack-telemetry-log');
+    expect(nexusRelink).not.toContain('GSTACK_INSTALL_DIR');
+    expect(nexusRelink).not.toContain('GSTACK_SKILLS_DIR');
+
+    expect(nexusUninstall).not.toContain('~/.claude/skills/gstack');
+    expect(nexusUninstall).not.toContain('$_GIT_ROOT/.gstack');
+
+    expect(nexusUpdateCheck).toContain('NEXUS_REMOTE_URL');
+    expect(nexusUpdateCheck).not.toContain('GSTACK_REMOTE_URL');
+    expect(nexusUpdateCheck).not.toContain('GSTACK_STATE_DIR');
   });
 
-  test('product surface keeps gstack limited to the retained compatibility budget', () => {
-    expect(RETAINED_BOUNDARY_COMPATIBILITY_SHIMS).toEqual([
-      'bin/gstack-config',
-      'bin/gstack-relink',
-      'bin/gstack-uninstall',
-      'bin/gstack-update-check',
-    ]);
-    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).toContain('gstack-upgrade');
-    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).toContain('bin/gstack-diff-scope');
-    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).not.toContain('bin/gstack-relink');
+  test('gstack is constrained to removed or historical references only', () => {
+    expect(REMOVED_GSTACK_RUNTIME_IDENTITIES).toContain('~/.gstack');
+    expect(REMOVED_GSTACK_RUNTIME_IDENTITIES).toContain('.gstack-worktrees');
+    expect(HISTORICAL_GSTACK_REFERENCES).toEqual(['repository remote naming', 'archived docs and closeouts']);
   });
 });

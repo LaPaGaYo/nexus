@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# gstack-learnings-log — compatibility shim for nexus-learnings-log
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/nexus-learnings-log" "$@"

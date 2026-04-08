@@ -13,7 +13,7 @@ let slugDir: string;
 function run(input: string, opts: { expectFail?: boolean } = {}): { stdout: string; exitCode: number } {
   const execOpts: ExecSyncOptionsWithStringEncoding = {
     cwd: ROOT,
-    env: { ...process.env, NEXUS_STATE_DIR: tmpDir, GSTACK_STATE_DIR: tmpDir, GSTACK_HOME: tmpDir },
+    env: { ...process.env, NEXUS_STATE_DIR: tmpDir },
     encoding: 'utf-8',
     timeout: 10000,
   };

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# gstack-update-check — compatibility shim for nexus-update-check
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/nexus-update-check" "$@"

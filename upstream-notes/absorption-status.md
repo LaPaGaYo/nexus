@@ -1,15 +1,15 @@
 # Nexus Absorption Status
 
-This file tracks which imported upstream capability sources have been absorbed into
-Nexus-owned stage content and stage packs, and which seams remain inactive.
+This file tracks which imported upstream capability sources have been absorbed
+into Nexus-owned stage content and stage packs.
 
 ## Imported upstream sources
 
 | Source | Imported path | Current role in Nexus |
 | --- | --- | --- |
-| PM Skills | `upstream/pm-skills` | Source material only for the discovery and framing stage content and stage packs |
-| GSD | `upstream/gsd` | Source material only for the planning and closeout stage content and stage packs |
-| Superpowers | `upstream/superpowers` | Source material only for the build, review, and ship stage content and stage packs |
+| PM Skills | `upstream/pm-skills` | Source material only for discovery and framing stage content and stage packs |
+| GSD | `upstream/gsd` | Source material only for planning and closeout stage content and stage packs |
+| Superpowers | `upstream/superpowers` | Source material only for build, review, and ship stage content and stage packs |
 | CCB | `upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA routing/transport under Nexus control |
 
 ## Active Nexus-owned stage content
@@ -28,6 +28,9 @@ Nexus-owned stage content and stage packs, and which seams remain inactive.
 
 ## Active Nexus-owned stage packs
 
+Nexus-owned stage packs under `lib/nexus/stage-packs/` remain the active
+internal runtime units.
+
 | Nexus pack | Runtime path | Source systems | Active stages |
 | --- | --- | --- | --- |
 | `nexus-discover-pack` | `lib/nexus/stage-packs/discover.ts` | PM Skills | `/discover` |
@@ -40,50 +43,25 @@ Nexus-owned stage content and stage packs, and which seams remain inactive.
 | `nexus-ship-pack` | `lib/nexus/stage-packs/ship.ts` | Superpowers | `/ship` |
 | `nexus-closeout-pack` | `lib/nexus/stage-packs/closeout.ts` | GSD | `/closeout` |
 
-The absorbed builders under `lib/nexus/absorption/` remain implementation detail only.
-The active Nexus-owned units are the canonical stage content under `lib/nexus/stage-content/`
-and the runtime stage packs under `lib/nexus/stage-packs/`.
-
-## Active governed tail seams
-
-The governed verification tail now runs through active Nexus-owned runtime seams:
-
-- `review.superpowers`
-- `review.ccb`
-- `qa.ccb`
-- `ship.superpowers`
-
-These seams remain subordinate runtime inputs only. They do not own lifecycle authority, contract truth, or front-door command semantics.
+The absorbed builders under `lib/nexus/absorption/` remain implementation detail
+only. Imported upstream repos remain source material only, not runtime front
+doors.
 
 ## Product surface status
 
-The visible product surface is now Nexus-primary across the main user entrypoints:
+The visible product surface is now Nexus-only across active paths:
 
-- `package.json` now identifies the package as `nexus`
-- `README.md` and `docs/skills.md` present Nexus as the only product surface
-- `~/.claude/skills/nexus`, `~/.codex/skills/nexus`, `.agents/skills/nexus`, and `~/.factory/skills/nexus*` are now the primary host roots
+- `package.json` identifies the package as `nexus`
+- `README.md` and `docs/skills.md` present Nexus as the only active product surface
+- `~/.claude/skills/nexus`, `~/.codex/skills/nexus`, `.agents/skills/nexus`, and `~/.factory/skills/nexus` are the active host roots
 - `~/.nexus` is now the primary host support state root
 - `.nexus-worktrees` and `~/.nexus-dev` are now the primary developer substrate roots
-- setup and relink flows now prefer `nexus-*` names when namespacing is enabled
-- `nexus-*` host helpers are the preferred entrypoints, with `bin/nexus-config`, `bin/nexus-relink`, `bin/nexus-uninstall`, and `bin/nexus-update-check` as the primary host helper surface
+- `nexus-*` host helpers are the active entrypoints
 
-Compatibility substrate intentionally remains in place:
+`gstack` now survives only in historical references:
 
-- `~/.gstack` remains compatibility-only for older host support state
-- `.gstack-worktrees` and `~/.gstack-dev` remain compatibility-only read and cleanup roots
-- `gstack-*` host binaries still work as shims
-- legacy install roots such as `~/.claude/skills/gstack` and `.agents/skills/gstack` remain compatibility fallbacks only until a later cleanup milestone
-
-## Compatibility budget status
-
-- `removed_from_active_path` surfaces are no longer part of the primary product surface:
-  `bin/gstack-patch-names`, `bin/gstack-diff-scope`, `bin/gstack-platform-detect`,
-  `bin/gstack-open-url`, `bin/gstack-extension`, `gstack-upgrade`
-- `retained_compatibility_shim` surfaces remain boundary-only shims:
-  `bin/gstack-config`, `bin/gstack-relink`, `bin/gstack-uninstall`,
-  `bin/gstack-update-check`
-- `deferred_final_removal` surfaces remain deferred cleanup targets:
-  `~/.gstack`, `.gstack-worktrees`, `~/.gstack-dev`, `repository remote naming`
+- repository remote naming
+- archived docs and closeouts
 
 ## Authority boundary
 

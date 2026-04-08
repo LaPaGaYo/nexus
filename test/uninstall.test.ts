@@ -5,18 +5,10 @@ import * as path from 'path';
 import * as os from 'os';
 
 const ROOT = path.resolve(import.meta.dir, '..');
-const UNINSTALL = path.join(ROOT, 'bin', 'gstack-uninstall');
 const NEXUS_UNINSTALL = path.join(ROOT, 'bin', 'nexus-uninstall');
-const NEXUS_CONFIG = path.join(ROOT, 'bin', 'nexus-config');
 
-describe('gstack-uninstall', () => {
+describe('nexus-uninstall', () => {
   test('syntax check passes', () => {
-    const result = spawnSync('bash', ['-n', UNINSTALL], { stdio: 'pipe' });
-    expect(result.status).toBe(0);
-  });
-
-  test('nexus wrapper exists and syntax checks cleanly', () => {
-    expect(fs.existsSync(NEXUS_UNINSTALL)).toBe(true);
     const result = spawnSync('bash', ['-n', NEXUS_UNINSTALL], { stdio: 'pipe' });
     expect(result.status).toBe(0);
   });
@@ -26,13 +18,12 @@ describe('gstack-uninstall', () => {
     expect(result.status).toBe(0);
     const output = result.stdout.toString();
     expect(output).toContain('nexus-uninstall');
-    expect(output).toContain('gstack-uninstall');
     expect(output).toContain('--force');
     expect(output).toContain('--keep-state');
   });
 
   test('unknown flag exits with error', () => {
-    const result = spawnSync('bash', [UNINSTALL, '--bogus'], {
+    const result = spawnSync('bash', [NEXUS_UNINSTALL, '--bogus'], {
       stdio: 'pipe',
       env: { ...process.env, HOME: '/nonexistent' },
     });
@@ -46,27 +37,21 @@ describe('gstack-uninstall', () => {
     let mockGitRoot: string;
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-uninstall-test-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-uninstall-test-'));
       mockHome = path.join(tmpDir, 'home');
       mockGitRoot = path.join(tmpDir, 'repo');
 
-      // Create mock gstack install layout
-      fs.mkdirSync(path.join(mockHome, '.claude', 'skills', 'gstack'), { recursive: true });
-      fs.writeFileSync(path.join(mockHome, '.claude', 'skills', 'gstack', 'SKILL.md'), 'test');
-
-      // Create per-skill symlinks (both old unprefixed and new prefixed)
-      fs.symlinkSync('gstack/review', path.join(mockHome, '.claude', 'skills', 'review'));
-      fs.symlinkSync('gstack/ship', path.join(mockHome, '.claude', 'skills', 'gstack-ship'));
-
-      // Create a non-gstack symlink (should NOT be removed)
+      fs.mkdirSync(path.join(mockHome, '.claude', 'skills', 'nexus', 'review'), { recursive: true });
+      fs.writeFileSync(path.join(mockHome, '.claude', 'skills', 'nexus', 'SKILL.md'), 'test');
+      fs.symlinkSync('nexus/review', path.join(mockHome, '.claude', 'skills', 'review'));
+      fs.symlinkSync('nexus/ship', path.join(mockHome, '.claude', 'skills', 'nexus-ship'));
       fs.mkdirSync(path.join(mockHome, '.claude', 'skills', 'other-tool'), { recursive: true });
 
-      // Create state directory
-      fs.mkdirSync(path.join(mockHome, '.gstack', 'projects'), { recursive: true });
-      fs.writeFileSync(path.join(mockHome, '.gstack', 'config.json'), '{}');
+      fs.mkdirSync(path.join(mockHome, '.nexus', 'projects'), { recursive: true });
+      fs.writeFileSync(path.join(mockHome, '.nexus', 'config.json'), '{}');
 
-      // Create mock git repo
-      fs.mkdirSync(mockGitRoot, { recursive: true });
+      fs.mkdirSync(path.join(mockGitRoot, '.nexus-worktrees'), { recursive: true });
+      fs.mkdirSync(path.join(mockGitRoot, '.nexus'), { recursive: true });
       spawnSync('git', ['init', '-b', 'main'], { cwd: mockGitRoot, stdio: 'pipe' });
     });
 
@@ -74,161 +59,79 @@ describe('gstack-uninstall', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    test('--force removes global Claude skills and state', () => {
-      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
-        stdio: 'pipe',
-        env: {
-          ...process.env,
-          HOME: mockHome,
-          GSTACK_DIR: path.join(mockHome, '.claude', 'skills', 'gstack'),
-          GSTACK_STATE_DIR: path.join(mockHome, '.gstack'),
-        },
-        cwd: mockGitRoot,
-      });
-
-      expect(result.status).toBe(0);
-      const output = result.stdout.toString();
-      expect(output).toContain('Nexus uninstalled');
-
-      // Global skill dir should be removed
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'gstack'))).toBe(false);
-
-      // Per-skill symlinks pointing into gstack/ should be removed
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'review'))).toBe(false);
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'gstack-ship'))).toBe(false);
-
-      // Non-gstack tool should still exist
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'other-tool'))).toBe(true);
-
-      // State should be removed
-      expect(fs.existsSync(path.join(mockHome, '.gstack'))).toBe(false);
-    });
-
-    test('--keep-state preserves state directory', () => {
-      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force', '--keep-state'], {
-        stdio: 'pipe',
-        env: {
-          ...process.env,
-          HOME: mockHome,
-          GSTACK_DIR: path.join(mockHome, '.claude', 'skills', 'gstack'),
-          GSTACK_STATE_DIR: path.join(mockHome, '.gstack'),
-        },
-        cwd: mockGitRoot,
-      });
-
-      expect(result.status).toBe(0);
-
-      // Skills should be removed
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'gstack'))).toBe(false);
-
-      // State should still exist
-      expect(fs.existsSync(path.join(mockHome, '.gstack'))).toBe(true);
-      expect(fs.existsSync(path.join(mockHome, '.gstack', 'config.json'))).toBe(true);
-    });
-
-    test('nexus-uninstall prefers NEXUS_STATE_DIR over GSTACK_STATE_DIR', () => {
-      fs.mkdirSync(path.join(mockHome, '.nexus', 'projects'), { recursive: true });
-      fs.writeFileSync(path.join(mockHome, '.nexus', 'config.json'), '{}');
-
+    test('--force removes global Claude skills and Nexus state', () => {
       const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
           ...process.env,
           HOME: mockHome,
           NEXUS_STATE_DIR: path.join(mockHome, '.nexus'),
-          GSTACK_DIR: path.join(mockHome, '.claude', 'skills', 'gstack'),
-          GSTACK_STATE_DIR: path.join(mockHome, '.gstack'),
         },
         cwd: mockGitRoot,
       });
 
       expect(result.status).toBe(0);
+      expect(result.stdout.toString()).toContain('Nexus uninstalled');
+      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'nexus'))).toBe(false);
+      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'review'))).toBe(false);
+      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'nexus-ship'))).toBe(false);
+      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'other-tool'))).toBe(true);
       expect(fs.existsSync(path.join(mockHome, '.nexus'))).toBe(false);
-      expect(fs.existsSync(path.join(mockHome, '.gstack'))).toBe(true);
     });
 
-    test('nexus-config migrates legacy ~/.gstack state into ~/.nexus with a marker', () => {
-      fs.writeFileSync(path.join(mockHome, '.gstack', 'config.yaml'), 'skill_prefix: true\n');
-
-      const result = spawnSync('bash', [NEXUS_CONFIG, 'get', 'skill_prefix'], {
+    test('--keep-state preserves the Nexus state directory', () => {
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force', '--keep-state'], {
         stdio: 'pipe',
         env: {
           ...process.env,
           HOME: mockHome,
+          NEXUS_STATE_DIR: path.join(mockHome, '.nexus'),
         },
         cwd: mockGitRoot,
       });
 
       expect(result.status).toBe(0);
-      expect(result.stdout.toString().trim()).toBe('true');
-      expect(fs.existsSync(path.join(mockHome, '.nexus', 'config.yaml'))).toBe(true);
-      expect(fs.existsSync(path.join(mockHome, '.nexus', '.migrated-from-gstack'))).toBe(true);
-      expect(fs.existsSync(path.join(mockHome, '.gstack', 'config.yaml'))).toBe(true);
+      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'nexus'))).toBe(false);
+      expect(fs.existsSync(path.join(mockHome, '.nexus'))).toBe(true);
+      expect(fs.existsSync(path.join(mockHome, '.nexus', 'config.json'))).toBe(true);
     });
 
-    test('nexus-config falls back to ~/.gstack when ~/.nexus exists without migration marker', () => {
-      fs.mkdirSync(path.join(mockHome, '.nexus'), { recursive: true });
-      fs.writeFileSync(path.join(mockHome, '.nexus', 'config.yaml'), 'skill_prefix: false\n');
-      fs.writeFileSync(path.join(mockHome, '.gstack', 'config.yaml'), 'skill_prefix: true\n');
-
-      const result = spawnSync('bash', [NEXUS_CONFIG, 'get', 'skill_prefix'], {
+    test('removes repo-local Nexus roots', () => {
+      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
           ...process.env,
           HOME: mockHome,
+          NEXUS_STATE_DIR: path.join(mockHome, '.nexus'),
         },
         cwd: mockGitRoot,
       });
 
       expect(result.status).toBe(0);
-      expect(result.stdout.toString().trim()).toBe('true');
-      expect(fs.existsSync(path.join(mockHome, '.nexus', '.migration-incomplete'))).toBe(true);
+      expect(fs.existsSync(path.join(mockGitRoot, '.nexus'))).toBe(false);
+      expect(fs.existsSync(path.join(mockGitRoot, '.nexus-worktrees'))).toBe(false);
     });
 
     test('clean system outputs nothing to remove', () => {
       const cleanHome = path.join(tmpDir, 'clean-home');
+      const cleanRepo = path.join(tmpDir, 'clean-repo');
       fs.mkdirSync(cleanHome, { recursive: true });
+      fs.mkdirSync(cleanRepo, { recursive: true });
+      spawnSync('git', ['init', '-b', 'main'], { cwd: cleanRepo, stdio: 'pipe' });
 
       const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
         stdio: 'pipe',
         env: {
           ...process.env,
           HOME: cleanHome,
-          GSTACK_DIR: path.join(cleanHome, 'nonexistent'),
-          GSTACK_STATE_DIR: path.join(cleanHome, '.gstack'),
+          NEXUS_STATE_DIR: path.join(cleanHome, '.nexus'),
         },
-        cwd: mockGitRoot,
+        cwd: cleanRepo,
       });
 
       expect(result.status).toBe(0);
       expect(result.stdout.toString()).toContain('Nothing to remove');
       expect(result.stdout.toString()).toContain('Nexus');
-    });
-
-    test('upgrade path: prefixed install + uninstall cleans both old and new symlinks', () => {
-      // Simulate the state after setup --no-prefix followed by setup (with prefix):
-      // Both old unprefixed and new prefixed symlinks exist
-      // (mockHome already has both 'review' and 'gstack-ship' symlinks)
-
-      const result = spawnSync('bash', [NEXUS_UNINSTALL, '--force'], {
-        stdio: 'pipe',
-        env: {
-          ...process.env,
-          HOME: mockHome,
-          GSTACK_DIR: path.join(mockHome, '.claude', 'skills', 'gstack'),
-          GSTACK_STATE_DIR: path.join(mockHome, '.gstack'),
-        },
-        cwd: mockGitRoot,
-      });
-
-      expect(result.status).toBe(0);
-
-      // Both old (review) and new (gstack-ship) symlinks should be gone
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'review'))).toBe(false);
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'gstack-ship'))).toBe(false);
-
-      // Non-gstack should survive
-      expect(fs.existsSync(path.join(mockHome, '.claude', 'skills', 'other-tool'))).toBe(true);
     });
   });
 });

@@ -44,7 +44,7 @@ let HOST: Host = HOST_ARG_VAL === 'all' ? 'claude' : HOST_ARG_VAL;
 
 // ─── Shared Design Constants ────────────────────────────────
 
-/** gstack's 10 AI slop anti-patterns — shared between DESIGN_METHODOLOGY and DESIGN_HARD_RULES */
+/** Nexus's 10 AI slop anti-patterns — shared between DESIGN_METHODOLOGY and DESIGN_HARD_RULES */
 const AI_SLOP_BLACKLIST = [
   'Purple/violet/indigo gradient backgrounds or blue-to-purple color schemes',
   '**The 3-column feature grid:** icon-in-colored-circle + bold title + 2-line description, repeated 3x symmetrically. THE most recognizable AI layout.',
@@ -90,7 +90,6 @@ function externalSkillName(skillDir: string, frontmatterName?: string): string {
   // Use frontmatter name when it differs from directory name (e.g., run-tests/ with name: test)
   const baseName = frontmatterName && frontmatterName !== skillDir ? frontmatterName : skillDir;
   if (baseName.startsWith('nexus-')) return baseName;
-  if (baseName.startsWith('gstack-')) return `nexus-${baseName.slice('gstack-'.length)}`;
   return `nexus-${baseName}`;
 }
 
@@ -295,26 +294,17 @@ function processExternalHost(
     result = result.slice(0, bodyStart) + '\n' + safetyProse + '\n' + result.slice(bodyStart);
   }
 
-  // Replace hardcoded Claude Nexus and legacy gstack paths with host-appropriate paths.
+  // Replace hardcoded Claude Nexus paths with host-appropriate paths.
   const pathRewrites: Array<[RegExp, string]> = [
     [/\$HOME\/\.claude\/skills\/nexus\/bin/g, ctx.paths.binDir],
-    [/\$HOME\/\.claude\/skills\/gstack\/bin/g, ctx.paths.binDir],
     [/\$HOME\/\.claude\/skills\/nexus\/browse\/dist/g, ctx.paths.browseDir],
-    [/\$HOME\/\.claude\/skills\/gstack\/browse\/dist/g, ctx.paths.browseDir],
     [/\$HOME\/\.claude\/skills\/nexus\/design\/dist/g, ctx.paths.designDir],
-    [/\$HOME\/\.claude\/skills\/gstack\/design\/dist/g, ctx.paths.designDir],
     [/\$HOME\/\.claude\/skills\/nexus/g, ctx.paths.skillRoot],
-    [/\$HOME\/\.claude\/skills\/gstack/g, ctx.paths.skillRoot],
     [/~\/\.claude\/skills\/nexus\/bin/g, ctx.paths.binDir],
-    [/~\/\.claude\/skills\/gstack\/bin/g, ctx.paths.binDir],
     [/~\/\.claude\/skills\/nexus\/browse\/dist/g, ctx.paths.browseDir],
-    [/~\/\.claude\/skills\/gstack\/browse\/dist/g, ctx.paths.browseDir],
     [/~\/\.claude\/skills\/nexus\/design\/dist/g, ctx.paths.designDir],
-    [/~\/\.claude\/skills\/gstack\/design\/dist/g, ctx.paths.designDir],
     [/~\/\.claude\/skills\/nexus/g, ctx.paths.skillRoot],
-    [/~\/\.claude\/skills\/gstack/g, ctx.paths.skillRoot],
     [/\.claude\/skills\/nexus/g, ctx.paths.localSkillRoot],
-    [/\.claude\/skills\/gstack/g, ctx.paths.localSkillRoot],
     [/\.claude\/skills\/review/g, `${config.hostSubdir}/skills/nexus/review`],
     [/\.claude\/skills/g, `${config.hostSubdir}/skills`],
   ];
@@ -432,7 +422,7 @@ function cleanupLegacyExternalHostOutputs(host: Host): void {
   if (!fs.existsSync(skillsDir)) return;
 
   for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-    if (entry.isDirectory() && entry.name.startsWith('gstack')) {
+    if (entry.isDirectory() && !entry.name.startsWith('nexus')) {
       fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
     }
   }
@@ -456,7 +446,6 @@ for (const currentHost of hostsToRun) {
       if (currentHost !== 'claude') {
         const dir = path.basename(path.dirname(tmplPath));
         if (dir === 'codex') continue;
-        if (dir.startsWith('gstack-')) continue;
       }
 
       const { outputPath, content, symlinkLoop } = processTemplate(tmplPath, currentHost);
@@ -525,7 +514,6 @@ if (!DRY_RUN) {
     const configPaths = [
       process.env.NEXUS_STATE_DIR ? path.join(process.env.NEXUS_STATE_DIR, 'config.yaml') : null,
       path.join(process.env.HOME || '', '.nexus', 'config.yaml'),
-      path.join(process.env.HOME || '', '.gstack', 'config.yaml'),
     ].filter((value): value is string => Boolean(value));
 
     for (const configPath of configPaths) {

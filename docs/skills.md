@@ -68,7 +68,7 @@ Legacy compatibility aliases route through the same Nexus runtime:
 | [`/browse`](#browse) | **QA Engineer** | Give the agent eyes. Real Chromium browser, real clicks, real screenshots. ~100ms per command. |
 | [`/setup-browser-cookies`](#setup-browser-cookies) | **Session Manager** | Import cookies from your real browser (Chrome, Arc, Brave, Edge) into the headless session. Test authenticated pages. |
 | [`/autoplan`](#autoplan) | **Review Pipeline** | One command, fully reviewed plan. Runs CEO → design → eng review automatically with encoded decision principles. Surfaces only taste decisions for your approval. |
-| [`/learn`](#learn) | **Memory** | Manage what gstack learned across sessions. Review, search, prune, and export project-specific patterns and preferences. |
+| [`/learn`](#learn) | **Memory** | Manage what Nexus learned across sessions. Review, search, prune, and export project-specific patterns and preferences. |
 | | | |
 | **Multi-AI** | | |
 | [`/codex`](#codex) | **Second Opinion** | Independent review from OpenAI Codex CLI. Three modes: code review (pass/fail gate), adversarial challenge, and open consultation with session continuity. Cross-model analysis when both `/review` and `/codex` have run. |
@@ -78,7 +78,7 @@ Legacy compatibility aliases route through the same Nexus runtime:
 | [`/freeze`](#safety--guardrails) | **Edit Lock** | Restrict all file edits to a single directory. Blocks Edit and Write outside the boundary. Accident prevention for debugging. |
 | [`/guard`](#safety--guardrails) | **Full Safety** | Combines /careful + /freeze in one command. Maximum safety for prod work. |
 | [`/unfreeze`](#safety--guardrails) | **Unlock** | Remove the /freeze boundary, allowing edits everywhere again. |
-| [`/connect-chrome`](#connect-chrome) | **Chrome Controller** | Launch your real Chrome controlled by gstack with the Side Panel extension. Watch every action live. |
+| [`/connect-chrome`](#connect-chrome) | **Chrome Controller** | Launch your real Chrome controlled by Nexus with the Side Panel extension. Watch every action live. |
 | [`/setup-deploy`](#setup-deploy) | **Deploy Configurator** | One-time setup for `/land-and-deploy`. Detects your platform, production URL, and deploy commands. |
 | [`/nexus-upgrade`](#nexus-upgrade) | **Self-Updater** | Upgrade Nexus to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
 
@@ -443,7 +443,7 @@ Claude: [Runs full 80-item visual audit on the live site]
         Design Score: C → B+  |  AI Slop Score: D → A
         9 fixes applied (8 verified, 1 best-effort). 3 deferred.
 
-        [Report with before/after screenshots saved to .gstack/design-reports/]
+        [Report with before/after screenshots saved to .nexus/design-reports/]
 ```
 
 Nine commits, each touching one concern. The AI Slop score went from D to A because the three most recognizable patterns (gradient hero, 3-column grid, uniform radius) are gone.
@@ -645,7 +645,7 @@ Claude: [Explores 12 pages, fills 3 forms, tests 2 flows]
         2. HIGH: Mobile nav menu doesn't close after selecting an item
         3. MEDIUM: Dashboard chart overlaps sidebar below 1024px
 
-        [Full report with screenshots saved to .gstack/qa-reports/]
+        [Full report with screenshots saved to .nexus/qa-reports/]
 ```
 
 **Testing authenticated pages:** Use `/setup-browser-cookies` first to import your real browser sessions, then `/qa` can test pages behind login.
@@ -976,7 +976,7 @@ This is my **institutional memory mode**.
 
 Nexus learns from every session. Patterns, pitfalls, preferences, architectural decisions... they accumulate in `~/.nexus/projects/$SLUG/learnings.jsonl`. Each learning has a confidence score, source attribution, and the files it references.
 
-`/learn` lets you see what gstack has absorbed, search for specific patterns, prune stale entries (when referenced files no longer exist), and export learnings for team sharing. The real magic is in other skills... they automatically search learnings before making recommendations, and display "Prior learning applied" when a past insight is relevant.
+`/learn` lets you see what Nexus has absorbed, search for specific patterns, prune stale entries (when referenced files no longer exist), and export learnings for team sharing. The real magic is in other skills... they automatically search learnings before making recommendations, and display "Prior learning applied" when a past insight is relevant.
 
 ```
 You:   /learn
@@ -999,9 +999,9 @@ Claude: 23 learnings for this project (14 high confidence, 6 medium, 3 low)
 
 This is my **co-presence mode**.
 
-`/browse` runs headless by default. You don't see what the agent sees. `/connect-chrome` changes that. It launches your actual Chrome browser controlled by Playwright, with the gstack Side Panel extension auto-loaded. You watch every action in real time... same screen, same window.
+`/browse` runs headless by default. You don't see what the agent sees. `/connect-chrome` changes that. It launches your actual Chrome browser controlled by Playwright, with the Nexus Side Panel extension auto-loaded. You watch every action in real time... same screen, same window.
 
-A subtle green shimmer at the top edge tells you which Chrome window gstack controls. All existing browse commands work unchanged. The Side Panel shows a live activity feed of every command and a chat sidebar where you can direct Claude with natural language instructions.
+A subtle green shimmer at the top edge tells you which Chrome window Nexus controls. All existing browse commands work unchanged. The Side Panel shows a live activity feed of every command and a chat sidebar where you can direct Claude with natural language instructions.
 
 ```
 You:   /connect-chrome

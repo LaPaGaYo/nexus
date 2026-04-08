@@ -22,7 +22,7 @@ setopt +o nomatch 2>/dev/null || true  # zsh compat
 ls jest.config.* vitest.config.* playwright.config.* .rspec pytest.ini pyproject.toml phpunit.xml 2>/dev/null
 ls -d test/ tests/ spec/ __tests__/ cypress/ e2e/ 2>/dev/null
 # Check opt-out marker
-if [ -f .nexus/no-test-bootstrap ] || [ -f .gstack/no-test-bootstrap ]; then
+if [ -f .nexus/no-test-bootstrap ]; then
   echo "BOOTSTRAP_DECLINED"
 fi
 \`\`\`

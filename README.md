@@ -3,7 +3,7 @@
 Nexus is a single-package AI engineering operating system.
 Claude remains the only interactive front door.
 
-> Current state: the repository is still transitioning from a Gstack-hosted foundation, but the product-facing lifecycle is now Nexus-owned. PM Skills, GSD, and Superpowers are absorbed capability sources; CCB remains dispatch and transport infrastructure only.
+> PM Skills, GSD, and Superpowers are absorbed capability sources. CCB remains dispatch and transport infrastructure only.
 
 > "I don't think I've typed like a line of code probably since December, basically, which is an extremely large change." — [Andrej Karpathy](https://fortune.com/2026/03/21/andrej-karpathy-openai-cofounder-ai-agents-coding-state-of-psychosis-openclaw/), No Priors podcast, March 2026
 
@@ -52,7 +52,7 @@ PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or
 Canonical lifecycle skill meaning now comes from Nexus-owned stage content under `lib/nexus/stage-content/`.
 Nexus-owned stage packs under `lib/nexus/stage-packs/` remain the active internal runtime units.
 Imported upstream repos remain source material only and do not own lifecycle truth.
-Legacy gstack aliases remain compatibility-only entrypoints and do not own separate contract,
+Legacy aliases remain compatibility-only entrypoints and do not own separate contract,
 artifact, or transition logic.
 
 Canonical Nexus commands:
@@ -106,10 +106,10 @@ Real files get committed to your repo (not a submodule), so `git clone` just wor
 
 > **Contributing or need full history?** The commands above use `--depth 1` for a fast install. If you plan to contribute or need full git history, do a full clone instead:
 > ```bash
-> git clone https://github.com/garrytan/gstack.git ~/.claude/skills/nexus
+> git clone <nexus-repo-url> ~/.claude/skills/nexus
 > ```
 
-Compatibility note: legacy roots such as `~/.claude/skills/gstack` and `.claude/skills/gstack` still work as migration fallbacks, but they are no longer the recommended install surface.
+The active install surface is Nexus-only.
 
 ### Codex, Gemini CLI, or Cursor
 
@@ -118,7 +118,7 @@ Nexus works on any agent that supports the [SKILL.md standard](https://github.co
 Install to one repo:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .agents/skills/nexus
+git clone --single-branch --depth 1 <nexus-repo-url> .agents/skills/nexus
 cd .agents/skills/nexus && ./setup --host codex
 ```
 
@@ -127,7 +127,7 @@ When setup runs from `.agents/skills/nexus`, it installs the generated Codex ski
 Install once for your user account:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/nexus
+git clone --single-branch --depth 1 <nexus-repo-url> ~/nexus
 cd ~/nexus && ./setup --host codex
 ```
 
@@ -138,18 +138,18 @@ discovery from the source repo checkout.
 Or let setup auto-detect which agents you have installed:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/nexus
+git clone --single-branch --depth 1 <nexus-repo-url> ~/nexus
 cd ~/nexus && ./setup --host auto
 ```
 
-For Codex-compatible hosts, setup supports both repo-local installs from `.agents/skills/nexus` and user-global installs from `~/.codex/skills/nexus`. Existing `gstack` roots still work through compatibility shims, but Nexus is the primary install surface.
+For Codex-compatible hosts, setup supports both repo-local installs from `.agents/skills/nexus` and user-global installs from `~/.codex/skills/nexus`.
 
 ### Factory Droid
 
 Nexus works with [Factory Droid](https://factory.ai). Skills install to `.factory/skills/` and are discovered automatically. Sensitive skills (ship, land-and-deploy, guard) use `disable-model-invocation: true` so Droids don't auto-invoke them.
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/nexus
+git clone --single-branch --depth 1 <nexus-repo-url> ~/nexus
 cd ~/nexus && ./setup --host factory
 ```
 

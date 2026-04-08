@@ -1,8 +1,8 @@
 /**
- * gstack CLI — thin wrapper that talks to the persistent server
+ * Nexus CLI — thin wrapper that talks to the persistent server
  *
  * Flow:
- *   1. Read .gstack/browse.json for port + token
+ *   1. Read .nexus/browse.json for port + token
  *   2. If missing or stale PID → start server in background
  *   3. Health check + version mismatch detection
  *   4. Send command via HTTP POST
@@ -180,7 +180,7 @@ async function killServer(pid: number): Promise<void> {
  * Verifies PID ownership before sending signals.
  */
 function cleanupLegacyState(): void {
-  // No legacy state on Windows — /tmp and `ps` don't exist, and gstack
+  // No legacy state on Windows — /tmp and `ps` don't exist, and Nexus
   // never ran on Windows before the Node.js fallback was added.
   if (IS_WINDOWS) return;
 
@@ -443,7 +443,7 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    console.log(`gstack browse — Fast headless browser for AI coding agents
+    console.log(`nexus browse — Fast headless browser for AI coding agents
 
 Usage: browse <command> [args...]
 
@@ -517,7 +517,7 @@ Refs:           After 'snapshot', use @e1, @e2... as selectors:
     // Kill orphaned Chromium processes that may still hold the profile lock.
     // The server PID is the Bun process; Chromium is a child that can outlive it
     // if the server is killed abruptly (SIGKILL, crash, manual rm of state file).
-    const profileDir = path.join(process.env.HOME || '/tmp', '.gstack', 'chromium-profile');
+    const profileDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
     try {
       const singletonLock = path.join(profileDir, 'SingletonLock');
       const lockTarget = fs.readlinkSync(singletonLock); // e.g. "hostname-12345"
@@ -577,7 +577,7 @@ Refs:           After 'snapshot', use @e1, @e2... as selectors:
           throw new Error(`sidebar-agent.ts not found at ${agentScript}`);
         }
         // Clear old agent queue
-        const agentQueue = path.join(process.env.HOME || '/tmp', '.gstack', 'sidebar-agent-queue.jsonl');
+        const agentQueue = path.join(process.env.HOME || '/tmp', '.nexus', 'sidebar-agent-queue.jsonl');
         try { fs.writeFileSync(agentQueue, ''); } catch {}
 
         // Resolve browse binary path the same way — execPath-relative
@@ -653,7 +653,7 @@ Refs:           After 'snapshot', use @e1, @e2... as selectors:
       }
     }
     // Clean profile locks and state file
-    const profileDir = path.join(process.env.HOME || '/tmp', '.gstack', 'chromium-profile');
+    const profileDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
     for (const lockFile of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
       try { fs.unlinkSync(path.join(profileDir, lockFile)); } catch {}
     }

@@ -12,7 +12,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# Compute SLUG directly (avoid eval of gstack-slug — branch names can contain shell metacharacters)
+# Compute SLUG directly (avoid eval of nexus-slug — branch names can contain shell metacharacters)
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
 if [ -z "$REMOTE_URL" ]; then
   echo "REPO_MODE=unknown"
@@ -34,7 +34,7 @@ if [ -n "$OVERRIDE" ] && [ "$OVERRIDE" != "null" ]; then
 fi
 
 # Check cache (7-day TTL)
-STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-$HOME/.nexus}}"
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 CACHE_DIR="$STATE_DIR/projects/$SLUG"
 CACHE_FILE="$CACHE_DIR/repo-mode.json"
 if [ -f "$CACHE_FILE" ]; then

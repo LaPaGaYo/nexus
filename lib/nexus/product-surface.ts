@@ -1,4 +1,4 @@
-import { GSTACK_STATE_ENV_VAR, LEGACY_STATE_ROOT, NEXUS_STATE_ENV_VAR, PRIMARY_STATE_ROOT } from './host-roots';
+import { LEGACY_STATE_ROOT, NEXUS_STATE_ENV_VAR, PRIMARY_STATE_ROOT } from './host-roots';
 import {
   LEGACY_DEV_ROOT,
   LEGACY_SUPPORT_NAMESPACE,
@@ -8,7 +8,7 @@ import {
   PRIMARY_WORKTREE_ROOT,
 } from './support-surface';
 
-export { LEGACY_STATE_ROOT, PRIMARY_STATE_ROOT, NEXUS_STATE_ENV_VAR, GSTACK_STATE_ENV_VAR } from './host-roots';
+export { LEGACY_STATE_ROOT, PRIMARY_STATE_ROOT, NEXUS_STATE_ENV_VAR } from './host-roots';
 export {
   LEGACY_DEV_ROOT,
   LEGACY_SUPPORT_HELPERS,
@@ -41,5 +41,4 @@ export const PRODUCT_SURFACE_RULES = {
   primary_dev_root: PRIMARY_DEV_ROOT,
   legacy_dev_root: LEGACY_DEV_ROOT,
   nexus_state_env_var: NEXUS_STATE_ENV_VAR,
-  gstack_state_env_var: GSTACK_STATE_ENV_VAR,
 } as const;

@@ -5,21 +5,18 @@
 #   nexus-relink
 #
 # Env overrides (for testing):
-#   NEXUS_STATE_DIR   — override primary Nexus state directory
-#   GSTACK_STATE_DIR  — override compatibility state directory
-#   GSTACK_INSTALL_DIR — override current install directory during cutover
-#   GSTACK_SKILLS_DIR  — override target skills directory
+#   NEXUS_STATE_DIR    — override the Nexus state directory
+#   NEXUS_INSTALL_DIR  — override the current install directory
+#   NEXUS_SKILLS_DIR   — override the target skills directory
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NEXUS_CONFIG="${SCRIPT_DIR}/nexus-config"
 
-INSTALL_DIR="${GSTACK_INSTALL_DIR:-}"
+INSTALL_DIR="${NEXUS_INSTALL_DIR:-}"
 if [ -z "$INSTALL_DIR" ]; then
   if [ -d "$HOME/.claude/skills/nexus" ]; then
     INSTALL_DIR="$HOME/.claude/skills/nexus"
-  elif [ -d "$HOME/.claude/skills/gstack" ]; then
-    INSTALL_DIR="$HOME/.claude/skills/gstack"
   elif [ -d "${SCRIPT_DIR}/.." ] && [ -f "${SCRIPT_DIR}/../setup" ]; then
     INSTALL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
   fi
@@ -31,7 +28,7 @@ if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
   exit 1
 fi
 
-SKILLS_DIR="${GSTACK_SKILLS_DIR:-$(dirname "$INSTALL_DIR")}"
+SKILLS_DIR="${NEXUS_SKILLS_DIR:-$(dirname "$INSTALL_DIR")}"
 [ -d "$SKILLS_DIR" ] || mkdir -p "$SKILLS_DIR"
 
 PREFIX=$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || echo "false")
@@ -45,23 +42,16 @@ for skill_dir in "$INSTALL_DIR"/*/; do
 
   if [ "$PREFIX" = "true" ]; then
     case "$skill" in
-      gstack-*) link_name="$skill" ;;
+      nexus-*) link_name="$skill" ;;
       *) link_name="nexus-$skill" ;;
     esac
     ln -sfn "$INSTALL_DIR/$skill" "$SKILLS_DIR/$link_name"
     [ "$link_name" != "$skill" ] && [ -L "$SKILLS_DIR/$skill" ] && rm -f "$SKILLS_DIR/$skill"
-    case "$skill" in
-      gstack-*) ;;
-      *) [ -L "$SKILLS_DIR/gstack-$skill" ] && rm -f "$SKILLS_DIR/gstack-$skill" ;;
-    esac
   else
     ln -sfn "$INSTALL_DIR/$skill" "$SKILLS_DIR/$skill"
     case "$skill" in
-      gstack-*) ;;
-      *)
-        [ -L "$SKILLS_DIR/nexus-$skill" ] && rm -f "$SKILLS_DIR/nexus-$skill"
-        [ -L "$SKILLS_DIR/gstack-$skill" ] && rm -f "$SKILLS_DIR/gstack-$skill"
-        ;;
+      nexus-*) ;;
+      *) [ -L "$SKILLS_DIR/nexus-$skill" ] && rm -f "$SKILLS_DIR/nexus-$skill" ;;
     esac
   fi
   SKILL_COUNT=$((SKILL_COUNT + 1))

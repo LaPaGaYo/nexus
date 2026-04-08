@@ -1,61 +1,61 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
   COMPATIBILITY_SURFACE_STATUSES,
-  DEFERRED_LEGACY_REMOVAL_SURFACES,
   GSTACK_COMPATIBILITY_SURFACES,
-  RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+  HISTORICAL_GSTACK_REFERENCES,
+  REMOVED_GSTACK_RUNTIME_IDENTITIES,
+  REMOVED_GSTACK_BOUNDARY_SHIMS,
 } from '../../lib/nexus/compatibility-surface';
 
 describe('nexus compatibility surface contract', () => {
-  test('freezes the explicit three-way compatibility status model', () => {
+  test('freezes the final two-state compatibility model', () => {
     expect(COMPATIBILITY_SURFACE_STATUSES).toEqual({
       removed_from_active_path: 'removed_from_active_path',
-      retained_compatibility_shim: 'retained_compatibility_shim',
-      deferred_final_removal: 'deferred_final_removal',
+      historical_record_only: 'historical_record_only',
     });
   });
 
-  test('keeps only boundary shims in the retained compatibility budget', () => {
-    expect(RETAINED_BOUNDARY_COMPATIBILITY_SHIMS).toEqual([
+  test('tracks removed shims, removed runtime identities, and historical residue explicitly', () => {
+    expect(REMOVED_GSTACK_BOUNDARY_SHIMS).toEqual([
       'bin/gstack-config',
       'bin/gstack-relink',
       'bin/gstack-uninstall',
       'bin/gstack-update-check',
+      'bin/gstack-analytics',
+      'bin/gstack-community-dashboard',
+      'bin/gstack-global-discover',
+      'bin/gstack-learnings-log',
+      'bin/gstack-learnings-search',
+      'bin/gstack-review-log',
+      'bin/gstack-review-read',
+      'bin/gstack-repo-mode',
+      'bin/gstack-slug',
+      'bin/gstack-telemetry-log',
+      'bin/gstack-telemetry-sync',
     ]);
-  });
 
-  test('freezes the internal gstack identities that must leave the active path', () => {
-    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).toEqual([
+    expect(REMOVED_GSTACK_RUNTIME_IDENTITIES).toEqual([
       'bin/gstack-patch-names',
       'bin/gstack-diff-scope',
       'bin/gstack-platform-detect',
       'bin/gstack-open-url',
       'bin/gstack-extension',
       'gstack-upgrade',
-    ]);
-  });
-
-  test('tracks deferred cleanup surfaces separately from retained shims', () => {
-    expect(DEFERRED_LEGACY_REMOVAL_SURFACES).toEqual([
       '~/.gstack',
       '.gstack-worktrees',
       '~/.gstack-dev',
-      'repository remote naming',
     ]);
+
+    expect(HISTORICAL_GSTACK_REFERENCES).toEqual(['repository remote naming', 'archived docs and closeouts']);
   });
 
-  test('describes every compatibility surface through the shared contract', () => {
+  test('describes every remaining gstack residue through the shared contract', () => {
     const byStatus = Object.groupBy(GSTACK_COMPATIBILITY_SURFACES, (surface) => surface.status);
 
-    expect(byStatus.retained_compatibility_shim?.map((surface) => surface.path)).toEqual(
-      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
-    );
-    expect(byStatus.removed_from_active_path?.map((surface) => surface.path)).toEqual(
-      ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
-    );
-    expect(byStatus.deferred_final_removal?.map((surface) => surface.path)).toEqual(
-      DEFERRED_LEGACY_REMOVAL_SURFACES,
-    );
+    expect(byStatus.removed_from_active_path?.map((surface) => surface.path)).toEqual([
+      ...REMOVED_GSTACK_BOUNDARY_SHIMS,
+      ...REMOVED_GSTACK_RUNTIME_IDENTITIES,
+    ]);
+    expect(byStatus.historical_record_only?.map((surface) => surface.path)).toEqual(HISTORICAL_GSTACK_REFERENCES);
   });
 });

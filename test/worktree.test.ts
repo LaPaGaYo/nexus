@@ -23,7 +23,7 @@ function createTestRepo(): string {
   // Create initial commit so HEAD exists
   fs.writeFileSync(path.join(dir, 'README.md'), '# Test repo\n');
   // Add .gitignore matching real repo (so copied build artifacts don't appear as changes)
-  fs.writeFileSync(path.join(dir, '.gitignore'), '.agents/\nbrowse/dist/\n.nexus-worktrees/\n.gstack-worktrees/\n');
+  fs.writeFileSync(path.join(dir, '.gitignore'), '.agents/\nbrowse/dist/\n.nexus-worktrees/\n.nexus-worktrees/\n');
   // Create a .agents directory (simulating gitignored build artifacts)
   fs.mkdirSync(path.join(dir, '.agents', 'skills'), { recursive: true });
   fs.writeFileSync(path.join(dir, '.agents', 'skills', 'test-skill.md'), '# Test skill\n');

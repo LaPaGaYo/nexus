@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# gstack-telemetry-log — compatibility shim for nexus-telemetry-log
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/nexus-telemetry-log" "$@"

@@ -2,31 +2,29 @@
 
 Date: 2026-04-08
 Milestone: Nexus compatibility cleanup and removal
-Branch: `codex/nexus-compatibility-cleanup-removal`
+Branch: `codex/nexus-final-legacy-removal`
 
 ## Outcome
 
-Nexus is now the only active internal runtime and product identity across the
-remaining setup, generation, resolver guidance, and routing-test surfaces.
+Nexus is now the only active internal runtime and product identity across setup,
+generation, helper binaries, resolver guidance, telemetry payloads, Supabase
+contracts, and routing-test surfaces.
 
-`gstack` remains only in the explicit compatibility budget:
-
-- retained boundary shims
-- deferred legacy cleanup roots
-- compatibility-only aliases and upgrade entrypoints
-
-Active-path `gstack` utility ownership has been removed from the Nexus-primary
-surface.
+`gstack` no longer survives as an active helper, upgrade entrypoint, or runtime
+identity. It remains only in explicit historical metadata and archived records.
 
 ## What Changed
 
-- compatibility budget contracts are now frozen in `lib/nexus/compatibility-surface.ts`
+- compatibility budget contracts are now frozen in
+  `lib/nexus/compatibility-surface.ts`
 - host migration inventory and absorption status now classify legacy surfaces as:
   - `removed_from_active_path`
-  - `retained_compatibility_shim`
-  - `deferred_final_removal`
+  - `historical_record_only`
 - routing install tests now treat `nexus` as the root installed skill identity
-- `gstack-upgrade` no longer participates in canonical routing install fixtures
+- `gstack-upgrade` has been removed from the active surface entirely
+- telemetry and Supabase contracts now use `nexus_version` and `NEXUS_*` naming only
+- active docs, generated skills, extension UI, and helper implementations no
+  longer expose live `gstack` wording
 - E2E fixtures that describe active Nexus-owned paths now point at:
   - `~/.nexus`
   - `.nexus`
@@ -35,15 +33,23 @@ surface.
 
 ## Compatibility Budget
 
-Retained compatibility shims:
+Removed from active path:
 
 - `bin/gstack-config`
 - `bin/gstack-relink`
 - `bin/gstack-uninstall`
 - `bin/gstack-update-check`
-
-Removed from active path:
-
+- `bin/gstack-analytics`
+- `bin/gstack-community-dashboard`
+- `bin/gstack-global-discover`
+- `bin/gstack-learnings-log`
+- `bin/gstack-learnings-search`
+- `bin/gstack-review-log`
+- `bin/gstack-review-read`
+- `bin/gstack-repo-mode`
+- `bin/gstack-slug`
+- `bin/gstack-telemetry-log`
+- `bin/gstack-telemetry-sync`
 - `bin/gstack-patch-names`
 - `bin/gstack-diff-scope`
 - `bin/gstack-platform-detect`
@@ -51,21 +57,22 @@ Removed from active path:
 - `bin/gstack-extension`
 - `gstack-upgrade`
 
-Deferred final removal:
+Historical record only:
 
 - `~/.gstack`
 - `.gstack-worktrees`
 - `~/.gstack-dev`
 - repository remote naming
+- archived docs and closeouts
 
 ## Deferred
 
 Deferred to the next legacy-removal milestone:
 
-- removing retained `gstack-*` boundary shims entirely
-- removing deferred legacy roots after compatibility cutover is no longer needed
-- cleaning remaining legacy textual residue that does not currently own active
-  runtime behavior
+- deciding whether historical metadata for legacy roots should remain in helper
+  contracts or move fully into archive-only documentation
+- cleaning remaining non-active legacy textual residue outside the active product
+  surface
 - repository remote rename away from the historical `gstack` identity
 
 ## Verification
@@ -74,18 +81,16 @@ Commands run:
 
 ```bash
 bun run gen:skill-docs --host codex
-bun test test/nexus/inventory.test.ts test/skill-routing-e2e.test.ts
-bun test test/skill-e2e.test.ts test/skill-e2e-workflow.test.ts test/skill-e2e-bws.test.ts test/skill-e2e-plan.test.ts
-bun test test/touchfiles.test.ts
-bun test
+bun test test/nexus/*.test.ts
+bun test test/gen-skill-docs.test.ts test/telemetry.test.ts test/skill-validation.test.ts test/skill-routing-e2e.test.ts test/relink.test.ts test/uninstall.test.ts test/worktree.test.ts
+bun test browse/test/gstack-config.test.ts browse/test/gstack-update-check.test.ts
 git diff --check
 ```
 
 Results:
 
 - `bun run gen:skill-docs --host codex` -> success
-- `bun test test/nexus/inventory.test.ts test/skill-routing-e2e.test.ts` -> `21 passed, 0 failed, 11 skipped`
-- `bun test test/skill-e2e.test.ts test/skill-e2e-workflow.test.ts test/skill-e2e-bws.test.ts test/skill-e2e-plan.test.ts` -> `0 passed, 0 failed, 151 skipped`
-- `bun test test/touchfiles.test.ts` -> `23 passed, 0 failed`
-- `bun test` -> success (`EXIT:0`)
+- `bun test test/nexus/*.test.ts` -> `111 passed, 0 failed`
+- `bun test test/gen-skill-docs.test.ts test/telemetry.test.ts test/skill-validation.test.ts test/skill-routing-e2e.test.ts test/relink.test.ts test/uninstall.test.ts test/worktree.test.ts` -> `588 passed, 0 failed, 225 skipped`
+- `bun test browse/test/gstack-config.test.ts browse/test/gstack-update-check.test.ts` -> `14 passed, 0 failed`
 - `git diff --check` -> clean

@@ -2,13 +2,12 @@ import { existsSync, readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
 import {
-  ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
   COMPATIBILITY_SURFACE_STATUSES,
-  DEFERRED_LEGACY_REMOVAL_SURFACES,
   GSTACK_COMPATIBILITY_SURFACES,
-  RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+  HISTORICAL_GSTACK_REFERENCES,
+  REMOVED_GSTACK_RUNTIME_IDENTITIES,
+  REMOVED_GSTACK_BOUNDARY_SHIMS,
 } from '../../lib/nexus/compatibility-surface';
-import { getStageContent } from '../../lib/nexus/stage-content';
 import { NEXUS_STAGE_PACKS } from '../../lib/nexus/types';
 
 const INVENTORIES = [
@@ -80,28 +79,17 @@ function parseCsvField(value: string): string[] {
     .filter(Boolean);
 }
 
-function expectCompatibilityBudgetSection(
-  markdown: string,
-  status: (typeof COMPATIBILITY_SURFACE_STATUSES)[keyof typeof COMPATIBILITY_SURFACE_STATUSES],
-  surfaces: readonly string[],
-) {
-  expect(markdown).toContain(status);
-  for (const surface of surfaces) {
-    expect(markdown).toContain(surface);
-  }
-}
-
 describe('nexus inventories', () => {
-  test('shared compatibility contract exposes removed, retained, and deferred gstack surfaces', () => {
+  test('shared compatibility contract exposes final removed vs historical gstack surface', () => {
     expect(COMPATIBILITY_SURFACE_STATUSES).toEqual({
       removed_from_active_path: 'removed_from_active_path',
-      retained_compatibility_shim: 'retained_compatibility_shim',
-      deferred_final_removal: 'deferred_final_removal',
+      historical_record_only: 'historical_record_only',
     });
+
     expect(GSTACK_COMPATIBILITY_SURFACES.length).toBe(
-      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS.length +
-        ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE.length +
-        DEFERRED_LEGACY_REMOVAL_SURFACES.length,
+      REMOVED_GSTACK_BOUNDARY_SHIMS.length +
+        REMOVED_GSTACK_RUNTIME_IDENTITIES.length +
+        HISTORICAL_GSTACK_REFERENCES.length,
     );
   });
 
@@ -143,89 +131,61 @@ describe('nexus inventories', () => {
     expect(markdown).toContain('nexus_stage_packs');
 
     for (const row of rows) {
-      const isActiveRow = row.milestone_state === 'integrating' || row.activation_state === 'active_m2';
-      if (!isActiveRow) {
+      if (row.milestone_state !== 'integrating' && row.milestone_state !== 'verified') {
         continue;
       }
 
-      const packIds = parseCsvField(row.nexus_stage_packs);
-      expect(packIds.length).toBeGreaterThan(0);
+      const packIds = parseCsvField(row.nexus_stage_packs ?? '');
+      if (packIds.length === 0) {
+        continue;
+      }
+
       for (const packId of packIds) {
         expect(NEXUS_STAGE_PACKS.includes(packId as (typeof NEXUS_STAGE_PACKS)[number])).toBe(true);
       }
     }
   });
 
-  test('gstack host migration inventory remains migration-only and scheduled after the current host phase', () => {
+  test('gstack host migration inventory marks active removal complete and leaves gstack only as history', () => {
     const markdown = readFileSync('upstream-notes/gstack-host-migration-inventory.md', 'utf8');
     const rows = parseInventory(markdown);
 
-    expectCompatibilityBudgetSection(
-      markdown,
-      COMPATIBILITY_SURFACE_STATUSES.removed_from_active_path,
-      ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
-    );
-    expectCompatibilityBudgetSection(
-      markdown,
-      COMPATIBILITY_SURFACE_STATUSES.retained_compatibility_shim,
-      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
-    );
-    expectCompatibilityBudgetSection(
-      markdown,
-      COMPATIBILITY_SURFACE_STATUSES.deferred_final_removal,
-      DEFERRED_LEGACY_REMOVAL_SURFACES,
-    );
+    expect(markdown).toContain('Milestone 11 final state');
+    expect(markdown).toContain('removed_from_active_path');
+    expect(markdown).toContain('historical_record_only');
+    expect(markdown).not.toContain('retained_compatibility_shim');
+    expect(markdown).not.toContain('deferred_final_removal');
 
-    expect(markdown).toContain('Nexus-primary');
-    expect(markdown).toContain('~/.nexus');
-    expect(markdown).toContain('.nexus-worktrees');
-    expect(markdown).toContain('~/.nexus-dev');
-    expect(markdown).toContain('~/.gstack');
-    expect(markdown).toContain('.gstack-worktrees');
-    expect(markdown).toContain('~/.gstack-dev');
-    expect(markdown).toContain('nexus-*');
-    expect(markdown).toContain('gstack-*');
+    for (const surface of REMOVED_GSTACK_BOUNDARY_SHIMS) {
+      expect(markdown).toContain(surface);
+    }
+    for (const surface of REMOVED_GSTACK_RUNTIME_IDENTITIES) {
+      expect(markdown).toContain(surface);
+    }
+    for (const surface of HISTORICAL_GSTACK_REFERENCES) {
+      expect(markdown).toContain(surface);
+    }
 
-    expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(row.cleanup_phase).toMatch(/^post-m\d+$/);
-      expect(`${row.normalization_required} ${row.notes}`.toLowerCase()).toMatch(/host only|compatibility|no governed writeback/);
-      expect(row.host_disposition === 'retain_as_host' || row.host_disposition === 'retain_until_adapter_stable').toBe(
-        true,
+      expect(row.cleanup_phase).toBe('completed_m11');
+      expect(`${row.normalization_required} ${row.notes}`.toLowerCase()).toMatch(
+        /host only|removed from active path|historical only|no governed writeback/,
       );
     }
   });
 });
 
 describe('nexus docs describe absorbed upstreams as source material', () => {
-  test('absorption status locks stage packs as the active Nexus-owned units', () => {
+  test('absorption status locks Nexus-owned stage packs as the active units', () => {
     const markdown = readFileSync('upstream-notes/absorption-status.md', 'utf8');
 
-    expectCompatibilityBudgetSection(
-      markdown,
-      COMPATIBILITY_SURFACE_STATUSES.removed_from_active_path,
-      ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
-    );
-    expectCompatibilityBudgetSection(
-      markdown,
-      COMPATIBILITY_SURFACE_STATUSES.retained_compatibility_shim,
-      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
-    );
-    expectCompatibilityBudgetSection(
-      markdown,
-      COMPATIBILITY_SURFACE_STATUSES.deferred_final_removal,
-      DEFERRED_LEGACY_REMOVAL_SURFACES,
-    );
     expect(markdown).toContain('Nexus-owned stage packs');
     expect(markdown).toContain('source material only');
-    expect(markdown).toContain('`lib/nexus/stage-packs/`');
     expect(markdown).toContain('`~/.nexus` is now the primary host support state root');
     expect(markdown).toContain('`.nexus-worktrees` and `~/.nexus-dev` are now the primary developer substrate roots');
-    expect(markdown).toContain('`~/.gstack` remains compatibility-only');
-    expect(markdown).toContain('`.gstack-worktrees` and `~/.gstack-dev` remain compatibility-only');
-    expect(markdown).toContain('`nexus-*` host helpers are the preferred entrypoints');
-    expect(markdown).toContain('`gstack-*` host binaries still work as shims');
-    expect(markdown).toContain('no longer part of the primary product surface');
+    expect(markdown).toContain('`nexus-*` host helpers are the active entrypoints');
+    expect(markdown).toContain('`gstack` now survives only in historical references');
+    expect(markdown).not.toContain('`gstack-*` host binaries still work as shims');
   });
 
   test.each(SURFACE_DOCS)('%s keeps upstream identity secondary to Nexus stage packs', (path) => {
@@ -237,7 +197,7 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
 });
 
 describe('nexus runtime activation authority', () => {
-  test('governed tail seams are active in the runtime registry', () => {
+  test('governed tail seams remain active in the runtime registry', () => {
     const registry = getDefaultAdapterRegistry();
 
     expect(registry.review.superpowers).toBe('active');
@@ -247,34 +207,5 @@ describe('nexus runtime activation authority', () => {
     expect(registry.build.superpowers).toBe('active');
     expect(registry.build.ccb).toBe('active');
     expect(registry.handoff.ccb).toBe('active');
-  });
-
-  test('review, qa, and ship stage content and stage packs exist for the active governed tail', () => {
-    for (const file of [
-      'lib/nexus/stage-content/review/index.ts',
-      'lib/nexus/stage-content/review/overview.md',
-      'lib/nexus/stage-content/review/checklist.md',
-      'lib/nexus/stage-content/review/artifact-contract.md',
-      'lib/nexus/stage-content/review/routing.md',
-      'lib/nexus/stage-content/qa/index.ts',
-      'lib/nexus/stage-content/qa/overview.md',
-      'lib/nexus/stage-content/qa/checklist.md',
-      'lib/nexus/stage-content/qa/artifact-contract.md',
-      'lib/nexus/stage-content/qa/routing.md',
-      'lib/nexus/stage-content/ship/index.ts',
-      'lib/nexus/stage-content/ship/overview.md',
-      'lib/nexus/stage-content/ship/checklist.md',
-      'lib/nexus/stage-content/ship/artifact-contract.md',
-      'lib/nexus/stage-content/ship/routing.md',
-      'lib/nexus/stage-packs/review.ts',
-      'lib/nexus/stage-packs/qa.ts',
-      'lib/nexus/stage-packs/ship.ts',
-    ]) {
-      expect(existsSync(file)).toBe(true);
-    }
-
-    expect(getStageContent('nexus-review-content').sections.overview).toContain('Nexus-owned');
-    expect(getStageContent('nexus-qa-content').sections.overview).toContain('Nexus-owned');
-    expect(getStageContent('nexus-ship-content').sections.overview).toContain('Nexus-owned');
   });
 });

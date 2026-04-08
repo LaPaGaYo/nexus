@@ -1,5 +1,5 @@
 /**
- * Tests for bin/gstack-diff-scope — verifies scope signal detection.
+ * Tests for bin/nexus-diff-scope — verifies scope signal detection.
  *
  * Creates temp git repos with specific file patterns and verifies
  * the correct SCOPE_* variables are output.
@@ -65,11 +65,9 @@ afterAll(() => {
 });
 
 describe('nexus-diff-scope', () => {
-  test('owns the canonical diff-scope implementation while gstack stays a shim', () => {
+  test('owns the canonical diff-scope implementation and removes the legacy gstack shim', () => {
     expect(existsSync(SCRIPT)).toBe(true);
-
-    const legacyScript = readFileSync(LEGACY_SCRIPT, 'utf8');
-    expect(legacyScript).toContain('exec "$SCRIPT_DIR/nexus-diff-scope"');
+    expect(existsSync(LEGACY_SCRIPT)).toBe(false);
   });
 
   // --- Existing scope signals ---

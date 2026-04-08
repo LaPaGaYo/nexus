@@ -10,14 +10,14 @@
 #   NEXUS_SUPABASE_ANON_KEY       — override Supabase anon key
 set -uo pipefail
 
-NEXUS_DIR="${NEXUS_DIR:-${GSTACK_DIR:-$(cd "$(dirname "$0")/.." && pwd)}}"
+NEXUS_DIR="${NEXUS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 # Source Supabase config if not overridden by env
-if [ -z "${NEXUS_SUPABASE_URL:-${GSTACK_SUPABASE_URL:-}}" ] && [ -f "$NEXUS_DIR/supabase/config.sh" ]; then
+if [ -z "${NEXUS_SUPABASE_URL:-}" ] && [ -f "$NEXUS_DIR/supabase/config.sh" ]; then
   . "$NEXUS_DIR/supabase/config.sh"
 fi
-SUPABASE_URL="${NEXUS_SUPABASE_URL:-${GSTACK_SUPABASE_URL:-}}"
-ANON_KEY="${NEXUS_SUPABASE_ANON_KEY:-${GSTACK_SUPABASE_ANON_KEY:-}}"
+SUPABASE_URL="${NEXUS_SUPABASE_URL:-}"
+ANON_KEY="${NEXUS_SUPABASE_ANON_KEY:-}"
 
 if [ -z "$SUPABASE_URL" ] || [ -z "$ANON_KEY" ]; then
   echo "nexus community dashboard"

@@ -18,7 +18,7 @@ const COMMUNITY_BIN = `${BIN}/nexus-community-dashboard`;
 function run(cmd: string, env: Record<string, string> = {}): string {
   return execSync(cmd, {
     cwd: ROOT,
-    env: { ...process.env, NEXUS_STATE_DIR: tmpDir, GSTACK_STATE_DIR: tmpDir, NEXUS_DIR: ROOT, GSTACK_DIR: ROOT, ...env },
+    env: { ...process.env, NEXUS_STATE_DIR: tmpDir, NEXUS_DIR: ROOT, ...env },
     encoding: 'utf-8',
     timeout: 10000,
   }).trim();
@@ -39,7 +39,7 @@ function parseJsonl(): any[] {
 }
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-tel-'));
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-tel-'));
 });
 
 afterEach(() => {
@@ -60,7 +60,7 @@ describe('nexus-telemetry-log', () => {
     expect(events[0].session_id).toBe('test-123');
     expect(events[0].event_type).toBe('skill_run');
     expect(events[0].os).toBeTruthy();
-    expect(events[0].gstack_version).toBeTruthy();
+    expect(events[0].nexus_version).toBeTruthy();
   });
 
   test('produces no output when tier=off', () => {
@@ -256,7 +256,7 @@ describe('.pending marker', () => {
     fs.mkdirSync(analyticsDir, { recursive: true });
     fs.writeFileSync(
       path.join(analyticsDir, '.pending-old-123'),
-      '{"skill":"old-skill","ts":"2026-03-18T00:00:00Z","session_id":"old-123","gstack_version":"0.6.4"}'
+      '{"skill":"old-skill","ts":"2026-03-18T00:00:00Z","session_id":"old-123","nexus_version":"0.6.4"}'
     );
 
     // Run telemetry-log with a DIFFERENT session — should finalize the old pending marker
@@ -281,7 +281,7 @@ describe('.pending marker', () => {
     const analyticsDir = path.join(tmpDir, 'analytics');
     fs.mkdirSync(analyticsDir, { recursive: true });
     const pendingPath = path.join(analyticsDir, '.pending-stale-session');
-    fs.writeFileSync(pendingPath, '{"skill":"stale","ts":"2026-03-18T00:00:00Z","session_id":"stale-session","gstack_version":"v"}');
+    fs.writeFileSync(pendingPath, '{"skill":"stale","ts":"2026-03-18T00:00:00Z","session_id":"stale-session","nexus_version":"v"}');
 
     run(`${TELEMETRY_BIN} --skill qa --duration 50 --outcome success --session-id new-456`);
 
@@ -295,7 +295,7 @@ describe('.pending marker', () => {
     fs.mkdirSync(analyticsDir, { recursive: true });
     // Create pending for same session ID we'll use
     const pendingPath = path.join(analyticsDir, '.pending-same-session');
-    fs.writeFileSync(pendingPath, '{"skill":"in-flight","ts":"2026-03-18T00:00:00Z","session_id":"same-session","gstack_version":"v"}');
+    fs.writeFileSync(pendingPath, '{"skill":"in-flight","ts":"2026-03-18T00:00:00Z","session_id":"same-session","nexus_version":"v"}');
 
     run(`${TELEMETRY_BIN} --skill qa --duration 50 --outcome success --session-id same-session`);
 
@@ -311,7 +311,7 @@ describe('.pending marker', () => {
     const analyticsDir = path.join(tmpDir, 'analytics');
     fs.mkdirSync(analyticsDir, { recursive: true });
     const pendingPath = path.join(analyticsDir, '.pending-off-123');
-    fs.writeFileSync(pendingPath, '{"skill":"stale","ts":"2026-03-18T00:00:00Z","session_id":"off-123","gstack_version":"v"}');
+    fs.writeFileSync(pendingPath, '{"skill":"stale","ts":"2026-03-18T00:00:00Z","session_id":"off-123","nexus_version":"v"}');
 
     run(`${TELEMETRY_BIN} --skill qa --duration 50 --outcome success --session-id off-123`);
 
@@ -360,7 +360,7 @@ describe('nexus-telemetry-sync', () => {
   });
 
   test('exits silently with no JSONL file', () => {
-    const result = run(`${SYNC_BIN}`, { NEXUS_SUPABASE_URL: 'http://localhost:9999', GSTACK_SUPABASE_URL: 'http://localhost:9999' });
+    const result = run(`${SYNC_BIN}`, { NEXUS_SUPABASE_URL: 'http://localhost:9999' });
     expect(result).toBe('');
   });
 
@@ -386,11 +386,8 @@ describe('nexus-community-dashboard', () => {
     // Use a fake NEXUS_DIR with no supabase/config.sh
     const output = run(`${COMMUNITY_BIN}`, {
       NEXUS_DIR: tmpDir,
-      GSTACK_DIR: tmpDir,
       NEXUS_SUPABASE_URL: '',
-      GSTACK_SUPABASE_URL: '',
       NEXUS_SUPABASE_ANON_KEY: '',
-      GSTACK_SUPABASE_ANON_KEY: '',
     });
     expect(output).toContain('Supabase not configured');
     expect(output).toContain('nexus-analytics');

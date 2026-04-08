@@ -357,7 +357,7 @@ describe('Cross-skill path consistency', () => {
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const hasBoth = (content.includes('per-project') && content.includes('global')) ||
-        (content.includes('$REMOTE_SLUG/greptile-history') && content.includes('~/.gstack/greptile-history'));
+        (content.includes('$REMOTE_SLUG/greptile-history') && content.includes('~/.nexus/greptile-history'));
 
       expect(hasBoth).toBe(true);
     }
@@ -366,12 +366,12 @@ describe('Cross-skill path consistency', () => {
   test('greptile-triage.md contains both project and global history paths', () => {
     const content = fs.readFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), 'utf-8');
     expect(content).toContain('$REMOTE_SLUG/greptile-history.md');
-    expect(content).toContain('~/.gstack/greptile-history.md');
+    expect(content).toContain('~/.nexus/greptile-history.md');
   });
 
   test('retro/SKILL.md reads global greptile-history (not per-project)', () => {
     const content = fs.readFileSync(path.join(ROOT, 'retro', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('~/.gstack/greptile-history.md');
+    expect(content).toContain('~/.nexus/greptile-history.md');
     // Should NOT reference per-project path for reads
     expect(content).not.toContain('$REMOTE_SLUG/greptile-history.md');
   });
@@ -388,7 +388,7 @@ describe('Nexus wrapper skill validation', () => {
   test('legacy aliases do not own hidden artifact paths', () => {
     for (const skill of LEGACY_NEXUS_ALIASES) {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
-      expect(content).not.toContain('~/.gstack/projects/');
+      expect(content).not.toContain('~/.nexus/projects/');
       expect(content.toLowerCase()).toContain('nexus');
     }
   });
@@ -543,7 +543,7 @@ describeLegacyQa('QA skill structure validation', () => {
     expect(qaContent).toContain('qa-report-');
     expect(qaContent).toContain('baseline.json');
     expect(qaContent).toContain('screenshots/');
-    expect(qaContent).toContain('.gstack/qa-reports/');
+    expect(qaContent).toContain('.nexus/qa-reports/');
   });
 });
 
@@ -1083,10 +1083,10 @@ describeLegacyFrameAliases('CEO review mode validation', () => {
   });
 });
 
-// --- gstack-slug helper ---
+// --- nexus-slug helper ---
 
-describe('gstack-slug', () => {
-  const SLUG_BIN = path.join(ROOT, 'bin', 'gstack-slug');
+describe('nexus-slug', () => {
+  const SLUG_BIN = path.join(ROOT, 'bin', 'nexus-slug');
 
   test('binary exists and is executable', () => {
     expect(fs.existsSync(SLUG_BIN)).toBe(true);
@@ -1134,7 +1134,7 @@ describe('gstack-slug', () => {
   });
   test('eval sets variables under bash with set -euo pipefail', () => {
     const result = Bun.spawnSync(
-      ['bash', '-c', 'set -euo pipefail; eval "$(./bin/gstack-slug 2>/dev/null)"; echo "SLUG=$SLUG"; echo "BRANCH=$BRANCH"'],
+      ['bash', '-c', 'set -euo pipefail; eval "$(./bin/nexus-slug 2>/dev/null)"; echo "SLUG=$SLUG"; echo "BRANCH=$BRANCH"'],
       { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' }
     );
     expect(result.exitCode).toBe(0);
@@ -1143,9 +1143,9 @@ describe('gstack-slug', () => {
     expect(output).toMatch(/^BRANCH=.+/m);
   });
 
-  test('no templates or bin scripts use source process substitution for gstack-slug', () => {
+  test('no templates or bin scripts use source process substitution for nexus-slug', () => {
     const result = Bun.spawnSync(
-      ['grep', '-r', 'source <(.*gstack-slug', '--include=*.tmpl', '--include=gstack-review-*', '.'],
+      ['grep', '-r', 'source <(.*nexus-slug', '--include=*.tmpl', '--include=gstack-review-*', '.'],
       { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' }
     );
     // grep returns exit code 1 when no matches found — that's what we want
@@ -1282,7 +1282,7 @@ describe('Phase 8e.5 regression test generation', () => {
     const content = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
     expect(content).toContain('// Regression: ISSUE-NNN');
     expect(content).toContain('// Found by /qa on');
-    expect(content).toContain('// Report: .gstack/qa-reports/');
+    expect(content).toContain('// Report: .nexus/qa-reports/');
   });
 
   test('regression test uses auto-incrementing names', () => {
@@ -1564,7 +1564,7 @@ describe('Codex skill', () => {
 
 describe('Skill trigger phrases', () => {
   // Skills that must have "Use when" trigger phrases in their description.
-  // Excluded: root gstack (browser tool), nexus-upgrade (upgrade-specific),
+  // Excluded: root nexus (browser tool), nexus-upgrade (upgrade-specific),
   // humanizer (text tool)
   const SKILLS_REQUIRING_TRIGGERS = [
     'qa-only', 'investigate', 'plan-design-review',
@@ -1612,19 +1612,17 @@ describe('Skill trigger phrases', () => {
 });
 
 describe('Upgrade surface', () => {
-  test('canonical upgrade skill is nexus-upgrade and gstack-upgrade is compatibility-only', () => {
+  test('canonical upgrade skill is nexus-upgrade and gstack-upgrade is gone', () => {
     const nexusUpgradePath = path.join(ROOT, 'nexus-upgrade', 'SKILL.md');
     const gstackUpgradePath = path.join(ROOT, 'gstack-upgrade', 'SKILL.md');
 
     expect(fs.existsSync(nexusUpgradePath)).toBe(true);
+    expect(fs.existsSync(gstackUpgradePath)).toBe(false);
 
     const nexusUpgrade = fs.readFileSync(nexusUpgradePath, 'utf-8');
-    const gstackUpgrade = fs.readFileSync(gstackUpgradePath, 'utf-8');
 
     expect(nexusUpgrade).toContain('name: nexus-upgrade');
     expect(nexusUpgrade).toContain('# /nexus-upgrade');
-    expect(gstackUpgrade).toContain('compatibility alias');
-    expect(gstackUpgrade).toContain('/nexus-upgrade');
   });
 });
 });
@@ -1661,9 +1659,7 @@ describe('Codex skill validation', () => {
       // Codex variant
       const codexName = skillDir.startsWith('nexus-')
         ? skillDir
-        : skillDir.startsWith('gstack-')
-          ? `nexus-${skillDir.slice('gstack-'.length)}`
-          : `nexus-${skillDir}`;
+        : `nexus-${skillDir}`;
       const codexMd = path.join(AGENTS_DIR, codexName, 'SKILL.md');
       expect(fs.existsSync(codexMd)).toBe(true);
     }

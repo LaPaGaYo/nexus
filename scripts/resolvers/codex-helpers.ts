@@ -65,7 +65,6 @@ policy:
 export function externalSkillName(skillDir: string): string {
   if (skillDir === '.' || skillDir === '') return 'nexus';
   if (skillDir.startsWith('nexus-')) return skillDir;
-  if (skillDir.startsWith('gstack-')) return `nexus-${skillDir.slice('gstack-'.length)}`;
   return `nexus-${skillDir}`;
 }
 

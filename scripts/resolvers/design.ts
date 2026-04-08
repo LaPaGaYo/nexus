@@ -668,7 +668,7 @@ ${ctx.paths.binDir}/nexus-review-log '{"skill":"design-outside-voices","timestam
 Replace STATUS with "clean" or "issues_found", SOURCE with "codex+subagent", "codex-only", "subagent-only", or "unavailable".`;
 }
 
-// ─── Design Hard Rules (OpenAI framework + gstack slop blacklist) ───
+// ─── Design Hard Rules (OpenAI framework + Nexus slop blacklist) ───
 export function generateDesignHardRules(_ctx: TemplateContext): string {
   const slopItems = AI_SLOP_BLACKLIST.map((item, i) => `${i + 1}. ${item}`).join('\n');
   const rejectionItems = OPENAI_HARD_REJECTIONS.map((item, i) => `${i + 1}. ${item}`).join('\n');

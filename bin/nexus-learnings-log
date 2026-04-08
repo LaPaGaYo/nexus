@@ -7,7 +7,7 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 eval "$("$SCRIPT_DIR/nexus-slug" 2>/dev/null)"
-STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-${GSTACK_HOME:-$HOME/.nexus}}}"
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 mkdir -p "$STATE_DIR/projects/$SLUG"
 
 INPUT="$1"

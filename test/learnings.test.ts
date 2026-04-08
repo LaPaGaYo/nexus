@@ -14,7 +14,7 @@ let learningsFile: string;
 function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: string; exitCode: number } {
   const execOpts: ExecSyncOptionsWithStringEncoding = {
     cwd: ROOT,
-    env: { ...process.env, NEXUS_STATE_DIR: tmpDir, GSTACK_STATE_DIR: tmpDir, GSTACK_HOME: tmpDir },
+    env: { ...process.env, NEXUS_STATE_DIR: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
   };
@@ -32,7 +32,7 @@ function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: s
 function runSearch(args: string = ''): string {
   const execOpts: ExecSyncOptionsWithStringEncoding = {
     cwd: ROOT,
-    env: { ...process.env, NEXUS_STATE_DIR: tmpDir, GSTACK_STATE_DIR: tmpDir, GSTACK_HOME: tmpDir },
+    env: { ...process.env, NEXUS_STATE_DIR: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
   };

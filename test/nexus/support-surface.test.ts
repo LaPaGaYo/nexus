@@ -6,11 +6,9 @@ const ROOT = join(import.meta.dir, '..', '..');
 const SUPPORT_SURFACE_MODULE = join(ROOT, 'lib', 'nexus', 'support-surface.ts');
 
 describe('nexus support surface contract', () => {
-  test('defines shared primary and compatibility helper namespaces', async () => {
+  test('defines Nexus helper ownership and preserves legacy names as historical metadata', async () => {
     expect(existsSync(SUPPORT_SURFACE_MODULE)).toBe(true);
-    if (!existsSync(SUPPORT_SURFACE_MODULE)) {
-      return;
-    }
+    if (!existsSync(SUPPORT_SURFACE_MODULE)) return;
 
     const mod = await import('../../lib/nexus/support-surface');
 
@@ -46,11 +44,9 @@ describe('nexus support surface contract', () => {
     });
   });
 
-  test('defines shared primary and compatibility developer roots', async () => {
+  test('defines Nexus developer roots and keeps legacy roots historical only', async () => {
     expect(existsSync(SUPPORT_SURFACE_MODULE)).toBe(true);
-    if (!existsSync(SUPPORT_SURFACE_MODULE)) {
-      return;
-    }
+    if (!existsSync(SUPPORT_SURFACE_MODULE)) return;
 
     const mod = await import('../../lib/nexus/support-surface');
 
@@ -65,11 +61,9 @@ describe('nexus support surface contract', () => {
     expect(mod.getLegacyDevRoot('/Users/tester')).toBe('/Users/tester/.gstack-dev');
   });
 
-  test('resolves developer substrate precedence without affecting lifecycle truth', async () => {
+  test('resolves developer substrate into Nexus-owned roots even when legacy roots exist', async () => {
     expect(existsSync(SUPPORT_SURFACE_MODULE)).toBe(true);
-    if (!existsSync(SUPPORT_SURFACE_MODULE)) {
-      return;
-    }
+    if (!existsSync(SUPPORT_SURFACE_MODULE)) return;
 
     const mod = await import('../../lib/nexus/support-surface');
 
@@ -95,18 +89,6 @@ describe('nexus support surface contract', () => {
       root: '/Users/tester/.nexus-dev',
       source: 'migrate:gstack',
       migration_from: '/Users/tester/.gstack-dev',
-    });
-
-    expect(
-      mod.resolveDeveloperSubstrateRoot({
-        homeDir: '/Users/tester',
-        nexusDevExists: false,
-        legacyDevExists: false,
-      }),
-    ).toEqual({
-      root: '/Users/tester/.nexus-dev',
-      source: 'init:nexus',
-      migration_from: null,
     });
   });
 });

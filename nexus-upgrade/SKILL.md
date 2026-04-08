@@ -91,15 +91,15 @@ elif [ -d ".claude/skills/nexus" ]; then
 elif [ -d "$HOME/.claude/skills/nexus" ]; then
   INSTALL_TYPE="vendored-global"
   INSTALL_DIR="$HOME/.claude/skills/nexus"
-elif [ -d "$HOME/.claude/skills/gstack/.git" ]; then
+elif [ -d "$HOME/.claude/skills/nexus/.git" ]; then
   INSTALL_TYPE="legacy-git"
-  INSTALL_DIR="$HOME/.claude/skills/gstack"
-elif [ -d ".claude/skills/gstack/.git" ]; then
+  INSTALL_DIR="$HOME/.claude/skills/nexus"
+elif [ -d ".claude/skills/nexus/.git" ]; then
   INSTALL_TYPE="legacy-git"
-  INSTALL_DIR=".claude/skills/gstack"
-elif [ -d ".claude/skills/gstack" ]; then
+  INSTALL_DIR=".claude/skills/nexus"
+elif [ -d ".claude/skills/nexus" ]; then
   INSTALL_TYPE="legacy-vendored"
-  INSTALL_DIR=".claude/skills/gstack"
+  INSTALL_DIR=".claude/skills/nexus"
 else
   echo "ERROR: Nexus not found"
   exit 1

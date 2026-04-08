@@ -14,8 +14,6 @@ if [ -f "$REPO_ROOT/extension/manifest.json" ]; then
   EXT_DIR="$REPO_ROOT/extension"
 elif [ -f "$HOME/.claude/skills/nexus/extension/manifest.json" ]; then
   EXT_DIR="$HOME/.claude/skills/nexus/extension"
-elif [ -f "$HOME/.claude/skills/gstack/extension/manifest.json" ]; then
-  EXT_DIR="$HOME/.claude/skills/gstack/extension"
 fi
 
 if [ -z "$EXT_DIR" ]; then
@@ -28,11 +26,8 @@ echo -n "$EXT_DIR" | pbcopy 2>/dev/null
 
 PORT=""
 STATE_FILE="$REPO_ROOT/.nexus/browse.json"
-LEGACY_STATE_FILE="$REPO_ROOT/.gstack/browse.json"
 if [ -f "$STATE_FILE" ]; then
   PORT=$(grep -o '"port":[0-9]*' "$STATE_FILE" | grep -o '[0-9]*')
-elif [ -f "$LEGACY_STATE_FILE" ]; then
-  PORT=$(grep -o '"port":[0-9]*' "$LEGACY_STATE_FILE" | grep -o '[0-9]*')
 fi
 
 echo "Nexus Chrome Extension Setup"

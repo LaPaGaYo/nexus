@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# gstack-review-read — compatibility shim for nexus-review-read
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/nexus-review-read" "$@"

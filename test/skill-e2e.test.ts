@@ -1329,7 +1329,7 @@ Write your report to ${qaOnlyDir}/qa-reports/qa-only-report.md`,
     });
     const statusLines = gitStatus.stdout.toString().trim().split('\n').filter(
       (l: string) =>
-        l.trim() && !l.includes('.prompt-tmp') && !l.includes('.nexus/') && !l.includes('.gstack/') && !l.includes('qa-reports/'),
+        l.trim() && !l.includes('.prompt-tmp') && !l.includes('.nexus/') && !l.includes('.nexus/') && !l.includes('qa-reports/'),
     );
     expect(statusLines.filter((l: string) => l.startsWith(' M') || l.startsWith('M '))).toHaveLength(0);
   }, 240_000);

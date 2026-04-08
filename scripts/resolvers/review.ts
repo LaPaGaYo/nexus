@@ -104,7 +104,7 @@ Summary. For prior reviews, use the JSONL fields directly — they contain all r
 Produce this markdown table:
 
 \\\`\\\`\\\`markdown
-## GSTACK REVIEW REPORT
+## NEXUS REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
@@ -128,9 +128,9 @@ Below the table, add these lines (omit any that are empty/not applicable):
 file you are allowed to edit in plan mode. The plan file review report is part of the
 plan's living status.
 
-- Search the plan file for a \\\`## GSTACK REVIEW REPORT\\\` section **anywhere** in the file
+- Search the plan file for a \\\`## NEXUS REVIEW REPORT\\\` section **anywhere** in the file
   (not just at the end — content may have been added after it).
-- If found, **replace it** entirely using the Edit tool. Match from \\\`## GSTACK REVIEW REPORT\\\`
+- If found, **replace it** entirely using the Edit tool. Match from \\\`## NEXUS REVIEW REPORT\\\`
   through either the next \\\`## \\\` heading or end of file, whichever comes first. This ensures
   content added after the report section is preserved, not eaten. If the Edit fails
   (e.g., concurrent edit changed the content), re-read the plan file and retry once.
@@ -693,8 +693,8 @@ REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")
 # Compute project slug for ~/.nexus/projects/ lookup
 _PLAN_SLUG=$(git remote get-url origin 2>/dev/null | sed 's|.*[:/]\\([^/]*/[^/]*\\)\\.git$|\\1|;s|.*[:/]\\([^/]*/[^/]*\\)$|\\1|' | tr '/' '-' | tr -cd 'a-zA-Z0-9._-') || true
 _PLAN_SLUG="\${_PLAN_SLUG:-$(basename "$PWD" | tr -cd 'a-zA-Z0-9._-')}"
-# Search common plan file locations (project plans first, then personal/local, then compatibility)
-for PLAN_DIR in "$HOME/.nexus/projects/$_PLAN_SLUG" "$HOME/.claude/plans" "$HOME/.codex/plans" ".nexus/plans" "$HOME/.gstack/projects/$_PLAN_SLUG" ".gstack/plans"; do
+# Search common plan file locations (project plans first, then personal/local)
+for PLAN_DIR in "$HOME/.nexus/projects/$_PLAN_SLUG" "$HOME/.claude/plans" "$HOME/.codex/plans" ".nexus/plans"; do
   [ -d "$PLAN_DIR" ] || continue
   PLAN=$(ls -t "$PLAN_DIR"/*.md 2>/dev/null | xargs grep -l "$BRANCH" 2>/dev/null | head -1)
   [ -z "$PLAN" ] && PLAN=$(ls -t "$PLAN_DIR"/*.md 2>/dev/null | xargs grep -l "$REPO" 2>/dev/null | head -1)
@@ -737,7 +737,7 @@ Read the plan file. Extract every actionable item — anything that describes wo
 **Ignore:**
 - Context/Background sections (\`## Context\`, \`## Background\`, \`## Problem\`)
 - Questions and open items (marked with ?, "TBD", "TODO: decide")
-- Review report sections (\`## GSTACK REVIEW REPORT\`)
+- Review report sections (\`## NEXUS REVIEW REPORT\`)
 - Explicitly deferred items ("Future:", "Out of scope:", "NOT in scope:", "P2:", "P3:", "P4:")
 - CEO Review Decisions sections (these record choices, not work items)
 

@@ -11,7 +11,7 @@
 #   NEXUS_STATE_DIR   — override ~/.nexus state directory
 set -uo pipefail
 
-STATE_DIR="${NEXUS_STATE_DIR:-${GSTACK_STATE_DIR:-$HOME/.nexus}}"
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 JSONL_FILE="$STATE_DIR/analytics/skill-usage.jsonl"
 
 # ─── Parse time window ───────────────────────────────────────

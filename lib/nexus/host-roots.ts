@@ -4,7 +4,6 @@ export const PRIMARY_STATE_ROOT = '.nexus' as const;
 export const LEGACY_STATE_ROOT = '.gstack' as const;
 
 export const NEXUS_STATE_ENV_VAR = 'NEXUS_STATE_DIR' as const;
-export const GSTACK_STATE_ENV_VAR = 'GSTACK_STATE_DIR' as const;
 export const NEXUS_STATE_MIGRATION_MARKER = '.migrated-from-gstack' as const;
 export const NEXUS_STATE_INCOMPLETE_MARKER = '.migration-incomplete' as const;
 
@@ -28,14 +27,12 @@ export const LEGACY_HOST_ROOTS = {
 
 export type HostStateResolutionSource =
   | 'env:nexus'
-  | 'env:gstack'
   | 'existing:nexus'
   | 'migrate:gstack'
-  | 'fallback:gstack'
   | 'init:nexus';
 
 export type ResolveHostStateRootInput = {
-  env: Partial<Record<typeof NEXUS_STATE_ENV_VAR | typeof GSTACK_STATE_ENV_VAR, string | undefined>>;
+  env: Partial<Record<typeof NEXUS_STATE_ENV_VAR, string | undefined>>;
   homeDir: string;
   nexusStateExists: boolean;
   legacyStateExists: boolean;
@@ -115,20 +112,11 @@ export function resolveHostStateRoot({
   const primaryStatePath = getPrimaryStatePath(homeDir);
   const legacyStatePath = getLegacyStatePath(homeDir);
   const nexusOverride = env[NEXUS_STATE_ENV_VAR];
-  const gstackOverride = env[GSTACK_STATE_ENV_VAR];
 
   if (nexusOverride) {
     return {
       root: nexusOverride,
       source: 'env:nexus',
-      migration_from: null,
-    };
-  }
-
-  if (gstackOverride) {
-    return {
-      root: gstackOverride,
-      source: 'env:gstack',
       migration_from: null,
     };
   }
@@ -164,8 +152,7 @@ export function resolveManagedHostStateRoot({
   migrationMarkerExists,
 }: ResolveHostStateRootInput & { migrationMarkerExists: boolean }): ResolveHostStateRootResult {
   const nexusOverride = env[NEXUS_STATE_ENV_VAR];
-  const gstackOverride = env[GSTACK_STATE_ENV_VAR];
-  if (nexusOverride || gstackOverride) {
+  if (nexusOverride) {
     return resolveHostStateRoot({
       env,
       homeDir,
@@ -184,8 +171,8 @@ export function resolveManagedHostStateRoot({
 
   if (migration.status === 'partial') {
     return {
-      root: legacyStatePath,
-      source: 'fallback:gstack',
+      root: primaryStatePath,
+      source: 'migrate:gstack',
       migration_from: legacyStatePath,
     };
   }

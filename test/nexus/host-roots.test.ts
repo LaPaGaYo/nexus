@@ -6,18 +6,15 @@ const ROOT = join(import.meta.dir, '..', '..');
 const HOST_ROOTS_MODULE = join(ROOT, 'lib', 'nexus', 'host-roots.ts');
 
 describe('nexus host root contract', () => {
-  test('defines shared primary and compatibility roots for every supported host', async () => {
+  test('defines Nexus primary roots and keeps legacy roots as historical metadata', async () => {
     expect(existsSync(HOST_ROOTS_MODULE)).toBe(true);
-    if (!existsSync(HOST_ROOTS_MODULE)) {
-      return;
-    }
+    if (!existsSync(HOST_ROOTS_MODULE)) return;
 
     const mod = await import('../../lib/nexus/host-roots');
 
     expect(mod.PRIMARY_STATE_ROOT).toBe('.nexus');
     expect(mod.LEGACY_STATE_ROOT).toBe('.gstack');
     expect(mod.NEXUS_STATE_ENV_VAR).toBe('NEXUS_STATE_DIR');
-    expect(mod.GSTACK_STATE_ENV_VAR).toBe('GSTACK_STATE_DIR');
 
     expect(mod.PRIMARY_HOST_ROOTS).toEqual({
       claude_global: '~/.claude/skills/nexus',
@@ -38,17 +35,15 @@ describe('nexus host root contract', () => {
     });
   });
 
-  test('resolves host support state precedence without granting lifecycle truth', async () => {
+  test('resolves only Nexus-owned active state roots', async () => {
     expect(existsSync(HOST_ROOTS_MODULE)).toBe(true);
-    if (!existsSync(HOST_ROOTS_MODULE)) {
-      return;
-    }
+    if (!existsSync(HOST_ROOTS_MODULE)) return;
 
     const mod = await import('../../lib/nexus/host-roots');
 
     expect(
       mod.resolveHostStateRoot({
-        env: { NEXUS_STATE_DIR: '/tmp/custom-nexus', GSTACK_STATE_DIR: '/tmp/custom-gstack' },
+        env: { NEXUS_STATE_DIR: '/tmp/custom-nexus' },
         homeDir: '/Users/tester',
         nexusStateExists: false,
         legacyStateExists: true,
@@ -56,19 +51,6 @@ describe('nexus host root contract', () => {
     ).toEqual({
       root: '/tmp/custom-nexus',
       source: 'env:nexus',
-      migration_from: null,
-    });
-
-    expect(
-      mod.resolveHostStateRoot({
-        env: { GSTACK_STATE_DIR: '/tmp/custom-gstack' },
-        homeDir: '/Users/tester',
-        nexusStateExists: false,
-        legacyStateExists: true,
-      }),
-    ).toEqual({
-      root: '/tmp/custom-gstack',
-      source: 'env:gstack',
       migration_from: null,
     });
 
@@ -99,18 +81,18 @@ describe('nexus host root contract', () => {
     });
   });
 
-  test('assesses migration completeness conservatively when both roots exist', async () => {
+  test('never falls back to .gstack as the managed active root', async () => {
     expect(existsSync(HOST_ROOTS_MODULE)).toBe(true);
-    if (!existsSync(HOST_ROOTS_MODULE)) {
-      return;
-    }
+    if (!existsSync(HOST_ROOTS_MODULE)) return;
 
     const mod = await import('../../lib/nexus/host-roots');
 
     expect(mod.NEXUS_STATE_MIGRATION_MARKER).toBe('.migrated-from-gstack');
     expect(mod.NEXUS_STATE_INCOMPLETE_MARKER).toBe('.migration-incomplete');
     expect(mod.getStateMigrationMarkerPath('/Users/tester/.nexus')).toBe('/Users/tester/.nexus/.migrated-from-gstack');
-    expect(mod.getIncompleteMigrationMarkerPath('/Users/tester/.nexus')).toBe('/Users/tester/.nexus/.migration-incomplete');
+    expect(mod.getIncompleteMigrationMarkerPath('/Users/tester/.nexus')).toBe(
+      '/Users/tester/.nexus/.migration-incomplete',
+    );
 
     expect(
       mod.assessHostStateMigration({
@@ -135,17 +117,6 @@ describe('nexus host root contract', () => {
     });
 
     expect(
-      mod.assessHostStateMigration({
-        nexusStateExists: true,
-        legacyStateExists: true,
-        migrationMarkerExists: true,
-      }),
-    ).toEqual({
-      status: 'complete',
-      use_legacy_fallback: false,
-    });
-
-    expect(
       mod.resolveManagedHostStateRoot({
         env: {},
         homeDir: '/Users/tester',
@@ -154,8 +125,8 @@ describe('nexus host root contract', () => {
         migrationMarkerExists: false,
       }),
     ).toEqual({
-      root: '/Users/tester/.gstack',
-      source: 'fallback:gstack',
+      root: '/Users/tester/.nexus',
+      source: 'migrate:gstack',
       migration_from: '/Users/tester/.gstack',
     });
   });

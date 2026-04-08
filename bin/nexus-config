@@ -1,55 +1,17 @@
 #!/usr/bin/env bash
-# nexus-config — read/write Nexus host config with Nexus env precedence and
-# Gstack compatibility fallback during root cutover
+# nexus-config — read/write Nexus host config
 #
 # Usage:
 #   nexus-config get <key>          — read a config value
 #   nexus-config set <key> <value>  — write a config value
 #   nexus-config list               — show all config
 #
-# Env overrides (for testing and migration):
-#   NEXUS_STATE_DIR   — override primary Nexus state directory
-#   GSTACK_STATE_DIR  — override compatibility ~/.gstack state directory
+# Env override:
+#   NEXUS_STATE_DIR   — override the Nexus host state directory
 set -euo pipefail
 
-PRIMARY_STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
-LEGACY_STATE_DIR="${GSTACK_STATE_DIR:-$HOME/.gstack}"
-MIGRATION_MARKER=".migrated-from-gstack"
-INCOMPLETE_MARKER=".migration-incomplete"
-STATE_DIR="$PRIMARY_STATE_DIR"
-
-resolve_state_dir() {
-  if [ -n "${NEXUS_STATE_DIR:-}" ]; then
-    STATE_DIR="$NEXUS_STATE_DIR"
-    return
-  fi
-
-  if [ -n "${GSTACK_STATE_DIR:-}" ]; then
-    STATE_DIR="$GSTACK_STATE_DIR"
-    return
-  fi
-
-  if [ ! -d "$PRIMARY_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ]; then
-    mkdir -p "$PRIMARY_STATE_DIR"
-    cp -R "$LEGACY_STATE_DIR"/. "$PRIMARY_STATE_DIR"/ 2>/dev/null || true
-    touch "$PRIMARY_STATE_DIR/$MIGRATION_MARKER"
-    rm -f "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER"
-    STATE_DIR="$PRIMARY_STATE_DIR"
-    return
-  fi
-
-  if [ -d "$PRIMARY_STATE_DIR" ] && [ -d "$LEGACY_STATE_DIR" ] && [ ! -f "$PRIMARY_STATE_DIR/$MIGRATION_MARKER" ]; then
-    touch "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER"
-    STATE_DIR="$LEGACY_STATE_DIR"
-    return
-  fi
-
-  mkdir -p "$PRIMARY_STATE_DIR"
-  rm -f "$PRIMARY_STATE_DIR/$INCOMPLETE_MARKER" 2>/dev/null || true
-  STATE_DIR="$PRIMARY_STATE_DIR"
-}
-
-resolve_state_dir
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
+mkdir -p "$STATE_DIR"
 CONFIG_FILE="$STATE_DIR/config.yaml"
 
 CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root) — edit freely,
@@ -78,7 +40,7 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 #
 # ─── Advanced ────────────────────────────────────────────────────────
 # codex_reviews: enabled    # disabled = skip Codex adversarial reviews in /ship
-# gstack_contributor: false # true = file field reports when Nexus misbehaves
+# nexus_contributor: false  # true = file field reports when Nexus misbehaves
 # skip_eng_review: false    # true = skip eng review gate in /ship (not recommended)
 #
 '
@@ -90,7 +52,8 @@ case "${1:-}" in
       echo "Error: key must contain only alphanumeric characters and underscores" >&2
       exit 1
     fi
-    grep -E "^${KEY}:" "$CONFIG_FILE" 2>/dev/null | tail -1 | awk '{print $2}' | tr -d '[:space:]' || true
+    VALUE="$(grep -E "^${KEY}:" "$CONFIG_FILE" 2>/dev/null | tail -1 | awk '{print $2}' | tr -d '[:space:]' || true)"
+    printf '%s' "$VALUE"
     ;;
   set)
     KEY="${2:?Usage: nexus-config set <key> <value>}"
@@ -110,7 +73,7 @@ case "${1:-}" in
     else
       echo "${KEY}: ${VALUE}" >> "$CONFIG_FILE"
     fi
-    if [ "$KEY" = "skill_prefix" ] && [ -z "${GSTACK_SETUP_RUNNING:-}" ]; then
+    if [ "$KEY" = "skill_prefix" ] && [ -z "${NEXUS_SETUP_RUNNING:-}" ]; then
       NEXUS_RELINK="$(dirname "$0")/nexus-relink"
       [ -x "$NEXUS_RELINK" ] && "$NEXUS_RELINK" || true
     fi
