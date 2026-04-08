@@ -6,7 +6,7 @@ description: |
   Land and deploy workflow. Merges the PR, waits for CI and deploy,
   verifies production health via canary checks. Takes over after /ship
   creates the PR. Use when: "merge", "land", "deploy", "merge and verify",
-  "land it", "ship it to production". (gstack)
+  "land it", "ship it to production". (Nexus)
 allowed-tools:
   - Bash
   - Read
@@ -581,11 +581,11 @@ and whether the deploy configuration has changed since then:
 
 ```bash
 eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
-if [ ! -f ~/.gstack/projects/$SLUG/land-deploy-confirmed ]; then
+if [ ! -f ~/.nexus/projects/$SLUG/land-deploy-confirmed ]; then
   echo "FIRST_RUN"
 else
   # Check if deploy config has changed since confirmation
-  SAVED_HASH=$(cat ~/.gstack/projects/$SLUG/land-deploy-confirmed 2>/dev/null)
+  SAVED_HASH=$(cat ~/.nexus/projects/$SLUG/land-deploy-confirmed 2>/dev/null)
   CURRENT_HASH=$(sed -n '/## Deploy Configuration/,/^## /p' CLAUDE.md 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
   # Also hash workflow files that affect deploy behavior
   WORKFLOW_HASH=$(find .github/workflows -maxdepth 1 \( -name '*deploy*' -o -name '*cd*' \) 2>/dev/null | xargs cat 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
@@ -751,7 +751,7 @@ Tell the user: "Before I merge any PR, I run a series of readiness checks — co
 Preview the readiness checks that will run at Step 3.5 (without re-running tests):
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-read 2>/dev/null
+~/.claude/skills/nexus/bin/nexus-review-read 2>/dev/null
 ```
 
 Show a summary of review status: which reviews have been run, how stale they are.
@@ -779,10 +779,10 @@ Present the full dry-run results to the user via AskUserQuestion:
 
 Save the deploy config fingerprint so we can detect future changes:
 ```bash
-mkdir -p ~/.gstack/projects/$SLUG
+mkdir -p ~/.nexus/projects/$SLUG
 CURRENT_HASH=$(sed -n '/## Deploy Configuration/,/^## /p' CLAUDE.md 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
 WORKFLOW_HASH=$(find .github/workflows -maxdepth 1 \( -name '*deploy*' -o -name '*cd*' \) 2>/dev/null | xargs cat 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
-echo "${CURRENT_HASH}-${WORKFLOW_HASH}" > ~/.gstack/projects/$SLUG/land-deploy-confirmed
+echo "${CURRENT_HASH}-${WORKFLOW_HASH}" > ~/.nexus/projects/$SLUG/land-deploy-confirmed
 ```
 Continue to Step 2.
 
@@ -844,7 +844,7 @@ Collect evidence for each check below. Track warnings (yellow) and blockers (red
 ### 3.5a: Review staleness check
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-read 2>/dev/null
+~/.claude/skills/nexus/bin/nexus-review-read 2>/dev/null
 ```
 
 Parse the output. For each review skill (plan-eng-review, plan-ceo-review,
@@ -890,7 +890,7 @@ Use AskUserQuestion:
 
 Read the review checklist:
 ```bash
-cat ~/.claude/skills/gstack/review/checklist.md 2>/dev/null || echo "Checklist not found"
+cat ~/.claude/skills/nexus/review/checklist.md 2>/dev/null || echo "Checklist not found"
 ```
 Apply each checklist item to the current diff. This is the same quick review that `/ship`
 runs in its Step 3.5. Auto-fix trivial issues (whitespace, imports). For critical findings
@@ -924,7 +924,7 @@ If tests fail: **BLOCKER.** Cannot merge with failing tests.
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-ls -t ~/.gstack-dev/evals/*-e2e-*-$(date +%Y-%m-%d)*.json 2>/dev/null | head -20
+ls -t ~/.nexus-dev/evals/*-e2e-*-$(date +%Y-%m-%d)*.json 2>/dev/null | head -20
 ```
 
 For each eval file from today, parse pass/fail counts. Show:
@@ -940,7 +940,7 @@ If E2E results exist but have failures: **WARNING — N tests failed.** List the
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-ls -t ~/.gstack-dev/evals/*-llm-judge-*-$(date +%Y-%m-%d)*.json 2>/dev/null | head -5
+ls -t ~/.nexus-dev/evals/*-llm-judge-*-$(date +%Y-%m-%d)*.json 2>/dev/null | head -5
 ```
 
 If found, parse and show pass/fail. If not found, note "No LLM evals run today."
@@ -1158,10 +1158,10 @@ in the decision tree below.
 
 If you want to persist deploy settings for future runs, suggest the user run `/setup-deploy`.
 
-Then run `gstack-diff-scope` to classify the changes:
+Then run `nexus-diff-scope` to classify the changes:
 
 ```bash
-eval $(~/.claude/skills/gstack/bin/gstack-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)
+eval $(~/.claude/skills/nexus/bin/nexus-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)
 echo "FRONTEND=$SCOPE_FRONTEND BACKEND=$SCOPE_BACKEND DOCS=$SCOPE_DOCS CONFIG=$SCOPE_CONFIG"
 ```
 
@@ -1321,7 +1321,7 @@ $B text
 Verify the page has content (not blank, not a generic error page).
 
 ```bash
-$B snapshot -i -a -o ".gstack/deploy-reports/post-deploy.png"
+$B snapshot -i -a -o ".nexus/deploy-reports/post-deploy.png"
 ```
 
 Take an annotated screenshot as evidence.
@@ -1370,7 +1370,7 @@ After a successful revert: Tell the user "Revert pushed to {base}. The deploy sh
 Create the deploy report directory:
 
 ```bash
-mkdir -p .gstack/deploy-reports
+mkdir -p .nexus/deploy-reports
 ```
 
 Produce and display the ASCII summary:
@@ -1410,13 +1410,13 @@ Verification: <HEALTHY / DEGRADED / SKIPPED / REVERTED>
 VERDICT: <DEPLOYED AND VERIFIED / DEPLOYED (UNVERIFIED) / STAGING VERIFIED / REVERTED>
 ```
 
-Save report to `.gstack/deploy-reports/{date}-pr{number}-deploy.md`.
+Save report to `.nexus/deploy-reports/{date}-pr{number}-deploy.md`.
 
 Log to the review dashboard:
 
 ```bash
 eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
-mkdir -p ~/.gstack/projects/$SLUG
+mkdir -p ~/.nexus/projects/$SLUG
 ```
 
 Write a JSONL entry with timing data:

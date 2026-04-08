@@ -32,10 +32,10 @@ Present Codex output under a \`CODEX (design):\` header, merged with the checkli
 
   return `## Design Review (conditional, diff-scoped)
 
-Check if the diff touches frontend files using \`gstack-diff-scope\`:
+Check if the diff touches frontend files using \`nexus-diff-scope\`:
 
 \`\`\`bash
-source <(${ctx.paths.binDir}/gstack-diff-scope <base> 2>/dev/null)
+source <(${ctx.paths.binDir}/nexus-diff-scope <base> 2>/dev/null)
 \`\`\`
 
 **If \`SCOPE_FRONTEND=false\`:** Skip design review silently. No output.
