@@ -2243,7 +2243,7 @@ describe('setup script validation', () => {
 
   test('setup reads skill_prefix from config', () => {
     expect(setupContent).toContain('get skill_prefix');
-    expect(setupContent).toContain('GSTACK_CONFIG');
+    expect(setupContent).toContain('NEXUS_CONFIG');
   });
 
   test('setup supports --prefix flag', () => {
@@ -2287,7 +2287,7 @@ describe('setup script validation', () => {
 
   test('welcome message references SKILL_PREFIX', () => {
     expect(setupContent).toContain('Nexus ready');
-    expect(setupContent).toContain('Run /gstack-upgrade anytime');
+    expect(setupContent).toContain('Run /nexus-upgrade anytime');
   });
 });
 
