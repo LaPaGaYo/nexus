@@ -36,7 +36,7 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 
 ## Quick start
 
-1. Install Nexus (current compatibility path still uses `~/.claude/skills/gstack`)
+1. Install Nexus into `~/.claude/skills/nexus`
 2. Run `/discover` — describe the product, problem, or unknown
 3. Run `/frame` — lock scope, non-goals, and success criteria
 4. Run `/plan` — turn approved framing into execution-ready artifacts
@@ -96,18 +96,20 @@ The following legacy names remain as compatibility aliases and route through the
 
 Open Claude Code and paste this. Claude does the rest.
 
-> Install Nexus: clone this repo into **`~/.claude/skills/gstack`** for compatibility, run **`./setup`**, then add a "Nexus" section to CLAUDE.md that routes product work through `/discover`, `/frame`, `/plan`, `/handoff`, `/build`, `/review`, `/qa`, `/ship`, and `/closeout`. Keep `/browse` for web work, and keep legacy aliases compatibility-only.
+> Install Nexus: clone this repo into **`~/.claude/skills/nexus`**, run **`./setup`**, then add a "Nexus" section to CLAUDE.md that routes product work through `/discover`, `/frame`, `/plan`, `/handoff`, `/build`, `/review`, `/qa`, `/ship`, and `/closeout`. Keep `/browse` for web work, and keep legacy aliases compatibility-only.
 
 ### Step 2: Add Nexus to your repo so teammates get it (optional)
 
-> Add Nexus to this project: copy the compatibility install into **`.claude/skills/gstack`**, run **`./setup`**, and keep the CLAUDE.md guidance Nexus-first. Teammates should see the canonical Nexus lifecycle commands first, with legacy aliases documented only as compatibility entries.
+> Add Nexus to this project: copy the install into **`.claude/skills/nexus`**, run **`./setup`**, and keep the CLAUDE.md guidance Nexus-first. Teammates should see the canonical Nexus lifecycle commands first, with legacy aliases documented only as compatibility entries.
 
 Real files get committed to your repo (not a submodule), so `git clone` just works. Everything lives inside `.claude/`. Nothing touches your PATH or runs in the background.
 
 > **Contributing or need full history?** The commands above use `--depth 1` for a fast install. If you plan to contribute or need full git history, do a full clone instead:
 > ```bash
-> git clone https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
+> git clone https://github.com/garrytan/gstack.git ~/.claude/skills/nexus
 > ```
+
+Compatibility note: legacy roots such as `~/.claude/skills/gstack` and `.claude/skills/gstack` still work as migration fallbacks, but they are no longer the recommended install surface.
 
 ### Codex, Gemini CLI, or Cursor
 
@@ -125,8 +127,8 @@ When setup runs from `.agents/skills/nexus`, it installs the generated Codex ski
 Install once for your user account:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gstack
-cd ~/gstack && ./setup --host codex
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/nexus
+cd ~/nexus && ./setup --host codex
 ```
 
 `setup --host codex` creates the runtime root at `~/.codex/skills/nexus` and
@@ -136,8 +138,8 @@ discovery from the source repo checkout.
 Or let setup auto-detect which agents you have installed:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gstack
-cd ~/gstack && ./setup --host auto
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/nexus
+cd ~/nexus && ./setup --host auto
 ```
 
 For Codex-compatible hosts, setup supports both repo-local installs from `.agents/skills/nexus` and user-global installs from `~/.codex/skills/nexus`. Existing `gstack` roots still work through compatibility shims, but Nexus is the primary install surface.
@@ -147,8 +149,8 @@ For Codex-compatible hosts, setup supports both repo-local installs from `.agent
 Nexus works with [Factory Droid](https://factory.ai). Skills install to `.factory/skills/` and are discovered automatically. Sensitive skills (ship, land-and-deploy, guard) use `disable-model-invocation: true` so Droids don't auto-invoke them.
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gstack
-cd ~/gstack && ./setup --host factory
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/nexus
+cd ~/nexus && ./setup --host factory
 ```
 
 Skills install to `~/.factory/skills/nexus-*/`. Restart `droid` to rescan skills, then type `/qa` to get started.
@@ -228,7 +230,7 @@ Each skill feeds into the next. `/office-hours` writes a design doc that `/plan-
 | `/browse` | **QA Engineer** | Give the agent eyes. Real Chromium browser, real clicks, real screenshots. ~100ms per command. `$B connect` launches your real Chrome as a headed window — watch every action live. |
 | `/setup-browser-cookies` | **Session Manager** | Import cookies from your real browser (Chrome, Arc, Brave, Edge) into the headless session. Test authenticated pages. |
 | `/autoplan` | **Review Pipeline** | One command, fully reviewed plan. Runs CEO → design → eng review automatically with encoded decision principles. Surfaces only taste decisions for your approval. |
-| `/learn` | **Memory** | Manage what gstack learned across sessions. Review, search, prune, and export project-specific patterns, pitfalls, and preferences. Learnings compound across sessions so gstack gets smarter on your codebase over time. |
+| `/learn` | **Memory** | Manage what Nexus learned across sessions. Review, search, prune, and export project-specific patterns, pitfalls, and preferences. Learnings compound across sessions so Nexus gets smarter on your codebase over time. |
 
 ### Power tools
 
@@ -259,7 +261,7 @@ Nexus works well with one sprint. It gets interesting with ten running at once.
 
 **`/document-release` is the engineer you never had.** It reads every doc file in your project, cross-references the diff, and updates everything that drifted. README, ARCHITECTURE, CONTRIBUTING, CLAUDE.md, TODOS — all kept current automatically. And now `/ship` auto-invokes it — docs stay current without an extra command.
 
-**Real browser mode.** `$B connect` launches your actual Chrome as a headed window controlled by Playwright. You watch Claude click, fill, and navigate in real time — same window, same screen. A subtle green shimmer at the top edge tells you which Chrome window gstack controls. All existing browse commands work unchanged. `$B disconnect` returns to headless. A Chrome extension Side Panel shows a live activity feed of every command and a chat sidebar where you can direct Claude. This is co-presence — Claude isn't remote-controlling a hidden browser, it's sitting next to you in the same cockpit.
+**Real browser mode.** `$B connect` launches your actual Chrome as a headed window controlled by Playwright. You watch Claude click, fill, and navigate in real time — same window, same screen. A subtle green shimmer at the top edge tells you which Chrome window Nexus controls. All existing browse commands work unchanged. `$B disconnect` returns to headless. A Chrome extension Side Panel shows a live activity feed of every command and a chat sidebar where you can direct Claude. This is co-presence — Claude isn't remote-controlling a hidden browser, it's sitting next to you in the same cockpit.
 
 **Sidebar agent — your AI browser assistant.** Type natural language instructions in the Chrome side panel and a child Claude instance executes them. "Navigate to the settings page and screenshot it." "Fill out this form with test data." "Go through every item in this list and extract the prices." Each task gets up to 5 minutes. The sidebar agent runs in an isolated session, so it won't interfere with your main Claude Code window. It's like having a second pair of hands in the browser.
 
@@ -314,7 +316,7 @@ Nexus includes **opt-in** usage telemetry to help improve the project. Here's ex
 
 Data is stored in [Supabase](https://supabase.com) (open source Firebase alternative). The schema is in [`supabase/migrations/`](supabase/migrations/) — you can verify exactly what's collected. The Supabase publishable key in the repo is a public key (like a Firebase API key) — row-level security policies deny all direct access. Telemetry flows through validated edge functions that enforce schema checks, event type allowlists, and field length limits.
 
-**Local analytics are always available.** Run `gstack-analytics` to see your personal usage dashboard from the local JSONL file — no remote data needed.
+**Local analytics are always available.** Run `nexus-analytics` to see your personal usage dashboard from the local JSONL file — no remote data needed.
 
 ## Troubleshooting
 

@@ -48,14 +48,16 @@ describe('nexus product surface contract', () => {
 
     expect(readme).toContain('# Nexus');
     expect(readme).toContain('Nexus is the only command surface.');
+    expect(readme).toContain('~/.claude/skills/nexus');
+    expect(readme).toContain('.claude/skills/nexus');
     expect(readme).toContain('~/.codex/skills/nexus');
     expect(readme).toContain('~/.factory/skills/nexus');
     expect(readme).toContain('/nexus-upgrade');
+    expect(readme).toContain('nexus-analytics');
     expect(readme).toContain('nexus-config set telemetry off');
     expect(readme).toContain('~/.nexus/config.yaml');
-    expect(readme).not.toContain('~/.codex/skills/gstack');
-    expect(readme).not.toContain('~/.factory/skills/gstack');
     expect(readme).not.toContain('/gstack-upgrade');
+    expect(readme).not.toContain('gstack-analytics');
     expect(readme).not.toContain('gstack-config set telemetry off');
     expect(readme).not.toContain('~/.gstack/config.yaml');
     expect(skills).toContain('Nexus is the only command surface.');
@@ -68,6 +70,17 @@ describe('nexus product surface contract', () => {
     expect(skills).not.toContain('~/.gstack/projects/');
     expect(skills).not.toContain('gstack-config set skip_eng_review true');
     expect(skills).not.toContain('~/.gstack/greptile-history.md');
+  });
+
+  test('setup presents Nexus as the active install and helper surface', () => {
+    const setup = readFileSync(join(ROOT, 'setup'), 'utf8');
+
+    expect(setup).toContain('nexus-config');
+    expect(setup).toContain('/nexus-upgrade');
+    expect(setup).toContain('~/.nexus');
+    expect(setup).toContain('$HOME/.nexus/repos/nexus');
+    expect(setup).not.toContain('gstack setup failed');
+    expect(setup).not.toContain('/gstack-upgrade');
   });
 
   test('package metadata is Nexus-primary', () => {

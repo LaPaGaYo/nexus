@@ -131,7 +131,11 @@ describe('nexus inventories', () => {
 
     expect(markdown).toContain('Nexus-primary');
     expect(markdown).toContain('~/.nexus');
+    expect(markdown).toContain('.nexus-worktrees');
+    expect(markdown).toContain('~/.nexus-dev');
     expect(markdown).toContain('~/.gstack');
+    expect(markdown).toContain('.gstack-worktrees');
+    expect(markdown).toContain('~/.gstack-dev');
     expect(markdown).toContain('nexus-*');
     expect(markdown).toContain('gstack-*');
 
@@ -154,7 +158,9 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(markdown).toContain('source material only');
     expect(markdown).toContain('`lib/nexus/stage-packs/`');
     expect(markdown).toContain('`~/.nexus` is now the primary host support state root');
+    expect(markdown).toContain('`.nexus-worktrees` and `~/.nexus-dev` are now the primary developer substrate roots');
     expect(markdown).toContain('`~/.gstack` remains compatibility-only');
+    expect(markdown).toContain('`.gstack-worktrees` and `~/.gstack-dev` remain compatibility-only');
     expect(markdown).toContain('`nexus-*` host helpers are the preferred entrypoints');
     expect(markdown).toContain('`gstack-*` host binaries still work as shims');
   });

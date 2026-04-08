@@ -63,12 +63,14 @@ The visible product surface is now Nexus-primary across the main user entrypoint
 - `README.md` and `docs/skills.md` present Nexus as the only product surface
 - `~/.claude/skills/nexus`, `~/.codex/skills/nexus`, `.agents/skills/nexus`, and `~/.factory/skills/nexus*` are now the primary host roots
 - `~/.nexus` is now the primary host support state root
+- `.nexus-worktrees` and `~/.nexus-dev` are now the primary developer substrate roots
 - setup and relink flows now prefer `nexus-*` names when namespacing is enabled
 - `nexus-*` host helpers are the preferred entrypoints, with `bin/nexus-config`, `bin/nexus-relink`, `bin/nexus-uninstall`, and `bin/nexus-update-check` as the primary host helper surface
 
 Compatibility substrate intentionally remains in place:
 
 - `~/.gstack` remains compatibility-only for older host support state
+- `.gstack-worktrees` and `~/.gstack-dev` remain compatibility-only read and cleanup roots
 - `gstack-*` host binaries still work as shims
 - legacy install roots such as `~/.claude/skills/gstack` and `.agents/skills/gstack` remain compatibility fallbacks only until a later cleanup milestone
 

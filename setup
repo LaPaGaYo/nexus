@@ -50,10 +50,10 @@ esac
 
 # ─── Resolve skill prefix preference ─────────────────────────
 # Priority: CLI flag > saved config > interactive prompt (or flat default for non-TTY)
-GSTACK_CONFIG="$SOURCE_GSTACK_DIR/bin/gstack-config"
-export GSTACK_SETUP_RUNNING=1  # Prevent gstack-config post-set hook from triggering relink mid-setup
+NEXUS_CONFIG="$SOURCE_GSTACK_DIR/bin/nexus-config"
+export GSTACK_SETUP_RUNNING=1  # Prevent nexus-config post-set hook from triggering relink mid-setup
 if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
-  _saved_prefix="$("$GSTACK_CONFIG" get skill_prefix 2>/dev/null || true)"
+  _saved_prefix="$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || true)"
   if [ "$_saved_prefix" = "true" ]; then
     SKILL_PREFIX=1
   elif [ "$_saved_prefix" = "false" ]; then
@@ -80,11 +80,11 @@ if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
       SKILL_PREFIX=0
     fi
     # Save the choice for future runs
-    "$GSTACK_CONFIG" set skill_prefix "$([ "$SKILL_PREFIX" -eq 1 ] && echo true || echo false)" 2>/dev/null || true
+    "$NEXUS_CONFIG" set skill_prefix "$([ "$SKILL_PREFIX" -eq 1 ] && echo true || echo false)" 2>/dev/null || true
   fi
 else
   # Flag was passed explicitly — persist the choice
-  "$GSTACK_CONFIG" set skill_prefix "$([ "$SKILL_PREFIX" -eq 1 ] && echo true || echo false)" 2>/dev/null || true
+  "$NEXUS_CONFIG" set skill_prefix "$([ "$SKILL_PREFIX" -eq 1 ] && echo true || echo false)" 2>/dev/null || true
 fi
 
 # --local: install to .claude/skills/ in the current working directory
@@ -133,7 +133,7 @@ migrate_direct_codex_install() {
 
   mkdir -p "$(dirname "$migrated_dir")"
   if [ -e "$migrated_dir" ] && [ "$migrated_dir" != "$gstack_dir" ]; then
-    echo "gstack setup failed: direct Codex install detected at $gstack_dir" >&2
+    echo "nexus setup failed: direct Codex install detected at $gstack_dir" >&2
     echo "A migrated repo already exists at $migrated_dir; move one of them aside and rerun setup." >&2
     exit 1
   fi
@@ -192,7 +192,7 @@ if [ "$NEEDS_BUILD" -eq 1 ]; then
 fi
 
 if [ ! -x "$BROWSE_BIN" ]; then
-  echo "gstack setup failed: browse binary missing at $BROWSE_BIN" >&2
+  echo "nexus setup failed: browse binary missing at $BROWSE_BIN" >&2
   exit 1
 fi
 
@@ -233,9 +233,9 @@ if ! ensure_playwright_browser; then
 
   if [ "$IS_WINDOWS" -eq 1 ]; then
     # On Windows, Node.js launches Chromium (not Bun — see oven-sh/bun#4253).
-    # Ensure playwright is importable by Node from the gstack directory.
+    # Ensure playwright is importable by Node from the Nexus directory.
     if ! command -v node >/dev/null 2>&1; then
-      echo "gstack setup failed: Node.js is required on Windows (Bun cannot launch Chromium due to a pipe bug)" >&2
+      echo "nexus setup failed: Node.js is required on Windows (Bun cannot launch Chromium due to a pipe bug)" >&2
       echo "  Install Node.js: https://nodejs.org/" >&2
       exit 1
     fi
@@ -250,11 +250,11 @@ fi
 
 if ! ensure_playwright_browser; then
   if [ "$IS_WINDOWS" -eq 1 ]; then
-    echo "gstack setup failed: Playwright Chromium could not be launched via Node.js" >&2
+    echo "nexus setup failed: Playwright Chromium could not be launched via Node.js" >&2
     echo "  This is a known issue with Bun on Windows (oven-sh/bun#4253)." >&2
     echo "  Ensure Node.js is installed and 'node -e \"require('playwright')\"' works." >&2
   else
-    echo "gstack setup failed: Playwright Chromium could not be launched" >&2
+    echo "nexus setup failed: Playwright Chromium could not be launched" >&2
   fi
   exit 1
 fi
@@ -320,8 +320,8 @@ link_claude_skill_dirs() {
 }
 
 # ─── Helper: remove old unprefixed Claude skill symlinks ──────────────────────
-# Migration: when switching from flat names to gstack- prefixed names,
-# clean up stale symlinks that point into the gstack directory.
+# Migration: when switching from flat names to nexus- prefixed names,
+# clean up stale symlinks that point into the Nexus runtime directory.
 cleanup_old_claude_symlinks() {
   local gstack_dir="$1"
   local skills_dir="$2"
@@ -353,7 +353,7 @@ cleanup_old_claude_symlinks() {
 # ─── Helper: remove old prefixed Claude skill symlinks ────────────────────────
 # Reverse migration: when switching from prefixed names to flat names,
 # clean up stale nexus-* and legacy gstack-* symlinks that point into the
-# gstack directory.
+# Nexus runtime directory.
 cleanup_prefixed_claude_symlinks() {
   local gstack_dir="$1"
   local skills_dir="$2"
@@ -631,7 +631,7 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   AGENTS_DIR="$SOURCE_GSTACK_DIR/.agents/skills"
   mkdir -p "$KIRO_SKILLS"
 
-  # Create gstack dir with symlinks for runtime assets, copy+sed for SKILL.md
+  # Create the Nexus runtime dir with symlinks for runtime assets, copy+sed for SKILL.md
   KIRO_GSTACK="$KIRO_SKILLS/nexus"
   # Remove old whole-dir symlink from previous installs
   [ -L "$KIRO_GSTACK" ] && rm -f "$KIRO_GSTACK"
@@ -700,8 +700,8 @@ fi
 
 # 8. First-time welcome + legacy cleanup
 if [ ! -f "$HOME/.nexus/.welcome-seen" ]; then
-  echo "  Welcome to Nexus! Run /gstack-upgrade anytime to stay current."
+  echo "  Welcome to Nexus! Run /nexus-upgrade anytime to stay current."
   echo "  Host helpers: nexus-config, nexus-relink, nexus-uninstall"
   touch "$HOME/.nexus/.welcome-seen"
 fi
-rm -f /tmp/gstack-latest-version
+rm -f /tmp/nexus-latest-version /tmp/gstack-latest-version
