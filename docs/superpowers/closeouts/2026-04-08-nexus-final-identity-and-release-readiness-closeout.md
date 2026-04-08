@@ -2,7 +2,7 @@
 
 Date: 2026-04-08
 Branch: `codex/nexus-final-identity-release-readiness`
-Status: `completed_with_external_ccb_blocker`
+Status: `completed_with_real_ccb_dispatch_gap`
 
 ## Outcome
 
@@ -77,32 +77,41 @@ Broader regression:
 - `git diff --check`
   Result: clean
 
-## External Blocker
+## Remaining Gap
 
-Cross-provider bridge verification is still blocked by the local `ccb-ping`
-installation, not by Nexus repo contracts.
-
-Command:
+The local CCB installation is now healthy for this repository:
 
 ```bash
+/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart
 /Users/henry/.local/bin/ccb-ping claude
+/Users/henry/.local/bin/ccb-ping codex
+/Users/henry/.local/bin/ccb-ping gemini
 ```
 
-Observed failure:
+Observed status:
 
-```text
-TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
-```
+- mounted providers: `claude`, `codex`, `gemini`
+- project session files present in `.ccb/`
+- all three `ccb-ping` checks return success
 
-This indicates a Python/runtime compatibility issue in the local CCB toolchain.
-Nexus remains ready to use CCB as transport and dispatch infrastructure, but the
-local bridge installation must be repaired before claiming end-to-end
-`tmux -> ccb -> Claude -> Nexus -> Codex/Gemini` runtime readiness.
+The remaining release-readiness gap is now inside Nexus integration, not local
+bridge health:
+
+- `lib/nexus/adapters/ccb.ts` still uses Nexus-owned default stage-pack outputs
+  and synthetic receipts
+- governed `handoff/build/review/qa` flows record CCB-shaped provenance, but do
+  not yet invoke the external `ccb` CLI or consume real dispatch receipts
+
+That means the current repo is Nexus-complete at the product and contract
+surface, but it is not yet fully complete at the real external dispatch layer.
+The next milestone is real CCB dispatch integration for governed execution and
+audit paths.
 
 ## Final State
 
 - Nexus is the only active live product identity.
 - Nexus-owned repo artifacts remain the only governed truth source.
 - Compatibility is now historical record only, not active surface.
-- The remaining blocker for full dispatch-path release readiness is external CCB
-  tooling health, not Nexus repository structure or contract ownership.
+- The remaining blocker for full dispatch-path release readiness is real CCB
+  dispatch wiring inside Nexus, not repository structure or local bridge
+  installation health.
