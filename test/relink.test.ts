@@ -10,6 +10,7 @@ const BIN = path.join(ROOT, 'bin');
 let tmpDir: string;
 let skillsDir: string;
 let installDir: string;
+let mockBin: string;
 
 function run(cmd: string, env: Record<string, string> = {}, expectFail = false): string {
   try {
@@ -33,22 +34,28 @@ function setupMockInstall(skills: string[]): void {
   fs.mkdirSync(installDir, { recursive: true });
   fs.mkdirSync(skillsDir, { recursive: true });
 
-  // Copy the real gstack-config and gstack-relink to the mock install
-  const mockBin = path.join(installDir, 'bin');
+  // Copy the canonical Nexus helpers plus compatibility shims to the mock install.
+  mockBin = path.join(installDir, 'bin');
   fs.mkdirSync(mockBin, { recursive: true });
-  fs.copyFileSync(path.join(BIN, 'gstack-config'), path.join(mockBin, 'gstack-config'));
-  fs.chmodSync(path.join(mockBin, 'gstack-config'), 0o755);
   if (fs.existsSync(path.join(BIN, 'nexus-config'))) {
     fs.copyFileSync(path.join(BIN, 'nexus-config'), path.join(mockBin, 'nexus-config'));
     fs.chmodSync(path.join(mockBin, 'nexus-config'), 0o755);
   }
-  if (fs.existsSync(path.join(BIN, 'gstack-relink'))) {
-    fs.copyFileSync(path.join(BIN, 'gstack-relink'), path.join(mockBin, 'gstack-relink'));
-    fs.chmodSync(path.join(mockBin, 'gstack-relink'), 0o755);
-  }
   if (fs.existsSync(path.join(BIN, 'nexus-relink'))) {
     fs.copyFileSync(path.join(BIN, 'nexus-relink'), path.join(mockBin, 'nexus-relink'));
     fs.chmodSync(path.join(mockBin, 'nexus-relink'), 0o755);
+  }
+  if (fs.existsSync(path.join(BIN, 'nexus-patch-names'))) {
+    fs.copyFileSync(path.join(BIN, 'nexus-patch-names'), path.join(mockBin, 'nexus-patch-names'));
+    fs.chmodSync(path.join(mockBin, 'nexus-patch-names'), 0o755);
+  }
+  if (fs.existsSync(path.join(BIN, 'gstack-config'))) {
+    fs.copyFileSync(path.join(BIN, 'gstack-config'), path.join(mockBin, 'gstack-config'));
+    fs.chmodSync(path.join(mockBin, 'gstack-config'), 0o755);
+  }
+  if (fs.existsSync(path.join(BIN, 'gstack-relink'))) {
+    fs.copyFileSync(path.join(BIN, 'gstack-relink'), path.join(mockBin, 'gstack-relink'));
+    fs.chmodSync(path.join(mockBin, 'gstack-relink'), 0o755);
   }
   if (fs.existsSync(path.join(BIN, 'gstack-patch-names'))) {
     fs.copyFileSync(path.join(BIN, 'gstack-patch-names'), path.join(mockBin, 'gstack-patch-names'));
@@ -73,12 +80,12 @@ afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe('gstack-relink (#578)', () => {
+describe('nexus-relink (#578)', () => {
   test('creates nexus-* symlinks when skill_prefix=true', () => {
     setupMockInstall(['qa', 'ship', 'review']);
     fs.symlinkSync(path.join(installDir, 'qa'), path.join(skillsDir, 'gstack-qa'));
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    const output = run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    const output = run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -92,8 +99,8 @@ describe('gstack-relink (#578)', () => {
   // Test 12: flat symlinks when skill_prefix=false
   test('creates flat symlinks when skill_prefix=false', () => {
     setupMockInstall(['qa', 'ship', 'review']);
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix false`);
-    const output = run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix false`);
+    const output = run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -106,16 +113,16 @@ describe('gstack-relink (#578)', () => {
   // Test 13: cleans stale symlinks from opposite mode
   test('cleans up stale symlinks from opposite mode', () => {
     setupMockInstall(['qa', 'ship']);
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
     expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
     fs.symlinkSync(path.join(installDir, 'qa'), path.join(skillsDir, 'gstack-qa'));
 
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix false`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix false`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -136,8 +143,8 @@ describe('gstack-relink (#578)', () => {
 
   test('does not double-prefix gstack-upgrade directory', () => {
     setupMockInstall(['qa', 'ship', 'gstack-upgrade']);
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -146,9 +153,9 @@ describe('gstack-relink (#578)', () => {
     expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
   });
 
-  test('gstack-config set skill_prefix triggers relink', () => {
+  test('nexus-config set skill_prefix triggers relink', () => {
     setupMockInstall(['qa', 'ship']);
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -171,9 +178,16 @@ describe('gstack-relink (#578)', () => {
     expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(true);
     expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
   });
+
+  test('legacy relink helpers delegate to nexus-owned utility binaries', () => {
+    expect(fs.existsSync(path.join(BIN, 'nexus-patch-names'))).toBe(true);
+    expect(fs.readFileSync(path.join(BIN, 'gstack-patch-names'), 'utf-8')).toContain(
+      'exec "$SCRIPT_DIR/nexus-patch-names"',
+    );
+  });
 });
 
-describe('gstack-patch-names (#620/#578)', () => {
+describe('nexus-patch-names (#620/#578)', () => {
   // Helper to read name: from SKILL.md frontmatter
   function readSkillName(skillDir: string): string | null {
     const content = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf-8');
@@ -183,8 +197,8 @@ describe('gstack-patch-names (#620/#578)', () => {
 
   test('prefix=true patches name: field in SKILL.md', () => {
     setupMockInstall(['qa', 'ship', 'review']);
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -196,15 +210,15 @@ describe('gstack-patch-names (#620/#578)', () => {
   test('prefix=false restores name: field in SKILL.md', () => {
     setupMockInstall(['qa', 'ship']);
     // First, prefix them
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
     expect(readSkillName(path.join(installDir, 'qa'))).toBe('nexus-qa');
     // Now switch to flat mode
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix false`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix false`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -215,8 +229,8 @@ describe('gstack-patch-names (#620/#578)', () => {
 
   test('gstack-upgrade name: not double-prefixed', () => {
     setupMockInstall(['qa', 'gstack-upgrade']);
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });
@@ -228,9 +242,9 @@ describe('gstack-patch-names (#620/#578)', () => {
     setupMockInstall(['qa']);
     // Overwrite qa SKILL.md with no frontmatter
     fs.writeFileSync(path.join(installDir, 'qa', 'SKILL.md'), '# qa\nSome content.');
-    run(`${path.join(installDir, 'bin', 'gstack-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
     // Should not crash
-    run(`${path.join(installDir, 'bin', 'gstack-relink')}`, {
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
       GSTACK_INSTALL_DIR: installDir,
       GSTACK_SKILLS_DIR: skillsDir,
     });

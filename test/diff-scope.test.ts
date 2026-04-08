@@ -5,12 +5,13 @@
  * the correct SCOPE_* variables are output.
  */
 import { describe, test, expect, afterAll } from 'bun:test';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { spawnSync } from 'child_process';
 
-const SCRIPT = join(import.meta.dir, '..', 'bin', 'gstack-diff-scope');
+const SCRIPT = join(import.meta.dir, '..', 'bin', 'nexus-diff-scope');
+const LEGACY_SCRIPT = join(import.meta.dir, '..', 'bin', 'gstack-diff-scope');
 
 const dirs: string[] = [];
 
@@ -63,7 +64,14 @@ afterAll(() => {
   }
 });
 
-describe('gstack-diff-scope', () => {
+describe('nexus-diff-scope', () => {
+  test('owns the canonical diff-scope implementation while gstack stays a shim', () => {
+    expect(existsSync(SCRIPT)).toBe(true);
+
+    const legacyScript = readFileSync(LEGACY_SCRIPT, 'utf8');
+    expect(legacyScript).toContain('exec "$SCRIPT_DIR/nexus-diff-scope"');
+  });
+
   // --- Existing scope signals ---
 
   test('detects frontend files', () => {
