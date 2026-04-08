@@ -15,6 +15,10 @@ import {
   PRIMARY_PACKAGE_NAME,
   PRIMARY_PRODUCT_NAME,
 } from '../../lib/nexus/product-surface';
+import {
+  ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
+  RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+} from '../../lib/nexus/compatibility-surface';
 
 const ROOT = join(import.meta.dir, '..', '..');
 
@@ -123,5 +127,17 @@ describe('nexus product surface contract', () => {
     expect(gstackRelink).toContain('exec "$SCRIPT_DIR/nexus-relink"');
     expect(gstackUninstall).toContain('exec "$SCRIPT_DIR/nexus-uninstall"');
     expect(gstackUpdateCheck).toContain('exec "$SCRIPT_DIR/nexus-update-check"');
+  });
+
+  test('product surface keeps gstack limited to the retained compatibility budget', () => {
+    expect(RETAINED_BOUNDARY_COMPATIBILITY_SHIMS).toEqual([
+      'bin/gstack-config',
+      'bin/gstack-relink',
+      'bin/gstack-uninstall',
+      'bin/gstack-update-check',
+    ]);
+    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).toContain('gstack-upgrade');
+    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).toContain('bin/gstack-diff-scope');
+    expect(ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE).not.toContain('bin/gstack-relink');
   });
 });

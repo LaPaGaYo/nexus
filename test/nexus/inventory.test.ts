@@ -1,6 +1,13 @@
 import { existsSync, readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
+import {
+  ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
+  COMPATIBILITY_SURFACE_STATUSES,
+  DEFERRED_LEGACY_REMOVAL_SURFACES,
+  GSTACK_COMPATIBILITY_SURFACES,
+  RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+} from '../../lib/nexus/compatibility-surface';
 import { getStageContent } from '../../lib/nexus/stage-content';
 import { NEXUS_STAGE_PACKS } from '../../lib/nexus/types';
 
@@ -74,6 +81,19 @@ function parseCsvField(value: string): string[] {
 }
 
 describe('nexus inventories', () => {
+  test('shared compatibility contract exposes removed, retained, and deferred gstack surfaces', () => {
+    expect(COMPATIBILITY_SURFACE_STATUSES).toEqual({
+      removed_from_active_path: 'removed_from_active_path',
+      retained_compatibility_shim: 'retained_compatibility_shim',
+      deferred_final_removal: 'deferred_final_removal',
+    });
+    expect(GSTACK_COMPATIBILITY_SURFACES.length).toBe(
+      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS.length +
+        ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE.length +
+        DEFERRED_LEGACY_REMOVAL_SURFACES.length,
+    );
+  });
+
   test.each(INVENTORIES)('%s includes populated mandatory fields', (path) => {
     const markdown = readFileSync(path, 'utf8');
     const rows = parseInventory(markdown);
