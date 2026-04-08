@@ -2,7 +2,7 @@
 
 Date: 2026-04-08
 Branch: `codex/nexus-final-identity-release-readiness`
-Status: `completed_with_real_ccb_dispatch_gap`
+Status: `completed`
 
 ## Outcome
 
@@ -77,41 +77,45 @@ Broader regression:
 - `git diff --check`
   Result: clean
 
-## Remaining Gap
+CCB runtime dispatch verification:
+
+- `bun test test/nexus/ccb-runtime-adapter.test.ts`
+  Result: pass (`5 pass, 0 fail`)
+- `bun test test/nexus/*.test.ts`
+  Result: pass (`117 pass, 0 fail`)
+- `printf 'Reply exactly with: Nexus live codex ok\n' | env CCB_CALLER=claude CCB_ASKD_AUTOSTART=1 CCB_ALLOW_FOREGROUND=1 CCB_SESSION_FILE=/Users/henry/Documents/nexus/.ccb/.codex-session /Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap --timeout 60`
+  Result: exit 0, output begins with `Nexus live codex ok`
+- `printf 'Reply exactly with: Nexus live gemini ok\n' | env CCB_CALLER=claude CCB_ASKD_AUTOSTART=1 CCB_ALLOW_FOREGROUND=1 CCB_SESSION_FILE=/Users/henry/Documents/nexus/.ccb/.gemini-session /Users/henry/.local/share/codex-dual/bin/ask gemini --foreground --no-wrap --timeout 60`
+  Result: exit 0, output begins with `Nexus live gemini ok`
+
+## CCB Dispatch Completion
 
 The local CCB installation is now healthy for this repository:
 
 ```bash
-/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart
-/Users/henry/.local/bin/ccb-ping claude
-/Users/henry/.local/bin/ccb-ping codex
-/Users/henry/.local/bin/ccb-ping gemini
+/Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap
+/Users/henry/.local/share/codex-dual/bin/ask gemini --foreground --no-wrap
 ```
 
 Observed status:
 
-- mounted providers: `claude`, `codex`, `gemini`
-- project session files present in `.ccb/`
-- all three `ccb-ping` checks return success
+- project session files are present in `.ccb/`
+- live Codex and Gemini dispatch succeed through the external CCB `ask` entrypoint
+- Nexus now invokes real CCB transport from `lib/nexus/adapters/ccb.ts` for governed `handoff/build/review/qa`
+- requested and actual route records remain Nexus-owned and repo-visible after normalization/writeback
 
-The remaining release-readiness gap is now inside Nexus integration, not local
-bridge health:
+One environment note matters:
 
-- `lib/nexus/adapters/ccb.ts` still uses Nexus-owned default stage-pack outputs
-  and synthetic receipts
-- governed `handoff/build/review/qa` flows record CCB-shaped provenance, but do
-  not yet invoke the external `ccb` CLI or consume real dispatch receipts
-
-That means the current repo is Nexus-complete at the product and contract
-surface, but it is not yet fully complete at the real external dispatch layer.
-The next milestone is real CCB dispatch integration for governed execution and
-audit paths.
+- local `ccb-mounted` still reflects legacy per-provider daemon detection and can
+  report an empty mounted set under the newer unified `askd` runtime
+- Nexus no longer treats that legacy mounted output as route truth
+- `/handoff` now performs a real trivial dispatch ping through `ask` and still
+  keeps approval separate from availability
 
 ## Final State
 
 - Nexus is the only active live product identity.
 - Nexus-owned repo artifacts remain the only governed truth source.
 - Compatibility is now historical record only, not active surface.
-- The remaining blocker for full dispatch-path release readiness is real CCB
-  dispatch wiring inside Nexus, not repository structure or local bridge
-  installation health.
+- Real external CCB dispatch is wired into the governed Nexus runtime.
+- CCB remains transport only; Nexus still owns lifecycle, artifacts, and governance.

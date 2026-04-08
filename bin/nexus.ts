@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { getDefaultNexusAdapters } from '../lib/nexus/adapters/registry';
+import { getRuntimeNexusAdapters } from '../lib/nexus/adapters/registry';
 import { resolveInvocation } from '../lib/nexus/commands/index';
 
 const [, , rawCommand] = process.argv;
@@ -15,7 +15,7 @@ try {
     cwd: process.cwd(),
     clock: () => new Date().toISOString(),
     via: invocation.via,
-    adapters: getDefaultNexusAdapters(),
+    adapters: getRuntimeNexusAdapters(),
   });
 
   console.log(JSON.stringify(result, null, 2));

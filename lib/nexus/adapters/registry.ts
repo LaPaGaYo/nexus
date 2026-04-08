@@ -1,6 +1,6 @@
 import { createDefaultPmAdapter } from './pm';
 import { createDefaultGsdAdapter } from './gsd';
-import { createDefaultCcbAdapter } from './ccb';
+import { createDefaultCcbAdapter, createRuntimeCcbAdapter } from './ccb';
 import { createDefaultSuperpowersAdapter } from './superpowers';
 import type { AdapterRegistryShape, NexusAdapters } from './types';
 
@@ -37,5 +37,15 @@ export function getDefaultNexusAdapters(): NexusAdapters {
     gsd: createDefaultGsdAdapter(),
     superpowers: createDefaultSuperpowersAdapter(),
     ccb: createDefaultCcbAdapter(),
+  };
+}
+
+export function getRuntimeNexusAdapters(): NexusAdapters {
+  return {
+    registry: getDefaultAdapterRegistry(),
+    pm: createDefaultPmAdapter(),
+    gsd: createDefaultGsdAdapter(),
+    superpowers: createDefaultSuperpowersAdapter(),
+    ccb: createRuntimeCcbAdapter(),
   };
 }
