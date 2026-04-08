@@ -6,6 +6,17 @@ Milestone 9 cutover state:
 - `~/.nexus` is the primary host support state root.
 - `~/.gstack`, `.gstack-worktrees`, `~/.gstack-dev`, and `gstack-*` remain compatibility-only substrate.
 
+## Milestone 10 compatibility budget
+
+- `removed_from_active_path`: `bin/gstack-patch-names`, `bin/gstack-diff-scope`, `bin/gstack-platform-detect`, `bin/gstack-open-url`, `bin/gstack-extension`, `gstack-upgrade`
+- `retained_compatibility_shim`: `bin/gstack-config`, `bin/gstack-relink`, `bin/gstack-uninstall`, `bin/gstack-update-check`
+- `deferred_final_removal`: `~/.gstack`, `.gstack-worktrees`, `~/.gstack-dev`, `repository remote naming`
+
+`removed_from_active_path` surfaces are no longer part of the primary Nexus product
+surface. `retained_compatibility_shim` surfaces remain boundary-only shims, and
+`deferred_final_removal` surfaces stay deferred cleanup targets until the final
+compatibility removal milestone.
+
 | inventory_id | source_system | source_path_or_ref | capability_or_structure | classification | milestone_state | canonical_nexus_commands | nexus_adapter_seams | governed_artifact_boundaries | normalization_required | conflict_policy | conflict_artifact_paths | host_structure | current_host_role | truth_risk | host_disposition | cleanup_phase | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | gstack-skill-shell | gstack | top-level command directories | generated skill shell | adapt | verified | discover, frame, plan, handoff, build, review, qa, ship, closeout | none | none | host only; no governed writeback | block_or_refuse | .planning/current/conflicts/host-skill-shell.json | top-level command wrappers | shell entrypoint | medium | retain_as_host | post-m8 | wrapper shell remains, but visible lifecycle meaning and primary roots are now Nexus-owned |

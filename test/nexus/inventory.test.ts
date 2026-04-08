@@ -80,6 +80,17 @@ function parseCsvField(value: string): string[] {
     .filter(Boolean);
 }
 
+function expectCompatibilityBudgetSection(
+  markdown: string,
+  status: (typeof COMPATIBILITY_SURFACE_STATUSES)[keyof typeof COMPATIBILITY_SURFACE_STATUSES],
+  surfaces: readonly string[],
+) {
+  expect(markdown).toContain(status);
+  for (const surface of surfaces) {
+    expect(markdown).toContain(surface);
+  }
+}
+
 describe('nexus inventories', () => {
   test('shared compatibility contract exposes removed, retained, and deferred gstack surfaces', () => {
     expect(COMPATIBILITY_SURFACE_STATUSES).toEqual({
@@ -149,6 +160,22 @@ describe('nexus inventories', () => {
     const markdown = readFileSync('upstream-notes/gstack-host-migration-inventory.md', 'utf8');
     const rows = parseInventory(markdown);
 
+    expectCompatibilityBudgetSection(
+      markdown,
+      COMPATIBILITY_SURFACE_STATUSES.removed_from_active_path,
+      ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
+    );
+    expectCompatibilityBudgetSection(
+      markdown,
+      COMPATIBILITY_SURFACE_STATUSES.retained_compatibility_shim,
+      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+    );
+    expectCompatibilityBudgetSection(
+      markdown,
+      COMPATIBILITY_SURFACE_STATUSES.deferred_final_removal,
+      DEFERRED_LEGACY_REMOVAL_SURFACES,
+    );
+
     expect(markdown).toContain('Nexus-primary');
     expect(markdown).toContain('~/.nexus');
     expect(markdown).toContain('.nexus-worktrees');
@@ -174,6 +201,21 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
   test('absorption status locks stage packs as the active Nexus-owned units', () => {
     const markdown = readFileSync('upstream-notes/absorption-status.md', 'utf8');
 
+    expectCompatibilityBudgetSection(
+      markdown,
+      COMPATIBILITY_SURFACE_STATUSES.removed_from_active_path,
+      ACTIVE_PATH_GSTACK_IDENTITIES_TO_REMOVE,
+    );
+    expectCompatibilityBudgetSection(
+      markdown,
+      COMPATIBILITY_SURFACE_STATUSES.retained_compatibility_shim,
+      RETAINED_BOUNDARY_COMPATIBILITY_SHIMS,
+    );
+    expectCompatibilityBudgetSection(
+      markdown,
+      COMPATIBILITY_SURFACE_STATUSES.deferred_final_removal,
+      DEFERRED_LEGACY_REMOVAL_SURFACES,
+    );
     expect(markdown).toContain('Nexus-owned stage packs');
     expect(markdown).toContain('source material only');
     expect(markdown).toContain('`lib/nexus/stage-packs/`');
@@ -183,6 +225,7 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(markdown).toContain('`.gstack-worktrees` and `~/.gstack-dev` remain compatibility-only');
     expect(markdown).toContain('`nexus-*` host helpers are the preferred entrypoints');
     expect(markdown).toContain('`gstack-*` host binaries still work as shims');
+    expect(markdown).toContain('no longer part of the primary product surface');
   });
 
   test.each(SURFACE_DOCS)('%s keeps upstream identity secondary to Nexus stage packs', (path) => {

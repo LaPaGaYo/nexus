@@ -74,6 +74,17 @@ Compatibility substrate intentionally remains in place:
 - `gstack-*` host binaries still work as shims
 - legacy install roots such as `~/.claude/skills/gstack` and `.agents/skills/gstack` remain compatibility fallbacks only until a later cleanup milestone
 
+## Compatibility budget status
+
+- `removed_from_active_path` surfaces are no longer part of the primary product surface:
+  `bin/gstack-patch-names`, `bin/gstack-diff-scope`, `bin/gstack-platform-detect`,
+  `bin/gstack-open-url`, `bin/gstack-extension`, `gstack-upgrade`
+- `retained_compatibility_shim` surfaces remain boundary-only shims:
+  `bin/gstack-config`, `bin/gstack-relink`, `bin/gstack-uninstall`,
+  `bin/gstack-update-check`
+- `deferred_final_removal` surfaces remain deferred cleanup targets:
+  `~/.gstack`, `.gstack-worktrees`, `~/.gstack-dev`, `repository remote naming`
+
 ## Authority boundary
 
 - Nexus canonical commands are the only lifecycle entrypoints.

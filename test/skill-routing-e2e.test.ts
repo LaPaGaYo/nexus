@@ -82,12 +82,12 @@ if (evalsEnabled && process.env.EVALS_TIER) {
  *  the Skill tool appears in Claude's available tools list. */
 function installSkills(tmpDir: string) {
   const skillDirs = [
-    '', // root gstack SKILL.md
+    '', // root Nexus SKILL.md
     'discover', 'frame', 'plan', 'handoff', 'build', 'review', 'qa', 'ship', 'closeout',
     'qa-only', 'plan-ceo-review', 'plan-eng-review',
     'plan-design-review', 'design-review', 'design-consultation', 'retro',
     'document-release', 'investigate', 'office-hours', 'browse', 'setup-browser-cookies',
-    'nexus-upgrade', 'gstack-upgrade', 'humanizer',
+    'nexus-upgrade', 'humanizer',
   ];
 
   // Install to both project-level and user-level skill directories
@@ -101,7 +101,7 @@ function installSkills(tmpDir: string) {
     const srcPath = path.join(ROOT, skill, 'SKILL.md');
     if (!fs.existsSync(srcPath)) continue;
 
-    const skillName = skill || 'gstack';
+    const skillName = skill || 'nexus';
 
     for (const targetBase of installTargets) {
       const destDir = path.join(targetBase, skillName);
