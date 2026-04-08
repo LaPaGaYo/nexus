@@ -48,7 +48,7 @@ Do not begin implementation from `main`.
 - `scripts/resolvers/preamble.ts`
 - `scripts/resolvers/codex-helpers.ts`
 - `scripts/resolvers/types.ts`
-- `upstream-notes/gstack-host-migration-inventory.md`
+- `upstream-notes/legacy-host-migration-history.md`
 - `upstream-notes/absorption-status.md`
 - `test/gen-skill-docs.test.ts`
 - `test/skill-validation.test.ts`
@@ -382,7 +382,7 @@ git commit -m "docs: reframe package and docs around nexus"
 ## Task 6: Align Inventories, Run Full Regression, And Close Out The Milestone
 
 **Files:**
-- Modify: `upstream-notes/gstack-host-migration-inventory.md`
+- Modify: `upstream-notes/legacy-host-migration-history.md`
 - Modify: `upstream-notes/absorption-status.md`
 - Create: `docs/superpowers/closeouts/2026-04-07-nexus-product-surface-unification-closeout.md`
 
@@ -444,7 +444,7 @@ Summarize:
 - [ ] **Step 6: Commit**
 
 ```bash
-git add upstream-notes/gstack-host-migration-inventory.md upstream-notes/absorption-status.md docs/superpowers/closeouts/2026-04-07-nexus-product-surface-unification-closeout.md
+git add upstream-notes/legacy-host-migration-history.md upstream-notes/absorption-status.md docs/superpowers/closeouts/2026-04-07-nexus-product-surface-unification-closeout.md
 git commit -m "docs: close out nexus product surface unification"
 ```
 

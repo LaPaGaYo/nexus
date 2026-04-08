@@ -58,9 +58,8 @@ The visible product surface is now Nexus-only across active paths:
 - `.nexus-worktrees` and `~/.nexus-dev` are now the primary developer substrate roots
 - `nexus-*` host helpers are the active entrypoints
 
-`gstack` now survives only in historical references:
+`gstack` now survives only in archived records:
 
-- repository remote naming
 - archived docs and closeouts
 
 ## Authority boundary

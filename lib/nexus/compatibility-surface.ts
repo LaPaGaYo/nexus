@@ -16,7 +16,7 @@ export type CompatibilitySurface = {
   notes: string;
 };
 
-export const REMOVED_GSTACK_BOUNDARY_SHIMS = [
+export const REMOVED_COMPATIBILITY_BOUNDARY_SHIMS = [
   'bin/gstack-config',
   'bin/gstack-relink',
   'bin/gstack-uninstall',
@@ -34,7 +34,7 @@ export const REMOVED_GSTACK_BOUNDARY_SHIMS = [
   'bin/gstack-telemetry-sync',
 ] as const;
 
-export const REMOVED_GSTACK_RUNTIME_IDENTITIES = [
+export const REMOVED_LEGACY_RUNTIME_IDENTITIES = [
   'bin/gstack-patch-names',
   'bin/gstack-diff-scope',
   'bin/gstack-platform-detect',
@@ -46,33 +46,32 @@ export const REMOVED_GSTACK_RUNTIME_IDENTITIES = [
   '~/.gstack-dev',
 ] as const;
 
-export const HISTORICAL_GSTACK_REFERENCES = [
-  'repository remote naming',
+export const HISTORICAL_LEGACY_REFERENCES = [
   'archived docs and closeouts',
 ] as const;
 
 export const COMPATIBILITY_SURFACE_RULES = {
-  removed_gstack_boundary_shims: REMOVED_GSTACK_BOUNDARY_SHIMS,
-  removed_gstack_runtime_identities: REMOVED_GSTACK_RUNTIME_IDENTITIES,
-  historical_gstack_references: HISTORICAL_GSTACK_REFERENCES,
+  removed_compatibility_boundary_shims: REMOVED_COMPATIBILITY_BOUNDARY_SHIMS,
+  removed_legacy_runtime_identities: REMOVED_LEGACY_RUNTIME_IDENTITIES,
+  historical_legacy_references: HISTORICAL_LEGACY_REFERENCES,
 } as const;
 
-export const GSTACK_COMPATIBILITY_SURFACES: readonly CompatibilitySurface[] = [
-  ...REMOVED_GSTACK_BOUNDARY_SHIMS.map((path) => ({
+export const COMPATIBILITY_SURFACES: readonly CompatibilitySurface[] = [
+  ...REMOVED_COMPATIBILITY_BOUNDARY_SHIMS.map((path) => ({
     id: path.replaceAll(/[/.~]/g, '-').replaceAll('--', '-'),
     path,
     kind: 'former_shim' as const,
     status: COMPATIBILITY_SURFACE_STATUSES.removed_from_active_path,
     notes: 'Former compatibility shim removed from the live Nexus surface.',
   })),
-  ...REMOVED_GSTACK_RUNTIME_IDENTITIES.map((path) => ({
+  ...REMOVED_LEGACY_RUNTIME_IDENTITIES.map((path) => ({
     id: path.replaceAll(/[/.~]/g, '-').replaceAll('--', '-'),
     path,
     kind: 'former_runtime_identity' as const,
     status: COMPATIBILITY_SURFACE_STATUSES.removed_from_active_path,
     notes: 'Former runtime or state identity removed from the live Nexus path.',
   })),
-  ...HISTORICAL_GSTACK_REFERENCES.map((path) => ({
+  ...HISTORICAL_LEGACY_REFERENCES.map((path) => ({
     id: path.replaceAll(/[/.~ ]/g, '-').replaceAll('--', '-'),
     path,
     kind: 'historical_reference' as const,

@@ -14,12 +14,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import {
-  getLegacyDevRoot,
-  getLegacyWorktreeRoot,
-  getPrimaryDevRoot,
-  getPrimaryWorktreeRoot,
-} from './nexus/support-surface';
+import { getPrimaryDevRoot, getPrimaryWorktreeRoot } from './nexus/support-surface';
 
 // --- Interfaces ---
 
@@ -77,10 +72,6 @@ interface DedupIndex {
 function getDedupPath(): string {
   const homeDir = os.homedir();
   const primaryPath = path.join(getPrimaryDevRoot(homeDir), 'harvests', 'dedup.json');
-  const legacyPath = path.join(getLegacyDevRoot(homeDir), 'harvests', 'dedup.json');
-
-  if (fs.existsSync(primaryPath)) return primaryPath;
-  if (fs.existsSync(legacyPath)) return legacyPath;
   return primaryPath;
 }
 
@@ -264,10 +255,7 @@ export class WorktreeManager {
     try {
       git(['worktree', 'prune'], this.repoRoot, true);
 
-      for (const worktreeBase of [
-        getPrimaryWorktreeRoot(this.repoRoot),
-        getLegacyWorktreeRoot(this.repoRoot),
-      ]) {
+      for (const worktreeBase of [getPrimaryWorktreeRoot(this.repoRoot)]) {
         if (!fs.existsSync(worktreeBase)) continue;
 
         for (const entry of fs.readdirSync(worktreeBase)) {

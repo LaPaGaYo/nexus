@@ -255,7 +255,7 @@ active system through the test suite.
 
 ## 6. Inventory Rule
 
-`upstream-notes/gstack-host-migration-inventory.md` should move from
+`upstream-notes/legacy-host-migration-history.md` should move from
 “compatibility-only substrate remains” to a more explicit three-way model:
 
 - removed from active path

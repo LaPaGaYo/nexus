@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  COMPATIBILITY_SURFACES,
   COMPATIBILITY_SURFACE_STATUSES,
-  GSTACK_COMPATIBILITY_SURFACES,
-  HISTORICAL_GSTACK_REFERENCES,
-  REMOVED_GSTACK_RUNTIME_IDENTITIES,
-  REMOVED_GSTACK_BOUNDARY_SHIMS,
+  HISTORICAL_LEGACY_REFERENCES,
+  REMOVED_COMPATIBILITY_BOUNDARY_SHIMS,
+  REMOVED_LEGACY_RUNTIME_IDENTITIES,
 } from '../../lib/nexus/compatibility-surface';
 
 describe('nexus compatibility surface contract', () => {
@@ -16,7 +16,7 @@ describe('nexus compatibility surface contract', () => {
   });
 
   test('tracks removed shims, removed runtime identities, and historical residue explicitly', () => {
-    expect(REMOVED_GSTACK_BOUNDARY_SHIMS).toEqual([
+    expect(REMOVED_COMPATIBILITY_BOUNDARY_SHIMS).toEqual([
       'bin/gstack-config',
       'bin/gstack-relink',
       'bin/gstack-uninstall',
@@ -34,7 +34,7 @@ describe('nexus compatibility surface contract', () => {
       'bin/gstack-telemetry-sync',
     ]);
 
-    expect(REMOVED_GSTACK_RUNTIME_IDENTITIES).toEqual([
+    expect(REMOVED_LEGACY_RUNTIME_IDENTITIES).toEqual([
       'bin/gstack-patch-names',
       'bin/gstack-diff-scope',
       'bin/gstack-platform-detect',
@@ -46,16 +46,16 @@ describe('nexus compatibility surface contract', () => {
       '~/.gstack-dev',
     ]);
 
-    expect(HISTORICAL_GSTACK_REFERENCES).toEqual(['repository remote naming', 'archived docs and closeouts']);
+    expect(HISTORICAL_LEGACY_REFERENCES).toEqual(['archived docs and closeouts']);
   });
 
-  test('describes every remaining gstack residue through the shared contract', () => {
-    const byStatus = Object.groupBy(GSTACK_COMPATIBILITY_SURFACES, (surface) => surface.status);
+  test('describes every remaining legacy residue through the shared contract', () => {
+    const byStatus = Object.groupBy(COMPATIBILITY_SURFACES, (surface) => surface.status);
 
     expect(byStatus.removed_from_active_path?.map((surface) => surface.path)).toEqual([
-      ...REMOVED_GSTACK_BOUNDARY_SHIMS,
-      ...REMOVED_GSTACK_RUNTIME_IDENTITIES,
+      ...REMOVED_COMPATIBILITY_BOUNDARY_SHIMS,
+      ...REMOVED_LEGACY_RUNTIME_IDENTITIES,
     ]);
-    expect(byStatus.historical_record_only?.map((surface) => surface.path)).toEqual(HISTORICAL_GSTACK_REFERENCES);
+    expect(byStatus.historical_record_only?.map((surface) => surface.path)).toEqual(HISTORICAL_LEGACY_REFERENCES);
   });
 });

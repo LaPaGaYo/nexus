@@ -57,7 +57,7 @@ Do not begin implementation from `main`.
 - `scripts/resolvers/codex-helpers.ts`
 - `scripts/resolvers/preamble.ts`
 - `lib/nexus/product-surface.ts`
-- `upstream-notes/gstack-host-migration-inventory.md`
+- `upstream-notes/legacy-host-migration-history.md`
 - `upstream-notes/absorption-status.md`
 - `test/relink.test.ts`
 - `test/uninstall.test.ts`
@@ -394,7 +394,7 @@ git commit -m "docs: make install and helper guidance nexus-rooted"
 ## Task 6: Update Inventories And Close Out The Cutover
 
 **Files:**
-- Modify: `upstream-notes/gstack-host-migration-inventory.md`
+- Modify: `upstream-notes/legacy-host-migration-history.md`
 - Modify: `upstream-notes/absorption-status.md`
 - Modify: `test/nexus/inventory.test.ts`
 - Create: `docs/superpowers/closeouts/2026-04-07-nexus-root-and-compatibility-cutover-closeout.md`
@@ -443,7 +443,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add upstream-notes/gstack-host-migration-inventory.md upstream-notes/absorption-status.md test/nexus/inventory.test.ts docs/superpowers/closeouts/2026-04-07-nexus-root-and-compatibility-cutover-closeout.md
+git add upstream-notes/legacy-host-migration-history.md upstream-notes/absorption-status.md test/nexus/inventory.test.ts docs/superpowers/closeouts/2026-04-07-nexus-root-and-compatibility-cutover-closeout.md
 git commit -m "docs: close out nexus root and compatibility cutover"
 ```
 

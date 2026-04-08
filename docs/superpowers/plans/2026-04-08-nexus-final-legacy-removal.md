@@ -34,7 +34,7 @@ This plan executes from:
 
 - `CLAUDE.md`
 - `README.md`
-- `upstream-notes/gstack-host-migration-inventory.md`
+- `upstream-notes/legacy-host-migration-history.md`
 - `upstream-notes/absorption-status.md`
 - `lib/nexus/compatibility-surface.ts`
 - `bin/nexus-config`
@@ -84,7 +84,7 @@ This plan executes from:
 
 **Files:**
 - Modify: `lib/nexus/compatibility-surface.ts`
-- Modify: `upstream-notes/gstack-host-migration-inventory.md`
+- Modify: `upstream-notes/legacy-host-migration-history.md`
 - Modify: `upstream-notes/absorption-status.md`
 - Modify: `test/nexus/compatibility-surface.test.ts`
 - Modify: `test/nexus/product-surface.test.ts`

@@ -62,7 +62,6 @@ Historical record only:
 - `~/.gstack`
 - `.gstack-worktrees`
 - `~/.gstack-dev`
-- repository remote naming
 - archived docs and closeouts
 
 ## Deferred
@@ -73,7 +72,6 @@ Deferred to the next legacy-removal milestone:
   contracts or move fully into archive-only documentation
 - cleaning remaining non-active legacy textual residue outside the active product
   surface
-- repository remote rename away from the historical `gstack` identity
 
 ## Verification
 
@@ -83,7 +81,7 @@ Commands run:
 bun run gen:skill-docs --host codex
 bun test test/nexus/*.test.ts
 bun test test/gen-skill-docs.test.ts test/telemetry.test.ts test/skill-validation.test.ts test/skill-routing-e2e.test.ts test/relink.test.ts test/uninstall.test.ts test/worktree.test.ts
-bun test browse/test/gstack-config.test.ts browse/test/gstack-update-check.test.ts
+bun test browse/test/nexus-config.test.ts browse/test/nexus-update-check.test.ts
 git diff --check
 ```
 
@@ -92,5 +90,5 @@ Results:
 - `bun run gen:skill-docs --host codex` -> success
 - `bun test test/nexus/*.test.ts` -> `111 passed, 0 failed`
 - `bun test test/gen-skill-docs.test.ts test/telemetry.test.ts test/skill-validation.test.ts test/skill-routing-e2e.test.ts test/relink.test.ts test/uninstall.test.ts test/worktree.test.ts` -> `588 passed, 0 failed, 225 skipped`
-- `bun test browse/test/gstack-config.test.ts browse/test/gstack-update-check.test.ts` -> `14 passed, 0 failed`
+- `bun test browse/test/nexus-config.test.ts browse/test/nexus-update-check.test.ts` -> `14 passed, 0 failed`
 - `git diff --check` -> clean

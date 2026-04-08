@@ -492,7 +492,7 @@ function spawnClaude(userMessage: string, extensionUrl?: string | null, forTabId
   // write the command to a queue file that the sidebar-agent process
   // (running as non-compiled bun) picks up and spawns claude.
   const agentQueue = process.env.SIDEBAR_QUEUE_PATH || path.join(process.env.HOME || '/tmp', '.nexus', 'sidebar-agent-queue.jsonl');
-  const gstackDir = path.dirname(agentQueue);
+  const nexusQueueDir = path.dirname(agentQueue);
   const entry = JSON.stringify({
     ts: new Date().toISOString(),
     message: userMessage,
@@ -505,7 +505,7 @@ function spawnClaude(userMessage: string, extensionUrl?: string | null, forTabId
     tabId: agentTabId,
   });
   try {
-    fs.mkdirSync(gstackDir, { recursive: true });
+    fs.mkdirSync(nexusQueueDir, { recursive: true });
     fs.appendFileSync(agentQueue, entry + '\n');
   } catch (err: any) {
     addChatEntry({ ts: new Date().toISOString(), role: 'agent', type: 'agent_error', error: `Failed to queue: ${err.message}` });

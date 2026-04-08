@@ -53,7 +53,7 @@ Do not begin implementation from `main`.
 - `bin/gstack-extension`
 - `gstack-upgrade/SKILL.md.tmpl`
 - `gstack-upgrade/SKILL.md`
-- `upstream-notes/gstack-host-migration-inventory.md`
+- `upstream-notes/legacy-host-migration-history.md`
 - `upstream-notes/absorption-status.md`
 - `test/gen-skill-docs.test.ts`
 - `test/relink.test.ts`
@@ -385,7 +385,7 @@ git commit -m "feat: cut active runtime guidance to nexus utilities"
 ## Task 6: Shrink Compatibility Tests And Inventory
 
 **Files:**
-- Modify: `upstream-notes/gstack-host-migration-inventory.md`
+- Modify: `upstream-notes/legacy-host-migration-history.md`
 - Modify: `upstream-notes/absorption-status.md`
 - Modify: `test/nexus/inventory.test.ts`
 - Modify: `test/skill-e2e.test.ts`
@@ -436,7 +436,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add upstream-notes/gstack-host-migration-inventory.md upstream-notes/absorption-status.md test/nexus/inventory.test.ts test/skill-e2e.test.ts test/skill-e2e-workflow.test.ts test/skill-llm-eval.test.ts test/skill-routing-e2e.test.ts
+git add upstream-notes/legacy-host-migration-history.md upstream-notes/absorption-status.md test/nexus/inventory.test.ts test/skill-e2e.test.ts test/skill-e2e-workflow.test.ts test/skill-llm-eval.test.ts test/skill-routing-e2e.test.ts
 git commit -m "test: shrink gstack compatibility surface"
 ```
 

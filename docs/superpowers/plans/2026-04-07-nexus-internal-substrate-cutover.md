@@ -53,7 +53,7 @@ Do not begin implementation from `main`.
 - `scripts/resolvers/design.ts`
 - `lib/worktree.ts`
 - `lib/nexus/product-surface.ts`
-- `upstream-notes/gstack-host-migration-inventory.md`
+- `upstream-notes/legacy-host-migration-history.md`
 - `upstream-notes/absorption-status.md`
 - `bin/gstack-analytics`
 - `bin/gstack-community-dashboard`
@@ -364,7 +364,7 @@ git commit -m "feat: move developer substrate roots to nexus"
 **Files:**
 - Modify: `README.md`
 - Modify: `setup`
-- Modify: `upstream-notes/gstack-host-migration-inventory.md`
+- Modify: `upstream-notes/legacy-host-migration-history.md`
 - Modify: `upstream-notes/absorption-status.md`
 - Modify: `test/nexus/inventory.test.ts`
 - Modify: `test/nexus/product-surface.test.ts`
@@ -414,7 +414,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add README.md setup upstream-notes/gstack-host-migration-inventory.md upstream-notes/absorption-status.md test/nexus/inventory.test.ts test/nexus/product-surface.test.ts
+git add README.md setup upstream-notes/legacy-host-migration-history.md upstream-notes/absorption-status.md test/nexus/inventory.test.ts test/nexus/product-surface.test.ts
 git commit -m "docs: make support substrate nexus-primary"
 ```
 

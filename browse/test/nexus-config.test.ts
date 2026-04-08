@@ -33,6 +33,14 @@ afterEach(() => {
 });
 
 describe('nexus-config', () => {
+  test('--help prints usage and exits 0', () => {
+    const { exitCode, stdout } = run(['--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('nexus-config');
+    expect(stdout).toContain('get <key>');
+    expect(stdout).toContain('set <key> <value>');
+  });
+
   test('get on missing file returns empty and exits 0', () => {
     const { exitCode, stdout } = run(['get', 'auto_upgrade']);
     expect(exitCode).toBe(0);

@@ -2,11 +2,11 @@ import { existsSync, readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
 import {
+  COMPATIBILITY_SURFACES,
   COMPATIBILITY_SURFACE_STATUSES,
-  GSTACK_COMPATIBILITY_SURFACES,
-  HISTORICAL_GSTACK_REFERENCES,
-  REMOVED_GSTACK_RUNTIME_IDENTITIES,
-  REMOVED_GSTACK_BOUNDARY_SHIMS,
+  HISTORICAL_LEGACY_REFERENCES,
+  REMOVED_COMPATIBILITY_BOUNDARY_SHIMS,
+  REMOVED_LEGACY_RUNTIME_IDENTITIES,
 } from '../../lib/nexus/compatibility-surface';
 import { NEXUS_STAGE_PACKS } from '../../lib/nexus/types';
 
@@ -15,7 +15,7 @@ const INVENTORIES = [
   'upstream-notes/gsd-inventory.md',
   'upstream-notes/superpowers-inventory.md',
   'upstream-notes/ccb-inventory.md',
-  'upstream-notes/gstack-host-migration-inventory.md',
+  'upstream-notes/legacy-host-migration-history.md',
 ] as const;
 
 const IMPORTED_SOURCE_INVENTORIES = [
@@ -80,16 +80,16 @@ function parseCsvField(value: string): string[] {
 }
 
 describe('nexus inventories', () => {
-  test('shared compatibility contract exposes final removed vs historical gstack surface', () => {
+  test('shared compatibility contract exposes final removed vs historical legacy surface', () => {
     expect(COMPATIBILITY_SURFACE_STATUSES).toEqual({
       removed_from_active_path: 'removed_from_active_path',
       historical_record_only: 'historical_record_only',
     });
 
-    expect(GSTACK_COMPATIBILITY_SURFACES.length).toBe(
-      REMOVED_GSTACK_BOUNDARY_SHIMS.length +
-        REMOVED_GSTACK_RUNTIME_IDENTITIES.length +
-        HISTORICAL_GSTACK_REFERENCES.length,
+    expect(COMPATIBILITY_SURFACES.length).toBe(
+      REMOVED_COMPATIBILITY_BOUNDARY_SHIMS.length +
+        REMOVED_LEGACY_RUNTIME_IDENTITIES.length +
+        HISTORICAL_LEGACY_REFERENCES.length,
     );
   });
 
@@ -146,8 +146,8 @@ describe('nexus inventories', () => {
     }
   });
 
-  test('gstack host migration inventory marks active removal complete and leaves gstack only as history', () => {
-    const markdown = readFileSync('upstream-notes/gstack-host-migration-inventory.md', 'utf8');
+  test('legacy host migration history marks active removal complete and leaves legacy only as history', () => {
+    const markdown = readFileSync('upstream-notes/legacy-host-migration-history.md', 'utf8');
     const rows = parseInventory(markdown);
 
     expect(markdown).toContain('Milestone 11 final state');
@@ -156,13 +156,13 @@ describe('nexus inventories', () => {
     expect(markdown).not.toContain('retained_compatibility_shim');
     expect(markdown).not.toContain('deferred_final_removal');
 
-    for (const surface of REMOVED_GSTACK_BOUNDARY_SHIMS) {
+    for (const surface of REMOVED_COMPATIBILITY_BOUNDARY_SHIMS) {
       expect(markdown).toContain(surface);
     }
-    for (const surface of REMOVED_GSTACK_RUNTIME_IDENTITIES) {
+    for (const surface of REMOVED_LEGACY_RUNTIME_IDENTITIES) {
       expect(markdown).toContain(surface);
     }
-    for (const surface of HISTORICAL_GSTACK_REFERENCES) {
+    for (const surface of HISTORICAL_LEGACY_REFERENCES) {
       expect(markdown).toContain(surface);
     }
 
@@ -184,7 +184,7 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(markdown).toContain('`~/.nexus` is now the primary host support state root');
     expect(markdown).toContain('`.nexus-worktrees` and `~/.nexus-dev` are now the primary developer substrate roots');
     expect(markdown).toContain('`nexus-*` host helpers are the active entrypoints');
-    expect(markdown).toContain('`gstack` now survives only in historical references');
+    expect(markdown).toContain('`gstack` now survives only in archived records');
     expect(markdown).not.toContain('`gstack-*` host binaries still work as shims');
   });
 

@@ -17,11 +17,11 @@ const evalCollector = createEvalCollector('e2e-learnings');
 
 describeIfSelected('Learnings E2E', ['learnings-show'], () => {
   let workDir: string;
-  let gstackHome: string;
+  let nexusHome: string;
 
   beforeAll(() => {
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-learnings-'));
-    gstackHome = path.join(workDir, '.gstack-home');
+    nexusHome = path.join(workDir, '.nexus-home');
 
     // Init git repo
     const run = (cmd: string, args: string[]) =>
@@ -46,7 +46,7 @@ describeIfSelected('Learnings E2E', ['learnings-show'], () => {
 
     // Seed learnings JSONL with 3 entries of different types
     const slug = 'test-project';
-    const projectDir = path.join(gstackHome, 'projects', slug);
+    const projectDir = path.join(nexusHome, 'projects', slug);
     fs.mkdirSync(projectDir, { recursive: true });
 
     const learnings = [
@@ -87,7 +87,7 @@ describeIfSelected('Learnings E2E', ['learnings-show'], () => {
 Run the /learn command (no arguments — show recent learnings).
 
 IMPORTANT:
-- Use GSTACK_HOME="${gstackHome}" as an environment variable when running bin scripts.
+- Use NEXUS_HOME="${nexusHome}" as an environment variable when running bin scripts.
 - The bin scripts are at ./bin/ (relative to this directory), not at ~/.claude/skills/nexus/bin/.
   Replace any references to ~/.claude/skills/nexus/bin/ with ./bin/ when running commands.
 - Replace any references to ~/.claude/skills/nexus/bin/nexus-slug with ./bin/nexus-slug.

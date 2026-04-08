@@ -1,9 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import {
-  LEGACY_COMPAT_NAMESPACE,
-  LEGACY_STATE_ROOT,
   PRIMARY_DEV_ROOT,
   PRIMARY_NAMESPACE,
   PRIMARY_PACKAGE_NAME,
@@ -13,9 +11,9 @@ import {
   PRODUCT_SURFACE_RULES,
 } from '../../lib/nexus/product-surface';
 import {
-  HISTORICAL_GSTACK_REFERENCES,
-  REMOVED_GSTACK_RUNTIME_IDENTITIES,
-  REMOVED_GSTACK_BOUNDARY_SHIMS,
+  HISTORICAL_LEGACY_REFERENCES,
+  REMOVED_COMPATIBILITY_BOUNDARY_SHIMS,
+  REMOVED_LEGACY_RUNTIME_IDENTITIES,
 } from '../../lib/nexus/compatibility-surface';
 
 const ROOT = join(import.meta.dir, '..', '..');
@@ -29,10 +27,12 @@ describe('nexus product surface contract', () => {
     expect(PRIMARY_WORKTREE_ROOT).toBe('.nexus-worktrees');
     expect(PRIMARY_DEV_ROOT).toBe('.nexus-dev');
 
-    expect(LEGACY_COMPAT_NAMESPACE).toBe('gstack');
-    expect(LEGACY_STATE_ROOT).toBe('.gstack');
     expect(PRODUCT_SURFACE_RULES.primary_state_root).toBe('.nexus');
     expect(PRODUCT_SURFACE_RULES.nexus_state_env_var).toBe('NEXUS_STATE_DIR');
+    expect('legacy_compat_namespace' in PRODUCT_SURFACE_RULES).toBe(false);
+    expect('legacy_state_root' in PRODUCT_SURFACE_RULES).toBe(false);
+    expect('legacy_worktree_root' in PRODUCT_SURFACE_RULES).toBe(false);
+    expect('legacy_dev_root' in PRODUCT_SURFACE_RULES).toBe(false);
   });
 
   test('readme and skills docs describe a Nexus-only active surface', () => {
@@ -71,8 +71,15 @@ describe('nexus product surface contract', () => {
       expect(existsSync(join(ROOT, 'bin', helper))).toBe(true);
     }
 
-    for (const helper of REMOVED_GSTACK_BOUNDARY_SHIMS) {
+    for (const helper of REMOVED_COMPATIBILITY_BOUNDARY_SHIMS) {
       expect(existsSync(join(ROOT, helper))).toBe(false);
+    }
+  });
+
+  test('active nexus helper entrypoints are executable', () => {
+    for (const helper of ['nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
+      const mode = statSync(join(ROOT, 'bin', helper)).mode;
+      expect(mode & 0o111).not.toBe(0);
     }
   });
 
@@ -98,9 +105,9 @@ describe('nexus product surface contract', () => {
     expect(nexusUpdateCheck).not.toContain('GSTACK_STATE_DIR');
   });
 
-  test('gstack is constrained to removed or historical references only', () => {
-    expect(REMOVED_GSTACK_RUNTIME_IDENTITIES).toContain('~/.gstack');
-    expect(REMOVED_GSTACK_RUNTIME_IDENTITIES).toContain('.gstack-worktrees');
-    expect(HISTORICAL_GSTACK_REFERENCES).toEqual(['repository remote naming', 'archived docs and closeouts']);
+  test('legacy runtime identity is constrained to removed or historical references only', () => {
+    expect(REMOVED_LEGACY_RUNTIME_IDENTITIES).toContain('~/.gstack');
+    expect(REMOVED_LEGACY_RUNTIME_IDENTITIES).toContain('.gstack-worktrees');
+    expect(HISTORICAL_LEGACY_REFERENCES).toEqual(['archived docs and closeouts']);
   });
 });

@@ -20,7 +20,7 @@ The cutover now recorded in the repo is:
 
 The repo-visible inventories now reflect the cutover:
 
-- `upstream-notes/gstack-host-migration-inventory.md` marks Nexus-primary roots,
+- `upstream-notes/legacy-host-migration-history.md` marks Nexus-primary roots,
   helpers, and state while keeping Gstack host structures migration-only
 - `upstream-notes/absorption-status.md` records `~/.nexus` as primary,
   `~/.gstack` as compatibility-only, and `nexus-*` helpers as the preferred

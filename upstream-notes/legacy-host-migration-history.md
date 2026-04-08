@@ -1,4 +1,4 @@
-# Gstack Host Migration Inventory
+# Legacy Host Migration History
 
 Milestone 11 final state:
 
@@ -10,7 +10,7 @@ Milestone 11 final state:
 ## Final compatibility record
 
 - `removed_from_active_path`: `bin/gstack-config`, `bin/gstack-relink`, `bin/gstack-uninstall`, `bin/gstack-update-check`, `bin/gstack-analytics`, `bin/gstack-community-dashboard`, `bin/gstack-global-discover`, `bin/gstack-learnings-log`, `bin/gstack-learnings-search`, `bin/gstack-review-log`, `bin/gstack-review-read`, `bin/gstack-repo-mode`, `bin/gstack-slug`, `bin/gstack-telemetry-log`, `bin/gstack-telemetry-sync`, `bin/gstack-patch-names`, `bin/gstack-diff-scope`, `bin/gstack-platform-detect`, `bin/gstack-open-url`, `bin/gstack-extension`, `gstack-upgrade`, `~/.gstack`, `.gstack-worktrees`, `~/.gstack-dev`
-- `historical_record_only`: `repository remote naming`, `archived docs and closeouts`
+- `historical_record_only`: `archived docs and closeouts`
 
 | inventory_id | source_system | source_path_or_ref | capability_or_structure | classification | milestone_state | canonical_nexus_commands | nexus_adapter_seams | governed_artifact_boundaries | normalization_required | conflict_policy | conflict_artifact_paths | host_structure | current_host_role | truth_risk | host_disposition | cleanup_phase | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

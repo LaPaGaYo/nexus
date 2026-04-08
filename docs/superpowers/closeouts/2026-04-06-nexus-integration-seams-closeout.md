@@ -65,7 +65,7 @@ Repo-visible inventories now exist for:
 - `upstream-notes/gsd-inventory.md`
 - `upstream-notes/superpowers-inventory.md`
 - `upstream-notes/ccb-inventory.md`
-- `upstream-notes/gstack-host-migration-inventory.md`
+- `upstream-notes/legacy-host-migration-history.md`
 
 The Gstack host migration inventory is identification-only for post-M2 cleanup planning. It does not authorize cleanup work or host-state truth.
 
@@ -134,7 +134,7 @@ Milestone 3 planning is complete and its Phase 1 absorption baseline has landed.
 The next remaining reduction work is host cleanup and deeper surface unification after the
 Phase 1 absorbed packs baseline.
 
-That work should continue using `upstream-notes/gstack-host-migration-inventory.md` as
+That work should continue using `upstream-notes/legacy-host-migration-history.md` as
 the migration inventory and should keep the following rule unchanged:
 
 Nexus owns contracts, governance, transitions, artifacts, and repo-visible lifecycle truth; Gstack remains host shell only until cleanup is explicitly planned and executed.

@@ -11,23 +11,17 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { getLegacyDevRoot, getPrimaryDevRoot } from '../lib/nexus/support-surface';
+import { getPrimaryDevRoot } from '../lib/nexus/support-surface';
 
 const HOME_DIR = os.homedir();
 const PRIMARY_DEV_DIR = getPrimaryDevRoot(HOME_DIR);
-const LEGACY_DEV_DIR = getLegacyDevRoot(HOME_DIR);
 const STALE_THRESHOLD_SEC = 600; // 10 minutes
 
 function resolveReadableDevPath(...segments: string[]): { path: string; devRoot: string } {
   const primaryPath = path.join(PRIMARY_DEV_DIR, ...segments);
-  const legacyPath = path.join(LEGACY_DEV_DIR, ...segments);
 
   if (fs.existsSync(primaryPath)) {
     return { path: primaryPath, devRoot: PRIMARY_DEV_DIR };
-  }
-
-  if (fs.existsSync(legacyPath)) {
-    return { path: legacyPath, devRoot: LEGACY_DEV_DIR };
   }
 
   return { path: primaryPath, devRoot: PRIMARY_DEV_DIR };
