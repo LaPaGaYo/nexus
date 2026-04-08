@@ -295,11 +295,32 @@ function processExternalHost(
     result = result.slice(0, bodyStart) + '\n' + safetyProse + '\n' + result.slice(bodyStart);
   }
 
-  // Replace hardcoded Claude paths with host-appropriate paths
-  result = result.replace(/~\/\.claude\/skills\/gstack/g, ctx.paths.skillRoot);
-  result = result.replace(/\.claude\/skills\/gstack/g, ctx.paths.localSkillRoot);
-  result = result.replace(/\.claude\/skills\/review/g, `${config.hostSubdir}/skills/gstack/review`);
-  result = result.replace(/\.claude\/skills/g, `${config.hostSubdir}/skills`);
+  // Replace hardcoded Claude Nexus and legacy gstack paths with host-appropriate paths.
+  const pathRewrites: Array<[RegExp, string]> = [
+    [/\$HOME\/\.claude\/skills\/nexus\/bin/g, ctx.paths.binDir],
+    [/\$HOME\/\.claude\/skills\/gstack\/bin/g, ctx.paths.binDir],
+    [/\$HOME\/\.claude\/skills\/nexus\/browse\/dist/g, ctx.paths.browseDir],
+    [/\$HOME\/\.claude\/skills\/gstack\/browse\/dist/g, ctx.paths.browseDir],
+    [/\$HOME\/\.claude\/skills\/nexus\/design\/dist/g, ctx.paths.designDir],
+    [/\$HOME\/\.claude\/skills\/gstack\/design\/dist/g, ctx.paths.designDir],
+    [/\$HOME\/\.claude\/skills\/nexus/g, ctx.paths.skillRoot],
+    [/\$HOME\/\.claude\/skills\/gstack/g, ctx.paths.skillRoot],
+    [/~\/\.claude\/skills\/nexus\/bin/g, ctx.paths.binDir],
+    [/~\/\.claude\/skills\/gstack\/bin/g, ctx.paths.binDir],
+    [/~\/\.claude\/skills\/nexus\/browse\/dist/g, ctx.paths.browseDir],
+    [/~\/\.claude\/skills\/gstack\/browse\/dist/g, ctx.paths.browseDir],
+    [/~\/\.claude\/skills\/nexus\/design\/dist/g, ctx.paths.designDir],
+    [/~\/\.claude\/skills\/gstack\/design\/dist/g, ctx.paths.designDir],
+    [/~\/\.claude\/skills\/nexus/g, ctx.paths.skillRoot],
+    [/~\/\.claude\/skills\/gstack/g, ctx.paths.skillRoot],
+    [/\.claude\/skills\/nexus/g, ctx.paths.localSkillRoot],
+    [/\.claude\/skills\/gstack/g, ctx.paths.localSkillRoot],
+    [/\.claude\/skills\/review/g, `${config.hostSubdir}/skills/nexus/review`],
+    [/\.claude\/skills/g, `${config.hostSubdir}/skills`],
+  ];
+  for (const [pattern, replacement] of pathRewrites) {
+    result = result.replace(pattern, replacement);
+  }
 
   // Factory-only: translate Claude Code tool names to generic phrasing
   if (host === 'factory') {
@@ -435,6 +456,7 @@ for (const currentHost of hostsToRun) {
       if (currentHost !== 'claude') {
         const dir = path.basename(path.dirname(tmplPath));
         if (dir === 'codex') continue;
+        if (dir.startsWith('gstack-')) continue;
       }
 
       const { outputPath, content, symlinkLoop } = processTemplate(tmplPath, currentHost);
@@ -500,11 +522,18 @@ if (failures.length > 0 && HOST_ARG_VAL === 'all') {
 // After all hosts processed, warn if prefix patches may need re-applying
 if (!DRY_RUN) {
   try {
-    const configPath = path.join(process.env.HOME || '', '.gstack', 'config.yaml');
-    if (fs.existsSync(configPath)) {
+    const configPaths = [
+      process.env.NEXUS_STATE_DIR ? path.join(process.env.NEXUS_STATE_DIR, 'config.yaml') : null,
+      path.join(process.env.HOME || '', '.nexus', 'config.yaml'),
+      path.join(process.env.HOME || '', '.gstack', 'config.yaml'),
+    ].filter((value): value is string => Boolean(value));
+
+    for (const configPath of configPaths) {
+      if (!fs.existsSync(configPath)) continue;
       const config = fs.readFileSync(configPath, 'utf-8');
       if (/^skill_prefix:\s*true/m.test(config)) {
-        console.log('\nNote: skill_prefix is true. Run gstack-relink to re-apply name: patches.');
+        console.log('\nNote: skill_prefix is true. Run nexus-relink to re-apply name: patches.');
+        break;
       }
     }
   } catch { /* non-fatal */ }

@@ -16,7 +16,9 @@ NEXUS_CONFIG="${SCRIPT_DIR}/nexus-config"
 
 INSTALL_DIR="${GSTACK_INSTALL_DIR:-}"
 if [ -z "$INSTALL_DIR" ]; then
-  if [ -d "$HOME/.claude/skills/gstack" ]; then
+  if [ -d "$HOME/.claude/skills/nexus" ]; then
+    INSTALL_DIR="$HOME/.claude/skills/nexus"
+  elif [ -d "$HOME/.claude/skills/gstack" ]; then
     INSTALL_DIR="$HOME/.claude/skills/gstack"
   elif [ -d "${SCRIPT_DIR}/.." ] && [ -f "${SCRIPT_DIR}/../setup" ]; then
     INSTALL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -25,7 +27,7 @@ fi
 
 if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
   echo "Error: Nexus install directory not found." >&2
-  echo "Run: cd ~/.claude/skills/gstack && ./setup" >&2
+  echo "Run: cd ~/.claude/skills/nexus && ./setup" >&2
   exit 1
 fi
 
@@ -65,7 +67,7 @@ for skill_dir in "$INSTALL_DIR"/*/; do
   SKILL_COUNT=$((SKILL_COUNT + 1))
 done
 
-"$INSTALL_DIR/bin/gstack-patch-names" "$INSTALL_DIR" "$PREFIX"
+"$INSTALL_DIR/bin/nexus-patch-names" "$INSTALL_DIR" "$PREFIX"
 
 if [ "$PREFIX" = "true" ]; then
   echo "Relinked $SKILL_COUNT skills as nexus-*"

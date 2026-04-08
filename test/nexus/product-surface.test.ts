@@ -80,9 +80,11 @@ describe('nexus product surface contract', () => {
     const setup = readFileSync(join(ROOT, 'setup'), 'utf8');
 
     expect(setup).toContain('nexus-config');
+    expect(setup).toContain('bin/nexus-patch-names');
     expect(setup).toContain('/nexus-upgrade');
     expect(setup).toContain('~/.nexus');
     expect(setup).toContain('$HOME/.nexus/repos/nexus');
+    expect(setup).not.toContain('bin/gstack-patch-names');
     expect(setup).not.toContain('gstack setup failed');
     expect(setup).not.toContain('/gstack-upgrade');
   });
@@ -127,6 +129,16 @@ describe('nexus product surface contract', () => {
     expect(gstackRelink).toContain('exec "$SCRIPT_DIR/nexus-relink"');
     expect(gstackUninstall).toContain('exec "$SCRIPT_DIR/nexus-uninstall"');
     expect(gstackUpdateCheck).toContain('exec "$SCRIPT_DIR/nexus-update-check"');
+  });
+
+  test('nexus relink and update-check use Nexus-owned internal utilities', () => {
+    const nexusRelink = readFileSync(join(ROOT, 'bin', 'nexus-relink'), 'utf8');
+    const nexusUpdateCheck = readFileSync(join(ROOT, 'bin', 'nexus-update-check'), 'utf8');
+
+    expect(nexusRelink).toContain('bin/nexus-patch-names');
+    expect(nexusRelink).not.toContain('bin/gstack-patch-names');
+    expect(nexusUpdateCheck).toContain('bin/nexus-telemetry-log');
+    expect(nexusUpdateCheck).not.toContain('bin/gstack-telemetry-log');
   });
 
   test('product surface keeps gstack limited to the retained compatibility budget', () => {

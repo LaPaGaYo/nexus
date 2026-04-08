@@ -83,9 +83,6 @@ elif [ -d "$HOME/.nexus/repos/nexus/.git" ]; then
 elif [ -d ".claude/skills/nexus/.git" ]; then
   INSTALL_TYPE="local-git"
   INSTALL_DIR=".claude/skills/nexus"
-elif [ -d ".agents/skills/nexus/.git" ]; then
-  INSTALL_TYPE="local-git"
-  INSTALL_DIR=".agents/skills/nexus"
 elif [ -d ".claude/skills/nexus" ]; then
   INSTALL_TYPE="vendored"
   INSTALL_DIR=".claude/skills/nexus"
@@ -136,7 +133,7 @@ If `$STASH_OUTPUT` contains "Saved working directory", warn the user: "Note: loc
 ```bash
 PARENT=$(dirname "$INSTALL_DIR")
 TMP_DIR=$(mktemp -d)
-git clone --depth 1 https://github.com/garrytan/gstack.git "$TMP_DIR/nexus"
+git clone --depth 1 https://github.com/LaPaGaYo/nexus.git "$TMP_DIR/nexus"
 mv "$INSTALL_DIR" "$INSTALL_DIR.bak"
 mv "$TMP_DIR/nexus" "$INSTALL_DIR"
 cd "$INSTALL_DIR" && ./setup

@@ -54,7 +54,6 @@ Nexus-owned stage packs under `lib/nexus/stage-packs/` remain the active interna
 Imported upstream repos remain source material only and do not own lifecycle truth.
 Legacy gstack aliases remain compatibility-only entrypoints and do not own separate contract,
 artifact, or transition logic.
-`/gstack-upgrade` remains available only as a compatibility alias to `/nexus-upgrade`.
 
 Canonical Nexus commands:
 - `/discover`
@@ -111,7 +110,6 @@ Real files get committed to your repo (not a submodule), so `git clone` just wor
 > ```
 
 Compatibility note: legacy roots such as `~/.claude/skills/gstack` and `.claude/skills/gstack` still work as migration fallbacks, but they are no longer the recommended install surface.
-Compatibility note: `/gstack-upgrade` remains only as a shim to `/nexus-upgrade`.
 
 ### Codex, Gemini CLI, or Cursor
 

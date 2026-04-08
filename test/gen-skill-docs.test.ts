@@ -1600,6 +1600,7 @@ describe('Codex generation (--host codex)', () => {
     for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
       if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
       if (entry.name === 'codex') continue; // /codex is excluded from Codex output
+      if (entry.name.startsWith('gstack-')) continue; // compatibility-only shims do not surface on external hosts
       if (!fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) continue;
       const codexName = entry.name.startsWith('nexus-')
         ? entry.name
@@ -1872,10 +1873,7 @@ describe('Codex generation (--host codex)', () => {
     for (const skill of ALL_SKILLS) {
       const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
       expect(content).not.toContain('~/.codex/');
-      // gstack-upgrade legitimately references .agents/skills for cross-platform detection
-      if (skill.dir !== 'gstack-upgrade') {
-        expect(content).not.toContain('.agents/skills');
-      }
+      expect(content).not.toContain('.agents/skills');
     }
   });
 
@@ -1915,6 +1913,7 @@ describe('Factory generation (--host factory)', () => {
     for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
       if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
       if (entry.name === 'codex') continue;
+      if (entry.name.startsWith('gstack-')) continue; // compatibility-only shims do not surface on external hosts
       if (!fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) continue;
       const factoryName = entry.name.startsWith('nexus-')
         ? entry.name
@@ -2681,11 +2680,11 @@ describe('gen-skill-docs prefix warning (#620/#578)', () => {
   test('warns about skill_prefix when config has prefix=true', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-prefix-warn-'));
     try {
-      // Create a fake ~/.gstack/config.yaml with skill_prefix: true
+      // Create a fake ~/.nexus/config.yaml with skill_prefix: true
       const fakeHome = tmpDir;
-      const fakeGstack = path.join(fakeHome, '.gstack');
-      fs.mkdirSync(fakeGstack, { recursive: true });
-      fs.writeFileSync(path.join(fakeGstack, 'config.yaml'), 'skill_prefix: true\n');
+      const fakeNexus = path.join(fakeHome, '.nexus');
+      fs.mkdirSync(fakeNexus, { recursive: true });
+      fs.writeFileSync(path.join(fakeNexus, 'config.yaml'), 'skill_prefix: true\n');
 
       const output = execSync('bun run scripts/gen-skill-docs.ts', {
         cwd: ROOT,
@@ -2694,7 +2693,7 @@ describe('gen-skill-docs prefix warning (#620/#578)', () => {
         timeout: 30000,
       });
       expect(output).toContain('skill_prefix is true');
-      expect(output).toContain('gstack-relink');
+      expect(output).toContain('nexus-relink');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -2704,9 +2703,9 @@ describe('gen-skill-docs prefix warning (#620/#578)', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-prefix-warn-'));
     try {
       const fakeHome = tmpDir;
-      const fakeGstack = path.join(fakeHome, '.gstack');
-      fs.mkdirSync(fakeGstack, { recursive: true });
-      fs.writeFileSync(path.join(fakeGstack, 'config.yaml'), 'skill_prefix: false\n');
+      const fakeNexus = path.join(fakeHome, '.nexus');
+      fs.mkdirSync(fakeNexus, { recursive: true });
+      fs.writeFileSync(path.join(fakeNexus, 'config.yaml'), 'skill_prefix: false\n');
 
       const output = execSync('bun run scripts/gen-skill-docs.ts', {
         cwd: ROOT,
