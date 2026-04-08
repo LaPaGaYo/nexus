@@ -21,6 +21,22 @@ const evalCollector = evalsEnabled ? new EvalCollector('e2e-routing') : null;
 // Unique run ID for this session
 const runId = new Date().toISOString().replace(/[:.]/g, '').replace('T', '-').slice(0, 15);
 
+describe('upgrade routing surface', () => {
+  test('nexus-upgrade is the canonical installed skill while gstack-upgrade stays compatibility-only', () => {
+    const nexusUpgradePath = path.join(ROOT, 'nexus-upgrade', 'SKILL.md');
+    const gstackUpgradePath = path.join(ROOT, 'gstack-upgrade', 'SKILL.md');
+
+    expect(fs.existsSync(nexusUpgradePath)).toBe(true);
+
+    const nexusUpgrade = fs.readFileSync(nexusUpgradePath, 'utf-8');
+    const gstackUpgrade = fs.readFileSync(gstackUpgradePath, 'utf-8');
+
+    expect(nexusUpgrade).toContain('name: nexus-upgrade');
+    expect(gstackUpgrade).toContain('/nexus-upgrade');
+    expect(gstackUpgrade).toContain('compatibility alias');
+  });
+});
+
 // --- Diff-based test selection ---
 // Journey routing tests use E2E_TOUCHFILES (entries prefixed 'journey-' in touchfiles.ts).
 let selectedTests: string[] | null = null;
@@ -71,7 +87,7 @@ function installSkills(tmpDir: string) {
     'qa-only', 'plan-ceo-review', 'plan-eng-review',
     'plan-design-review', 'design-review', 'design-consultation', 'retro',
     'document-release', 'investigate', 'office-hours', 'browse', 'setup-browser-cookies',
-    'gstack-upgrade', 'humanizer',
+    'nexus-upgrade', 'gstack-upgrade', 'humanizer',
   ];
 
   // Install to both project-level and user-level skill directories

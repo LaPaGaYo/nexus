@@ -8,6 +8,7 @@ Imported upstream repos remain source material only and do not own lifecycle tru
 Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 Legacy aliases and host utilities remain secondary compatibility surface only.
+`/gstack-upgrade` remains documented only as a compatibility alias to `/nexus-upgrade`.
 
 ## Nexus v0.1 command surface
 

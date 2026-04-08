@@ -1564,7 +1564,7 @@ describe('Codex skill', () => {
 
 describe('Skill trigger phrases', () => {
   // Skills that must have "Use when" trigger phrases in their description.
-  // Excluded: root gstack (browser tool), gstack-upgrade (gstack-specific),
+  // Excluded: root gstack (browser tool), nexus-upgrade (upgrade-specific),
   // humanizer (text tool)
   const SKILLS_REQUIRING_TRIGGERS = [
     'qa-only', 'investigate', 'plan-design-review',
@@ -1608,8 +1608,25 @@ describe('Skill trigger phrases', () => {
       const frontmatter = content.slice(0, frontmatterEnd);
       expect(frontmatter.toLowerCase()).toContain('nexus');
       expect(frontmatter).toMatch(/canonical|transitional alias/i);
-    }
+  }
+});
+
+describe('Upgrade surface', () => {
+  test('canonical upgrade skill is nexus-upgrade and gstack-upgrade is compatibility-only', () => {
+    const nexusUpgradePath = path.join(ROOT, 'nexus-upgrade', 'SKILL.md');
+    const gstackUpgradePath = path.join(ROOT, 'gstack-upgrade', 'SKILL.md');
+
+    expect(fs.existsSync(nexusUpgradePath)).toBe(true);
+
+    const nexusUpgrade = fs.readFileSync(nexusUpgradePath, 'utf-8');
+    const gstackUpgrade = fs.readFileSync(gstackUpgradePath, 'utf-8');
+
+    expect(nexusUpgrade).toContain('name: nexus-upgrade');
+    expect(nexusUpgrade).toContain('# /nexus-upgrade');
+    expect(gstackUpgrade).toContain('compatibility alias');
+    expect(gstackUpgrade).toContain('/nexus-upgrade');
   });
+});
 });
 
 // ─── Codex Skill Validation ──────────────────────────────────
