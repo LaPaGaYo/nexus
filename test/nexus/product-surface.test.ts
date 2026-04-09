@@ -43,6 +43,8 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('Nexus is the only command surface.');
     expect(readme).toContain('~/.claude/skills/nexus');
     expect(readme).toContain('~/.nexus/config.yaml');
+    expect(readme).toContain('git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus');
+    expect(readme).toContain('Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.');
     expect(readme).not.toContain('compatibility shims');
 
     expect(skills).toContain('Nexus is the only command surface.');
