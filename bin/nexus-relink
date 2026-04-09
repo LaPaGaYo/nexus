@@ -10,6 +10,25 @@
 #   NEXUS_SKILLS_DIR   — override the target skills directory
 set -euo pipefail
 
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-relink" >&2
+    exit 1
+    ;;
+esac
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NEXUS_CONFIG="${SCRIPT_DIR}/nexus-config"
 

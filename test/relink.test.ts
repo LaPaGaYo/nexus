@@ -45,6 +45,12 @@ function setupMockInstall(skills: string[]): void {
   }
 }
 
+function readSkillName(skillDir: string): string | null {
+  const content = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf-8');
+  const match = content.match(/^name:\s*(.+)$/m);
+  return match ? match[1].trim() : null;
+}
+
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-relink-test-'));
 });
@@ -54,6 +60,20 @@ afterEach(() => {
 });
 
 describe('nexus-relink', () => {
+  test('--help prints usage and performs no relink side effects', () => {
+    setupMockInstall(['qa', 'nexus-upgrade']);
+
+    const output = run(`${path.join(installDir, 'bin', 'nexus-relink')} --help`, {
+      NEXUS_INSTALL_DIR: installDir,
+      NEXUS_SKILLS_DIR: skillsDir,
+    });
+
+    expect(output).toContain('nexus-relink');
+    expect(output).toContain('NEXUS_INSTALL_DIR');
+    expect(fs.readdirSync(skillsDir)).toEqual([]);
+    expect(readSkillName(path.join(installDir, 'nexus-upgrade'))).toBe('nexus-upgrade');
+  });
+
   test('creates nexus-* symlinks when skill_prefix=true', () => {
     setupMockInstall(['qa', 'ship', 'review']);
     run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
@@ -156,12 +176,6 @@ describe('nexus-relink', () => {
 });
 
 describe('nexus-patch-names', () => {
-  function readSkillName(skillDir: string): string | null {
-    const content = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf-8');
-    const match = content.match(/^name:\s*(.+)$/m);
-    return match ? match[1].trim() : null;
-  }
-
   test('prefix=true patches name: fields to Nexus names', () => {
     setupMockInstall(['qa', 'ship', 'review']);
     run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);

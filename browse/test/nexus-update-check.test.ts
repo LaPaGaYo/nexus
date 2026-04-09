@@ -42,6 +42,14 @@ afterEach(() => {
 });
 
 describe('nexus-update-check', () => {
+  test('--help prints usage and exits 0', () => {
+    const { exitCode, stdout } = run({}, ['--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('nexus-update-check');
+    expect(stdout).toContain('JUST_UPGRADED');
+    expect(stdout).toContain('UPGRADE_AVAILABLE');
+  });
+
   test('exits silently when VERSION file is missing', () => {
     const { exitCode, stdout } = run();
     expect(exitCode).toBe(0);

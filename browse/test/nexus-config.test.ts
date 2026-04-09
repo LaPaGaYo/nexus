@@ -39,6 +39,7 @@ describe('nexus-config', () => {
     expect(stdout).toContain('nexus-config');
     expect(stdout).toContain('get <key>');
     expect(stdout).toContain('set <key> <value>');
+    expect(stdout).not.toContain('set -euo pipefail');
   });
 
   test('get on missing file returns empty and exits 0', () => {

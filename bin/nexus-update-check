@@ -12,6 +12,29 @@
 #   NEXUS_REMOTE_URL    — override remote VERSION URL
 set -euo pipefail
 
+FORCE_CHECK=0
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  --force)
+    FORCE_CHECK=1
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-update-check [--force]" >&2
+    exit 1
+    ;;
+esac
+
 NEXUS_DIR="${NEXUS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 CACHE_FILE="$STATE_DIR/last-update-check"
@@ -44,7 +67,7 @@ derive_default_remote_url() {
 
 REMOTE_URL="${NEXUS_REMOTE_URL:-$(derive_default_remote_url || true)}"
 
-if [ "${1:-}" = "--force" ]; then
+if [ "$FORCE_CHECK" -eq 1 ]; then
   rm -f "$CACHE_FILE"
   rm -f "$SNOOZE_FILE"
 fi
