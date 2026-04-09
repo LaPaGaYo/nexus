@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.0.0] - 2026-04-08 — Nexus First Release
+
+Nexus is now the single product surface, runtime, and governed workflow for this
+repository. Gstack, PM Skills, GSD, and Superpowers have been absorbed into
+Nexus-owned commands, stage content, and repo-visible contracts. CCB remains
+underneath as dispatch and transport infrastructure for cross-model execution,
+not as a lifecycle or truth owner.
+
+### Added
+
+- **Canonical Nexus lifecycle.** `/discover`, `/frame`, `/plan`, `/handoff`, `/build`, `/review`, `/qa`, `/ship`, and `/closeout` are now the single public command surface with Nexus-owned state, artifacts, and governance.
+- **Repo-visible governed runtime.** `lib/nexus/` and `.planning/` now own lifecycle status, transitions, provenance, audit persistence, archive checks, and closeout gating.
+- **Real CCB dispatch integration.** Nexus now dispatches governed route checks and external model work through CCB for Claude, Codex, and Gemini while preserving Nexus-owned requested-vs-actual route records.
+- **Nexus-first host surface.** The default install roots, helper binaries, support state, worktree substrate, and generated skill surface now present as Nexus rather than legacy host identities.
+
+### Changed
+
+- **Upstream capabilities were absorbed into Nexus.** PM Skills, GSD, and Superpowers now contribute method packs, stage content, and discipline inside Nexus rather than living as parallel product surfaces.
+- **Canonical stage content is Nexus-owned.** Active lifecycle wrappers now render from Nexus-owned stage packs instead of scattered upstream instruction bodies.
+- **Product docs are Nexus-first.** README, skills docs, AGENTS guidance, closeouts, inventories, and live helper output now describe one unified Nexus system.
+
+### Fixed
+
+- **Helper `--help` paths are stable and side-effect free.** `nexus-config`, `nexus-relink`, and `nexus-update-check` now print clean usage text and do not mutate install state during help invocations.
+- **Release-candidate helper regressions caught and closed on `main`.** The final validation pass fixed post-merge CLI surface regressions before tagging the release.
+
 ## [0.14.5.0] - 2026-03-31 — Ship Idempotency + Skill Prefix Fix
 
 Re-running `/ship` after a failed push or PR creation no longer double-bumps your version or duplicates your CHANGELOG. And if you use `--prefix` mode, your skill names actually work now.
