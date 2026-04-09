@@ -98,6 +98,11 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| [`/ship`](#ship) |');
     expect(skills).toContain('| [`/closeout`](#closeout) |');
     expect(skills).toContain('## Legacy compatibility deep dives');
+    expect(skills).not.toContain('## `/office-hours`');
+    expect(skills).not.toContain('## `/plan-ceo-review`');
+    expect(skills).not.toContain('## `/plan-eng-review`');
+    expect(skills).not.toContain('This is where every project should start.');
+    expect(skills).not.toContain('Brian Chesky mode');
   });
 
   test('package metadata and setup are Nexus-primary', () => {

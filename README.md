@@ -20,6 +20,9 @@ Gstack host architecture, PM Skills, GSD, and Superpowers are absorbed into
 Nexus-owned commands, stage content, and runtime contracts. CCB remains dispatch
 and transport infrastructure only.
 
+Nexus-owned stage packs remain the active internal runtime units. Imported
+upstream repos remain source material only.
+
 ## What Nexus owns
 
 Nexus owns the active product and engineering semantics:
