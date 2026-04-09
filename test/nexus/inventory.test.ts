@@ -15,7 +15,6 @@ const INVENTORIES = [
   'upstream-notes/gsd-inventory.md',
   'upstream-notes/superpowers-inventory.md',
   'upstream-notes/ccb-inventory.md',
-  'upstream-notes/design-md-inventory.md',
   'upstream-notes/legacy-host-migration-history.md',
 ] as const;
 
@@ -24,7 +23,6 @@ const IMPORTED_SOURCE_INVENTORIES = [
   'upstream-notes/gsd-inventory.md',
   'upstream-notes/superpowers-inventory.md',
   'upstream-notes/ccb-inventory.md',
-  'upstream-notes/design-md-inventory.md',
 ] as const;
 
 const SURFACE_DOCS = ['README.md', 'docs/skills.md'] as const;

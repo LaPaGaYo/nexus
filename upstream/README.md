@@ -20,9 +20,6 @@ Nexus-owned absorbed capability maps live under `lib/nexus/absorption/` and trac
 - `claude-code-bridge`
   - repo: `https://github.com/bfly123/claude_code_bridge.git`
   - pinned_commit: `2bb9a1b2f33ab258723de10412fd048690121bc2`
-- `design-md`
-  - repo: `https://github.com/VoltAgent/awesome-design-md.git`
-  - pinned_commit: `3a39936d335667f4eed4a0aec89ebe3a20cb07e2`
 
 ## Guardrails
 

@@ -11,7 +11,6 @@ into Nexus-owned stage content and stage packs.
 | GSD | `upstream/gsd` | Source material only for planning and closeout stage content and stage packs |
 | Superpowers | `upstream/superpowers` | Source material only for build, review, and ship stage content and stage packs |
 | CCB | `upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA routing/transport under Nexus control |
-| Design MD | `upstream/design-md` | Source material only for Nexus-owned DESIGN.md schema work, design reference packs, and design support skills |
 
 ## Active Nexus-owned stage content
 
@@ -47,30 +46,6 @@ internal runtime units.
 The absorbed builders under `lib/nexus/absorption/` remain implementation detail
 only. Imported upstream repos remain source material only, not runtime front
 doors.
-
-## Design support absorption status
-
-`design-md` is not part of the governed lifecycle stage-pack system. Its role is
-to inform the Nexus design support surface:
-
-- `/design-consultation`
-- `/design-shotgun`
-- `/design-html`
-- `/design-review`
-- `/plan-design-review`
-
-The imported `design-md` repo is currently treated as:
-
-- a catalog of design inspirations
-- a source of DESIGN.md section-schema ideas
-- a candidate source for future Nexus-owned design reference packs
-
-It is not treated as:
-
-- a runtime front door
-- a canonical artifact owner
-- a governed truth source
-- a direct substitute for Nexus-owned `DESIGN.md`
 
 ## Product surface status
 
