@@ -1,0 +1,44 @@
+import { describe, expect, test } from 'bun:test';
+import {
+  CANONICAL_MANIFEST,
+  LEGACY_ALIASES,
+  resolveCommandName,
+} from '../../lib/nexus/command-manifest';
+import { assertCanonicalLifecycleEntrypoint } from '../../lib/nexus/migration-safety';
+
+describe('nexus command manifest', () => {
+  test('declares all canonical commands exactly once', () => {
+    expect(Object.keys(CANONICAL_MANIFEST)).toEqual([
+      'discover',
+      'frame',
+      'plan',
+      'handoff',
+      'build',
+      'review',
+      'qa',
+      'ship',
+      'closeout',
+    ]);
+  });
+
+  test('maps start-work to discover only', () => {
+    expect(LEGACY_ALIASES['start-work']).toBe('discover');
+  });
+
+  test('marks review qa and ship as implemented tail-lifecycle stages', () => {
+    expect(CANONICAL_MANIFEST.review.implementation).toBe('implemented');
+    expect(CANONICAL_MANIFEST.qa.implementation).toBe('implemented');
+    expect(CANONICAL_MANIFEST.ship.implementation).toBe('implemented');
+  });
+
+  test('resolves aliases to canonical commands', () => {
+    expect(resolveCommandName('office-hours')).toBe('discover');
+    expect(resolveCommandName('autoplan')).toBe('plan');
+    expect(resolveCommandName('verify-close')).toBe('closeout');
+  });
+
+  test('keeps backend-native command names outside the documented lifecycle surface', () => {
+    expect(() => assertCanonicalLifecycleEntrypoint('write-prd')).toThrow(/non-canonical/i);
+    expect(() => assertCanonicalLifecycleEntrypoint('plan-phase')).toThrow(/non-canonical/i);
+  });
+});

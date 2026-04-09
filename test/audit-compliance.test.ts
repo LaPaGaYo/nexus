@@ -37,12 +37,31 @@ describe('Audit compliance', () => {
     // Pending finalization must check _TEL and binary existence
     expect(preamble).toContain('_TEL" != "off"');
     expect(preamble).toContain('-x ');
-    expect(preamble).toContain('gstack-telemetry-log');
+    expect(preamble).toContain('nexus-telemetry-log');
     // End-of-skill telemetry must also be conditional
     const completionIdx = preamble.indexOf('Telemetry (run last)');
     expect(completionIdx).toBeGreaterThan(-1);
     const completionSection = preamble.slice(completionIdx);
     expect(completionSection).toContain('_TEL" != "off"');
+  });
+
+  test('active resolver guidance uses Nexus-owned utilities and state roots', () => {
+    const reviewArmy = readFileSync(join(ROOT, 'scripts/resolvers/review-army.ts'), 'utf-8');
+    expect(reviewArmy).toContain('nexus-diff-scope');
+    expect(reviewArmy).toContain('nexus-learnings-search');
+    expect(reviewArmy).not.toContain('gstack-diff-scope');
+    expect(reviewArmy).not.toContain('gstack-learnings-search');
+
+    const design = readFileSync(join(ROOT, 'scripts/resolvers/design.ts'), 'utf-8');
+    expect(design).toContain('nexus-diff-scope');
+    expect(design).not.toContain('gstack-diff-scope');
+
+    const testing = readFileSync(join(ROOT, 'scripts/resolvers/testing.ts'), 'utf-8');
+    expect(testing).toContain('.nexus/no-test-bootstrap');
+    expect(testing).toContain('nexus-slug');
+    expect(testing).toContain('~/.nexus/projects');
+    expect(testing).not.toContain('gstack-slug');
+    expect(testing).not.toContain('~/.gstack/projects');
   });
 
   // Round 2 Fix 1: W012 — Bun install uses checksum verification
@@ -107,7 +126,7 @@ describe('Audit compliance', () => {
   test('all generated SKILL.md files with telemetry calls use conditional pattern', () => {
     const skills = getAllSkillMds();
     for (const { name, content } of skills) {
-      if (content.includes('gstack-telemetry-log')) {
+      if (content.includes('nexus-telemetry-log')) {
         expect(content).toContain('_TEL" != "off"');
       }
     }

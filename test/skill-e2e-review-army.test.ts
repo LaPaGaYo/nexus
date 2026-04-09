@@ -11,6 +11,14 @@ import * as os from 'os';
 
 const evalCollector = createEvalCollector('e2e-review-army');
 
+test('review army resolver uses Nexus diff and learnings helpers', () => {
+  const resolver = fs.readFileSync(path.join(ROOT, 'scripts', 'resolvers', 'review-army.ts'), 'utf-8');
+  expect(resolver).toContain('nexus-diff-scope');
+  expect(resolver).toContain('nexus-learnings-search');
+  expect(resolver).not.toContain('gstack-diff-scope');
+  expect(resolver).not.toContain('gstack-learnings-search');
+});
+
 // Helper: create a git repo with a feature branch
 function setupRepo(prefix: string): { dir: string; run: (cmd: string, args: string[]) => void } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `skill-e2e-${prefix}-`));
@@ -73,7 +81,7 @@ The specialist checklists are in review-specialists/ (testing.md, security.md, p
 
 Skip the preamble, lake intro, telemetry sections.
 Run Step 4 (Critical pass) then Step 4.5 (Review Army — Specialist Dispatch).
-The base branch is main. Run gstack-diff-scope style analysis on the changed files.
+The base branch is main. Run nexus-diff-scope style analysis on the changed files.
 Since db/migrate/ files changed, the Data Migration specialist should activate.
 
 For the specialist dispatch, instead of launching subagents, just read review-specialists/data-migration.md

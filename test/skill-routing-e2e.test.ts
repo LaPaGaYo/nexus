@@ -21,6 +21,20 @@ const evalCollector = evalsEnabled ? new EvalCollector('e2e-routing') : null;
 // Unique run ID for this session
 const runId = new Date().toISOString().replace(/[:.]/g, '').replace('T', '-').slice(0, 15);
 
+describe('upgrade routing surface', () => {
+  test('nexus-upgrade is the canonical installed skill and gstack-upgrade is removed', () => {
+    const nexusUpgradePath = path.join(ROOT, 'nexus-upgrade', 'SKILL.md');
+    const gstackUpgradePath = path.join(ROOT, 'gstack-upgrade', 'SKILL.md');
+
+    expect(fs.existsSync(nexusUpgradePath)).toBe(true);
+    expect(fs.existsSync(gstackUpgradePath)).toBe(false);
+
+    const nexusUpgrade = fs.readFileSync(nexusUpgradePath, 'utf-8');
+
+    expect(nexusUpgrade).toContain('name: nexus-upgrade');
+  });
+});
+
 // --- Diff-based test selection ---
 // Journey routing tests use E2E_TOUCHFILES (entries prefixed 'journey-' in touchfiles.ts).
 let selectedTests: string[] | null = null;
@@ -66,11 +80,12 @@ if (evalsEnabled && process.env.EVALS_TIER) {
  *  the Skill tool appears in Claude's available tools list. */
 function installSkills(tmpDir: string) {
   const skillDirs = [
-    '', // root gstack SKILL.md
-    'qa', 'qa-only', 'ship', 'review', 'plan-ceo-review', 'plan-eng-review',
+    '', // root Nexus SKILL.md
+    'discover', 'frame', 'plan', 'handoff', 'build', 'review', 'qa', 'ship', 'closeout',
+    'qa-only', 'plan-ceo-review', 'plan-eng-review',
     'plan-design-review', 'design-review', 'design-consultation', 'retro',
     'document-release', 'investigate', 'office-hours', 'browse', 'setup-browser-cookies',
-    'gstack-upgrade', 'humanizer',
+    'nexus-upgrade', 'humanizer',
   ];
 
   // Install to both project-level and user-level skill directories
@@ -84,7 +99,7 @@ function installSkills(tmpDir: string) {
     const srcPath = path.join(ROOT, skill, 'SKILL.md');
     if (!fs.existsSync(srcPath)) continue;
 
-    const skillName = skill || 'gstack';
+    const skillName = skill || 'nexus';
 
     for (const targetBase of installTargets) {
       const destDir = path.join(targetBase, skillName);
@@ -103,10 +118,15 @@ function installSkills(tmpDir: string) {
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
 tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
+Canonical Nexus lifecycle skills own stage meaning and repo-visible artifact flow.
+Do not substitute backend-native commands or ad-hoc answers for those lifecycle skills.
 
 Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Product ideas, "is this worth building", brainstorming → invoke discover
+- Scope definition, requirements framing, non-goals → invoke frame
+- Architecture review, execution readiness, implementation planning → invoke plan
+- Governed routing and handoff packaging → invoke handoff
+- Bounded implementation execution → invoke build
 - Bugs, errors, "why is this broken", 500 errors → invoke investigate
 - Ship, deploy, push, create PR → invoke ship
 - QA, test the site, find bugs → invoke qa
@@ -115,7 +135,7 @@ Key routing rules:
 - Weekly retro → invoke retro
 - Design system, brand → invoke design-consultation
 - Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
+- Final governed verification and closure → invoke closeout
 `);
 }
 
@@ -195,7 +215,7 @@ describeE2E('Skill Routing E2E — Developer Journey', () => {
     try {
 
       const testName = 'journey-ideation';
-      const expectedSkill = 'office-hours';
+      const expectedSkill = 'discover';
       const result = await runSkillTest({
         prompt: "I've been thinking about building a waitlist management tool for restaurants. The existing solutions are expensive and overcomplicated. I want something simple — a tablet app where hosts can add parties, see wait times, and text customers when their table is ready. Help me think through whether this is worth building and what the key design decisions are.",
         workingDirectory: tmpDir,
@@ -245,7 +265,7 @@ describeE2E('Skill Routing E2E — Developer Journey', () => {
       spawnSync('git', ['commit', '-m', 'initial'], { cwd: tmpDir, stdio: 'pipe', timeout: 5000 });
 
       const testName = 'journey-plan-eng';
-      const expectedSkill = 'plan-eng-review';
+      const expectedSkill = 'plan';
       const result = await runSkillTest({
         prompt: "I wrote up a plan for the waitlist app in plan.md. Can you take a look at the architecture and make sure I'm not missing any edge cases or failure modes before I start coding?",
         workingDirectory: tmpDir,

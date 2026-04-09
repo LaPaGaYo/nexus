@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Compare two eval runs from ~/.gstack-dev/evals/
+ * Compare two eval runs from the Nexus eval roots.
  *
  * Usage:
  *   bun run eval:compare                    # compare two most recent of same tier
@@ -19,7 +19,7 @@ import {
 } from '../test/helpers/eval-store';
 import type { EvalResult } from '../test/helpers/eval-store';
 
-const EVAL_DIR = getProjectEvalDir();
+const EVAL_DIR = getProjectEvalDir('read');
 
 function loadResult(filepath: string): EvalResult {
   // Resolve relative to EVAL_DIR if not absolute

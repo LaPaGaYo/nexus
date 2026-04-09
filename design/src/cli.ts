@@ -60,7 +60,7 @@ function printUsage(): void {
     console.log(`  ${name.padEnd(12)} ${info.description}`);
     console.log(`  ${"".padEnd(12)} ${info.usage}`);
   }
-  console.log("\nAuth: ~/.gstack/openai.json or OPENAI_API_KEY env var");
+  console.log("\nAuth: ~/.nexus/openai.json or OPENAI_API_KEY env var");
   console.log("Setup: $D setup");
 }
 
@@ -86,7 +86,7 @@ async function runSetup(): Promise<void> {
     }
 
     saveApiKey(key);
-    console.log("Key saved to ~/.gstack/openai.json (0600 permissions).");
+    console.log("Key saved to ~/.nexus/openai.json (0600 permissions).");
   }
 
   // Smoke test

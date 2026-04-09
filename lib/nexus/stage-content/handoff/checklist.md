@@ -1,0 +1,3 @@
+- record requested route
+- validate transport availability
+- require separate Nexus approval

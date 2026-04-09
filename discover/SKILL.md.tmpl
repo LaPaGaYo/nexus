@@ -1,0 +1,36 @@
+---
+name: discover
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus discovery command. Writes repo-visible discovery artifacts and stage
+  status through Nexus-owned normalization and governance. Use when the problem is still
+  vague and needs clarification. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /discover — Nexus Discovery
+
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
+
+Run:
+
+```bash
+bun run bin/nexus.ts discover
+```

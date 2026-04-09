@@ -880,8 +880,8 @@ describe('cleanup heuristics (write-commands.ts)', () => {
     expect(wcSrc).toContain('text.length < 20');
   });
 
-  test('sticky cleanup skips gstack control indicator', () => {
-    expect(wcSrc).toContain("gstack-ctrl");
+  test('sticky cleanup skips nexus control indicator', () => {
+    expect(wcSrc).toContain("nexus-ctrl");
   });
 
   test('CLEANUP_SELECTORS has clutter category', () => {

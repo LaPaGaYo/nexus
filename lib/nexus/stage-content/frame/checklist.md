@@ -1,0 +1,3 @@
+- define scope
+- define non-goals
+- define success criteria

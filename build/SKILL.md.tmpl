@@ -1,0 +1,35 @@
+---
+name: build
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus build command. Executes the bounded governed implementation contract
+  and writes repo-visible build request, result, and stage status artifacts. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /build — Nexus Governed Build
+
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
+
+Run:
+
+```bash
+bun run bin/nexus.ts build
+```

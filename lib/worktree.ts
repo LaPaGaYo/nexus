@@ -14,6 +14,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { getPrimaryDevRoot, getPrimaryWorktreeRoot } from './nexus/support-surface';
 
 // --- Interfaces ---
 
@@ -39,7 +40,7 @@ export interface HarvestResult {
 function copyDirSync(src: string, dest: string): void {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    // Skip symlinks to avoid infinite recursion (e.g., .claude/skills/gstack → repo root)
+    // Skip symlinks to avoid infinite recursion (e.g., .claude/skills/nexus → repo root)
     if (entry.isSymbolicLink()) continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
@@ -69,7 +70,13 @@ interface DedupIndex {
 }
 
 function getDedupPath(): string {
-  return path.join(os.homedir(), '.gstack-dev', 'harvests', 'dedup.json');
+  const homeDir = os.homedir();
+  const primaryPath = path.join(getPrimaryDevRoot(homeDir), 'harvests', 'dedup.json');
+  return primaryPath;
+}
+
+function getPrimaryDedupPath(): string {
+  return path.join(getPrimaryDevRoot(os.homedir()), 'harvests', 'dedup.json');
 }
 
 function loadDedupIndex(): DedupIndex {
@@ -82,11 +89,12 @@ function loadDedupIndex(): DedupIndex {
 }
 
 function saveDedupIndex(index: DedupIndex): void {
-  const dir = path.dirname(getDedupPath());
+  const dedupPath = getPrimaryDedupPath();
+  const dir = path.dirname(dedupPath);
   fs.mkdirSync(dir, { recursive: true });
-  const tmp = getDedupPath() + '.tmp';
+  const tmp = dedupPath + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(index, null, 2));
-  fs.renameSync(tmp, getDedupPath());
+  fs.renameSync(tmp, dedupPath);
 }
 
 // --- WorktreeManager ---
@@ -115,7 +123,7 @@ export class WorktreeManager {
   create(testName: string): string {
     const originalSha = git(['rev-parse', 'HEAD'], this.repoRoot);
 
-    const worktreeBase = path.join(this.repoRoot, '.gstack-worktrees', this.runId);
+    const worktreeBase = path.join(getPrimaryWorktreeRoot(this.repoRoot), this.runId);
     fs.mkdirSync(worktreeBase, { recursive: true });
 
     const worktreePath = path.join(worktreeBase, testName);
@@ -181,7 +189,7 @@ export class WorktreeManager {
 
       if (!isDuplicate) {
         // Save patch
-        const harvestDir = path.join(os.homedir(), '.gstack-dev', 'harvests', this.runId);
+        const harvestDir = path.join(getPrimaryDevRoot(os.homedir()), 'harvests', this.runId);
         fs.mkdirSync(harvestDir, { recursive: true });
         patchPath = path.join(harvestDir, `${testName}.patch`);
         fs.writeFileSync(patchPath, patch);
@@ -233,7 +241,7 @@ export class WorktreeManager {
     }
 
     // Clean up the run directory if empty
-    const runDir = path.join(this.repoRoot, '.gstack-worktrees', this.runId);
+    const runDir = path.join(getPrimaryWorktreeRoot(this.repoRoot), this.runId);
     try {
       const entries = fs.readdirSync(runDir);
       if (entries.length === 0) {
@@ -247,17 +255,18 @@ export class WorktreeManager {
     try {
       git(['worktree', 'prune'], this.repoRoot, true);
 
-      const worktreeBase = path.join(this.repoRoot, '.gstack-worktrees');
-      if (!fs.existsSync(worktreeBase)) return;
+      for (const worktreeBase of [getPrimaryWorktreeRoot(this.repoRoot)]) {
+        if (!fs.existsSync(worktreeBase)) continue;
 
-      for (const entry of fs.readdirSync(worktreeBase)) {
-        // Don't prune our own run
-        if (entry === this.runId) continue;
+        for (const entry of fs.readdirSync(worktreeBase)) {
+          // Don't prune our own run
+          if (worktreeBase === getPrimaryWorktreeRoot(this.repoRoot) && entry === this.runId) continue;
 
-        const entryPath = path.join(worktreeBase, entry);
-        try {
-          fs.rmSync(entryPath, { recursive: true, force: true });
-        } catch { /* non-fatal */ }
+          const entryPath = path.join(worktreeBase, entry);
+          try {
+            fs.rmSync(entryPath, { recursive: true, force: true });
+          } catch { /* non-fatal */ }
+        }
       }
     } catch {
       process.stderr.write('  WORKTREE: prune failed (non-fatal)\n');

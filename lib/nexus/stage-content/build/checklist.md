@@ -1,0 +1,3 @@
+- run build discipline before transport
+- preserve requested route
+- record actual route separately

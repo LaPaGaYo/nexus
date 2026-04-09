@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# nexus-relink — re-create skill symlinks based on skill_prefix config
+#
+# Usage:
+#   nexus-relink
+#
+# Env overrides (for testing):
+#   NEXUS_STATE_DIR    — override the Nexus state directory
+#   NEXUS_INSTALL_DIR  — override the current install directory
+#   NEXUS_SKILLS_DIR   — override the target skills directory
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+NEXUS_CONFIG="${SCRIPT_DIR}/nexus-config"
+
+INSTALL_DIR="${NEXUS_INSTALL_DIR:-}"
+if [ -z "$INSTALL_DIR" ]; then
+  if [ -d "$HOME/.claude/skills/nexus" ]; then
+    INSTALL_DIR="$HOME/.claude/skills/nexus"
+  elif [ -d "${SCRIPT_DIR}/.." ] && [ -f "${SCRIPT_DIR}/../setup" ]; then
+    INSTALL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  fi
+fi
+
+if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
+  echo "Error: Nexus install directory not found." >&2
+  echo "Run: cd ~/.claude/skills/nexus && ./setup" >&2
+  exit 1
+fi
+
+SKILLS_DIR="${NEXUS_SKILLS_DIR:-$(dirname "$INSTALL_DIR")}"
+[ -d "$SKILLS_DIR" ] || mkdir -p "$SKILLS_DIR"
+
+PREFIX=$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || echo "false")
+
+SKILL_COUNT=0
+for skill_dir in "$INSTALL_DIR"/*/; do
+  [ -d "$skill_dir" ] || continue
+  skill=$(basename "$skill_dir")
+  case "$skill" in bin|browse|design|docs|extension|lib|node_modules|scripts|test|.git|.github) continue ;; esac
+  [ -f "$skill_dir/SKILL.md" ] || continue
+
+  if [ "$PREFIX" = "true" ]; then
+    case "$skill" in
+      nexus-*) link_name="$skill" ;;
+      *) link_name="nexus-$skill" ;;
+    esac
+    ln -sfn "$INSTALL_DIR/$skill" "$SKILLS_DIR/$link_name"
+    [ "$link_name" != "$skill" ] && [ -L "$SKILLS_DIR/$skill" ] && rm -f "$SKILLS_DIR/$skill"
+  else
+    ln -sfn "$INSTALL_DIR/$skill" "$SKILLS_DIR/$skill"
+    case "$skill" in
+      nexus-*) ;;
+      *) [ -L "$SKILLS_DIR/nexus-$skill" ] && rm -f "$SKILLS_DIR/nexus-$skill" ;;
+    esac
+  fi
+  SKILL_COUNT=$((SKILL_COUNT + 1))
+done
+
+"$INSTALL_DIR/bin/nexus-patch-names" "$INSTALL_DIR" "$PREFIX"
+
+if [ "$PREFIX" = "true" ]; then
+  echo "Relinked $SKILL_COUNT skills as nexus-*"
+else
+  echo "Relinked $SKILL_COUNT skills as flat names"
+fi

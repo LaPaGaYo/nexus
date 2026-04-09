@@ -1,0 +1,35 @@
+---
+name: closeout
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus closeout command. Verifies review completeness, archive state, and
+  final governed readiness before concluding the work unit. Use after `/review`. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /closeout — Nexus Governed Closeout
+
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
+
+Run:
+
+```bash
+bun run bin/nexus.ts closeout
+```

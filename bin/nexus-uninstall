@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# nexus-uninstall — remove Nexus skills, local state, and browse daemons.
+#
+# Usage:
+#   nexus-uninstall               — interactive uninstall
+#   nexus-uninstall --force       — remove everything without prompting
+#   nexus-uninstall --keep-state  — remove skills but keep Nexus host state
+#
+# Env overrides (for testing):
+#   NEXUS_DIR         — override auto-detected install root
+#   NEXUS_STATE_DIR   — override the Nexus state directory
+#
+# NOTE: Uses set -uo pipefail (no -e) — uninstall must never abort partway.
+set -uo pipefail
+
+if [ -z "${HOME:-}" ]; then
+  echo "ERROR: \$HOME is not set" >&2
+  exit 1
+fi
+
+NEXUS_DIR="${NEXUS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
+_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+FORCE=0
+KEEP_STATE=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    --keep-state) KEEP_STATE=1; shift ;;
+    -h|--help)
+      sed -n '2,/^[^#]/{ /^#/s/^# \{0,1\}//p; }' "$0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      echo "Usage: nexus-uninstall [--force] [--keep-state]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+stop_browse_daemon() {
+  local state_file="$1"
+  [ -f "$state_file" ] || return
+
+  local pid
+  pid="$(awk -F'[:,]' '/"pid"/ { for(i=1;i<=NF;i++) if($i ~ /"pid"/) { gsub(/[^0-9]/, "", $(i+1)); print $(i+1); exit } }' "$state_file" 2>/dev/null || true)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    local waited=0
+    while [ "$waited" -lt 4 ] && kill -0 "$pid" 2>/dev/null; do
+      sleep 0.5
+      waited=$(( waited + 1 ))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+    REMOVED+=("browse daemon (PID $pid)")
+  fi
+}
+
+remove_symlinks_pointing_into_nexus() {
+  local dir="$1"
+  local label="$2"
+  [ -d "$dir" ] || return
+
+  for link in "$dir"/*; do
+    [ -L "$link" ] || continue
+    local target
+    target="$(readlink "$link" 2>/dev/null || true)"
+    case "$target" in
+      nexus/*|*/nexus/*)
+        rm -f "$link"
+        REMOVED+=("$label/$(basename "$link")")
+        ;;
+    esac
+  done
+}
+
+if [ "$FORCE" -eq 0 ]; then
+  echo "This will remove Nexus from your system:"
+  { [ -d "$HOME/.claude/skills/nexus" ] || [ -L "$HOME/.claude/skills/nexus" ]; } && echo "  ~/.claude/skills/nexus (+ per-skill symlinks)"
+  [ -d "$HOME/.codex/skills" ] && echo "  ~/.codex/skills/nexus*"
+  [ -d "$HOME/.factory/skills" ] && echo "  ~/.factory/skills/nexus*"
+  [ -d "$HOME/.kiro/skills" ] && echo "  ~/.kiro/skills/nexus*"
+  [ "$KEEP_STATE" -eq 0 ] && [ -d "$STATE_DIR" ] && echo "  $STATE_DIR"
+
+  if [ -n "$_GIT_ROOT" ]; then
+    [ -d "$_GIT_ROOT/.claude/skills/nexus" ] && echo "  $_GIT_ROOT/.claude/skills/nexus (project-local)"
+    [ -d "$_GIT_ROOT/.nexus" ] && echo "  $_GIT_ROOT/.nexus/ (browse state + reports)"
+    [ -d "$_GIT_ROOT/.nexus-worktrees" ] && echo "  $_GIT_ROOT/.nexus-worktrees/"
+    [ -d "$_GIT_ROOT/.agents/skills/nexus" ] && echo "  $_GIT_ROOT/.agents/skills/nexus*"
+  fi
+
+  if [ -n "$_GIT_ROOT" ] && [ -f "$_GIT_ROOT/.nexus/browse.json" ]; then
+    _PREVIEW_PID="$(awk -F'[:,]' '/"pid"/ { for(i=1;i<=NF;i++) if($i ~ /"pid"/) { gsub(/[^0-9]/, "", $(i+1)); print $(i+1); exit } }' "$_GIT_ROOT/.nexus/browse.json" 2>/dev/null || true)"
+    [ -n "$_PREVIEW_PID" ] && kill -0 "$_PREVIEW_PID" 2>/dev/null && echo "  browse daemon (PID $_PREVIEW_PID) will be stopped"
+  fi
+
+  printf "\nContinue? [y/N] "
+  read -r REPLY
+  case "$REPLY" in
+    y|Y|yes|YES) ;;
+    *) echo "Aborted."; exit 0 ;;
+  esac
+fi
+
+REMOVED=()
+
+if [ -n "$_GIT_ROOT" ] && [ -f "$_GIT_ROOT/.nexus/browse.json" ]; then
+  stop_browse_daemon "$_GIT_ROOT/.nexus/browse.json"
+fi
+
+if [ -d "$STATE_DIR/projects" ]; then
+  while IFS= read -r _BJ; do
+    stop_browse_daemon "$_BJ"
+  done < <(find "$STATE_DIR/projects" -name browse.json -path '*/.nexus/*' 2>/dev/null || true)
+fi
+
+CLAUDE_SKILLS="$HOME/.claude/skills"
+remove_symlinks_pointing_into_nexus "$CLAUDE_SKILLS" "claude"
+if [ -d "$CLAUDE_SKILLS/nexus" ] || [ -L "$CLAUDE_SKILLS/nexus" ]; then
+  rm -rf "$CLAUDE_SKILLS/nexus"
+  REMOVED+=("~/.claude/skills/nexus")
+fi
+
+if [ -n "$_GIT_ROOT" ] && [ -d "$_GIT_ROOT/.claude/skills" ]; then
+  remove_symlinks_pointing_into_nexus "$_GIT_ROOT/.claude/skills" "local claude"
+  if [ -d "$_GIT_ROOT/.claude/skills/nexus" ] || [ -L "$_GIT_ROOT/.claude/skills/nexus" ]; then
+    rm -rf "$_GIT_ROOT/.claude/skills/nexus"
+    REMOVED+=("$_GIT_ROOT/.claude/skills/nexus")
+  fi
+fi
+
+for root in "$HOME/.codex/skills" "$HOME/.factory/skills" "$HOME/.kiro/skills"; do
+  [ -d "$root" ] || continue
+  for item in "$root"/nexus*; do
+    [ -e "$item" ] || [ -L "$item" ] || continue
+    rm -rf "$item"
+    REMOVED+=("$(basename "$(dirname "$root")")/$(basename "$item")")
+  done
+done
+
+for root in "$_GIT_ROOT/.agents/skills" "$_GIT_ROOT/.factory/skills"; do
+  [ -n "$_GIT_ROOT" ] || continue
+  [ -d "$root" ] || continue
+  for item in "$root"/nexus*; do
+    [ -e "$item" ] || [ -L "$item" ] || continue
+    rm -rf "$item"
+    REMOVED+=("$(basename "$(dirname "$root")")/$(basename "$item")")
+  done
+  rmdir "$root" 2>/dev/null || true
+  rmdir "$(dirname "$root")" 2>/dev/null || true
+done
+
+if [ -n "$_GIT_ROOT" ]; then
+  if [ -d "$_GIT_ROOT/.nexus" ]; then
+    rm -rf "$_GIT_ROOT/.nexus"
+    REMOVED+=("$_GIT_ROOT/.nexus/")
+  fi
+  if [ -d "$_GIT_ROOT/.nexus-worktrees" ]; then
+    rm -rf "$_GIT_ROOT/.nexus-worktrees"
+    REMOVED+=("$_GIT_ROOT/.nexus-worktrees/")
+  fi
+fi
+
+if [ "$KEEP_STATE" -eq 0 ] && [ -d "$STATE_DIR" ]; then
+  rm -rf "$STATE_DIR"
+  REMOVED+=("$STATE_DIR")
+fi
+
+for tmp in /tmp/nexus-latest-version /tmp/nexus-sketch-*.html /tmp/nexus-sketch.png /tmp/nexus-sync-*; do
+  if [ -e "$tmp" ]; then
+    rm -f "$tmp"
+    REMOVED+=("$(basename "$tmp")")
+  fi
+done
+
+if [ ${#REMOVED[@]} -gt 0 ]; then
+  echo "Removed: ${REMOVED[*]}"
+  echo "Nexus uninstalled."
+else
+  echo "Nothing to remove — Nexus is not installed."
+fi
+
+exit 0

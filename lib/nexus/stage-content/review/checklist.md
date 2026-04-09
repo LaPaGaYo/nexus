@@ -1,0 +1,3 @@
+- run dual audits through Nexus-owned review completion
+- verify implementation and audit provenance consistency
+- synthesize the audit set and record the gate decision

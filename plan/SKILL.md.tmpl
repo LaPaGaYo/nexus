@@ -1,0 +1,36 @@
+---
+name: plan
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus planning command. Writes repo-visible execution readiness artifacts and
+  stage status for the governed Nexus lifecycle. Use when the work is framed and needs to
+  become execution-ready. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /plan — Nexus Canonical Planning Command
+
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
+
+Run:
+
+```bash
+bun run bin/nexus.ts plan
+```

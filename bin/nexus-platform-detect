@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf "%-16s %-10s %-40s %s\n" "Agent" "Version" "Skill Path" "Nexus"
+printf "%-16s %-10s %-40s %s\n" "-----" "-------" "----------" "-----"
+
+for entry in "claude:claude" "codex:codex" "droid:factory" "kiro-cli:kiro"; do
+  bin="${entry%%:*}"
+  label="${entry##*:}"
+  if command -v "$bin" >/dev/null 2>&1; then
+    ver=$("$bin" --version 2>/dev/null | head -1 || echo "unknown")
+    case "$label" in
+      claude) primary="$HOME/.claude/skills/nexus" ;;
+      codex) primary="$HOME/.codex/skills/nexus" ;;
+      factory) primary="$HOME/.factory/skills/nexus" ;;
+      kiro) primary="$HOME/.kiro/skills/nexus" ;;
+    esac
+
+    if [ -d "$primary" ]; then
+      spath="$primary"
+      status="INSTALLED"
+    else
+      spath="$primary"
+      status="NOT INSTALLED"
+    fi
+
+    printf "%-16s %-10s %-40s %s\n" "$label" "$ver" "$spath" "$status"
+  fi
+done

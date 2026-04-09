@@ -1,0 +1,80 @@
+import { mkdirSync, renameSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { writeConflictArtifacts } from '../conflicts';
+import { writeLedger } from '../ledger';
+import { writeStageStatus } from '../status';
+import type { CanonicalCommandId, ConflictRecord, RunLedger, StageStatus } from '../types';
+
+function writeRepoFile(cwd: string, relativePath: string, content: string): void {
+  const absolutePath = join(cwd, relativePath);
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeFileSync(absolutePath, content);
+}
+
+function writeAtomicRepoFile(cwd: string, relativePath: string, content: string): void {
+  const absolutePath = join(cwd, relativePath);
+  const tempPath = `${absolutePath}.tmp`;
+
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeFileSync(tempPath, content);
+  renameSync(tempPath, absolutePath);
+}
+
+interface ArtifactWrite {
+  path: string;
+  content: string;
+}
+
+interface ApplyNormalizationPlanInput {
+  cwd: string;
+  stage: CanonicalCommandId;
+  statusPath: string;
+  canonicalWrites: ArtifactWrite[];
+  traceWrites: ArtifactWrite[];
+  status: StageStatus;
+  ledger?: RunLedger;
+  conflicts?: ConflictRecord[];
+  writeAtomicFile?: (cwd: string, relativePath: string, content: string) => void;
+}
+
+export async function applyNormalizationPlan(input: ApplyNormalizationPlanInput): Promise<void> {
+  try {
+    for (const trace of input.traceWrites) {
+      writeRepoFile(input.cwd, trace.path, trace.content);
+    }
+
+    for (const write of input.canonicalWrites) {
+      (input.writeAtomicFile ?? writeAtomicRepoFile)(input.cwd, write.path, write.content);
+    }
+
+    writeStageStatus(input.statusPath, input.status, input.cwd);
+    if (input.ledger) {
+      writeLedger(input.ledger, input.cwd);
+    }
+    if (input.conflicts && input.conflicts.length > 0) {
+      writeConflictArtifacts(input.cwd, input.stage, input.conflicts);
+    }
+  } catch (error) {
+    const blockedStatus: StageStatus = {
+      ...input.status,
+      state: 'blocked',
+      ready: false,
+      completed_at: null,
+      errors: [...input.status.errors, 'Canonical writeback failed'],
+    };
+    const conflicts = input.conflicts ?? [
+      {
+        stage: input.stage,
+        adapter: 'normalizer',
+        kind: 'partial_write_failure',
+        message: error instanceof Error ? error.message : String(error),
+        canonical_paths: input.canonicalWrites.map((write) => write.path),
+        trace_paths: input.traceWrites.map((write) => write.path),
+      },
+    ];
+
+    writeConflictArtifacts(input.cwd, input.stage, conflicts);
+    writeStageStatus(input.statusPath, blockedStatus, input.cwd);
+    throw new Error('Canonical writeback failed');
+  }
+}

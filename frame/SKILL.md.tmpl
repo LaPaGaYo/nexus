@@ -1,0 +1,36 @@
+---
+name: frame
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Canonical Nexus framing command. Writes repo-visible framing artifacts and stage
+  status through Nexus-owned normalization and governance. Use when discovery is
+  complete enough to define scope and success criteria. (nexus)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+{{PREAMBLE}}
+
+# /frame — Nexus Framing
+
+{{NEXUS_STAGE_OVERVIEW}}
+
+## Operator Checklist
+
+{{NEXUS_STAGE_CHECKLIST}}
+
+## Artifact Contract
+
+{{NEXUS_STAGE_ARTIFACT_CONTRACT}}
+
+## Routing
+
+{{NEXUS_STAGE_ROUTING}}
+
+Run:
+
+```bash
+bun run bin/nexus.ts frame
+```

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# nexus-config — read/write Nexus host config
+#
+# Usage:
+#   nexus-config get <key>          — read a config value
+#   nexus-config set <key> <value>  — write a config value
+#   nexus-config list               — show all config
+#
+# Env override:
+#   NEXUS_STATE_DIR   — override the Nexus host state directory
+set -euo pipefail
+
+STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
+mkdir -p "$STATE_DIR"
+CONFIG_FILE="$STATE_DIR/config.yaml"
+
+CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root) — edit freely,
+# changes take effect on next skill run.
+#
+# ─── Behavior ────────────────────────────────────────────────────────
+# proactive: true           # Auto-invoke skills when your request matches one.
+#                           # Set to false to only run skills you type explicitly.
+#
+# routing_declined: false   # Set to true to skip the CLAUDE.md routing injection
+#                           # prompt. Set back to false to be asked again.
+#
+# ─── Telemetry ───────────────────────────────────────────────────────
+# telemetry: anonymous      # off | anonymous | community
+#                           #   off       — no data sent, no local analytics
+#                           #   anonymous — counter only, no device ID
+#                           #   community — usage data + stable device ID
+#
+# ─── Updates ─────────────────────────────────────────────────────────
+# auto_upgrade: false       # true = silently upgrade on session start
+# update_check: true        # false = suppress version check notifications
+#
+# ─── Skill naming ────────────────────────────────────────────────────
+# skill_prefix: false       # true = namespace skills as /nexus-qa, /nexus-ship
+#                           # false = short names /qa, /ship
+#
+# ─── Advanced ────────────────────────────────────────────────────────
+# codex_reviews: enabled    # disabled = skip Codex adversarial reviews in /ship
+# nexus_contributor: false  # true = file field reports when Nexus misbehaves
+# skip_eng_review: false    # true = skip eng review gate in /ship (not recommended)
+#
+'
+
+case "${1:-}" in
+  -h|--help)
+    sed -n '2,/^set -euo pipefail$/{
+      /^# /s/^# //
+      /^#$/s/^#$/ /
+      p
+    }' "$0"
+    exit 0
+    ;;
+  get)
+    KEY="${2:?Usage: nexus-config get <key>}"
+    if ! printf '%s' "$KEY" | grep -qE '^[a-zA-Z0-9_]+$'; then
+      echo "Error: key must contain only alphanumeric characters and underscores" >&2
+      exit 1
+    fi
+    VALUE="$(grep -E "^${KEY}:" "$CONFIG_FILE" 2>/dev/null | tail -1 | awk '{print $2}' | tr -d '[:space:]' || true)"
+    printf '%s' "$VALUE"
+    ;;
+  set)
+    KEY="${2:?Usage: nexus-config set <key> <value>}"
+    VALUE="${3:?Usage: nexus-config set <key> <value>}"
+    if ! printf '%s' "$KEY" | grep -qE '^[a-zA-Z0-9_]+$'; then
+      echo "Error: key must contain only alphanumeric characters and underscores" >&2
+      exit 1
+    fi
+    mkdir -p "$STATE_DIR"
+    if [ ! -f "$CONFIG_FILE" ]; then
+      printf '%s' "$CONFIG_HEADER" > "$CONFIG_FILE"
+    fi
+    ESC_VALUE="$(printf '%s' "$VALUE" | head -1 | sed 's/[&/\]/\\&/g')"
+    if grep -qE "^${KEY}:" "$CONFIG_FILE" 2>/dev/null; then
+      _tmpfile="$(mktemp "${CONFIG_FILE}.XXXXXX")"
+      sed "/^${KEY}:/s/.*/${KEY}: ${ESC_VALUE}/" "$CONFIG_FILE" > "$_tmpfile" && mv "$_tmpfile" "$CONFIG_FILE"
+    else
+      echo "${KEY}: ${VALUE}" >> "$CONFIG_FILE"
+    fi
+    if [ "$KEY" = "skill_prefix" ] && [ -z "${NEXUS_SETUP_RUNNING:-}" ]; then
+      NEXUS_RELINK="$(dirname "$0")/nexus-relink"
+      [ -x "$NEXUS_RELINK" ] && "$NEXUS_RELINK" || true
+    fi
+    ;;
+  list)
+    cat "$CONFIG_FILE" 2>/dev/null || true
+    ;;
+  *)
+    echo "Usage: nexus-config {get|set|list} [key] [value]"
+    exit 1
+    ;;
+esac

@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'bun:test';
 import { COMMAND_DESCRIPTIONS } from '../browse/src/commands';
 import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -45,7 +46,7 @@ function extractDescription(content: string): string {
 const ALL_SKILLS = (() => {
   const skills: Array<{ dir: string; name: string }> = [];
   if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
-    skills.push({ dir: '.', name: 'root gstack' });
+    skills.push({ dir: '.', name: 'root nexus' });
   }
   for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
@@ -56,7 +57,82 @@ const ALL_SKILLS = (() => {
   return skills;
 })();
 
+const NEXUS_CANONICAL_SKILLS = new Set([
+  'discover',
+  'frame',
+  'plan',
+  'handoff',
+  'build',
+  'review',
+  'qa',
+  'ship',
+  'closeout',
+]);
+
+const NEXUS_ALIAS_SKILLS = new Set([
+  'office-hours',
+  'plan-ceo-review',
+  'plan-eng-review',
+  'autoplan',
+]);
+
+function isNexusWrapperSkill(dir: string): boolean {
+  return NEXUS_CANONICAL_SKILLS.has(dir) || NEXUS_ALIAS_SKILLS.has(dir);
+}
+
+function readSkill(dir: string): string {
+  return fs.readFileSync(path.join(ROOT, dir, 'SKILL.md'), 'utf-8');
+}
+
+function readTemplate(dir: string): string {
+  return fs.readFileSync(path.join(ROOT, dir, 'SKILL.md.tmpl'), 'utf-8');
+}
+
+const describeLegacyShip = isNexusWrapperSkill('ship') ? describe.skip : describe;
+const describeLegacyReview = isNexusWrapperSkill('review') ? describe.skip : describe;
+const describeLegacyOfficeHours = isNexusWrapperSkill('office-hours') ? describe.skip : describe;
+const describeLegacyPlanAliases = (
+  isNexusWrapperSkill('plan-ceo-review')
+  || isNexusWrapperSkill('plan-eng-review')
+  || isNexusWrapperSkill('autoplan')
+) ? describe.skip : describe;
+
 describe('gen-skill-docs', () => {
+  test('creates the new canonical directories', () => {
+    for (const dir of ['discover', 'frame', 'plan', 'handoff', 'build', 'closeout']) {
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+    }
+  });
+
+  test('nexus canonical directories stay aligned with the manifest', () => {
+    expect(new Set(Object.keys(CANONICAL_MANIFEST))).toEqual(NEXUS_CANONICAL_SKILLS);
+    for (const dir of NEXUS_CANONICAL_SKILLS) {
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md'))).toBe(true);
+    }
+  });
+
+  test('nexus alias wrappers stay aligned with the alias map', () => {
+    expect(new Set(Object.keys(LEGACY_ALIASES))).toEqual(
+      new Set(['office-hours', 'plan-ceo-review', 'plan-eng-review', 'autoplan', 'start-work', 'execute-wave', 'governed-execute', 'verify-close']),
+    );
+    for (const dir of NEXUS_ALIAS_SKILLS) {
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md'))).toBe(true);
+    }
+  });
+
+  test('canonical lifecycle templates source their body from Nexus stage-content placeholders', () => {
+    for (const dir of NEXUS_CANONICAL_SKILLS) {
+      const template = readTemplate(dir);
+
+      expect(template).toContain('{{NEXUS_STAGE_OVERVIEW}}');
+      expect(template).toContain('{{NEXUS_STAGE_CHECKLIST}}');
+      expect(template).toContain('{{NEXUS_STAGE_ARTIFACT_CONTRACT}}');
+      expect(template).toContain('{{NEXUS_STAGE_ROUTING}}');
+    }
+  });
+
   test('generated SKILL.md contains all command categories', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     const categories = new Set(Object.values(COMMAND_DESCRIPTIONS).map(d => d.category));
@@ -216,7 +292,7 @@ describe('gen-skill-docs', () => {
   test('generated SKILL.md contains contributor mode check', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('Contributor Mode');
-    expect(content).toContain('gstack_contributor');
+    expect(content).toContain('nexus_contributor');
     expect(content).toContain('contributor-logs');
   });
 
@@ -249,7 +325,7 @@ describe('gen-skill-docs', () => {
   test('generated SKILL.md contains telemetry line', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('skill-usage.jsonl');
-    expect(content).toContain('~/.gstack/analytics');
+    expect(content).toContain('~/.nexus/analytics');
   });
 
   test('preamble .pending-* glob is zsh-safe (uses find, not shell glob)', () => {
@@ -259,7 +335,7 @@ describe('gen-skill-docs', () => {
       // Must NOT have a bare shell glob ".pending-*" outside of find's -name argument
       expect(content).not.toMatch(/for _PF in [^\n]*\/\.pending-\*/);
       // Must use find to avoid zsh NOMATCH error on glob expansion
-      expect(content).toContain("find ~/.gstack/analytics -maxdepth 1 -name '.pending-*'");
+      expect(content).toContain("find ~/.nexus/analytics -maxdepth 1 -name '.pending-*'");
     }
   });
 
@@ -302,7 +378,7 @@ describe('gen-skill-docs', () => {
 
   test('preamble-using skills have correct skill name in telemetry', () => {
     const PREAMBLE_SKILLS = [
-      { dir: '.', name: 'gstack' },
+      { dir: '.', name: 'nexus' },
       { dir: 'ship', name: 'ship' },
       { dir: 'review', name: 'review' },
       { dir: 'qa', name: 'qa' },
@@ -316,7 +392,13 @@ describe('gen-skill-docs', () => {
 
   test('qa and qa-only templates use QA_METHODOLOGY placeholder', () => {
     const qaTmpl = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md.tmpl'), 'utf-8');
-    expect(qaTmpl).toContain('{{QA_METHODOLOGY}}');
+    if (isNexusWrapperSkill('qa')) {
+      expect(qaTmpl).not.toContain('{{QA_METHODOLOGY}}');
+      expect(qaTmpl).toContain('bun run bin/nexus.ts qa');
+      expect(qaTmpl).toContain('# /qa — Nexus Governed QA');
+    } else {
+      expect(qaTmpl).toContain('{{QA_METHODOLOGY}}');
+    }
 
     const qaOnlyTmpl = fs.readFileSync(path.join(ROOT, 'qa-only', 'SKILL.md.tmpl'), 'utf-8');
     expect(qaOnlyTmpl).toContain('{{QA_METHODOLOGY}}');
@@ -326,22 +408,24 @@ describe('gen-skill-docs', () => {
     const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
     const qaOnlyContent = fs.readFileSync(path.join(ROOT, 'qa-only', 'SKILL.md'), 'utf-8');
 
-    // Both should contain the health score rubric
-    expect(qaContent).toContain('Health Score Rubric');
+    if (isNexusWrapperSkill('qa')) {
+      expect(qaContent).toContain('bun run bin/nexus.ts qa');
+      expect(qaContent).toContain('.planning/current/qa/status.json');
+      expect(qaContent).toContain('Nexus-owned QA guidance for governed validation scope beyond code review.');
+      expect(qaContent).toContain('CCB validation transport does not bypass Nexus-owned readiness decisions');
+      expect(qaContent).not.toContain('Nexus QA Placeholder');
+    } else {
+      expect(qaContent).toContain('Health Score Rubric');
+      expect(qaContent).toContain('Framework-Specific Guidance');
+      expect(qaContent).toContain('Important Rules');
+      expect(qaContent).toContain('Phase 1');
+      expect(qaContent).toContain('Phase 6');
+    }
+
     expect(qaOnlyContent).toContain('Health Score Rubric');
-
-    // Both should contain framework guidance
-    expect(qaContent).toContain('Framework-Specific Guidance');
     expect(qaOnlyContent).toContain('Framework-Specific Guidance');
-
-    // Both should contain the important rules
-    expect(qaContent).toContain('Important Rules');
     expect(qaOnlyContent).toContain('Important Rules');
-
-    // Both should contain the 6 phases
-    expect(qaContent).toContain('Phase 1');
     expect(qaOnlyContent).toContain('Phase 1');
-    expect(qaContent).toContain('Phase 6');
     expect(qaOnlyContent).toContain('Phase 6');
   });
 
@@ -357,20 +441,50 @@ describe('gen-skill-docs', () => {
 
   test('qa has fix-loop tools and phases', () => {
     const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
-    // Should have Edit, Glob, Grep in allowed-tools
-    expect(qaContent).toContain('Edit');
-    expect(qaContent).toContain('Glob');
-    expect(qaContent).toContain('Grep');
-    // Should have fix-loop phases
-    expect(qaContent).toContain('Phase 7');
-    expect(qaContent).toContain('Phase 8');
-    expect(qaContent).toContain('Fix Loop');
-    expect(qaContent).toContain('Triage');
-    expect(qaContent).toContain('WTF');
+    if (isNexusWrapperSkill('qa')) {
+      expect(qaContent).toContain('bun run bin/nexus.ts qa');
+      expect(qaContent).not.toContain('Edit');
+      expect(qaContent).not.toContain('Glob');
+      expect(qaContent).not.toContain('Grep');
+      expect(qaContent).not.toContain('Fix Loop');
+    } else {
+      expect(qaContent).toContain('Edit');
+      expect(qaContent).toContain('Glob');
+      expect(qaContent).toContain('Grep');
+      expect(qaContent).toContain('Phase 7');
+      expect(qaContent).toContain('Phase 8');
+      expect(qaContent).toContain('Fix Loop');
+      expect(qaContent).toContain('Triage');
+      expect(qaContent).toContain('WTF');
+    }
   });
 });
 
-describe('BASE_BRANCH_DETECT resolver', () => {
+describe('nexus wrapper generation', () => {
+  test('canonical wrappers invoke the Nexus runtime', () => {
+    for (const dir of NEXUS_CANONICAL_SKILLS) {
+      const content = readSkill(dir);
+      expect(content).toContain(`bun run bin/nexus.ts ${dir}`);
+    }
+  });
+
+  test('alias wrappers route through the same Nexus runtime', () => {
+    const aliases: Record<string, string> = {
+      'office-hours': 'discover',
+      'plan-ceo-review': 'frame',
+      'plan-eng-review': 'frame',
+      autoplan: 'plan',
+    };
+
+    for (const [alias, target] of Object.entries(aliases)) {
+      const content = readSkill(alias);
+      expect(content).toContain(`bun run bin/nexus.ts ${alias}`);
+      expect(content).toContain(`This alias routes to \`/${target}\`.`);
+    }
+  });
+});
+
+describeLegacyShip('BASE_BRANCH_DETECT resolver', () => {
   // Find a generated SKILL.md that uses the placeholder (ship is guaranteed to)
   const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
@@ -403,7 +517,7 @@ describe('BASE_BRANCH_DETECT resolver', () => {
   });
 });
 
-describe('GitLab support in generated skills', () => {
+describeLegacyShip('GitLab support in generated skills', () => {
   const retroContent = fs.readFileSync(path.join(ROOT, 'retro', 'SKILL.md'), 'utf-8');
   const shipSkillContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
@@ -509,13 +623,13 @@ describe('description quality evals', () => {
   });
 });
 
-describe('REVIEW_DASHBOARD resolver', () => {
+describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
   const REVIEW_SKILLS = ['plan-ceo-review', 'plan-eng-review', 'plan-design-review'];
 
   for (const skill of REVIEW_SKILLS) {
     test(`review dashboard appears in ${skill} generated file`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
-      expect(content).toContain('gstack-review');
+      expect(content).toContain('nexus-review');
       expect(content).toContain('REVIEW READINESS DASHBOARD');
     });
   }
@@ -602,7 +716,7 @@ describe('REVIEW_DASHBOARD resolver', () => {
 
 // ─── Test Coverage Audit Resolver Tests ─────────────────────
 
-describe('TEST_COVERAGE_AUDIT placeholders', () => {
+describeLegacyShip('TEST_COVERAGE_AUDIT placeholders', () => {
   const planSkill = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
   const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
@@ -744,7 +858,7 @@ describe('TEST_COVERAGE_AUDIT placeholders', () => {
 
 // --- {{TEST_FAILURE_TRIAGE}} resolver tests ---
 
-describe('TEST_FAILURE_TRIAGE resolver', () => {
+describeLegacyShip('TEST_FAILURE_TRIAGE resolver', () => {
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('contains all 4 triage steps', () => {
@@ -790,7 +904,7 @@ describe('PLAN_FILE_REVIEW_REPORT resolver', () => {
   for (const skill of REVIEW_SKILLS) {
     test(`plan file review report appears in ${skill} generated file`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
-      expect(content).toContain('GSTACK REVIEW REPORT');
+      expect(content).toContain('NEXUS REVIEW REPORT');
     });
   }
 
@@ -808,7 +922,7 @@ describe('PLAN_FILE_REVIEW_REPORT resolver', () => {
 
 // --- {{PLAN_COMPLETION_AUDIT}} resolver tests ---
 
-describe('PLAN_COMPLETION_AUDIT placeholders', () => {
+describeLegacyShip('PLAN_COMPLETION_AUDIT placeholders', () => {
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
   const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
 
@@ -859,7 +973,7 @@ describe('PLAN_COMPLETION_AUDIT placeholders', () => {
 
 // --- {{PLAN_VERIFICATION_EXEC}} resolver tests ---
 
-describe('PLAN_VERIFICATION_EXEC placeholder', () => {
+describeLegacyShip('PLAN_VERIFICATION_EXEC placeholder', () => {
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('ship SKILL.md contains plan verification step', () => {
@@ -888,7 +1002,7 @@ describe('PLAN_VERIFICATION_EXEC placeholder', () => {
 
 // --- Coverage gate tests ---
 
-describe('Coverage gate in ship', () => {
+describeLegacyShip('Coverage gate in ship', () => {
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
   const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
 
@@ -917,7 +1031,7 @@ describe('Coverage gate in ship', () => {
 
 // --- Ship metrics logging ---
 
-describe('Ship metrics logging', () => {
+describeLegacyShip('Ship metrics logging', () => {
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('ship SKILL.md contains metrics persistence step', () => {
@@ -931,7 +1045,7 @@ describe('Ship metrics logging', () => {
 
 // --- Plan file discovery shared helper ---
 
-describe('Plan file discovery shared helper', () => {
+describeLegacyShip('Plan file discovery shared helper', () => {
   // The shared helper should appear in ship (via PLAN_COMPLETION_AUDIT_SHIP)
   // and in review (via PLAN_COMPLETION_AUDIT_REVIEW)
   const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
@@ -972,8 +1086,8 @@ describe('Plan status footer in preamble', () => {
     // Read any skill that uses PREAMBLE
     const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
     expect(content).toContain('Plan Status Footer');
-    expect(content).toContain('GSTACK REVIEW REPORT');
-    expect(content).toContain('gstack-review-read');
+    expect(content).toContain('NEXUS REVIEW REPORT');
+    expect(content).toContain('nexus-review-read');
     expect(content).toContain('ExitPlanMode');
     expect(content).toContain('NO REVIEWS YET');
   });
@@ -981,7 +1095,7 @@ describe('Plan status footer in preamble', () => {
 
 // --- {{SPEC_REVIEW_LOOP}} resolver tests ---
 
-describe('SPEC_REVIEW_LOOP resolver', () => {
+describeLegacyOfficeHours('SPEC_REVIEW_LOOP resolver', () => {
   const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
 
   test('contains all 5 review dimensions', () => {
@@ -1017,7 +1131,7 @@ describe('SPEC_REVIEW_LOOP resolver', () => {
 
 // --- {{DESIGN_SKETCH}} resolver tests ---
 
-describe('DESIGN_SKETCH resolver', () => {
+describeLegacyOfficeHours('DESIGN_SKETCH resolver', () => {
   const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
 
   test('references DESIGN.md for design system constraints', () => {
@@ -1047,9 +1161,9 @@ describe('DESIGN_SKETCH resolver', () => {
 
 // --- {{CODEX_SECOND_OPINION}} resolver tests ---
 
-describe('CODEX_SECOND_OPINION resolver', () => {
+describeLegacyOfficeHours('CODEX_SECOND_OPINION resolver', () => {
   const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
-  const codexContent = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'gstack-office-hours', 'SKILL.md'), 'utf-8');
+  const codexContent = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'nexus-office-hours', 'SKILL.md'), 'utf-8');
 
   test('Phase 3.5 section appears in office-hours SKILL.md', () => {
     expect(content).toContain('Phase 3.5: Cross-Model Second Opinion');
@@ -1091,13 +1205,13 @@ describe('CODEX_SECOND_OPINION resolver', () => {
     // check for Phase 3.5-specific markers only.
     expect(codexContent).not.toContain('Phase 3.5: Cross-Model Second Opinion');
     expect(codexContent).not.toContain('TMPERR_OH');
-    expect(codexContent).not.toContain('gstack-codex-oh-');
+    expect(codexContent).not.toContain('nexus-codex-oh-');
   });
 });
 
 // --- Codex filesystem boundary tests ---
 
-describe('Codex filesystem boundary', () => {
+describeLegacyPlanAliases('Codex filesystem boundary', () => {
   // Skills that call codex exec/review and should contain boundary text
   const CODEX_CALLING_SKILLS = [
     'codex',         // /codex skill — 3 modes
@@ -1127,7 +1241,7 @@ describe('Codex filesystem boundary', () => {
   test('codex skill has rabbit-hole detection rule', () => {
     const content = fs.readFileSync(path.join(ROOT, 'codex', 'SKILL.md'), 'utf-8');
     expect(content).toContain('Detect skill-file rabbit holes');
-    expect(content).toContain('gstack-update-check');
+    expect(content).toContain('nexus-update-check');
     expect(content).toContain('Consider retrying');
   });
 
@@ -1144,21 +1258,21 @@ describe('Codex filesystem boundary', () => {
 
   test('autoplan boundary text avoids host-specific paths for cross-host compatibility', () => {
     const content = fs.readFileSync(path.join(ROOT, 'autoplan', 'SKILL.md.tmpl'), 'utf-8');
-    // autoplan template uses generic 'skills/gstack' pattern instead of host-specific
+    // autoplan template uses generic 'skills/nexus' pattern instead of host-specific
     // paths like ~/.claude/ or .agents/skills (which break Codex/Claude output tests)
     const boundaryStart = content.indexOf('Filesystem Boundary');
     const boundaryEnd = content.indexOf('---', boundaryStart + 1);
     const boundarySection = content.slice(boundaryStart, boundaryEnd);
     expect(boundarySection).not.toContain('~/.claude/');
     expect(boundarySection).not.toContain('.agents/skills');
-    expect(boundarySection).toContain('skills/gstack');
+    expect(boundarySection).toContain('skills/nexus');
     expect(boundarySection).toContain(BOUNDARY_MARKER);
   });
 });
 
 // --- {{BENEFITS_FROM}} resolver tests ---
 
-describe('BENEFITS_FROM resolver', () => {
+describeLegacyPlanAliases('BENEFITS_FROM resolver', () => {
   const ceoContent = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
   const engContent = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
 
@@ -1201,7 +1315,7 @@ describe('BENEFITS_FROM resolver', () => {
 
 // --- {{INVOKE_SKILL}} resolver tests ---
 
-describe('INVOKE_SKILL resolver', () => {
+describeLegacyPlanAliases('INVOKE_SKILL resolver', () => {
   const ceoContent = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
 
   test('plan-ceo-review uses INVOKE_SKILL for mid-session office-hours fallback', () => {
@@ -1229,7 +1343,7 @@ describe('INVOKE_SKILL resolver', () => {
 
 // --- {{CHANGELOG_WORKFLOW}} resolver tests ---
 
-describe('CHANGELOG_WORKFLOW resolver', () => {
+describeLegacyShip('CHANGELOG_WORKFLOW resolver', () => {
   const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('ship SKILL.md contains changelog workflow', () => {
@@ -1290,7 +1404,7 @@ describe('preamble routing injection', () => {
   const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('preamble bash checks for routing section in CLAUDE.md', () => {
-    expect(shipContent).toContain('grep -q "## Skill routing" CLAUDE.md');
+    expect(shipContent).toContain('Nexus Skill Routing');
     expect(shipContent).toContain('HAS_ROUTING');
   });
 
@@ -1300,8 +1414,8 @@ describe('preamble routing injection', () => {
   });
 
   test('preamble includes routing injection AskUserQuestion', () => {
-    expect(shipContent).toContain('Add routing rules to CLAUDE.md');
-    expect(shipContent).toContain("I'll invoke skills manually");
+    expect(shipContent).toContain('Add Nexus invocation guidance to CLAUDE.md');
+    expect(shipContent).toContain("I'll invoke Nexus commands manually");
   });
 
   test('routing injection respects prior decline', () => {
@@ -1316,11 +1430,34 @@ describe('preamble routing injection', () => {
     expect(shipContent).toContain('PROACTIVE_PROMPTED');
   });
 
-  test('routing section content includes key routing rules', () => {
-    expect(shipContent).toContain('invoke office-hours');
-    expect(shipContent).toContain('invoke investigate');
+  test('routing section content includes only canonical Nexus routing rules', () => {
+    expect(shipContent).toContain('invoke discover');
+    expect(shipContent).toContain('invoke frame');
+    expect(shipContent).toContain('invoke plan');
+    expect(shipContent).toContain('invoke handoff');
+    expect(shipContent).toContain('invoke build');
+    expect(shipContent).toContain('invoke review');
     expect(shipContent).toContain('invoke ship');
     expect(shipContent).toContain('invoke qa');
+    expect(shipContent).toContain('invoke closeout');
+    expect(shipContent).not.toContain('invoke investigate');
+  });
+});
+
+describe('Nexus-first wrapper language', () => {
+  test('canonical wrappers stay Nexus-first even after upstream imports exist', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
+
+    expect(content).toContain('Nexus-owned planning guidance for execution readiness and bounded scope.');
+    expect(content).not.toMatch(/GSD-native command|PM-native command|Superpowers-native command/i);
+  });
+
+  test('transitional aliases remain compatibility-only wrappers', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+
+    expect(content).toContain('This alias routes to `/discover`.');
+    expect(content).toContain('does not own separate contract, artifact, or transition logic');
+    expect(content).not.toMatch(/primary backend owner|source of truth/i);
   });
 });
 
@@ -1400,7 +1537,7 @@ describe('DESIGN_HARD_RULES resolver', () => {
 
 // --- Extended DESIGN_SKETCH resolver tests ---
 
-describe('DESIGN_SKETCH extended with outside voices', () => {
+describeLegacyOfficeHours('DESIGN_SKETCH extended with outside voices', () => {
   const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
 
   test('contains outside design voices step', () => {
@@ -1419,7 +1556,7 @@ describe('DESIGN_SKETCH extended with outside voices', () => {
 
 // --- Extended DESIGN_REVIEW_LITE resolver tests ---
 
-describe('DESIGN_REVIEW_LITE extended with Codex', () => {
+describeLegacyShip('DESIGN_REVIEW_LITE extended with Codex', () => {
   const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
   test('contains Codex design voice block', () => {
@@ -1456,15 +1593,17 @@ describe('Codex generation (--host codex)', () => {
       } catch { return false; }
     };
     if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
-      if (!isSymlinkLoop('gstack')) {
-        skills.push({ dir: '.', codexName: 'gstack' });
+      if (!isSymlinkLoop('nexus')) {
+        skills.push({ dir: '.', codexName: 'nexus' });
       }
     }
     for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
       if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
       if (entry.name === 'codex') continue; // /codex is excluded from Codex output
       if (!fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) continue;
-      const codexName = entry.name.startsWith('gstack-') ? entry.name : `gstack-${entry.name}`;
+      const codexName = entry.name.startsWith('nexus-')
+        ? entry.name
+        : `nexus-${entry.name}`;
       if (isSymlinkLoop(codexName)) continue;
       skills.push({ dir: entry.name, codexName });
     }
@@ -1478,25 +1617,21 @@ describe('Codex generation (--host codex)', () => {
     }
   });
 
-  test('root gstack bundle has OpenAI metadata for Codex skill browsing', () => {
+  test('root nexus bundle has OpenAI metadata for Codex skill browsing', () => {
     const rootMetadata = path.join(ROOT, 'agents', 'openai.yaml');
     expect(fs.existsSync(rootMetadata)).toBe(true);
     const content = fs.readFileSync(rootMetadata, 'utf-8');
-    expect(content).toContain('display_name: "gstack"');
-    expect(content).toContain('Use $gstack to locate the bundled gstack skills.');
+    expect(content).toContain('display_name: "nexus"');
+    expect(content).toContain('Use $nexus to locate the bundled Nexus skills.');
     expect(content).toContain('allow_implicit_invocation: true');
   });
 
-  test('externalSkillName mapping: root is gstack, others are gstack-{dir}', () => {
-    // Root → gstack
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack', 'SKILL.md'))).toBe(true);
-    // Subdirectories → gstack-{dir}
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'))).toBe(true);
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack-ship', 'SKILL.md'))).toBe(true);
-    // gstack-upgrade doesn't double-prefix
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack-upgrade', 'SKILL.md'))).toBe(true);
-    // No double-prefix: gstack-gstack-upgrade must NOT exist
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack-gstack-upgrade', 'SKILL.md'))).toBe(false);
+  test('externalSkillName mapping: root is nexus, others are nexus-{dir}', () => {
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus-ship', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus-upgrade', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus-nexus-upgrade', 'SKILL.md'))).toBe(false);
   });
 
   test('Codex frontmatter has ONLY name + description', () => {
@@ -1542,16 +1677,16 @@ describe('Codex generation (--host codex)', () => {
   });
 
   test('/codex skill excluded from Codex output', () => {
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack-codex', 'SKILL.md'))).toBe(false);
-    expect(fs.existsSync(path.join(AGENTS_DIR, 'gstack-codex'))).toBe(false);
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus-codex', 'SKILL.md'))).toBe(false);
+    expect(fs.existsSync(path.join(AGENTS_DIR, 'nexus-codex'))).toBe(false);
   });
 
   test('Codex review step stripped from Codex-host ship and review', () => {
-    const shipContent = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-ship', 'SKILL.md'), 'utf-8');
+    const shipContent = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-ship', 'SKILL.md'), 'utf-8');
     expect(shipContent).not.toContain('codex review --base');
     expect(shipContent).not.toContain('CODEX_REVIEWS');
 
-    const reviewContent = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
+    const reviewContent = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
     expect(reviewContent).not.toContain('codex review --base');
     expect(reviewContent).not.toContain('CODEX_REVIEWS');
   });
@@ -1589,19 +1724,17 @@ describe('Codex generation (--host codex)', () => {
   });
 
   test('multiline descriptions preserved in Codex output', () => {
-    // office-hours has a multiline description — verify it survives the frontmatter transform
-    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-office-hours', 'SKILL.md'), 'utf-8');
+    // office-hours remains a multiline description even as a Nexus alias wrapper.
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-office-hours', 'SKILL.md'), 'utf-8');
     const fmEnd = content.indexOf('\n---', 4);
     const frontmatter = content.slice(4, fmEnd);
-    // Description should span multiple lines (block scalar)
     const descLines = frontmatter.split('\n').filter(l => l.startsWith('  '));
     expect(descLines.length).toBeGreaterThan(1);
-    // Verify key phrases survived
-    expect(frontmatter).toContain('YC Office Hours');
+    expect(frontmatter).toContain('canonical Nexus /discover command');
   });
 
   test('hook skills have safety prose and no hooks: in frontmatter', () => {
-    const HOOK_SKILLS = ['gstack-careful', 'gstack-freeze', 'gstack-guard'];
+    const HOOK_SKILLS = ['nexus-careful', 'nexus-freeze', 'nexus-guard'];
     for (const skillName of HOOK_SKILLS) {
       const content = fs.readFileSync(path.join(AGENTS_DIR, skillName, 'SKILL.md'), 'utf-8');
       // Must have safety advisory prose
@@ -1621,58 +1754,69 @@ describe('Codex generation (--host codex)', () => {
     }
   });
 
-  test('Codex preamble resolves runtime assets from repo-local or global gstack roots', () => {
+  test('Codex preamble resolves runtime assets from repo-local or global nexus roots', () => {
     // Check a skill that has a preamble (review is a good candidate)
-    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('GSTACK_ROOT');
-    expect(content).toContain('$_ROOT/.agents/skills/gstack');
-    expect(content).toContain('$GSTACK_BIN/gstack-config');
-    expect(content).toContain('$GSTACK_ROOT/gstack-upgrade/SKILL.md');
-    expect(content).not.toContain('~/.codex/skills/gstack/bin/gstack-config get telemetry');
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
+    expect(content).toContain('NEXUS_ROOT');
+    expect(content).toContain('$_ROOT/.agents/skills/nexus');
+    expect(content).toContain('$NEXUS_BIN/nexus-config');
+    expect(content).toContain('$NEXUS_ROOT/nexus-upgrade/SKILL.md');
+    expect(content).not.toContain('~/.codex/skills/nexus/bin/nexus-config get telemetry');
   });
 
   // ─── Path rewriting regression tests ─────────────────────────
 
-  test('sidecar paths point to .agents/skills/gstack/review/ (not gstack-review/)', () => {
-    // Regression: gen-skill-docs rewrote .claude/skills/review → .agents/skills/gstack-review
-    // but setup puts sidecars under .agents/skills/gstack/review/. Must match setup layout.
-    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
-    // Correct: references to sidecar files use gstack/review/ path
-    expect(content).toContain('.agents/skills/gstack/review/checklist.md');
-    // design-checklist.md is now referenced via Review Army specialist (Claude only, stripped for Codex)
-    // Wrong: must NOT reference gstack-review/checklist.md (file doesn't exist there)
-    expect(content).not.toContain('.agents/skills/gstack-review/checklist.md');
+  test('sidecar paths point to .agents/skills/nexus/review/ (not nexus-review/)', () => {
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
+    if (isNexusWrapperSkill('review')) {
+      expect(content).not.toContain('checklist.md');
+      expect(content).toContain('bun run bin/nexus.ts review');
+      return;
+    }
+
+    expect(content).toContain('.agents/skills/nexus/review/checklist.md');
+    expect(content).not.toContain('.agents/skills/nexus-review/checklist.md');
   });
 
-  test('sidecar paths in ship skill point to gstack/review/ for pre-landing review', () => {
-    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-ship', 'SKILL.md'), 'utf-8');
-    // Ship references the review checklist in its pre-landing review step
+  test('sidecar paths in ship skill point to nexus/review/ for pre-landing review', () => {
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-ship', 'SKILL.md'), 'utf-8');
+    if (isNexusWrapperSkill('ship')) {
+      expect(content).not.toContain('checklist.md');
+      expect(content).toContain('bun run bin/nexus.ts ship');
+      return;
+    }
+
     if (content.includes('checklist.md')) {
-      expect(content).toContain('.agents/skills/gstack/review/');
-      expect(content).not.toContain('.agents/skills/gstack-review/checklist');
+      expect(content).toContain('.agents/skills/nexus/review/');
+      expect(content).not.toContain('.agents/skills/nexus-review/checklist');
     }
   });
 
   test('greptile-triage sidecar path is correct', () => {
-    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
+    if (isNexusWrapperSkill('review')) {
+      expect(content).not.toContain('greptile-triage');
+      return;
+    }
+
     if (content.includes('greptile-triage')) {
-      expect(content).toContain('.agents/skills/gstack/review/greptile-triage.md');
-      expect(content).not.toContain('.agents/skills/gstack-review/greptile-triage');
+      expect(content).toContain('.agents/skills/nexus/review/greptile-triage.md');
+      expect(content).not.toContain('.agents/skills/nexus-review/greptile-triage');
     }
   });
 
   test('all four path rewrite rules produce correct output', () => {
     // Test each of the 4 path rewrite rules individually
-    const content = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
 
-    // Rule 1: ~/.claude/skills/gstack → $GSTACK_ROOT
-    expect(content).not.toContain('~/.claude/skills/gstack');
-    expect(content).toContain('$GSTACK_ROOT');
+    // Rule 1: ~/.claude/skills/nexus → $NEXUS_ROOT
+    expect(content).not.toContain('~/.claude/skills/nexus');
+    expect(content).toContain('$NEXUS_ROOT');
 
-    // Rule 2: .claude/skills/gstack → .agents/skills/gstack
-    expect(content).not.toContain('.claude/skills/gstack');
+    // Rule 2: .claude/skills/nexus → .agents/skills/nexus
+    expect(content).not.toContain('.claude/skills/nexus');
 
-    // Rule 3: .claude/skills/review → .agents/skills/gstack/review
+    // Rule 3: .claude/skills/review → .agents/skills/nexus/review
     expect(content).not.toContain('.claude/skills/review');
 
     // Rule 4: .claude/skills → .agents/skills (catch-all)
@@ -1686,12 +1830,12 @@ describe('Codex generation (--host codex)', () => {
       // No skill should reference Claude paths
       expect(content).not.toContain('~/.claude/skills');
       expect(content).not.toContain('.claude/skills');
-      if (content.includes('gstack-config') || content.includes('gstack-update-check') || content.includes('gstack-telemetry-log')) {
-        expect(content).toContain('$GSTACK_ROOT');
+      if (content.includes('nexus-config') || content.includes('nexus-update-check') || content.includes('nexus-telemetry-log')) {
+        expect(content).toContain('$NEXUS_ROOT');
       }
       // If a skill references checklist.md, it must use the correct sidecar path
       if (content.includes('checklist.md') && !content.includes('design-checklist.md')) {
-        expect(content).not.toContain('gstack-review/checklist.md');
+        expect(content).not.toContain('nexus-review/checklist.md');
       }
     }
   });
@@ -1699,18 +1843,25 @@ describe('Codex generation (--host codex)', () => {
   // ─── Claude output regression guard ─────────────────────────
 
   test('Claude output unchanged: review skill still uses .claude/skills/ paths', () => {
-    // Codex changes must NOT affect Claude output
     const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('.claude/skills/review/checklist.md');
-    expect(content).toContain('~/.claude/skills/gstack');
-    // Must NOT contain Codex paths
+    if (isNexusWrapperSkill('review')) {
+      expect(content).toContain('bun run bin/nexus.ts review');
+      expect(content).not.toContain('.claude/skills/review/checklist.md');
+    } else {
+      expect(content).toContain('.claude/skills/review/checklist.md');
+      expect(content).toContain('~/.claude/skills/nexus');
+    }
     expect(content).not.toContain('.agents/skills');
     expect(content).not.toContain('~/.codex/');
   });
 
   test('Claude output unchanged: ship skill still uses .claude/skills/ paths', () => {
     const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('~/.claude/skills/gstack');
+    if (isNexusWrapperSkill('ship')) {
+      expect(content).toContain('bun run bin/nexus.ts ship');
+    } else {
+      expect(content).toContain('~/.claude/skills/nexus');
+    }
     expect(content).not.toContain('.agents/skills');
     expect(content).not.toContain('~/.codex/');
   });
@@ -1719,22 +1870,19 @@ describe('Codex generation (--host codex)', () => {
     for (const skill of ALL_SKILLS) {
       const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
       expect(content).not.toContain('~/.codex/');
-      // gstack-upgrade legitimately references .agents/skills for cross-platform detection
-      if (skill.dir !== 'gstack-upgrade') {
-        expect(content).not.toContain('.agents/skills');
-      }
+      expect(content).not.toContain('.agents/skills');
     }
   });
 
   // ─── Design outside voices: Codex host guard ─────────────────
 
   test('codex host produces empty outside voices in design-review', () => {
-    const codexContent = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-design-review', 'SKILL.md'), 'utf-8');
+    const codexContent = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-design-review', 'SKILL.md'), 'utf-8');
     expect(codexContent).not.toContain('Design Outside Voices');
   });
 
   test('codex host does not include Codex design block in ship', () => {
-    const codexContent = fs.readFileSync(path.join(AGENTS_DIR, 'gstack-ship', 'SKILL.md'), 'utf-8');
+    const codexContent = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-ship', 'SKILL.md'), 'utf-8');
     expect(codexContent).not.toContain('Codex design voice');
   });
 });
@@ -1757,13 +1905,15 @@ describe('Factory generation (--host factory)', () => {
       catch { return false; }
     };
     if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
-      if (!isSymlinkLoop('gstack')) skills.push({ dir: '.', factoryName: 'gstack' });
+      if (!isSymlinkLoop('nexus')) skills.push({ dir: '.', factoryName: 'nexus' });
     }
     for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
       if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
       if (entry.name === 'codex') continue;
       if (!fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) continue;
-      const factoryName = entry.name.startsWith('gstack-') ? entry.name : `gstack-${entry.name}`;
+      const factoryName = entry.name.startsWith('nexus-')
+        ? entry.name
+        : `nexus-${entry.name}`;
       if (isSymlinkLoop(factoryName)) continue;
       skills.push({ dir: entry.name, factoryName });
     }
@@ -1792,7 +1942,7 @@ describe('Factory generation (--host factory)', () => {
   });
 
   test('sensitive skills have disable-model-invocation', () => {
-    const SENSITIVE = ['gstack-ship', 'gstack-land-and-deploy', 'gstack-guard', 'gstack-careful', 'gstack-freeze', 'gstack-unfreeze'];
+    const SENSITIVE = ['nexus-ship', 'nexus-land-and-deploy', 'nexus-guard', 'nexus-careful', 'nexus-freeze', 'nexus-unfreeze'];
     for (const name of SENSITIVE) {
       const content = fs.readFileSync(path.join(FACTORY_DIR, name, 'SKILL.md'), 'utf-8');
       const fmEnd = content.indexOf('\n---', 4);
@@ -1802,7 +1952,7 @@ describe('Factory generation (--host factory)', () => {
   });
 
   test('non-sensitive skills lack disable-model-invocation', () => {
-    const NON_SENSITIVE = ['gstack-qa', 'gstack-review', 'gstack-investigate', 'gstack-browse'];
+    const NON_SENSITIVE = ['nexus-qa', 'nexus-review', 'nexus-investigate', 'nexus-browse'];
     for (const name of NON_SENSITIVE) {
       const content = fs.readFileSync(path.join(FACTORY_DIR, name, 'SKILL.md'), 'utf-8');
       const fmEnd = content.indexOf('\n---', 4);
@@ -1828,13 +1978,13 @@ describe('Factory generation (--host factory)', () => {
   });
 
   test('/codex skill excluded from Factory output', () => {
-    expect(fs.existsSync(path.join(FACTORY_DIR, 'gstack-codex', 'SKILL.md'))).toBe(false);
-    expect(fs.existsSync(path.join(FACTORY_DIR, 'gstack-codex'))).toBe(false);
+    expect(fs.existsSync(path.join(FACTORY_DIR, 'nexus-codex', 'SKILL.md'))).toBe(false);
+    expect(fs.existsSync(path.join(FACTORY_DIR, 'nexus-codex'))).toBe(false);
   });
 
   test('Factory keeps Codex integration blocks', () => {
     // Factory users CAN use Codex second opinions (codex exec is a standalone binary)
-    const shipContent = fs.readFileSync(path.join(FACTORY_DIR, 'gstack-ship', 'SKILL.md'), 'utf-8');
+    const shipContent = fs.readFileSync(path.join(FACTORY_DIR, 'nexus-ship', 'SKILL.md'), 'utf-8');
     expect(shipContent).toContain('codex');
   });
 
@@ -1870,10 +2020,10 @@ describe('Factory generation (--host factory)', () => {
   });
 
   test('Factory preamble uses .factory paths', () => {
-    const content = fs.readFileSync(path.join(FACTORY_DIR, 'gstack-review', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('GSTACK_ROOT');
-    expect(content).toContain('$_ROOT/.factory/skills/gstack');
-    expect(content).toContain('$GSTACK_BIN/gstack-config');
+    const content = fs.readFileSync(path.join(FACTORY_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
+    expect(content).toContain('NEXUS_ROOT');
+    expect(content).toContain('$_ROOT/.factory/skills/nexus');
+    expect(content).toContain('$NEXUS_BIN/nexus-config');
   });
 });
 
@@ -1927,7 +2077,7 @@ describe('setup script validation', () => {
     expect(codexSection).toContain('create_codex_runtime_root');
     expect(codexSection).toContain('link_codex_skill_dirs');
     expect(codexSection).not.toContain('link_claude_skill_dirs');
-    expect(codexSection).not.toContain('ln -snf "$GSTACK_DIR" "$CODEX_GSTACK"');
+    expect(codexSection).not.toContain('ln -snf "$NEXUS_DIR" "$CODEX_NEXUS"');
   });
 
   test('Codex install prefers repo-local .agents/skills when setup runs from there', () => {
@@ -1939,16 +2089,16 @@ describe('setup script validation', () => {
   });
 
   test('setup separates install path from source path for symlinked repo-local installs', () => {
-    expect(setupContent).toContain('INSTALL_GSTACK_DIR=');
-    expect(setupContent).toContain('SOURCE_GSTACK_DIR=');
+    expect(setupContent).toContain('INSTALL_NEXUS_DIR=');
+    expect(setupContent).toContain('SOURCE_NEXUS_DIR=');
     expect(setupContent).toContain('INSTALL_SKILLS_DIR=');
-    expect(setupContent).toContain('CODEX_GSTACK="$INSTALL_GSTACK_DIR"');
-    expect(setupContent).toContain('link_codex_skill_dirs "$SOURCE_GSTACK_DIR" "$CODEX_SKILLS"');
+    expect(setupContent).toContain('CODEX_NEXUS="$INSTALL_NEXUS_DIR"');
+    expect(setupContent).toContain('link_codex_skill_dirs "$SOURCE_NEXUS_DIR" "$CODEX_SKILLS"');
   });
 
   test('Codex installs always create sidecar runtime assets for the real skill target', () => {
     expect(setupContent).toContain('if [ "$INSTALL_CODEX" -eq 1 ]; then');
-    expect(setupContent).toContain('create_agents_sidecar "$SOURCE_GSTACK_DIR"');
+    expect(setupContent).toContain('create_agents_sidecar "$SOURCE_NEXUS_DIR"');
   });
 
   test('link_codex_skill_dirs reads from .agents/skills/', () => {
@@ -1957,16 +2107,16 @@ describe('setup script validation', () => {
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('.agents/skills');
-    expect(fnBody).toContain('gstack*');
+    expect(fnBody).toContain('nexus*');
   });
 
   test('link_claude_skill_dirs creates relative symlinks', () => {
-    // Claude links should be relative: ln -snf "gstack/$dir_name"
+    // Claude links should be relative: ln -snf "nexus/$dir_name"
     // Uses dir_name (not skill_name) because symlink target must point to the physical directory
     const fnStart = setupContent.indexOf('link_claude_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
-    expect(fnBody).toContain('ln -snf "gstack/$dir_name"');
+    expect(fnBody).toContain('ln -snf "nexus/$dir_name"');
   });
 
   test('setup supports --host auto|claude|codex|kiro', () => {
@@ -1980,21 +2130,21 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('command -v kiro-cli');
   });
 
-  // T1: Sidecar skip guard — prevents .agents/skills/gstack from being linked as a skill
-  test('link_codex_skill_dirs skips the gstack sidecar directory', () => {
+  // T1: Sidecar skip guard — prevents .agents/skills/nexus from being linked as a skill
+  test('link_codex_skill_dirs skips the nexus sidecar directory', () => {
     const fnStart = setupContent.indexOf('link_codex_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('done', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
-    expect(fnBody).toContain('[ "$skill_name" = "gstack" ] && continue');
+    expect(fnBody).toContain('[ "$skill_name" = "nexus" ] && continue');
   });
 
-  // T2: Dynamic $GSTACK_ROOT paths in generated Codex preambles
-  test('generated Codex preambles use dynamic GSTACK_ROOT paths', () => {
-    const codexSkillDir = path.join(ROOT, '.agents', 'skills', 'gstack-ship');
+  // T2: Dynamic $NEXUS_ROOT paths in generated Codex preambles
+  test('generated Codex preambles use dynamic NEXUS_ROOT paths', () => {
+    const codexSkillDir = path.join(ROOT, '.agents', 'skills', 'nexus-ship');
     if (!fs.existsSync(codexSkillDir)) return; // skip if .agents/ not generated
     const content = fs.readFileSync(path.join(codexSkillDir, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('GSTACK_ROOT=');
-    expect(content).toContain('$GSTACK_BIN/');
+    expect(content).toContain('NEXUS_ROOT=');
+    expect(content).toContain('$NEXUS_BIN/');
   });
 
   // T3: Kiro host support in setup script
@@ -2002,7 +2152,7 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('INSTALL_KIRO=');
     expect(setupContent).toContain('kiro-cli');
     expect(setupContent).toContain('KIRO_SKILLS=');
-    expect(setupContent).toContain('~/.kiro/skills/gstack');
+    expect(setupContent).toContain('~/.kiro/skills/nexus');
   });
 
   test('create_agents_sidecar links runtime assets', () => {
@@ -2020,10 +2170,10 @@ describe('setup script validation', () => {
     const fnStart = setupContent.indexOf('create_codex_runtime_root()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('done', setupContent.indexOf('review/', fnStart)));
     const fnBody = setupContent.slice(fnStart, fnEnd);
-    expect(fnBody).toContain('gstack/SKILL.md');
+    expect(fnBody).toContain('nexus/SKILL.md');
     expect(fnBody).toContain('browse/dist');
     expect(fnBody).toContain('browse/bin');
-    expect(fnBody).toContain('gstack-upgrade/SKILL.md');
+    expect(fnBody).toContain('nexus-upgrade/SKILL.md');
     // Review runtime assets (individual files, not the whole dir)
     expect(fnBody).toContain('checklist.md');
     expect(fnBody).toContain('design-checklist.md');
@@ -2032,28 +2182,28 @@ describe('setup script validation', () => {
     expect(fnBody).not.toContain('ln -snf "$gstack_dir" "$codex_gstack"');
   });
 
-  test('direct Codex installs are migrated out of ~/.codex/skills/gstack', () => {
+  test('direct Codex installs are migrated out of ~/.codex/skills/nexus', () => {
     expect(setupContent).toContain('migrate_direct_codex_install');
-    expect(setupContent).toContain('$HOME/.gstack/repos/gstack');
+    expect(setupContent).toContain('$HOME/.nexus/repos/nexus');
     expect(setupContent).toContain('avoid duplicate skill discovery');
   });
 
   // --- Symlink prefix tests (PR #503) ---
 
-  test('link_claude_skill_dirs applies gstack- prefix by default', () => {
+  test('link_claude_skill_dirs applies nexus- prefix in namespaced mode', () => {
     const fnStart = setupContent.indexOf('link_claude_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('SKILL_PREFIX');
-    expect(fnBody).toContain('link_name="gstack-$skill_name"');
+    expect(fnBody).toContain('link_name="nexus-$skill_name"');
   });
 
   test('link_claude_skill_dirs preserves already-prefixed dirs', () => {
     const fnStart = setupContent.indexOf('link_claude_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
-    // gstack-* dirs should keep their name (e.g., gstack-upgrade stays gstack-upgrade)
-    expect(fnBody).toContain('gstack-*) link_name="$skill_name"');
+    // nexus-* dirs should keep their name (e.g., nexus-upgrade stays nexus-upgrade)
+    expect(fnBody).toContain('nexus-*) link_name="$skill_name"');
   });
 
   test('setup supports --no-prefix flag', () => {
@@ -2061,16 +2211,16 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('SKILL_PREFIX=0');
   });
 
-  test('cleanup_old_claude_symlinks removes only gstack-pointing symlinks', () => {
+  test('cleanup_old_claude_symlinks removes only nexus-pointing symlinks', () => {
     expect(setupContent).toContain('cleanup_old_claude_symlinks');
     const fnStart = setupContent.indexOf('cleanup_old_claude_symlinks()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('removed[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     // Should check readlink before removing
     expect(fnBody).toContain('readlink');
-    expect(fnBody).toContain('gstack/*');
+    expect(fnBody).toContain('nexus/*');
     // Should skip already-prefixed dirs
-    expect(fnBody).toContain('gstack-*) continue');
+    expect(fnBody).toContain('nexus-*) continue');
   });
 
   test('cleanup runs before link when prefix is enabled', () => {
@@ -2086,7 +2236,7 @@ describe('setup script validation', () => {
 
   test('setup reads skill_prefix from config', () => {
     expect(setupContent).toContain('get skill_prefix');
-    expect(setupContent).toContain('GSTACK_CONFIG');
+    expect(setupContent).toContain('NEXUS_CONFIG');
   });
 
   test('setup supports --prefix flag', () => {
@@ -2101,6 +2251,8 @@ describe('setup script validation', () => {
   test('interactive prompt shows when no config', () => {
     expect(setupContent).toContain('Short names');
     expect(setupContent).toContain('Namespaced');
+    expect(setupContent).toContain('/nexus-qa');
+    expect(setupContent).toContain('/nexus-ship');
     expect(setupContent).toContain('Choice [1/2]');
   });
 
@@ -2115,7 +2267,7 @@ describe('setup script validation', () => {
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('removed[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('readlink');
-    expect(fnBody).toContain('gstack-$skill_name');
+    expect(fnBody).toContain('nexus-$skill_name');
   });
 
   test('reverse cleanup runs before link when prefix is disabled', () => {
@@ -2127,15 +2279,14 @@ describe('setup script validation', () => {
   });
 
   test('welcome message references SKILL_PREFIX', () => {
-    // gstack-upgrade is always called gstack-upgrade (it's the actual dir name)
-    // but the welcome section should exist near the prefix logic
-    expect(setupContent).toContain('Run /gstack-upgrade anytime');
+    expect(setupContent).toContain('Nexus ready');
+    expect(setupContent).toContain('Run /nexus-upgrade anytime');
   });
 });
 
 describe('discover-skills hidden directory filtering', () => {
   test('discoverTemplates skips dot-prefixed directories', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-discover-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-'));
     try {
       // Create a hidden dir with a template (should be excluded)
       fs.mkdirSync(path.join(tmpDir, '.hidden'), { recursive: true });
@@ -2163,22 +2314,22 @@ describe('telemetry', () => {
     expect(content).toContain('_SESSION_ID');
     expect(content).toContain('TELEMETRY:');
     expect(content).toContain('TEL_PROMPTED:');
-    expect(content).toContain('gstack-config get telemetry');
+    expect(content).toContain('nexus-config get telemetry');
   });
 
   test('generated SKILL.md contains telemetry opt-in prompt', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('.telemetry-prompted');
-    expect(content).toContain('Help gstack get better');
-    expect(content).toContain('gstack-config set telemetry community');
-    expect(content).toContain('gstack-config set telemetry anonymous');
-    expect(content).toContain('gstack-config set telemetry off');
+    expect(content).toContain('Help Nexus get better');
+    expect(content).toContain('nexus-config set telemetry community');
+    expect(content).toContain('nexus-config set telemetry anonymous');
+    expect(content).toContain('nexus-config set telemetry off');
   });
 
   test('generated SKILL.md contains telemetry epilogue', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('Telemetry (run last)');
-    expect(content).toContain('gstack-telemetry-log');
+    expect(content).toContain('nexus-telemetry-log');
     expect(content).toContain('_TEL_END');
     expect(content).toContain('_TEL_DUR');
     expect(content).toContain('SKILL_NAME');
@@ -2190,6 +2341,14 @@ describe('telemetry', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('.pending');
     expect(content).toContain('_pending_finalize');
+  });
+
+  test('generated SKILL.md uses Nexus-primary preamble prose', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
+    expect(content).toContain('Nexus follows the **Boil the Lake** principle');
+    expect(content).toContain('Nexus can proactively figure out when you might need a skill while you work');
+    expect(content).toContain('Running Nexus v{to} (just updated!)');
+    expect(content).not.toContain('Running gstack v{to} (just updated!)');
   });
 
   test('telemetry blocks appear in all skill files that use PREAMBLE', () => {
@@ -2223,13 +2382,14 @@ describe('community fixes wave', () => {
     return results;
   }
 
-  // #594 — Discoverability: every SKILL.md.tmpl description contains "gstack"
-  test('every SKILL.md.tmpl description contains "gstack"', () => {
+  // #594 — Discoverability: every SKILL.md.tmpl description contains "Nexus"
+  test('every SKILL.md.tmpl description contains "Nexus"', () => {
     for (const skill of ALL_SKILLS) {
       const tmplPath = skill.dir === '.' ? path.join(ROOT, 'SKILL.md.tmpl') : path.join(ROOT, skill.dir, 'SKILL.md.tmpl');
       const content = fs.readFileSync(tmplPath, 'utf-8');
       const desc = extractDescription(content);
-      expect(desc.toLowerCase()).toContain('gstack');
+      const normalized = desc.toLowerCase();
+      expect(normalized.includes('nexus')).toBe(true);
     }
   });
 
@@ -2247,7 +2407,13 @@ describe('community fixes wave', () => {
   // #573 — Feature signals: ship/SKILL.md contains feature signal detection
   test('ship/SKILL.md contains feature signal detection in Step 4', () => {
     const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-    expect(content.toLowerCase()).toContain('feature signal');
+    if (isNexusWrapperSkill('ship')) {
+      expect(content).toContain('Nexus Governed Ship');
+      expect(content).toContain('.planning/current/ship/status.json');
+      expect(content).toContain('Nexus-owned ship guidance for governed release gating and explicit merge readiness.');
+    } else {
+      expect(content.toLowerCase()).toContain('feature signal');
+    }
   });
 
   // #510 — Context warnings: no SKILL.md contains "running low on context"
@@ -2261,7 +2427,12 @@ describe('community fixes wave', () => {
   // #510 — Context warnings: plan-eng-review has explicit anti-warning
   test('plan-eng-review/SKILL.md contains "Do not preemptively warn"', () => {
     const content = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
-    expect(content).toContain('Do not preemptively warn');
+    if (isNexusWrapperSkill('plan-eng-review')) {
+      expect(content).toContain('bun run bin/nexus.ts plan-eng-review');
+      expect(content).toContain('This alias routes to `/frame`.');
+    } else {
+      expect(content).toContain('Do not preemptively warn');
+    }
   });
 
   // #474 — Safety Net: no SKILL.md uses find with -delete
@@ -2306,7 +2477,7 @@ describe('codex commands must not use inline $(git rev-parse --show-toplevel) fo
   // The fix is to resolve _REPO_ROOT eagerly at the top of each bash block.
 
   // Scan all source files that could contain codex commands
-  // Use Bun.Glob to avoid ELOOP from .claude/skills/gstack symlink back to ROOT
+  // Use Bun.Glob to avoid ELOOP from .claude/skills/nexus symlink back to ROOT
   const tmplGlob = new Bun.Glob('**/*.tmpl');
   const sourceFiles = [
     ...Array.from(tmplGlob.scanSync({ cwd: ROOT, followSymlinks: false })),
@@ -2389,14 +2560,14 @@ describe('codex commands must not use inline $(git rev-parse --show-toplevel) fo
 
 // ─── Learnings + Confidence Resolver Tests ─────────────────────
 
-describe('LEARNINGS_SEARCH resolver', () => {
+describeLegacyPlanAliases('LEARNINGS_SEARCH resolver', () => {
   const SEARCH_SKILLS = ['review', 'ship', 'plan-eng-review', 'investigate', 'office-hours', 'plan-ceo-review'];
 
   for (const skill of SEARCH_SKILLS) {
     test(`${skill} generated SKILL.md contains learnings search`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
       expect(content).toContain('Prior Learnings');
-      expect(content).toContain('gstack-learnings-search');
+      expect(content).toContain('nexus-learnings-search');
     });
   }
 
@@ -2418,14 +2589,14 @@ describe('LEARNINGS_SEARCH resolver', () => {
   });
 });
 
-describe('LEARNINGS_LOG resolver', () => {
+describeLegacyReview('LEARNINGS_LOG resolver', () => {
   const LOG_SKILLS = ['review', 'retro', 'investigate'];
 
   for (const skill of LOG_SKILLS) {
     test(`${skill} generated SKILL.md contains learnings log`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
       expect(content).toContain('Capture Learnings');
-      expect(content).toContain('gstack-learnings-log');
+      expect(content).toContain('nexus-learnings-log');
     });
   }
 
@@ -2450,7 +2621,7 @@ describe('LEARNINGS_LOG resolver', () => {
   });
 });
 
-describe('CONFIDENCE_CALIBRATION resolver', () => {
+describeLegacyReview('CONFIDENCE_CALIBRATION resolver', () => {
   const CONFIDENCE_SKILLS = ['review', 'ship', 'plan-eng-review', 'cso'];
 
   for (const skill of CONFIDENCE_SKILLS) {
@@ -2501,13 +2672,13 @@ describe('gen-skill-docs prefix warning (#620/#578)', () => {
   const { execSync } = require('child_process');
 
   test('warns about skill_prefix when config has prefix=true', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-prefix-warn-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-prefix-warn-'));
     try {
-      // Create a fake ~/.gstack/config.yaml with skill_prefix: true
+      // Create a fake ~/.nexus/config.yaml with skill_prefix: true
       const fakeHome = tmpDir;
-      const fakeGstack = path.join(fakeHome, '.gstack');
-      fs.mkdirSync(fakeGstack, { recursive: true });
-      fs.writeFileSync(path.join(fakeGstack, 'config.yaml'), 'skill_prefix: true\n');
+      const fakeNexus = path.join(fakeHome, '.nexus');
+      fs.mkdirSync(fakeNexus, { recursive: true });
+      fs.writeFileSync(path.join(fakeNexus, 'config.yaml'), 'skill_prefix: true\n');
 
       const output = execSync('bun run scripts/gen-skill-docs.ts', {
         cwd: ROOT,
@@ -2516,19 +2687,19 @@ describe('gen-skill-docs prefix warning (#620/#578)', () => {
         timeout: 30000,
       });
       expect(output).toContain('skill_prefix is true');
-      expect(output).toContain('gstack-relink');
+      expect(output).toContain('nexus-relink');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   test('no warning when skill_prefix is false or absent', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-prefix-warn-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-prefix-warn-'));
     try {
       const fakeHome = tmpDir;
-      const fakeGstack = path.join(fakeHome, '.gstack');
-      fs.mkdirSync(fakeGstack, { recursive: true });
-      fs.writeFileSync(path.join(fakeGstack, 'config.yaml'), 'skill_prefix: false\n');
+      const fakeNexus = path.join(fakeHome, '.nexus');
+      fs.mkdirSync(fakeNexus, { recursive: true });
+      fs.writeFileSync(path.join(fakeNexus, 'config.yaml'), 'skill_prefix: false\n');
 
       const output = execSync('bun run scripts/gen-skill-docs.ts', {
         cwd: ROOT,

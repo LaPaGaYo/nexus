@@ -1,15 +1,15 @@
-# Contributing to gstack
+# Contributing to Nexus
 
-Thanks for wanting to make gstack better. Whether you're fixing a typo in a skill prompt or building an entirely new workflow, this guide will get you up and running fast.
+Thanks for wanting to make Nexus better. Whether you're fixing a typo in a skill prompt or building an entirely new workflow, this guide will get you up and running fast.
 
 ## Quick start
 
-gstack skills are Markdown files that Claude Code discovers from a `skills/` directory. Normally they live at `~/.claude/skills/gstack/` (your global install). But when you're developing gstack itself, you want Claude Code to use the skills *in your working tree* — so edits take effect instantly without copying or deploying anything.
+Nexus skills are Markdown files that Claude Code discovers from a `skills/` directory. Normally they live at `~/.claude/skills/nexus/` (your global install). But when you're developing Nexus itself, you want Claude Code to use the skills *in your working tree* — so edits take effect instantly without copying or deploying anything.
 
 That's what dev mode does. It symlinks your repo into the local `.claude/skills/` directory so Claude Code reads skills straight from your checkout.
 
 ```bash
-git clone <repo> && cd gstack
+git clone <repo> && cd nexus
 bun install                    # install dependencies
 bin/dev-setup                  # activate dev mode
 ```
@@ -22,57 +22,57 @@ bin/dev-teardown               # deactivate — back to your global install
 
 ## Contributor mode
 
-Contributor mode turns gstack into a self-improving tool. Enable it and Claude Code
-will periodically reflect on its gstack experience — rating it 0-10 at the end of
+Contributor mode turns Nexus into a self-improving tool. Enable it and Claude Code
+will periodically reflect on its Nexus experience — rating it 0-10 at the end of
 each major workflow step. When something isn't a 10, it thinks about why and files
-a report to `~/.gstack/contributor-logs/` with what happened, repro steps, and what
+a report to `~/.nexus/contributor-logs/` with what happened, repro steps, and what
 would make it better.
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-config set gstack_contributor true
+~/.claude/skills/nexus/bin/nexus-config set nexus_contributor true
 ```
 
 The logs are for **you**. When something bugs you enough to fix, the report is
-already written. Fork gstack, symlink your fork into the project where you hit
+already written. Fork Nexus, symlink your fork into the project where you hit
 the issue, fix it, and open a PR.
 
 ### The contributor workflow
 
-1. **Use gstack normally** — contributor mode reflects and logs issues automatically
-2. **Check your logs:** `ls ~/.gstack/contributor-logs/`
-3. **Fork and clone gstack** (if you haven't already)
+1. **Use Nexus normally** — contributor mode reflects and logs issues automatically
+2. **Check your logs:** `ls ~/.nexus/contributor-logs/`
+3. **Fork and clone Nexus** (if you haven't already)
 4. **Symlink your fork into the project where you hit the bug:**
    ```bash
-   # In your core project (the one where gstack annoyed you)
-   ln -sfn /path/to/your/gstack-fork .claude/skills/gstack
-   cd .claude/skills/gstack && bun install && bun run build && ./setup
+   # In your core project (the one where Nexus annoyed you)
+   ln -sfn /path/to/your/nexus-fork .claude/skills/nexus
+   cd .claude/skills/nexus && bun install && bun run build && ./setup
    ```
-   Setup creates the per-skill symlinks (`qa -> gstack/qa`, etc.) and asks your
+   Setup creates the per-skill symlinks (`qa -> nexus/qa`, etc.) and asks your
    prefix preference. Pass `--no-prefix` to skip the prompt and use short names.
 5. **Fix the issue** — your changes are live immediately in this project
-6. **Test by actually using gstack** — do the thing that annoyed you, verify it's fixed
+6. **Test by actually using Nexus** — do the thing that annoyed you, verify it's fixed
 7. **Open a PR from your fork**
 
-This is the best way to contribute: fix gstack while doing your real work, in the
+This is the best way to contribute: fix Nexus while doing your real work, in the
 project where you actually felt the pain.
 
 ### Session awareness
 
-When you have 3+ gstack sessions open simultaneously, every question tells you which project, which branch, and what's happening. No more staring at a question thinking "wait, which window is this?" The format is consistent across all skills.
+When you have 3+ Nexus sessions open simultaneously, every question tells you which project, which branch, and what's happening. No more staring at a question thinking "wait, which window is this?" The format is consistent across all skills.
 
-## Working on gstack inside the gstack repo
+## Working on Nexus inside the Nexus repo
 
-When you're editing gstack skills and want to test them by actually using gstack
+When you're editing Nexus skills and want to test them by actually using Nexus
 in the same repo, `bin/dev-setup` wires this up. It creates `.claude/skills/`
 symlinks (gitignored) pointing back to your working tree, so Claude Code uses
 your local edits instead of the global install.
 
 ```
-gstack/                          <- your working tree
+nexus/                           <- your working tree
 ├── .claude/skills/              <- created by dev-setup (gitignored)
-│   ├── gstack -> ../../         <- symlink back to repo root
-│   ├── review -> gstack/review  <- short names (default)
-│   ├── ship -> gstack/ship      <- or gstack-review, gstack-ship if --prefix
+│   ├── nexus -> ../../          <- symlink back to repo root
+│   ├── review -> nexus/review   <- short names (default)
+│   ├── ship -> nexus/ship       <- or nexus-review, nexus-ship if --prefix
 │   └── ...                      <- one symlink per skill
 ├── review/
 │   └── SKILL.md                 <- edit this, test with /review
@@ -84,9 +84,9 @@ gstack/                          <- your working tree
 └── ...
 ```
 
-Skill symlink names depend on your prefix setting (`~/.gstack/config.yaml`).
+Skill symlink names depend on your prefix setting (`~/.nexus/config.yaml`).
 Short names (`/review`, `/ship`) are the default. Run `./setup --prefix` if you
-prefer namespaced names (`/gstack-review`, `/gstack-ship`).
+prefer namespaced names (`/nexus-review`, `/nexus-ship`).
 
 ## Day-to-day workflow
 
@@ -163,7 +163,7 @@ EVALS=1 bun test test/skill-e2e-*.test.ts
 
 ### E2E observability
 
-When E2E tests run, they produce machine-readable artifacts in `~/.gstack-dev/`:
+When E2E tests run, they produce machine-readable artifacts in `~/.nexus-dev/`:
 
 | Artifact | Path | Purpose |
 |----------|------|---------|
@@ -185,7 +185,7 @@ bun run eval:summary         # aggregate stats + per-test efficiency averages ac
 
 **Eval comparison commentary:** `eval:compare` generates natural-language Takeaway sections interpreting what changed between runs — flagging regressions, noting improvements, calling out efficiency gains (fewer turns, faster, cheaper), and producing an overall summary. This is driven by `generateCommentary()` in `eval-store.ts`.
 
-Artifacts are never cleaned up — they accumulate in `~/.gstack-dev/` for post-mortem debugging and trend analysis.
+Artifacts are never cleaned up — they accumulate in `~/.nexus-dev/` for post-mortem debugging and trend analysis.
 
 ### Tier 3: LLM-as-judge (~$0.15/run)
 
@@ -236,7 +236,7 @@ To add a browse command, add it to `browse/src/commands.ts`. To add a snapshot f
 
 ## Dual-host development (Claude + Codex)
 
-gstack generates SKILL.md files for two hosts: **Claude** (`.claude/skills/`) and **Codex** (`.agents/skills/`). Every template change needs to be generated for both.
+Nexus generates SKILL.md files for two hosts: **Claude** (`.claude/skills/`) and **Codex** (`.agents/skills/`). Every template change needs to be generated for both.
 
 ### Generating for both hosts
 
@@ -256,9 +256,9 @@ bun run build
 
 | Aspect | Claude | Codex |
 |--------|--------|-------|
-| Output directory | `{skill}/SKILL.md` | `.agents/skills/gstack-{skill}/SKILL.md` (generated at setup, gitignored) |
+| Output directory | `{skill}/SKILL.md` | `.agents/skills/nexus-{skill}/SKILL.md` (generated at setup, gitignored) |
 | Frontmatter | Full (name, description, allowed-tools, hooks, version) | Minimal (name + description only) |
-| Paths | `~/.claude/skills/gstack` | `$GSTACK_ROOT` (`.agents/skills/gstack` in a repo, otherwise `~/.codex/skills/gstack`) |
+| Paths | `~/.claude/skills/nexus` | `$NEXUS_ROOT` (`.agents/skills/nexus` in a repo, otherwise `~/.codex/skills/nexus`) |
 | Hook skills | `hooks:` frontmatter (enforced by Claude) | Inline safety advisory prose (advisory only) |
 | `/codex` skill | Included (Claude wraps codex exec) | Excluded (self-referential) |
 
@@ -306,36 +306,36 @@ When Conductor creates a new workspace, `bin/dev-setup` runs automatically. It d
 - **SKILL.md files are generated.** Edit the `.tmpl` template, not the `.md`. Run `bun run gen:skill-docs` to regenerate.
 - **TODOS.md is the unified backlog.** Organized by skill/component with P0-P4 priorities. `/ship` auto-detects completed items. All planning/review/retro skills read it for context.
 - **Browse source changes need a rebuild.** If you touch `browse/src/*.ts`, run `bun run build`.
-- **Dev mode shadows your global install.** Project-local skills take priority over `~/.claude/skills/gstack`. `bin/dev-teardown` restores the global one.
+- **Dev mode shadows your global install.** Project-local skills take priority over `~/.claude/skills/nexus`. `bin/dev-teardown` restores the global one.
 - **Conductor workspaces are independent.** Each workspace is its own git worktree. `bin/dev-setup` runs automatically via `conductor.json`.
 - **`.env` propagates across worktrees.** Set it once in the main repo, all Conductor workspaces get it.
 - **`.claude/skills/` is gitignored.** The symlinks never get committed.
 
 ## Testing your changes in a real project
 
-**This is the recommended way to develop gstack.** Symlink your gstack checkout
+**This is the recommended way to develop Nexus.** Symlink your Nexus checkout
 into the project where you actually use it, so your changes are live while you
 do real work.
 
 ### Step 1: Symlink your checkout
 
 ```bash
-# In your core project (not the gstack repo)
-ln -sfn /path/to/your/gstack-checkout .claude/skills/gstack
+# In your core project (not the Nexus repo)
+ln -sfn /path/to/your/nexus-checkout .claude/skills/nexus
 ```
 
 ### Step 2: Run setup to create per-skill symlinks
 
-The `gstack` symlink alone isn't enough. Claude Code discovers skills through
-individual symlinks (`qa -> gstack/qa`, `ship -> gstack/ship`, etc.), not through
-the `gstack/` directory itself. Run `./setup` to create them:
+The `nexus` symlink alone isn't enough. Claude Code discovers skills through
+individual symlinks (`qa -> nexus/qa`, `ship -> nexus/ship`, etc.), not through
+the `nexus/` directory itself. Run `./setup` to create them:
 
 ```bash
-cd .claude/skills/gstack && bun install && bun run build && ./setup
+cd .claude/skills/nexus && bun install && bun run build && ./setup
 ```
 
-Setup will ask whether you want short names (`/qa`) or namespaced (`/gstack-qa`).
-Your choice is saved to `~/.gstack/config.yaml` and remembered for future runs.
+Setup will ask whether you want short names (`/qa`) or namespaced (`/nexus-qa`).
+Your choice is saved to `~/.nexus/config.yaml` and remembered for future runs.
 To skip the prompt, pass `--no-prefix` (short names) or `--prefix` (namespaced).
 
 ### Step 3: Develop
@@ -345,22 +345,22 @@ call picks it up immediately. No restart needed.
 
 ### Going back to the stable global install
 
-Remove the project-local symlink. Claude Code falls back to `~/.claude/skills/gstack/`:
+Remove the project-local symlink. Claude Code falls back to `~/.claude/skills/nexus/`:
 
 ```bash
-rm .claude/skills/gstack
+rm .claude/skills/nexus
 ```
 
-The per-skill symlinks (`qa`, `ship`, etc.) still point to `gstack/...`, so they'll
+The per-skill symlinks (`qa`, `ship`, etc.) still point to `nexus/...`, so they'll
 resolve to the global install automatically.
 
 ### Switching prefix mode
 
-If you vendored gstack with one prefix setting and want to switch:
+If you vendored Nexus with one prefix setting and want to switch:
 
 ```bash
-cd .claude/skills/gstack && ./setup --no-prefix   # switch to /qa, /ship
-cd .claude/skills/gstack && ./setup --prefix       # switch to /gstack-qa, /gstack-ship
+cd .claude/skills/nexus && ./setup --no-prefix   # switch to /qa, /ship
+cd .claude/skills/nexus && ./setup --prefix       # switch to /nexus-qa, /nexus-ship
 ```
 
 Setup cleans up the old symlinks automatically. No manual cleanup needed.
@@ -370,7 +370,7 @@ Setup cleans up the old symlinks automatically. No manual cleanup needed.
 If you don't want per-project symlinks, you can switch the global install:
 
 ```bash
-cd ~/.claude/skills/gstack
+cd ~/.claude/skills/nexus
 git fetch origin
 git checkout origin/<branch>
 bun install && bun run build && ./setup

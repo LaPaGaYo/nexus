@@ -55,7 +55,7 @@ export function generateOpenAIYaml(displayName: string, shortDescription: string
   return `interface:
   display_name: ${JSON.stringify(displayName)}
   short_description: ${JSON.stringify(shortDescription)}
-  default_prompt: ${JSON.stringify(`Use ${displayName} for this task.`)}
+  default_prompt: ${JSON.stringify(`Use $${displayName} to locate the bundled Nexus skills.`)}
 policy:
   allow_implicit_invocation: true
 `;
@@ -63,10 +63,9 @@ policy:
 
 /** Compute skill name for external hosts (Codex, Factory, etc.) */
 export function externalSkillName(skillDir: string): string {
-  if (skillDir === '.' || skillDir === '') return 'gstack';
-  // Don't double-prefix: gstack-upgrade → gstack-upgrade (not gstack-gstack-upgrade)
-  if (skillDir.startsWith('gstack-')) return skillDir;
-  return `gstack-${skillDir}`;
+  if (skillDir === '.' || skillDir === '') return 'nexus';
+  if (skillDir.startsWith('nexus-')) return skillDir;
+  return `nexus-${skillDir}`;
 }
 
 /**

@@ -1,0 +1,3 @@
+- require completed review artifacts
+- require ready QA when QA was run
+- keep merge and release readiness explicit in canonical gate artifacts

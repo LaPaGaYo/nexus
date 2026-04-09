@@ -1,6 +1,118 @@
-# Skill Deep Dives
+# Nexus Skill Deep Dives
 
-Detailed guides for every gstack skill — philosophy, workflow, and examples.
+Nexus is the only command surface.
+PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.
+Canonical lifecycle skill meaning now comes from Nexus-owned stage content under `lib/nexus/stage-content/`.
+Nexus-owned stage packs under `lib/nexus/stage-packs/` remain the active internal runtime units.
+Imported upstream repos remain source material only and do not own lifecycle truth.
+Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
+but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
+Legacy aliases and host utilities remain secondary compatibility surface only.
+
+## Canonical lifecycle commands
+
+Canonical Nexus commands:
+- `/discover`
+- `/frame`
+- `/plan`
+- `/handoff`
+- `/build`
+- `/review`
+- `/qa`
+- `/ship`
+- `/closeout`
+
+Implemented canonical commands in the current milestone:
+- `/discover`
+- `/frame`
+- `/plan`
+- `/handoff`
+- `/build`
+- `/review`
+- `/qa`
+- `/ship`
+- `/closeout`
+
+Governed lifecycle:
+- `/plan -> /handoff -> /build -> /review -> /qa -> /ship -> /closeout`
+
+`/qa` and `/ship` are now real governed runtime stages. They remain Nexus-owned lifecycle commands, not backend-native front doors.
+
+Legacy compatibility aliases route through the same Nexus runtime:
+- `/office-hours -> /discover`
+- `/plan-ceo-review -> /frame`
+- `/plan-eng-review -> /frame`
+- `/autoplan -> /plan`
+
+| Skill | Lifecycle role | What it does |
+|-------|----------------|--------------|
+| [`/discover`](#discover) | **PM discovery** | Clarify the problem, goals, constraints, and missing information. Absorbs PM discovery methods. |
+| [`/frame`](#frame) | **PM framing** | Define scope, non-goals, success criteria, and the product brief. |
+| [`/plan`](#plan) | **GSD planning** | Convert approved framing into execution-ready artifacts and readiness state. |
+| [`/handoff`](#handoff) | **Governed routing** | Record approved provider routing, substrate, provenance intent, and fallback policy. |
+| [`/build`](#build) | **Disciplined execution** | Run the bounded implementation contract through Nexus-governed execution. |
+| [`/review`](#review) | **Dual audit** | Persist the audit set, synthesis, gate decision, and reviewed provenance. |
+| [`/qa`](#qa) | **Validation** | Record explicit validation scope, findings, and QA status. |
+| [`/ship`](#ship) | **Release gate** | Record release readiness and checklist state without bypassing review or closeout requirements. |
+| [`/closeout`](#closeout) | **Milestone verification** | Verify archive, provenance, legality, and final readiness status. |
+
+## `/discover`
+
+The canonical discovery command. This is the Nexus-owned front door for vague ideas, early product thinking, and problem clarification.
+
+- Primary purpose: clarify the problem, goals, constraints, and open questions.
+- Absorbed capability lineage: PM Skills discovery methods.
+- Canonical outputs: `docs/product/idea-brief.md` and `.planning/current/discover/status.json`.
+- Legacy compatibility alias: `/office-hours`.
+
+## `/frame`
+
+The canonical framing command. This is where Nexus converts discovery into scoped product intent and success criteria.
+
+- Primary purpose: define scope, non-goals, success criteria, dependencies, and PRD shape.
+- Absorbed capability lineage: PM Skills framing methods plus the strongest prior review prompts.
+- Canonical outputs: `docs/product/decision-brief.md`, `docs/product/prd.md`, and `.planning/current/frame/status.json`.
+- Legacy compatibility aliases: `/plan-ceo-review`, `/plan-eng-review`.
+
+## `/plan`
+
+The canonical planning command. This is where Nexus turns approved framing into an execution-ready packet.
+
+- Primary purpose: produce readiness, sprint contract, verification path, and explicit ready or blocked status.
+- Absorbed capability lineage: GSD planning and readiness methods.
+- Canonical outputs: `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, and `.planning/current/plan/status.json`.
+- Legacy compatibility alias: `/autoplan`.
+
+## `/handoff`
+
+The canonical handoff command. Nexus owns the governed bridge between planning and execution.
+
+- Primary purpose: freeze requested routing, fallback policy, and governed handoff artifacts.
+- Absorbed capability lineage: routing-core plus CCB transport consultation.
+- Canonical outputs: `.planning/current/handoff/governed-execution-routing.md`, `.planning/current/handoff/governed-handoff.md`, and `.planning/current/handoff/status.json`.
+- No backend-native front door is allowed to replace this stage.
+
+## `/build`
+
+The canonical build command. Nexus owns the bounded implementation contract and build record.
+
+- Primary purpose: run disciplined execution and persist the implementation result.
+- Absorbed capability lineage: Superpowers execution discipline plus CCB transport.
+- Canonical outputs: `.planning/current/build/build-request.json`, `.planning/current/build/build-result.md`, and `.planning/current/build/status.json`.
+- Build truth only exists after Nexus normalization and writeback.
+
+## `/closeout`
+
+The canonical closeout command. Nexus verifies the governed work unit and final readiness state here.
+
+- Primary purpose: confirm audit completeness, archive status, legality, provenance consistency, and final outcome.
+- Absorbed capability lineage: GSD closeout methods.
+- Canonical outputs: `.planning/current/closeout/CLOSEOUT-RECORD.md` and `.planning/current/closeout/status.json`.
+- Closeout stays conservative: missing or inconsistent governed state blocks completion.
+
+## Legacy compatibility deep dives
+
+The detailed sections below are preserved for compatibility history, absorbed-method lineage, and utility skill documentation. They do not replace the canonical Nexus lifecycle above.
 
 | Skill | Your specialist | What they do |
 |-------|----------------|--------------|
@@ -26,7 +138,7 @@ Detailed guides for every gstack skill — philosophy, workflow, and examples.
 | [`/browse`](#browse) | **QA Engineer** | Give the agent eyes. Real Chromium browser, real clicks, real screenshots. ~100ms per command. |
 | [`/setup-browser-cookies`](#setup-browser-cookies) | **Session Manager** | Import cookies from your real browser (Chrome, Arc, Brave, Edge) into the headless session. Test authenticated pages. |
 | [`/autoplan`](#autoplan) | **Review Pipeline** | One command, fully reviewed plan. Runs CEO → design → eng review automatically with encoded decision principles. Surfaces only taste decisions for your approval. |
-| [`/learn`](#learn) | **Memory** | Manage what gstack learned across sessions. Review, search, prune, and export project-specific patterns and preferences. |
+| [`/learn`](#learn) | **Memory** | Manage what Nexus learned across sessions. Review, search, prune, and export project-specific patterns and preferences. |
 | | | |
 | **Multi-AI** | | |
 | [`/codex`](#codex) | **Second Opinion** | Independent review from OpenAI Codex CLI. Three modes: code review (pass/fail gate), adversarial challenge, and open consultation with session continuity. Cross-model analysis when both `/review` and `/codex` have run. |
@@ -36,9 +148,9 @@ Detailed guides for every gstack skill — philosophy, workflow, and examples.
 | [`/freeze`](#safety--guardrails) | **Edit Lock** | Restrict all file edits to a single directory. Blocks Edit and Write outside the boundary. Accident prevention for debugging. |
 | [`/guard`](#safety--guardrails) | **Full Safety** | Combines /careful + /freeze in one command. Maximum safety for prod work. |
 | [`/unfreeze`](#safety--guardrails) | **Unlock** | Remove the /freeze boundary, allowing edits everywhere again. |
-| [`/connect-chrome`](#connect-chrome) | **Chrome Controller** | Launch your real Chrome controlled by gstack with the Side Panel extension. Watch every action live. |
+| [`/connect-chrome`](#connect-chrome) | **Chrome Controller** | Launch your real Chrome controlled by Nexus with the Side Panel extension. Watch every action live. |
 | [`/setup-deploy`](#setup-deploy) | **Deploy Configurator** | One-time setup for `/land-and-deploy`. Detects your platform, production URL, and deploy commands. |
-| [`/gstack-upgrade`](#gstack-upgrade) | **Self-Updater** | Upgrade gstack to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
+| [`/nexus-upgrade`](#nexus-upgrade) | **Self-Updater** | Upgrade Nexus to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
 
 ---
 
@@ -93,7 +205,7 @@ Recommends A because you learn from real usage. CRM data comes naturally in week
 
 ### The design doc
 
-Both modes end with a design doc written to `~/.gstack/projects/` — and that doc feeds directly into `/plan-ceo-review` and `/plan-eng-review`. The full lifecycle is now: `office-hours → plan → implement → review → QA → ship → retro`.
+Both modes end with a design doc written to `~/.nexus/projects/` — and that doc feeds directly into `/plan-ceo-review` and `/plan-eng-review`. The full lifecycle is now: `office-hours → plan → implement → review → QA → ship → retro`.
 
 After the design doc is approved, `/office-hours` reflects on what it noticed about how you think — not generic praise, but specific callbacks to things you said during the session. The observations appear in the design doc too, so you re-encounter them when you re-read later.
 
@@ -147,7 +259,7 @@ It asks, **"what is the 10-star product hiding inside this request?"**
 - **HOLD SCOPE** — maximum rigor on the existing plan. No expansions surfaced.
 - **SCOPE REDUCTION** — find the minimum viable version. Cut everything else.
 
-Visions and decisions are persisted to `~/.gstack/projects/` so they survive beyond the conversation. Exceptional visions can be promoted to `docs/designs/` in your repo for the team.
+Visions and decisions are persisted to `~/.nexus/projects/` so they survive beyond the conversation. Exceptional visions can be promoted to `docs/designs/` in your repo for the team.
 
 ---
 
@@ -224,11 +336,11 @@ Every review (CEO, Eng, Design) logs its result. At the end of each review, you 
 +====================================================================+
 ```
 
-Eng Review is the only required gate (disable with `gstack-config set skip_eng_review true`). CEO and Design are informational — recommended for product and UI changes respectively.
+Eng Review is the only required gate (disable with `nexus-config set skip_eng_review true`). CEO and Design are informational — recommended for product and UI changes respectively.
 
 ### Plan-to-QA flow
 
-When `/plan-eng-review` finishes the test review section, it writes a test plan artifact to `~/.gstack/projects/`. When you later run `/qa`, it picks up that test plan automatically — your engineering review feeds directly into QA testing with no manual copy-paste.
+When `/plan-eng-review` finishes the test review section, it writes a test plan artifact to `~/.nexus/projects/`. When you later run `/qa`, it picks up that test plan automatically — your engineering review feeds directly into QA testing with no manual copy-paste.
 
 ---
 
@@ -401,7 +513,7 @@ Claude: [Runs full 80-item visual audit on the live site]
         Design Score: C → B+  |  AI Slop Score: D → A
         9 fixes applied (8 verified, 1 best-effort). 3 deferred.
 
-        [Report with before/after screenshots saved to .gstack/design-reports/]
+        [Report with before/after screenshots saved to .nexus/design-reports/]
 ```
 
 Nine commits, each touching one concern. The AI Slop score went from D to A because the three most recognizable patterns (gradient hero, 3-column grid, uniform radius) are gone.
@@ -423,7 +535,7 @@ You know the feeling. You have a feature, a page, a landing screen... and you're
 3. It generates 3 distinct design variants as PNGs
 4. A comparison board opens in your browser with all 3 side-by-side
 5. You click "Approve" on the one you like, or give feedback for another round
-6. The approved variant saves to `~/.gstack/projects/$SLUG/designs/` with an `approved.json`
+6. The approved variant saves to `~/.nexus/projects/$SLUG/designs/` with an `approved.json`
 
 That `approved.json` is what `/design-html` reads. The design pipeline chains: shotgun picks the direction, design-html renders it as working code.
 
@@ -445,7 +557,7 @@ Claude: [Generates 3 variants]
 
 You:    [Clicks "Approve" on Variant A in the browser]
 
-Claude: Approved Variant A. Saved to ~/.gstack/projects/myapp/designs/
+Claude: Approved Variant A. Saved to ~/.nexus/projects/myapp/designs/
         Next: run /design-html to generate production HTML from this mockup.
 ```
 
@@ -505,7 +617,7 @@ Claude: [Edits font-size and margin, browser auto-reloads]
 
 You:    Done
 
-Claude: Saved to ~/.gstack/projects/myapp/designs/hero-20260330/finalized.html
+Claude: Saved to ~/.nexus/projects/myapp/designs/hero-20260330/finalized.html
 ```
 
 ---
@@ -603,7 +715,7 @@ Claude: [Explores 12 pages, fills 3 forms, tests 2 flows]
         2. HIGH: Mobile nav menu doesn't close after selecting an item
         3. MEDIUM: Dashboard chart overlaps sidebar below 1024px
 
-        [Full report with screenshots saved to .gstack/qa-reports/]
+        [Full report with screenshots saved to .nexus/qa-reports/]
 ```
 
 **Testing authenticated pages:** Use `/setup-browser-cookies` first to import your real browser sessions, then `/qa` can test pages behind login.
@@ -932,9 +1044,9 @@ Claude: Plan complete. 9 decisions auto-resolved, 2 taste decisions approved.
 
 This is my **institutional memory mode**.
 
-gstack learns from every session. Patterns, pitfalls, preferences, architectural decisions... they accumulate in `~/.gstack/projects/$SLUG/learnings.jsonl`. Each learning has a confidence score, source attribution, and the files it references.
+Nexus learns from every session. Patterns, pitfalls, preferences, architectural decisions... they accumulate in `~/.nexus/projects/$SLUG/learnings.jsonl`. Each learning has a confidence score, source attribution, and the files it references.
 
-`/learn` lets you see what gstack has absorbed, search for specific patterns, prune stale entries (when referenced files no longer exist), and export learnings for team sharing. The real magic is in other skills... they automatically search learnings before making recommendations, and display "Prior learning applied" when a past insight is relevant.
+`/learn` lets you see what Nexus has absorbed, search for specific patterns, prune stale entries (when referenced files no longer exist), and export learnings for team sharing. The real magic is in other skills... they automatically search learnings before making recommendations, and display "Prior learning applied" when a past insight is relevant.
 
 ```
 You:   /learn
@@ -957,9 +1069,9 @@ Claude: 23 learnings for this project (14 high confidence, 6 medium, 3 low)
 
 This is my **co-presence mode**.
 
-`/browse` runs headless by default. You don't see what the agent sees. `/connect-chrome` changes that. It launches your actual Chrome browser controlled by Playwright, with the gstack Side Panel extension auto-loaded. You watch every action in real time... same screen, same window.
+`/browse` runs headless by default. You don't see what the agent sees. `/connect-chrome` changes that. It launches your actual Chrome browser controlled by Playwright, with the Nexus Side Panel extension auto-loaded. You watch every action in real time... same screen, same window.
 
-A subtle green shimmer at the top edge tells you which Chrome window gstack controls. All existing browse commands work unchanged. The Side Panel shows a live activity feed of every command and a chat sidebar where you can direct Claude with natural language instructions.
+A subtle green shimmer at the top edge tells you which Chrome window Nexus controls. All existing browse commands work unchanged. The Side Panel shows a live activity feed of every command and a chat sidebar where you can direct Claude with natural language instructions.
 
 ```
 You:   /connect-chrome
@@ -1078,12 +1190,12 @@ Remove the `/freeze` boundary, allowing edits everywhere again. The hooks stay r
 
 ---
 
-## `/gstack-upgrade`
+## `/nexus-upgrade`
 
-Keep gstack current with one command. It detects your install type (global at `~/.claude/skills/gstack` vs vendored in your project at `.claude/skills/gstack`), runs the upgrade, syncs both copies if you have dual installs, and shows you what changed.
+Keep Nexus current with one command. It detects your install type (global at `~/.claude/skills/nexus` vs vendored in your project at `.claude/skills/nexus`), runs the upgrade, syncs both copies if you have dual installs, and shows you what changed.
 
 ```
-You:   /gstack-upgrade
+You:   /nexus-upgrade
 
 Claude: Current version: 0.7.4
         Latest version: 0.8.2
@@ -1098,7 +1210,7 @@ Claude: Current version: 0.7.4
         Upgraded to 0.8.2. Both global and project installs synced.
 ```
 
-Set `auto_upgrade: true` in `~/.gstack/config.yaml` to skip the prompt entirely — gstack upgrades silently at the start of each session when a new version is available.
+Set `auto_upgrade: true` in `~/.nexus/config.yaml` to skip the prompt entirely — Nexus upgrades silently at the start of each session when a new version is available.
 
 ---
 
@@ -1108,13 +1220,13 @@ Set `auto_upgrade: true` in `~/.gstack/config.yaml` to skip the prompt entirely 
 
 ### Setup
 
-Install Greptile on your GitHub repo at [greptile.com](https://greptile.com) — it takes about 30 seconds. Once it's reviewing your PRs, gstack picks up its comments automatically. No additional configuration.
+Install Greptile on your GitHub repo at [greptile.com](https://greptile.com) — it takes about 30 seconds. Once it's reviewing your PRs, Nexus picks up its comments automatically. No additional configuration.
 
 ### How it works
 
 The problem with any automated reviewer is triage. Greptile is good, but not every comment is a real issue. Some are false positives. Some flag things you already fixed three commits ago. Without a triage layer, the comments pile up and you start ignoring them — which defeats the purpose.
 
-gstack solves this. `/review` and `/ship` are now Greptile-aware. They read Greptile's comments, classify each one, and take action:
+Nexus solves this. `/review` and `/ship` are now Greptile-aware. They read Greptile's comments, classify each one, and take action:
 
 - **Valid issues** get added to the critical findings and fixed before shipping
 - **Already-fixed issues** get an auto-reply acknowledging the catch
@@ -1124,7 +1236,7 @@ The result is a two-layer review: Greptile catches things asynchronously on the 
 
 ### Learning from history
 
-Every false positive you confirm gets saved to `~/.gstack/greptile-history.md`. Future runs auto-skip known FP patterns for your codebase. And `/retro` tracks Greptile's batting average over time — so you can see whether the signal-to-noise ratio is improving.
+Every false positive you confirm gets saved to `~/.nexus/greptile-history.md`. Future runs auto-skip known FP patterns for your codebase. And `/retro` tracks Greptile's batting average over time — so you can see whether the signal-to-noise ratio is improving.
 
 ### Example
 
