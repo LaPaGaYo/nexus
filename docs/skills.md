@@ -9,7 +9,7 @@ Legacy aliases and host utilities remain documented below for migration, safety,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 Legacy aliases and host utilities remain secondary compatibility surface only.
 
-## Nexus v0.1 command surface
+## Canonical lifecycle commands
 
 Canonical Nexus commands:
 - `/discover`
@@ -43,6 +43,76 @@ Legacy compatibility aliases route through the same Nexus runtime:
 - `/plan-ceo-review -> /frame`
 - `/plan-eng-review -> /frame`
 - `/autoplan -> /plan`
+
+| Skill | Lifecycle role | What it does |
+|-------|----------------|--------------|
+| [`/discover`](#discover) | **PM discovery** | Clarify the problem, goals, constraints, and missing information. Absorbs PM discovery methods. |
+| [`/frame`](#frame) | **PM framing** | Define scope, non-goals, success criteria, and the product brief. |
+| [`/plan`](#plan) | **GSD planning** | Convert approved framing into execution-ready artifacts and readiness state. |
+| [`/handoff`](#handoff) | **Governed routing** | Record approved provider routing, substrate, provenance intent, and fallback policy. |
+| [`/build`](#build) | **Disciplined execution** | Run the bounded implementation contract through Nexus-governed execution. |
+| [`/review`](#review) | **Dual audit** | Persist the audit set, synthesis, gate decision, and reviewed provenance. |
+| [`/qa`](#qa) | **Validation** | Record explicit validation scope, findings, and QA status. |
+| [`/ship`](#ship) | **Release gate** | Record release readiness and checklist state without bypassing review or closeout requirements. |
+| [`/closeout`](#closeout) | **Milestone verification** | Verify archive, provenance, legality, and final readiness status. |
+
+## `/discover`
+
+The canonical discovery command. This is the Nexus-owned front door for vague ideas, early product thinking, and problem clarification.
+
+- Primary purpose: clarify the problem, goals, constraints, and open questions.
+- Absorbed capability lineage: PM Skills discovery methods.
+- Canonical outputs: `docs/product/idea-brief.md` and `.planning/current/discover/status.json`.
+- Legacy compatibility alias: `/office-hours`.
+
+## `/frame`
+
+The canonical framing command. This is where Nexus converts discovery into scoped product intent and success criteria.
+
+- Primary purpose: define scope, non-goals, success criteria, dependencies, and PRD shape.
+- Absorbed capability lineage: PM Skills framing methods plus the strongest prior review prompts.
+- Canonical outputs: `docs/product/decision-brief.md`, `docs/product/prd.md`, and `.planning/current/frame/status.json`.
+- Legacy compatibility aliases: `/plan-ceo-review`, `/plan-eng-review`.
+
+## `/plan`
+
+The canonical planning command. This is where Nexus turns approved framing into an execution-ready packet.
+
+- Primary purpose: produce readiness, sprint contract, verification path, and explicit ready or blocked status.
+- Absorbed capability lineage: GSD planning and readiness methods.
+- Canonical outputs: `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, and `.planning/current/plan/status.json`.
+- Legacy compatibility alias: `/autoplan`.
+
+## `/handoff`
+
+The canonical handoff command. Nexus owns the governed bridge between planning and execution.
+
+- Primary purpose: freeze requested routing, fallback policy, and governed handoff artifacts.
+- Absorbed capability lineage: routing-core plus CCB transport consultation.
+- Canonical outputs: `.planning/current/handoff/governed-execution-routing.md`, `.planning/current/handoff/governed-handoff.md`, and `.planning/current/handoff/status.json`.
+- No backend-native front door is allowed to replace this stage.
+
+## `/build`
+
+The canonical build command. Nexus owns the bounded implementation contract and build record.
+
+- Primary purpose: run disciplined execution and persist the implementation result.
+- Absorbed capability lineage: Superpowers execution discipline plus CCB transport.
+- Canonical outputs: `.planning/current/build/build-request.json`, `.planning/current/build/build-result.md`, and `.planning/current/build/status.json`.
+- Build truth only exists after Nexus normalization and writeback.
+
+## `/closeout`
+
+The canonical closeout command. Nexus verifies the governed work unit and final readiness state here.
+
+- Primary purpose: confirm audit completeness, archive status, legality, provenance consistency, and final outcome.
+- Absorbed capability lineage: GSD closeout methods.
+- Canonical outputs: `.planning/current/closeout/CLOSEOUT-RECORD.md` and `.planning/current/closeout/status.json`.
+- Closeout stays conservative: missing or inconsistent governed state blocks completion.
+
+## Legacy compatibility deep dives
+
+The detailed sections below are preserved for compatibility history, absorbed-method lineage, and utility skill documentation. They do not replace the canonical Nexus lifecycle above.
 
 | Skill | Your specialist | What they do |
 |-------|----------------|--------------|

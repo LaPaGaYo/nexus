@@ -52,6 +52,52 @@ describe('nexus product surface contract', () => {
     expect(skills).not.toContain('controlled by gstack');
   });
 
+  test('agent-facing docs keep canonical Nexus lifecycle commands primary', () => {
+    const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
+    const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+    const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
+
+    expect(agents).toContain('## Canonical Nexus lifecycle');
+    expect(agents).toContain('| `/discover` |');
+    expect(agents).toContain('| `/frame` |');
+    expect(agents).toContain('| `/plan` |');
+    expect(agents).toContain('| `/handoff` |');
+    expect(agents).toContain('| `/build` |');
+    expect(agents).toContain('| `/review` |');
+    expect(agents).toContain('| `/qa` |');
+    expect(agents).toContain('| `/ship` |');
+    expect(agents).toContain('| `/closeout` |');
+    expect(agents).toContain('## Legacy compatibility aliases');
+    expect(agents).not.toContain('Invoke them by name (e.g., `/office-hours`)');
+
+    expect(readme).toContain('You:    /discover');
+    expect(readme).toContain('You:    /frame');
+    expect(readme).toContain('You:    /plan');
+    expect(readme).toContain('You:    /handoff');
+    expect(readme).toContain('You:    /build');
+    expect(readme).toContain('| `/discover` |');
+    expect(readme).toContain('| `/frame` |');
+    expect(readme).toContain('| `/plan` |');
+    expect(readme).toContain('| `/handoff` |');
+    expect(readme).toContain('| `/build` |');
+    expect(readme).toContain('## Nexus support surface');
+    expect(readme).not.toContain('You:    /office-hours');
+    expect(readme).not.toContain('You:    /plan-ceo-review');
+    expect(readme).not.toContain('You:    /plan-eng-review');
+
+    expect(skills).toContain('## Canonical lifecycle commands');
+    expect(skills).toContain('| [`/discover`](#discover) |');
+    expect(skills).toContain('| [`/frame`](#frame) |');
+    expect(skills).toContain('| [`/plan`](#plan) |');
+    expect(skills).toContain('| [`/handoff`](#handoff) |');
+    expect(skills).toContain('| [`/build`](#build) |');
+    expect(skills).toContain('| [`/review`](#review) |');
+    expect(skills).toContain('| [`/qa`](#qa) |');
+    expect(skills).toContain('| [`/ship`](#ship) |');
+    expect(skills).toContain('| [`/closeout`](#closeout) |');
+    expect(skills).toContain('## Legacy compatibility deep dives');
+  });
+
   test('package metadata and setup are Nexus-primary', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
     const setup = readFileSync(join(ROOT, 'setup'), 'utf8');

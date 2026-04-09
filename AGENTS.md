@@ -1,26 +1,33 @@
 # Nexus — AI Engineering Workflow
 
-Nexus is a collection of SKILL.md files that give AI agents structured roles for
-software development. Each skill is a specialist: CEO reviewer, eng manager,
-designer, QA lead, release engineer, debugger, and more.
+Nexus is a single-package AI engineering operating system.
+Claude remains the only interactive front door. Nexus owns the lifecycle,
+artifacts, governance, and project progression.
 
-## Available skills
+## Canonical Nexus lifecycle
 
-Skills live in `.agents/skills/`. Invoke them by name (e.g., `/office-hours`).
+Skills live in `.agents/skills/`. Invoke canonical Nexus commands first.
 
 | Skill | What it does |
 |-------|-------------|
-| `/office-hours` | Start here. Reframes your product idea before you write code. |
-| `/plan-ceo-review` | CEO-level review: find the 10-star product in the request. |
-| `/plan-eng-review` | Lock architecture, data flow, edge cases, and tests. |
-| `/plan-design-review` | Rate each design dimension 0-10, explain what a 10 looks like. |
+| `/discover` | Clarify the problem, goals, and constraints. |
+| `/frame` | Define scope, non-goals, success criteria, and product shape. |
+| `/plan` | Turn approved framing into an execution-ready packet. |
+| `/handoff` | Freeze governed routing, provenance intent, and fallback policy. |
+| `/build` | Execute the bounded implementation contract. |
+| `/review` | Persist the formal audit set and reviewed provenance. |
+| `/qa` | Record explicit validation beyond code review. |
+| `/ship` | Record the governed release-gate decision. |
+| `/closeout` | Verify archive, provenance, and final readiness status. |
+
+## Nexus support surface
+
+| Skill | What it does |
+|-------|-------------|
 | `/design-consultation` | Build a complete design system from scratch. |
-| `/review` | Pre-landing PR review. Finds bugs that pass CI but break in prod. |
 | `/debug` | Systematic root-cause debugging. No fixes without investigation. |
 | `/design-review` | Design audit + fix loop with atomic commits. |
-| `/qa` | Open a real browser, find bugs, fix them, re-verify. |
 | `/qa-only` | Same as /qa but report only — no code changes. |
-| `/ship` | Run tests, review, push, open PR. One command. |
 | `/document-release` | Update all docs to match what you just shipped. |
 | `/retro` | Weekly retro with per-person breakdowns and shipping streaks. |
 | `/browse` | Headless browser — real Chromium, real clicks, ~100ms/command. |
@@ -30,6 +37,15 @@ Skills live in `.agents/skills/`. Invoke them by name (e.g., `/office-hours`).
 | `/guard` | Activate both careful + freeze at once. |
 | `/unfreeze` | Remove directory edit restrictions. |
 | `/nexus-upgrade` | Update Nexus to the latest version. |
+
+## Legacy compatibility aliases
+
+These remain compatibility-only entrypoints. They route through the same Nexus runtime and do not own separate lifecycle, artifact, or transition semantics.
+
+- `/office-hours -> /discover`
+- `/plan-ceo-review -> /frame`
+- `/plan-eng-review -> /frame`
+- `/autoplan -> /plan`
 
 ## Build commands
 

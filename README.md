@@ -40,10 +40,12 @@ Fork it. Improve it. Make it yours. And if you want to hate on free open source 
 2. Run `/discover` — describe the product, problem, or unknown
 3. Run `/frame` — lock scope, non-goals, and success criteria
 4. Run `/plan` — turn approved framing into execution-ready artifacts
-5. Run `/review` — complete governed dual-audit review
-6. Run `/qa` — record explicit governed validation
-7. Run `/ship` — record conservative release-gate state
-8. Run `/closeout` — verify the governed work unit and archive state
+5. Run `/handoff` — freeze governed routing and fallback policy
+6. Run `/build` — execute the bounded implementation contract
+7. Run `/review` — complete governed dual-audit review
+8. Run `/qa` — record explicit governed validation
+9. Run `/ship` — record conservative release-gate state
+10. Run `/closeout` — verify the governed work unit and archive state
 
 ## Nexus v0.1 command surface
 
@@ -159,7 +161,7 @@ Skills install to `~/.factory/skills/nexus-*/`. Restart `droid` to rescan skills
 
 ```
 You:    I want to build a daily briefing app for my calendar.
-You:    /office-hours
+You:    /discover
 Claude: [asks about the pain — specific examples, not hypotheticals]
 
 You:    Multiple Google calendars, events with stale info, wrong locations.
@@ -174,69 +176,76 @@ Claude: I'm going to push back on the framing. You said "daily briefing
         RECOMMENDATION: Ship the narrowest wedge tomorrow, learn from
         real usage. The full vision is a 3-month project — start with
         the daily briefing that actually works.
-        [writes design doc → feeds into downstream skills automatically]
+        [writes idea brief + discovery notes]
 
-You:    /plan-ceo-review
-        [reads the design doc, challenges scope, runs 10-section review]
+You:    /frame
+        [locks scope, non-goals, success criteria, and PRD shape]
 
-You:    /plan-eng-review
-        [ASCII diagrams for data flow, state machines, error paths]
-        [test matrix, failure modes, security concerns]
+You:    /plan
+        [writes execution readiness packet + sprint contract]
 
-You:    Approve plan. Exit plan mode.
-        [writes 2,400 lines across 11 files. ~8 minutes.]
+You:    /handoff
+        [records governed route, fallback policy disabled, provider intent explicit]
+
+You:    /build
+        [writes implementation summary and bounded build result]
 
 You:    /review
-        [AUTO-FIXED] 2 issues. [ASK] Race condition → you approve fix.
+        [dual audit set persisted with reviewed provenance]
 
 You:    /qa https://staging.myapp.com
-        [opens real browser, clicks through flows, finds and fixes a bug]
+        [validation scope recorded, defects surfaced explicitly]
 
 You:    /ship
-        Tests: 42 → 51 (+9 new). PR: github.com/you/app/pull/42
+        [release gate recorded]
+
+You:    /closeout
+        [archive state verified, work unit concluded]
 ```
 
-You said "daily briefing app." The agent said "you're building a chief of staff AI" — because it listened to your pain, not your feature request. Eight commands, end to end. That is not a copilot. That is a team.
+You said "daily briefing app." Nexus turned that into a governed work unit with explicit framing, planning, execution, audit, QA, ship, and closeout state. That is not a copilot. That is a system.
 
 ## The sprint
 
-Nexus is a process, not a collection of tools. The skills run in the order a sprint runs:
+Nexus is a process, not a collection of tools. The lifecycle runs in one canonical order:
 
-**Think → Plan → Build → Review → Test → Ship → Reflect**
+**Discover → Frame → Plan → Handoff → Build → Review → QA → Ship → Closeout**
 
-Each skill feeds into the next. `/office-hours` writes a design doc that `/plan-ceo-review` reads. `/plan-eng-review` writes a test plan that `/qa` picks up. `/review` catches bugs that `/ship` verifies are fixed. Nothing falls through the cracks because every step knows what came before it.
+Each command feeds the next through repo-visible artifacts. `/discover` writes the problem record that `/frame` hardens. `/plan` produces the execution packet that `/handoff` freezes into governed routing. `/build` produces the implementation record that `/review`, `/qa`, `/ship`, and `/closeout` verify. Nothing falls through the cracks because Nexus owns the lifecycle and artifact chain.
 
 | Skill | Your specialist | What they do |
 |-------|----------------|--------------|
-| `/office-hours` | **YC Office Hours** | Start here. Six forcing questions that reframe your product before you write code. Pushes back on your framing, challenges premises, generates implementation alternatives. Design doc feeds into every downstream skill. |
-| `/plan-ceo-review` | **CEO / Founder** | Rethink the problem. Find the 10-star product hiding inside the request. Four modes: Expansion, Selective Expansion, Hold Scope, Reduction. |
-| `/plan-eng-review` | **Eng Manager** | Lock in architecture, data flow, diagrams, edge cases, and tests. Forces hidden assumptions into the open. |
-| `/plan-design-review` | **Senior Designer** | Rates each design dimension 0-10, explains what a 10 looks like, then edits the plan to get there. AI Slop detection. Interactive — one AskUserQuestion per design choice. |
-| `/design-consultation` | **Design Partner** | Build a complete design system from scratch. Researches the landscape, proposes creative risks, generates realistic product mockups. |
-| `/review` | **Staff Engineer** | Find the bugs that pass CI but blow up in production. Auto-fixes the obvious ones. Flags completeness gaps. |
-| `/investigate` | **Debugger** | Systematic root-cause debugging. Iron Law: no fixes without investigation. Traces data flow, tests hypotheses, stops after 3 failed fixes. |
-| `/design-review` | **Designer Who Codes** | Same audit as /plan-design-review, then fixes what it finds. Atomic commits, before/after screenshots. |
-| `/design-shotgun` | **Design Explorer** | Generate multiple AI design variants, open a comparison board in your browser, and iterate until you approve a direction. Taste memory biases toward your preferences. |
-| `/design-html` | **Design Engineer** | Takes an approved mockup from `/design-shotgun` and generates production-quality HTML with Pretext for computed text layout. Text reflows on resize, heights adjust to content. Smart API routing picks the right Pretext patterns per design type. Framework detection for React/Svelte/Vue. |
-| `/qa` | **QA Lead** | Test your app, find bugs, fix them with atomic commits, re-verify. Auto-generates regression tests for every fix. |
-| `/qa-only` | **QA Reporter** | Same methodology as /qa but report only. Pure bug report without code changes. |
-| `/cso` | **Chief Security Officer** | OWASP Top 10 + STRIDE threat model. Zero-noise: 17 false positive exclusions, 8/10+ confidence gate, independent finding verification. Each finding includes a concrete exploit scenario. |
-| `/ship` | **Release Engineer** | Sync main, run tests, audit coverage, push, open PR. Bootstraps test frameworks if you don't have one. |
-| `/land-and-deploy` | **Release Engineer** | Merge the PR, wait for CI and deploy, verify production health. One command from "approved" to "verified in production." |
-| `/canary` | **SRE** | Post-deploy monitoring loop. Watches for console errors, performance regressions, and page failures. |
-| `/benchmark` | **Performance Engineer** | Baseline page load times, Core Web Vitals, and resource sizes. Compare before/after on every PR. |
-| `/document-release` | **Technical Writer** | Update all project docs to match what you just shipped. Catches stale READMEs automatically. |
-| `/retro` | **Eng Manager** | Team-aware weekly retro. Per-person breakdowns, shipping streaks, test health trends, growth opportunities. `/retro global` runs across all your projects and AI tools (Claude Code, Codex, Gemini). |
-| `/browse` | **QA Engineer** | Give the agent eyes. Real Chromium browser, real clicks, real screenshots. ~100ms per command. `$B connect` launches your real Chrome as a headed window — watch every action live. |
-| `/setup-browser-cookies` | **Session Manager** | Import cookies from your real browser (Chrome, Arc, Brave, Edge) into the headless session. Test authenticated pages. |
-| `/autoplan` | **Review Pipeline** | One command, fully reviewed plan. Runs CEO → design → eng review automatically with encoded decision principles. Surfaces only taste decisions for your approval. |
-| `/learn` | **Memory** | Manage what Nexus learned across sessions. Review, search, prune, and export project-specific patterns, pitfalls, and preferences. Learnings compound across sessions so Nexus gets smarter on your codebase over time. |
+| `/discover` | **PM discovery** | Clarify the problem, goals, constraints, and missing context. |
+| `/frame` | **PM framing** | Lock scope, non-goals, success criteria, and the product brief. |
+| `/plan` | **GSD planning** | Convert approved framing into execution-ready planning artifacts. |
+| `/handoff` | **Governed routing** | Record approved provider routing, substrate, provenance intent, and fallback policy. |
+| `/build` | **Disciplined execution** | Run the bounded implementation contract and persist the build result. |
+| `/review` | **Dual audit** | Persist the audit set, synthesis, and reviewed provenance. |
+| `/qa` | **Validation** | Record explicit validation scope, findings, and QA status. |
+| `/ship` | **Release gate** | Record conservative release readiness and checklist state. |
+| `/closeout` | **Milestone verification** | Verify archive, provenance, legality, and final readiness status. |
 
-### Power tools
+Legacy aliases remain compatibility-only. `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, and `/autoplan` route through the same Nexus runtime and do not own separate lifecycle semantics.
+
+## Nexus support surface
 
 | Skill | What it does |
 |-------|-------------|
 | `/codex` | **Second Opinion** — independent code review from OpenAI Codex CLI. Three modes: review (pass/fail gate), adversarial challenge, and open consultation. Cross-model analysis when both `/review` and `/codex` have run. |
+| `/design-consultation` | **Design Partner** — build a complete design system from scratch. |
+| `/design-review` | **Designer Who Codes** — run a live-site design audit and fix loop. |
+| `/design-shotgun` | **Design Explorer** — generate multiple visual variants and compare them quickly. |
+| `/design-html` | **Design Engineer** — turn an approved mockup into production-quality HTML. |
+| `/debug` | **Debugger** — systematic root-cause debugging with strict investigation discipline. |
+| `/qa-only` | **QA Reporter** — run the QA method without code changes. |
+| `/document-release` | **Technical Writer** — update docs after a governed release. |
+| `/retro` | **Eng Manager** — run a project or global retrospective. |
+| `/browse` | **QA Engineer** — give the agent eyes with real browser control. |
+| `/setup-browser-cookies` | **Session Manager** — import browser sessions for authenticated testing. |
+| `/land-and-deploy` | **Release Engineer** — merge, deploy, and verify production health. |
+| `/canary` | **SRE** — monitor post-deploy health and regressions. |
+| `/benchmark` | **Performance Engineer** — baseline and compare performance. |
+| `/cso` | **Chief Security Officer** — run security review methodology. |
 | `/careful` | **Safety Guardrails** — warns before destructive commands (rm -rf, DROP TABLE, force-push). Say "be careful" to activate. Override any warning. |
 | `/freeze` | **Edit Lock** — restrict file edits to one directory. Prevents accidental changes outside scope while debugging. |
 | `/guard` | **Full Safety** — `/careful` + `/freeze` in one command. Maximum safety for prod work. |
@@ -244,6 +253,7 @@ Each skill feeds into the next. `/office-hours` writes a design doc that `/plan-
 | `/connect-chrome` | **Chrome Controller** — launch Chrome with the Side Panel extension. Watch every action live, inspect CSS on any element, clean up pages, and take screenshots. Each tab gets its own agent. |
 | `/setup-deploy` | **Deploy Configurator** — one-time setup for `/land-and-deploy`. Detects your platform, production URL, and deploy commands. |
 | `/nexus-upgrade` | **Self-Updater** — upgrade Nexus to the latest version. Detects global vs vendored install, syncs both, shows what changed. |
+| `/learn` | **Memory** — manage what Nexus learned across sessions. |
 
 **[Deep dives with examples and philosophy for every skill →](docs/skills.md)**
 
@@ -251,7 +261,7 @@ Each skill feeds into the next. `/office-hours` writes a design doc that `/plan-
 
 Nexus works well with one sprint. It gets interesting with ten running at once.
 
-**Design is at the heart.** `/design-consultation` builds your design system from scratch, researches the space, proposes creative risks, and writes `DESIGN.md`. `/design-shotgun` generates multiple visual variants and opens a comparison board so you can pick a direction. `/design-html` takes that approved mockup and generates production-quality HTML with Pretext, where text actually reflows on resize instead of breaking with hardcoded heights. Then `/design-review` and `/plan-eng-review` read what you chose. Design decisions flow through the whole system.
+**Design is at the heart.** `/design-consultation` builds your design system from scratch, researches the space, proposes creative risks, and writes `DESIGN.md`. `/design-shotgun` generates multiple visual variants and opens a comparison board so you can pick a direction. `/design-html` takes that approved mockup and generates production-quality HTML with Pretext, where text actually reflows on resize instead of breaking with hardcoded heights. Then `/design-review`, `/frame`, and `/plan` carry those decisions into the governed lifecycle.
 
 **`/qa` was a massive unlock.** It let me go from 6 to 12 parallel workers. Claude Code saying *"I SEE THE ISSUE"* and then actually fixing it, generating a regression test, and verifying the fix — that changed how I work. The agent has eyes now.
 
@@ -279,9 +289,9 @@ Nexus works well with one sprint. It gets interesting with ten running at once.
 
 Nexus is powerful with one sprint. It is transformative with ten running at once.
 
-[Conductor](https://conductor.build) runs multiple Claude Code sessions in parallel — each in its own isolated workspace. One session running `/office-hours` on a new idea, another doing `/review` on a PR, a third implementing a feature, a fourth running `/qa` on staging, and six more on other branches. All at the same time. I regularly run 10-15 parallel sprints — that's the practical max right now.
+[Conductor](https://conductor.build) runs multiple Claude Code sessions in parallel — each in its own isolated workspace. One session running `/discover` on a new idea, another doing `/review` on a PR, a third implementing through `/build`, a fourth running `/qa` on staging, and six more on other branches. All at the same time. I regularly run 10-15 parallel sprints — that's the practical max right now.
 
-The sprint structure is what makes parallelism work. Without a process, ten agents is ten sources of chaos. With a process — think, plan, build, review, test, ship — each agent knows exactly what to do and when to stop. You manage them the way a CEO manages a team: check in on the decisions that matter, let the rest run.
+The sprint structure is what makes parallelism work. Without a process, ten agents is ten sources of chaos. With a process — discover, frame, plan, handoff, build, review, QA, ship, closeout — each agent knows exactly what to do and when to stop. You manage them the way a CEO manages a team: check in on the decisions that matter, let the rest run.
 
 ---
 
@@ -339,11 +349,12 @@ Data is stored in [Supabase](https://supabase.com) (open source Firebase alterna
 ```
 ## Nexus
 Use /browse from Nexus for all web browsing. Never use mcp__claude-in-chrome__* tools.
-Available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review,
-/design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy,
-/canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review,
-/setup-browser-cookies, /setup-deploy, /retro, /investigate, /document-release, /codex,
-/cso, /autoplan, /careful, /freeze, /guard, /unfreeze, /nexus-upgrade, /learn.
+Canonical lifecycle: /discover, /frame, /plan, /handoff, /build, /review, /qa, /ship, /closeout.
+Support surface: /design-consultation, /design-shotgun, /design-html, /design-review,
+/debug, /browse, /connect-chrome, /setup-browser-cookies, /document-release, /retro,
+/codex, /cso, /land-and-deploy, /canary, /benchmark, /careful, /freeze, /guard,
+/unfreeze, /setup-deploy, /nexus-upgrade, /learn.
+Legacy aliases remain compatibility-only: /office-hours, /plan-ceo-review, /plan-eng-review, /autoplan.
 ```
 
 ## License
