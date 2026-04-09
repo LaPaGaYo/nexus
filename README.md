@@ -40,7 +40,14 @@ Governed work is recorded in `lib/nexus/` and `.planning/`.
 
 ## How it runs
 
-The intended operating path is:
+The intended operating path requires a live tmux + CCB session first:
+
+1. Start `tmux`
+2. Inside tmux, run `ccb codex gemini claude`
+3. Enter the Claude session
+4. Then operate through Nexus from Claude
+
+The intended operating path is then:
 
 **Human → Claude → Nexus → CCB → Codex/Gemini**
 
@@ -69,7 +76,7 @@ Canonical lifecycle:
 
 ## Install
 
-**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+, [Node.js](https://nodejs.org/) on Windows
+**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+, [tmux](https://github.com/tmux/tmux/wiki), [CCB](https://github.com/bfly123/claude_code_bridge), [Node.js](https://nodejs.org/) on Windows
 
 ### Step 1: Install Nexus on your machine
 
