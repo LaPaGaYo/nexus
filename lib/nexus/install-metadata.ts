@@ -1,0 +1,155 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { assertSupportedReleaseChannel, type SupportedReleaseChannel } from './release-contract';
+
+export const INSTALL_METADATA_FILE = '.nexus-install.json' as const;
+
+export const INSTALL_KINDS = [
+  'managed_release',
+  'managed_vendored',
+  'legacy_git',
+  'legacy_vendored',
+  'source_checkout',
+] as const;
+export type InstallKind = (typeof INSTALL_KINDS)[number];
+
+export const INSTALL_SCOPES = ['global', 'project'] as const;
+export type InstallScope = (typeof INSTALL_SCOPES)[number];
+
+export interface InstallSourceRecord {
+  kind: 'github_release';
+  repo: string;
+  bundle_url: string;
+}
+
+export interface InstallMigrationRecord {
+  install_kind: Exclude<InstallKind, 'managed_release' | 'managed_vendored'>;
+  installed_version: string;
+}
+
+export interface InstallMetadata {
+  schema_version: 1;
+  product: 'nexus';
+  install_kind: InstallKind;
+  install_scope: InstallScope;
+  release_channel: SupportedReleaseChannel;
+  installed_version: string;
+  installed_tag: string;
+  install_source: InstallSourceRecord;
+  last_upgrade_at: string | null;
+  migrated_from: InstallMigrationRecord | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function assertString(value: unknown, label: string): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+}
+
+function assertNullableString(value: unknown, label: string): asserts value is string | null {
+  if (value !== null) {
+    assertString(value, label);
+  }
+}
+
+function assertInstallKind(value: unknown): asserts value is InstallKind {
+  if (!INSTALL_KINDS.includes(value as InstallKind)) {
+    throw new Error(`install_kind must be one of: ${INSTALL_KINDS.join(', ')}`);
+  }
+}
+
+function assertInstallScope(value: unknown): asserts value is InstallScope {
+  if (!INSTALL_SCOPES.includes(value as InstallScope)) {
+    throw new Error(`install_scope must be one of: ${INSTALL_SCOPES.join(', ')}`);
+  }
+}
+
+function assertInstallSource(value: unknown): asserts value is InstallSourceRecord {
+  if (!isRecord(value)) {
+    throw new Error('install_source must be an object');
+  }
+
+  if (value.kind !== 'github_release') {
+    throw new Error('install_source.kind must be github_release');
+  }
+
+  assertString(value.repo, 'install_source.repo');
+  assertString(value.bundle_url, 'install_source.bundle_url');
+}
+
+function assertMigratedFrom(value: unknown): asserts value is InstallMigrationRecord | null {
+  if (value === null) {
+    return;
+  }
+
+  if (!isRecord(value)) {
+    throw new Error('migrated_from must be an object or null');
+  }
+
+  if (typeof value.install_kind !== 'string' || value.install_kind.length === 0) {
+    throw new Error('migrated_from.install_kind must be a non-empty string');
+  }
+
+  if (!INSTALL_KINDS.includes(value.install_kind as InstallKind)) {
+    throw new Error(`migrated_from.install_kind must be one of: ${INSTALL_KINDS.join(', ')}`);
+  }
+
+  if (value.install_kind === 'managed_release' || value.install_kind === 'managed_vendored') {
+    throw new Error('migrated_from.install_kind must be a legacy install kind');
+  }
+
+  assertString(value.installed_version, 'migrated_from.installed_version');
+}
+
+export function assertInstallMetadata(metadata: unknown): asserts metadata is InstallMetadata {
+  if (!isRecord(metadata)) {
+    throw new Error('install metadata must be an object');
+  }
+
+  if (metadata.schema_version !== 1) {
+    throw new Error('install metadata schema_version must be 1');
+  }
+
+  if (metadata.product !== 'nexus') {
+    throw new Error('install metadata product must be nexus');
+  }
+
+  assertInstallKind(metadata.install_kind);
+  assertInstallScope(metadata.install_scope);
+
+  assertSupportedReleaseChannel(metadata.release_channel, 'release_channel');
+
+  assertString(metadata.installed_version, 'installed_version');
+  assertString(metadata.installed_tag, 'installed_tag');
+  assertInstallSource(metadata.install_source);
+  assertNullableString(metadata.last_upgrade_at, 'last_upgrade_at');
+  assertMigratedFrom(metadata.migrated_from);
+}
+
+export function validateInstallMetadata(metadata: unknown): InstallMetadata {
+  assertInstallMetadata(metadata);
+  return metadata;
+}
+
+export function readInstallMetadata(installRoot = process.cwd()): InstallMetadata | null {
+  const path = getInstallMetadataPath(installRoot);
+  if (!existsSync(path)) {
+    return null;
+  }
+
+  return validateInstallMetadata(JSON.parse(readFileSync(path, 'utf8')));
+}
+
+export function writeInstallMetadata(metadata: InstallMetadata, installRoot = process.cwd()): void {
+  const path = getInstallMetadataPath(installRoot);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(metadata, null, 2)}\n`);
+}
+
+export function getInstallMetadataPath(installRoot = process.cwd()): string {
+  return join(installRoot, INSTALL_METADATA_FILE);
+}

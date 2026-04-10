@@ -31,6 +31,8 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 #                           #   community — usage data + stable device ID
 #
 # ─── Updates ─────────────────────────────────────────────────────────
+# release_channel: stable   # stable = published release channel for user upgrades
+#                           # reserved future values: candidate, nightly
 # auto_upgrade: false       # true = silently upgrade on session start
 # update_check: true        # false = suppress version check notifications
 #
