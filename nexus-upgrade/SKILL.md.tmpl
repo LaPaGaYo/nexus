@@ -16,6 +16,14 @@ allowed-tools:
 
 Upgrade Nexus to the latest version and show what's new.
 
+This helper updates Nexus itself. It does not pull or absorb imported upstream
+repos directly. For git-based Nexus installs, it may sync the installed Nexus
+repo as the implementation mechanism. Upstream refresh work is maintainer-only
+and happens outside this user-facing flow.
+
+Release/tag-based upgrade semantics are future roadmap work after Nexus
+stabilizes; this helper does not implement that path yet.
+
 ## Inline upgrade flow
 
 This section is referenced by all skill preambles when they detect `UPGRADE_AVAILABLE`.

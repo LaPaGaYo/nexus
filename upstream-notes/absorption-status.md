@@ -3,6 +3,29 @@
 This file tracks which imported upstream capability sources have been absorbed
 into Nexus-owned stage content and stage packs.
 
+Upstream freshness maintenance is frozen in `upstream-notes/upstream-lock.json`,
+with `upstream-notes/update-status.md` as the human-readable summary. Imported
+upstreams remain source material only and never become runtime truth. The initial
+lock is a bootstrap snapshot with unknown check state.
+
+## Maintainer absorption review outcomes
+
+These labels are maintainer-only review state and not governed lifecycle truth.
+
+| Decision | Maintainer meaning | Release impact |
+| --- | --- | --- |
+| `ignore` | No absorption work is warranted for the refresh candidate. | No Nexus release required. |
+| `defer` | Review is postponed or left open for later maintainer action. | No Nexus release required. |
+| `absorb_partial` | Absorb only the Nexus-owned portions that should change. | Release may be required if Nexus-owned assets changed. |
+| `absorb_full` | Absorb the upstream delta into Nexus-owned assets in full. | Release is required if Nexus-owned assets changed. |
+| `reject` | Do not absorb the candidate. | No Nexus release required. |
+
+Maintainer review records live in `upstream-notes/upstream-lock.json` and the
+refresh-candidate notes. They do not override governed lifecycle truth.
+
+If a candidate is still under review, `last_absorption_decision` stays unset
+until a maintainer records an actual outcome.
+
 ## Imported upstream sources
 
 | Source | Imported path | Current role in Nexus |
@@ -10,7 +33,7 @@ into Nexus-owned stage content and stage packs.
 | PM Skills | `upstream/pm-skills` | Source material only for discovery and framing stage content and stage packs |
 | GSD | `upstream/gsd` | Source material only for planning and closeout stage content and stage packs |
 | Superpowers | `upstream/superpowers` | Source material only for build, review, and ship stage content and stage packs |
-| CCB | `upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA routing/transport under Nexus control |
+| CCB | `upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA compatibility infrastructure under Nexus control; not a full-retirement target |
 
 ## Active Nexus-owned stage content
 

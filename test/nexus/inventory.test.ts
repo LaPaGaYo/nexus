@@ -25,6 +25,10 @@ const IMPORTED_SOURCE_INVENTORIES = [
   'upstream-notes/ccb-inventory.md',
 ] as const;
 
+const UPSTREAM_LOCK_PATH = 'upstream-notes/upstream-lock.json';
+const UPSTREAM_README_PATH = 'upstream/README.md';
+const UPDATE_STATUS_PATH = 'upstream-notes/update-status.md';
+
 const SURFACE_DOCS = ['README.md', 'docs/skills.md'] as const;
 
 const MANDATORY_FIELDS = [
@@ -77,6 +81,16 @@ function parseCsvField(value: string): string[] {
     .split(',')
     .map((cell) => cell.trim())
     .filter(Boolean);
+}
+
+function parseUpstreamReadme(markdown: string): Array<{ name: string; repo_url: string; pinned_commit: string }> {
+  const matches = [...markdown.matchAll(/- `([^`]+)`\n\s+- repo: `([^`]+)`\n\s+- pinned_commit: `([^`]+)`/g)];
+
+  return matches.map((match) => ({
+    name: match[1],
+    repo_url: match[2],
+    pinned_commit: match[3],
+  }));
 }
 
 describe('nexus inventories', () => {
@@ -193,6 +207,59 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
 
     expect(markdown).toContain('Nexus-owned stage packs');
     expect(markdown).toContain('source material');
+  });
+
+  test('upstream README stays aligned with the checked maintenance lock and live status summary', () => {
+    const readme = readFileSync(UPSTREAM_README_PATH, 'utf8');
+    const lock = JSON.parse(readFileSync(UPSTREAM_LOCK_PATH, 'utf8')) as {
+      upstreams: Array<{
+        name: string;
+        repo_url: string;
+        pinned_commit: string;
+        bootstrap_state: string;
+        last_checked_commit: string | null;
+        last_checked_at: string | null;
+        behind_count: number | null;
+        refresh_status: string;
+        active_absorbed_capabilities: string[];
+      }>;
+    };
+    const readmeEntries = parseUpstreamReadme(readme);
+    const updateStatus = readFileSync(UPDATE_STATUS_PATH, 'utf8');
+
+    expect(readme).toContain('upstream-notes/upstream-lock.json');
+    expect(readme).toContain('upstream-notes/update-status.md');
+    expect(readme).toContain('bootstrap snapshot');
+    expect(readmeEntries).toHaveLength(lock.upstreams.length);
+    expect(updateStatus).toContain('Last checked:');
+    expect(updateStatus).not.toContain('No upstream checks have run yet.');
+    expect(updateStatus).not.toContain('Bootstrap Snapshot');
+
+    const readmeByName = new Map(readmeEntries.map((entry) => [entry.name, entry]));
+
+    for (const record of lock.upstreams) {
+      const capabilities = record.active_absorbed_capabilities.map((capability) => `\`${capability}\``).join(', ');
+      const triage =
+        record.last_checked_commit === null
+          ? 'defer'
+          : record.behind_count === null
+            ? 'defer'
+            : record.behind_count === 0
+            ? 'ignore'
+            : record.behind_count > 1
+              ? 'refresh_now'
+              : 'review';
+
+      expect(record.bootstrap_state).toBe('checked');
+      expect(readmeByName.get(record.name)).toEqual({
+        name: record.name,
+        repo_url: record.repo_url,
+        pinned_commit: record.pinned_commit,
+      });
+      expect(updateStatus).toContain(
+        `| ${record.name} | \`${record.pinned_commit}\` | \`${record.last_checked_commit}\` | ${record.behind_count} | ${capabilities} | \`${triage}\` |`,
+      );
+    }
   });
 });
 
