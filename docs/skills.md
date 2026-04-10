@@ -5,6 +5,9 @@ PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or
 Canonical lifecycle skill meaning now comes from Nexus-owned stage content under `lib/nexus/stage-content/`.
 Nexus-owned stage packs under `lib/nexus/stage-packs/` remain the active internal runtime units.
 Imported upstream repos remain source material only and do not own lifecycle truth.
+Upstream maintenance is handled by Nexus maintainers.
+Users upgrade Nexus versions, not upstream repos.
+`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.
 Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 Legacy aliases and host utilities remain secondary compatibility surface only.
@@ -156,7 +159,7 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/learn` | Learned-pattern management. |
 | `/careful`, `/freeze`, `/guard`, `/unfreeze` | Safety and edit-boundary controls. |
 | `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. |
-| `/nexus-upgrade` | Nexus self-update helper. |
+| `/nexus-upgrade` | Upgrade Nexus itself through the supported update flow. |
 
 ## Historical Lineage Note
 

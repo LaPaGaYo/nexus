@@ -38,18 +38,30 @@ describe('nexus product surface contract', () => {
   test('readme and skills docs describe a Nexus-only active surface', () => {
     const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
     const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
+    const installSection = readme.split('### Step 1: Install Nexus on your machine')[1]?.split('### Step 2: Add Nexus to your repo so teammates get it')[0] ?? '';
 
     expect(readme).toContain('# Nexus');
     expect(readme).toContain('Nexus is the only command surface.');
+    expect(readme).toContain('Upstream maintenance is handled by Nexus maintainers.');
+    expect(readme).toContain('Users upgrade Nexus versions, not upstream repos.');
+    expect(readme).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(readme).toContain('~/.claude/skills/nexus');
     expect(readme).toContain('~/.nexus/config.yaml');
     expect(readme).toContain('git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus');
     expect(readme).toContain('Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.');
+    expect(installSection).toContain('/nexus-upgrade');
+    expect(readme).not.toContain('git pull');
+    expect(installSection).not.toContain('git pull --ff-only');
+    expect(readme).not.toContain('published Nexus releases');
     expect(readme).not.toContain('compatibility shims');
 
     expect(skills).toContain('Nexus is the only command surface.');
     expect(skills).toContain('Nexus-owned stage packs');
+    expect(skills).toContain('Upstream maintenance is handled by Nexus maintainers.');
+    expect(skills).toContain('Users upgrade Nexus versions, not upstream repos.');
+    expect(skills).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(skills).toContain('/nexus-upgrade');
+    expect(skills).toContain('Upgrade Nexus itself through the supported update flow.');
     expect(skills).not.toContain('Manage what gstack learned');
     expect(skills).not.toContain('controlled by gstack');
   });

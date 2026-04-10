@@ -22,6 +22,9 @@ and transport infrastructure only.
 
 Nexus-owned stage packs remain the active internal runtime units. Imported
 upstream repos remain source material only.
+Upstream maintenance is handled by Nexus maintainers.
+Users upgrade Nexus versions, not upstream repos.
+`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.
 
 ## What Nexus owns
 
@@ -82,7 +85,7 @@ Canonical lifecycle:
 
 Open Claude Code and paste this. Claude does the rest.
 
-> Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`cd ~/.claude/skills/nexus && git pull --ff-only`** instead. Then run **`cd ~/.claude/skills/nexus && ./setup`**. After setup finishes, update the global **`CLAUDE.md`** by adding a **`Nexus`** section that says:
+> Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`/nexus-upgrade`** instead. After the install or upgrade finishes, update the global **`CLAUDE.md`** by adding a **`Nexus`** section that says:
 >
 > - Claude is the only interactive front door.
 > - Route product work through **`/discover`**, **`/frame`**, **`/plan`**, **`/handoff`**, **`/build`**, **`/review`**, **`/qa`**, **`/ship`**, and **`/closeout`**.
@@ -204,7 +207,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/guard` | Combine destructive-command warnings and edit freeze. |
 | `/unfreeze` | Remove the edit freeze. |
 | `/setup-deploy` | Configure `/land-and-deploy`. |
-| `/nexus-upgrade` | Upgrade Nexus. |
+| `/nexus-upgrade` | Upgrade Nexus through the supported user-facing update flow. |
 | `/learn` | Manage project learnings across sessions. |
 | `/qa-only` | Run QA in report-only mode. |
 | `/codex` | Independent second-opinion review through Codex. |
@@ -281,13 +284,13 @@ cd ~/.claude/skills/nexus && ./setup --prefix
 **Codex says a SKILL.md is invalid?**
 
 ```bash
-cd ~/.codex/skills/nexus && git pull && ./setup --host codex
+/nexus-upgrade
 ```
 
 For repo-local Codex installs:
 
 ```bash
-cd "$(readlink -f .agents/skills/nexus)" && git pull && ./setup --host codex
+/nexus-upgrade
 ```
 
 **Claude cannot see the skills?**

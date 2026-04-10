@@ -30,8 +30,15 @@ describe('upgrade routing surface', () => {
     expect(fs.existsSync(gstackUpgradePath)).toBe(false);
 
     const nexusUpgrade = fs.readFileSync(nexusUpgradePath, 'utf-8');
+    const normalized = nexusUpgrade.replace(/\s+/g, ' ');
 
     expect(nexusUpgrade).toContain('name: nexus-upgrade');
+    expect(normalized).toContain("Upgrade Nexus to the latest version and show what's new.");
+    expect(normalized).toContain('This helper updates Nexus itself.');
+    expect(normalized).toContain('It does not pull or absorb imported upstream repos directly.');
+    expect(normalized).toContain('For git-based Nexus installs, it may sync the installed Nexus repo as the implementation mechanism.');
+    expect(normalized).toContain('Upstream refresh work is maintainer-only and happens outside this user-facing flow.');
+    expect(normalized).toContain('Release/tag-based upgrade semantics are future roadmap work after Nexus stabilizes; this helper does not implement that path yet.');
   });
 });
 
