@@ -61,7 +61,7 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('Users upgrade Nexus versions, not upstream repos.');
     expect(skills).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(skills).toContain('/nexus-upgrade');
-    expect(skills).toContain('Upgrade Nexus itself through the supported update flow.');
+    expect(skills).toContain('Upgrade Nexus itself through the supported release-based update flow.');
     expect(skills).not.toContain('Manage what gstack learned');
     expect(skills).not.toContain('controlled by gstack');
   });
@@ -165,7 +165,9 @@ describe('nexus product surface contract', () => {
     expect(nexusUninstall).not.toContain('~/.claude/skills/gstack');
     expect(nexusUninstall).not.toContain('$_GIT_ROOT/.gstack');
 
-    expect(nexusUpdateCheck).toContain('NEXUS_REMOTE_URL');
+    expect(nexusUpdateCheck).toContain('NEXUS_RELEASE_REPO');
+    expect(nexusUpdateCheck).toContain('NEXUS_RELEASE_DISCOVERY_URL');
+    expect(nexusUpdateCheck).toContain('NEXUS_RELEASE_MANIFEST_URL');
     expect(nexusUpdateCheck).not.toContain('GSTACK_REMOTE_URL');
     expect(nexusUpdateCheck).not.toContain('GSTACK_STATE_DIR');
   });
