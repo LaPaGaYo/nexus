@@ -19,7 +19,7 @@
         "pm-discover",
         "pm-frame"
       ],
-      "notes": "Refresh candidate staged from the checked snapshot; imported upstream source material remains non-authoritative until review."
+      "notes": "Refresh candidate staged from the checked snapshot; imported upstream source material remains non-authoritative until review. No maintainer absorption decision recorded yet."
     },
     {
       "name": "gsd",
@@ -37,7 +37,7 @@
         "gsd-plan",
         "gsd-closeout"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed."
+      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. No maintainer absorption decision recorded yet."
     },
     {
       "name": "superpowers",
@@ -57,7 +57,7 @@
         "superpowers-review-discipline",
         "superpowers-ship-discipline"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed."
+      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. No maintainer absorption decision recorded yet."
     },
     {
       "name": "claude-code-bridge",
@@ -78,7 +78,7 @@
         "ccb-review-gemini",
         "ccb-qa"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed."
+      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. No maintainer absorption decision recorded yet. CCB remains compatibility infrastructure and is not a full-retirement target."
     }
   ]
 }

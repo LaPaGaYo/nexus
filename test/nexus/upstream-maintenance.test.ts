@@ -83,16 +83,20 @@ describe('nexus upstream maintenance contract', () => {
         imported_path: definition.imported_path,
         pinned_commit: definition.pinned_commit,
         bootstrap_state: 'checked',
-        last_refresh_candidate_at: null,
         last_absorption_decision: null,
       });
       expect(record?.active_absorbed_capabilities).toEqual([...definition.active_absorbed_capabilities]);
-      expect(record?.refresh_status).toMatch(/^(up_to_date|behind|unchecked)$/);
+      expect(record?.refresh_status).toMatch(/^(unchecked|up_to_date|behind|refresh_candidate)$/);
+      if (record?.refresh_status === 'refresh_candidate') {
+        expect(record?.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      } else {
+        expect(record?.last_refresh_candidate_at).toBeNull();
+      }
       expect(record?.last_checked_commit).toMatch(/^[0-9a-f]{40}$/);
       expect(record?.last_checked_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       if (record?.last_checked_commit === definition.pinned_commit) {
         expect(record?.behind_count).toBe(0);
-        expect(record?.refresh_status).toBe('up_to_date');
+        expect(['up_to_date', 'refresh_candidate']).toContain(record?.refresh_status);
       } else {
         expect(record?.behind_count).not.toBeNull();
         expect(record?.refresh_status).toBe('behind');
