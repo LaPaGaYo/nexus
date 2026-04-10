@@ -116,10 +116,21 @@ function createGitFixture(
   };
 }
 
-function updateLockRecord(root: string, upstreamName: string, updates: { last_checked_commit?: string }): void {
+function updateLockRecord(
+  root: string,
+  upstreamName: string,
+  updates: { last_checked_commit?: string; last_absorption_decision?: string | null },
+): void {
   const lockPath = join(root, 'upstream-notes/upstream-lock.json');
   const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as {
-    upstreams: Array<Record<string, unknown> & { name: string; repo_url: string; last_checked_commit: string | null }>;
+    upstreams: Array<
+      Record<string, unknown> & {
+        name: string;
+        repo_url: string;
+        last_checked_commit: string | null;
+        last_absorption_decision: string | null;
+      }
+    >;
   };
 
   const record = lock.upstreams.find((row) => row.name === upstreamName);
@@ -129,6 +140,10 @@ function updateLockRecord(root: string, upstreamName: string, updates: { last_ch
 
   if (updates.last_checked_commit) {
     record.last_checked_commit = updates.last_checked_commit;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'last_absorption_decision')) {
+    record.last_absorption_decision = updates.last_absorption_decision ?? null;
   }
 
   writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
@@ -304,11 +319,41 @@ describe('nexus upstream refresh', () => {
     expect(candidate).toContain('## Tests to rerun before review');
     expect(candidate).toContain('test/nexus/absorption-source-map.test.ts');
     expect(candidate).toContain('test/nexus/stage-content.test.ts');
+    expect(candidate).toContain('test/nexus/discover-frame.test.ts');
     expect(readme).toContain(`\`${fixture.commit}\``);
     expect(pm.pinned_commit).toBe(fixture.commit);
     expect(pm.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(pm.refresh_status).toBe('refresh_candidate');
     expect(pm.notes).toContain('1 changed upstream file');
+  });
+
+  test('CLI refresh clears any stale prior absorption decision when staging a new candidate', () => {
+    const { root } = prepareWorkspace();
+    const fixture = createGitFixture(REPO_PM_SKILLS_PATH);
+    updateLockRecord(root, 'pm-skills', {
+      last_checked_commit: fixture.commit,
+      last_absorption_decision: 'ignore',
+    });
+
+    const result = spawnSync('bun', ['run', SCRIPT_PATH, 'pm-skills'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        UPSTREAM_REFRESH_ROOT: root,
+        UPSTREAM_REFRESH_REPO_URL_OVERRIDE: fixture.repoUrl,
+        GIT_TERMINAL_PROMPT: '0',
+      },
+    });
+
+    expect(result.status).toBe(0);
+
+    const lock = readLock(root);
+    const pm = lock.upstreams.find((row) => row.name === 'pm-skills');
+    if (!pm) throw new Error('pm-skills row missing from lock');
+
+    expect(pm.last_absorption_decision).toBeNull();
+    expect(pm.refresh_status).toBe('refresh_candidate');
   });
 
   test('CLI refresh preserves executable bits and reports mode-only upstream changes in the candidate note', () => {

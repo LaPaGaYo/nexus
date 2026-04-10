@@ -346,6 +346,39 @@ function formatTestsToRerun(analysis: UpstreamRefreshAnalysis): string[] {
     tests.push('bun test test/nexus/stage-content.test.ts');
   }
 
+  const stagePackTests = new Set<string>();
+  for (const packId of analysis.impacted_stage_pack_areas) {
+    switch (packId) {
+      case 'nexus-discover-pack':
+      case 'nexus-frame-pack':
+        stagePackTests.add('bun test test/nexus/discover-frame.test.ts');
+        break;
+      case 'nexus-plan-pack':
+      case 'nexus-handoff-pack':
+        stagePackTests.add('bun test test/nexus/plan-handoff-build.test.ts test/nexus/build-routing.test.ts');
+        break;
+      case 'nexus-build-pack':
+        stagePackTests.add('bun test test/nexus/plan-handoff-build.test.ts test/nexus/build-routing.test.ts test/nexus/build-discipline.test.ts');
+        break;
+      case 'nexus-review-pack':
+        stagePackTests.add('bun test test/nexus/review.test.ts');
+        break;
+      case 'nexus-qa-pack':
+        stagePackTests.add('bun test test/nexus/qa.test.ts');
+        break;
+      case 'nexus-ship-pack':
+        stagePackTests.add('bun test test/nexus/ship.test.ts');
+        break;
+      case 'nexus-closeout-pack':
+        stagePackTests.add('bun test test/nexus/closeout.test.ts');
+        break;
+      default:
+        break;
+    }
+  }
+
+  tests.push(...stagePackTests);
+
   return tests;
 }
 
@@ -535,6 +568,7 @@ export function runUpstreamRefresh(options: {
           ...row,
           pinned_commit: newPinnedCommit,
           last_refresh_candidate_at: refreshedAt,
+          last_absorption_decision: null,
           refresh_status: 'refresh_candidate',
           notes:
             analysis.changed_upstream_paths.length === 0

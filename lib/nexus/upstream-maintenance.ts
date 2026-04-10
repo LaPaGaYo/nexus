@@ -55,6 +55,65 @@ export interface UpstreamCheckResult {
   remote_error: string | null;
 }
 
+function hasPendingRefreshCandidate(record: UpstreamMaintenanceRecord): boolean {
+  return record.refresh_status === 'refresh_candidate' && record.last_refresh_candidate_at !== null;
+}
+
+function resolveRefreshStatusForCheck(
+  record: UpstreamMaintenanceRecord,
+  latestCheckedCommit: string | null,
+  behindCount: number | null,
+): UpstreamRefreshStatus {
+  if (hasPendingRefreshCandidate(record)) {
+    return 'refresh_candidate';
+  }
+
+  if (latestCheckedCommit === null) {
+    return 'unchecked';
+  }
+
+  if (behindCount === null) {
+    return 'unchecked';
+  }
+
+  return behindCount === 0 ? 'up_to_date' : 'behind';
+}
+
+function buildCheckNotes(
+  record: UpstreamMaintenanceRecord,
+  result: UpstreamCheckResult,
+  latestCheckedCommit: string | null,
+  retainedLastKnownSnapshot: boolean,
+): string {
+  if (hasPendingRefreshCandidate(record)) {
+    if (result.remote_error) {
+      return 'Refresh candidate still pending maintainer review; latest upstream check failed, so Nexus retained the last known checked snapshot. Imported upstream source material remains non-authoritative until review.';
+    }
+
+    if (retainedLastKnownSnapshot) {
+      return 'Refresh candidate still pending maintainer review; latest upstream check could not verify ancestry for the new remote snapshot, so Nexus retained the last known checked snapshot. Imported upstream source material remains non-authoritative until review.';
+    }
+
+    return 'Refresh candidate still pending maintainer review; latest upstream check updated freshness metadata while imported upstream source material remains non-authoritative until review.';
+  }
+
+  if (result.remote_error) {
+    return latestCheckedCommit === null
+      ? 'Checked snapshot unavailable; latest upstream check failed and imported upstream source material remains non-authoritative until a later successful check.'
+      : 'Latest upstream check failed, so Nexus retained the last known checked snapshot. Imported upstream source material remains non-authoritative until refreshed.';
+  }
+
+  if (result.behind_count === null) {
+    if (retainedLastKnownSnapshot) {
+      return 'Latest upstream check could not verify ancestry for the new remote snapshot, so Nexus retained the last known checked snapshot. Imported upstream source material remains non-authoritative until refresh review.';
+    }
+
+    return 'Checked snapshot with unresolved ancestry; imported upstream source material remains non-authoritative until refresh review.';
+  }
+
+  return 'Checked snapshot; imported upstream source material remains non-authoritative until refreshed.';
+}
+
 export interface UpstreamMaintenanceCheckRecord {
   name: UpstreamName;
   repo_url: string;
@@ -333,26 +392,25 @@ export function applyUpstreamCheckResults(
         return record;
       }
 
+      const unresolvedAncestry = result.latest_checked_commit !== null && result.behind_count === null;
+      const retainedLastKnownSnapshot =
+        record.last_checked_commit !== null && (result.remote_error !== null || unresolvedAncestry);
+
+      const latestCheckedCommit = retainedLastKnownSnapshot
+        ? record.last_checked_commit
+        : result.latest_checked_commit ?? record.last_checked_commit;
+      const behindCount = retainedLastKnownSnapshot
+        ? record.behind_count
+        : result.behind_count ?? record.behind_count;
+
       return {
         ...record,
         bootstrap_state: 'checked',
-        last_checked_commit: result.latest_checked_commit,
+        last_checked_commit: latestCheckedCommit,
         last_checked_at: checkedAt,
-        behind_count: result.behind_count,
-        refresh_status:
-          result.latest_checked_commit === null
-            ? 'unchecked'
-            : result.behind_count === null
-              ? 'unchecked'
-              : result.behind_count === 0
-                ? 'up_to_date'
-                : 'behind',
-        notes:
-          result.latest_checked_commit === null
-            ? 'Checked snapshot unavailable; imported upstream source material remains non-authoritative until refreshed.'
-            : result.behind_count === null
-              ? 'Checked snapshot with unresolved ancestry; imported upstream source material remains non-authoritative until refresh review.'
-              : 'Checked snapshot; imported upstream source material remains non-authoritative until refreshed.',
+        behind_count: behindCount,
+        refresh_status: resolveRefreshStatusForCheck(record, latestCheckedCommit, behindCount),
+        notes: buildCheckNotes(record, result, latestCheckedCommit, retainedLastKnownSnapshot),
       };
     }),
   };
@@ -398,6 +456,18 @@ export function renderUpstreamCheckStatus(lock: UpstreamMaintenanceLock, results
     lines.push(
       `| ${record.name} | ${formatMaybeCommit(record.pinned_commit)} | ${formatMaybeCommit(latest)} | ${formatMaybeCount(behindCount)} | ${formatCapabilities(capabilities)} | \`${triage}\` |`,
     );
+  }
+
+  const pendingCandidates = lock.upstreams.filter((record) => hasPendingRefreshCandidate(record));
+  if (pendingCandidates.length > 0) {
+    lines.push('');
+    lines.push('## Pending Refresh Candidates');
+    lines.push('');
+    for (const record of pendingCandidates) {
+      lines.push(
+        `- \`${record.name}\` pending maintainer review since \`${record.last_refresh_candidate_at}\` via \`upstream-notes/refresh-candidates/${record.name}.md\``,
+      );
+    }
   }
 
   return `${lines.join('\n')}\n`;

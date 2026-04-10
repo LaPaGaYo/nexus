@@ -13,7 +13,8 @@ import {
 } from '../lib/nexus/upstream-maintenance';
 import { tmpdir } from 'os';
 
-const ROOT = join(import.meta.dir, '..');
+const DEFAULT_ROOT = join(import.meta.dir, '..');
+const ROOT = process.env.UPSTREAM_CHECK_ROOT ? join(process.env.UPSTREAM_CHECK_ROOT) : DEFAULT_ROOT;
 const LOCK_PATH = join(ROOT, 'upstream-notes/upstream-lock.json');
 
 function git(args: string[], cwd: string): { ok: true; stdout: string } | { ok: false; error: string } {
@@ -82,6 +83,34 @@ function computeBehindCount(repoUrl: string, pinnedCommit: string, headRef: stri
   }
 }
 
+function ensureWriteTargetsAreClean(root: string, paths: string[]): void {
+  const result = spawnSync('git', ['status', '--porcelain=v1', '--untracked-files=all', '--', ...paths], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+    },
+  });
+
+  if (result.status !== 0) {
+    const stderr = result.stderr.trim();
+    const stdout = result.stdout.trim();
+    throw new Error(stderr || stdout || `git status --porcelain -- ${paths.join(' ')} failed`);
+  }
+
+  const dirtyEntries = result.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (dirtyEntries.length > 0) {
+    throw new Error(
+      `Cannot run upstream:check because one or more maintenance metadata targets have local tracked or untracked changes: ${paths.join(', ')}`,
+    );
+  }
+}
+
 function writeRepoFile(relativePath: string, content: string): void {
   const absolutePath = join(ROOT, relativePath);
   mkdirSync(dirname(absolutePath), { recursive: true });
@@ -90,6 +119,7 @@ function writeRepoFile(relativePath: string, content: string): void {
 
 function main(): void {
   const checkedAt = new Date().toISOString();
+  ensureWriteTargetsAreClean(ROOT, ['upstream-notes/upstream-lock.json', 'upstream-notes/update-status.md']);
   const lock = parseUpstreamMaintenanceLock(readFileSync(LOCK_PATH, 'utf8'));
   const alignedEntries = alignUpstreamLockWithContract(lock);
   const results = alignedEntries.map(({ definition, record }) => {
