@@ -334,6 +334,47 @@ describe('nexus-update-check', () => {
     });
   });
 
+  test('falls back to install metadata repo when no repo override or git remote is available', () => {
+    writeFileSync(join(nexusDir, 'VERSION'), '1.0.0\n');
+    writeJson(join(nexusDir, '.nexus-install.json'), {
+      schema_version: 1,
+      product: 'nexus',
+      install_kind: 'managed_release',
+      install_scope: 'global',
+      release_channel: 'stable',
+      installed_version: '1.0.0',
+      installed_tag: 'v1.0.0',
+      install_source: {
+        kind: 'github_release',
+        repo: 'LaPaGaYo/nexus',
+        bundle_url: 'https://example.com/nexus/v1.0.0.tar.gz',
+      },
+      last_upgrade_at: '2026-04-09T00:00:00Z',
+      migrated_from: null,
+    });
+    makeReleaseFixture({ version: '1.0.1', tag: 'v1.0.1' });
+
+    const { exitCode, stdout } = run({
+      NEXUS_RELEASE_REPO: '',
+      NEXUS_RELEASE_DISCOVERY_URL: `file://${join(fixtureDir, 'v1.0.1-discovery.json')}`,
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe('UPGRADE_AVAILABLE 1.0.0 1.0.1');
+    expect(JSON.parse(readFileSync(statePath('last-check.json'), 'utf8'))).toMatchObject({
+      schema_version: 1,
+      status: 'upgrade_available',
+      release_channel: 'stable',
+      local_version: '1.0.0',
+      local_tag: 'v1.0.0',
+      candidate_version: '1.0.1',
+      candidate_tag: 'v1.0.1',
+      source: {
+        kind: 'github_release',
+        repo: 'LaPaGaYo/nexus',
+      },
+    });
+  });
+
   test('bridges legacy snooze markers into structured snooze.json', () => {
     writeFileSync(join(nexusDir, 'VERSION'), '1.0.0\n');
     writeFileSync(join(stateDir, 'update-snoozed'), `1.0.1 2 ${Math.floor(Date.now() / 1000)}\n`);
@@ -363,6 +404,27 @@ describe('nexus-update-check', () => {
     writeFileSync(join(stateDir, 'config.yaml'), 'release_channel: candidate\n');
 
     const { exitCode, stdout } = run();
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe('');
+    expect(JSON.parse(readFileSync(statePath('last-check.json'), 'utf8'))).toMatchObject({
+      schema_version: 1,
+      status: 'error',
+      release_channel: 'candidate',
+      local_version: '1.0.0',
+      local_tag: 'v1.0.0',
+      candidate_version: null,
+      candidate_tag: null,
+    });
+  });
+
+  test('honors NEXUS_RELEASE_CHANNEL overrides before consulting config or remote discovery', () => {
+    writeFileSync(join(nexusDir, 'VERSION'), '1.0.0\n');
+    makeReleaseFixture({ version: '1.0.0', tag: 'v1.0.0' });
+
+    const { exitCode, stdout } = run({
+      NEXUS_RELEASE_CHANNEL: 'candidate',
+      NEXUS_RELEASE_DISCOVERY_URL: `file://${join(fixtureDir, 'v1.0.0-discovery.json')}`,
+    });
     expect(exitCode).toBe(0);
     expect(stdout).toBe('');
     expect(JSON.parse(readFileSync(statePath('last-check.json'), 'utf8'))).toMatchObject({

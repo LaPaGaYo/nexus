@@ -70,7 +70,7 @@ if [ ! -f "$STATE_DIR/.codex-desc-healed" ]; then
   touch "$STATE_DIR/.codex-desc-healed"
 fi
 
-RELEASE_CHANNEL="${RELEASE_CHANNEL:-$("$NEXUS_DIR/bin/nexus-config" get release_channel 2>/dev/null || true)}"
+RELEASE_CHANNEL="${NEXUS_RELEASE_CHANNEL:-${RELEASE_CHANNEL:-$("$NEXUS_DIR/bin/nexus-config" get release_channel 2>/dev/null || true)}}"
 
 mkdir -p "$STATE_DIR"
 
@@ -100,9 +100,12 @@ const updateState = await import(process.env.NEXUS_UPDATE_STATE_PATH);
 const nexusDir = process.env.NEXUS_DIR ?? process.cwd();
 const stateRoot = process.env.NEXUS_STATE_DIR ?? join(process.env.HOME ?? '', '.nexus');
 const releaseChannel = (process.env.NEXUS_RELEASE_CHANNEL ?? 'stable').trim() || 'stable';
-const repoSlug = (process.env.NEXUS_RELEASE_REPO ?? '').trim() || await resolveRepoSlug(nexusDir);
 const versionPath = join(nexusDir, 'VERSION');
 const metadataPath = join(nexusDir, '.nexus-install.json');
+const installMetadataState = readInstallMetadata();
+const repoSlug =
+  (process.env.NEXUS_RELEASE_REPO ?? '').trim() ||
+  await resolveRepoSlug(nexusDir, installMetadataState === '__invalid__' ? null : installMetadataState);
 const updateStateDir = join(stateRoot, 'update-state');
 const lastCheckPath = join(updateStateDir, updateState.LAST_CHECK_FILE);
 const snoozeJsonPath = join(updateStateDir, updateState.SNOOZE_FILE);
@@ -258,7 +261,12 @@ function parseRepoSlug(remoteUrl) {
   return '';
 }
 
-async function resolveRepoSlug(root) {
+async function resolveRepoSlug(root, metadata) {
+  const metadataRepo = metadata?.install_source?.repo?.trim() ?? '';
+  if (metadataRepo.length > 0) {
+    return metadataRepo;
+  }
+
   const result = Bun.spawnSync(['git', '-C', root, 'remote', 'get-url', 'origin'], {
     stdout: 'pipe',
     stderr: 'pipe',
@@ -369,7 +377,7 @@ function recordError(status, localVersion, localTag, candidateVersion = null, ca
 
 if (!supportedChannels.has(releaseChannel)) {
   const versionText = existsSync(versionPath) ? readFileSync(versionPath, 'utf8').trim() : '';
-  const metadata = readInstallMetadata();
+  const metadata = installMetadataState;
   if (metadata === '__invalid__') {
     const localVersion = versionText.length > 0 ? versionText : 'unknown';
     recordError('error', localVersion, versionText.length > 0 ? `v${versionText}` : 'unknown');
@@ -384,7 +392,7 @@ if (!supportedChannels.has(releaseChannel)) {
 }
 
 const versionText = existsSync(versionPath) ? readFileSync(versionPath, 'utf8').trim() : '';
-const metadata = readInstallMetadata();
+const metadata = installMetadataState;
 if (metadata === '__invalid__') {
   const localVersion = versionText.length > 0 ? versionText : 'unknown';
   recordError('error', localVersion, versionText.length > 0 ? `v${versionText}` : 'unknown');
