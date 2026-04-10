@@ -10,6 +10,9 @@ export type UpstreamAbsorptionDecision = (typeof UPSTREAM_ABSORPTION_DECISIONS)[
 export const UPSTREAM_BOOTSTRAP_STATES = ['bootstrap', 'checked'] as const;
 export type UpstreamBootstrapState = (typeof UPSTREAM_BOOTSTRAP_STATES)[number];
 
+export const UPSTREAM_TRIAGE_RECOMMENDATIONS = ['ignore', 'defer', 'review', 'refresh_now'] as const;
+export type UpstreamTriageRecommendation = (typeof UPSTREAM_TRIAGE_RECOMMENDATIONS)[number];
+
 export interface UpstreamMaintenanceDefinition {
   name: UpstreamName;
   repo_url: string;
@@ -39,6 +42,29 @@ export interface UpstreamMaintenanceLock {
   schema_version: 1;
   updated_at: string;
   upstreams: UpstreamMaintenanceRecord[];
+}
+
+export interface UpstreamCheckResult {
+  name: UpstreamName;
+  repo_url: string;
+  pinned_commit: string;
+  latest_checked_commit: string | null;
+  behind_count: number | null;
+  active_absorbed_capabilities: readonly string[];
+  triage_recommendation: UpstreamTriageRecommendation;
+  remote_error: string | null;
+}
+
+export interface UpstreamMaintenanceCheckRecord {
+  name: UpstreamName;
+  repo_url: string;
+  pinned_commit: string;
+  active_absorbed_capabilities: readonly string[];
+}
+
+export interface UpstreamMaintenanceAlignedEntry {
+  definition: UpstreamMaintenanceDefinition;
+  record: UpstreamMaintenanceRecord;
 }
 
 const UPSTREAM_MAINTENANCE_METADATA: Record<
@@ -136,6 +162,70 @@ export function getUpstreamPinnedCommit(name: UpstreamName): string {
   return getUpstreamMaintenanceDefinition(name).pinned_commit;
 }
 
+export function getUpstreamCheckRecord(name: UpstreamName): UpstreamMaintenanceCheckRecord {
+  const definition = getUpstreamMaintenanceDefinition(name);
+
+  return {
+    name: definition.name,
+    repo_url: definition.repo_url,
+    pinned_commit: definition.pinned_commit,
+    active_absorbed_capabilities: [...definition.active_absorbed_capabilities],
+  };
+}
+
+function compareStringArrays(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+export function alignUpstreamLockWithContract(lock: UpstreamMaintenanceLock): UpstreamMaintenanceAlignedEntry[] {
+  const byName = new Map(lock.upstreams.map((record) => [record.name, record]));
+  const lockNames = new Set(lock.upstreams.map((record) => record.name));
+
+  if (lock.upstreams.length !== UPSTREAM_MAINTENANCE_UPSTREAMS.length) {
+    throw new Error(
+      `Upstream lock contains ${lock.upstreams.length} rows but the maintenance contract defines ${UPSTREAM_MAINTENANCE_UPSTREAMS.length}`,
+    );
+  }
+
+  for (const definition of UPSTREAM_MAINTENANCE_UPSTREAMS) {
+    const record = byName.get(definition.name);
+    if (!record) {
+      throw new Error(`Upstream lock is missing required row for ${definition.name}`);
+    }
+
+    if (!lockNames.has(definition.name)) {
+      throw new Error(`Upstream lock is missing required row for ${definition.name}`);
+    }
+
+    if (record.repo_url !== definition.repo_url) {
+      throw new Error(`Upstream lock repo_url mismatch for ${definition.name}`);
+    }
+
+    if (record.imported_path !== definition.imported_path) {
+      throw new Error(`Upstream lock imported_path mismatch for ${definition.name}`);
+    }
+
+    if (!compareStringArrays(record.active_absorbed_capabilities, definition.active_absorbed_capabilities)) {
+      throw new Error(`Upstream lock active_absorbed_capabilities mismatch for ${definition.name}`);
+    }
+  }
+
+  for (const record of lock.upstreams) {
+    if (!UPSTREAM_NAMES.includes(record.name)) {
+      throw new Error(`Upstream lock contains unsupported upstream ${record.name}`);
+    }
+  }
+
+  return UPSTREAM_MAINTENANCE_UPSTREAMS.map((definition) => {
+    const record = byName.get(definition.name);
+    if (!record) {
+      throw new Error(`Upstream lock is missing required row for ${definition.name}`);
+    }
+
+    return { definition, record };
+  });
+}
+
 export function createInitialUpstreamLock(frozenAt = '2026-04-09T00:00:00.000Z'): UpstreamMaintenanceLock {
   return {
     schema_version: 1,
@@ -156,4 +246,159 @@ export function createInitialUpstreamLock(frozenAt = '2026-04-09T00:00:00.000Z')
       notes: 'Bootstrap snapshot only; imported upstream source material remains non-authoritative until checked.',
     })),
   };
+}
+
+export function parseUpstreamMaintenanceLock(content: string): UpstreamMaintenanceLock {
+  return JSON.parse(content) as UpstreamMaintenanceLock;
+}
+
+export function serializeUpstreamMaintenanceLock(lock: UpstreamMaintenanceLock): string {
+  return `${JSON.stringify(lock, null, 2)}\n`;
+}
+
+export function resolveUpstreamTriageRecommendation(
+  result: Pick<UpstreamCheckResult, 'latest_checked_commit' | 'behind_count'>,
+): UpstreamTriageRecommendation {
+  if (result.latest_checked_commit === null) {
+    return 'defer';
+  }
+
+  if (result.behind_count === null) {
+    return 'defer';
+  }
+
+  if (result.behind_count === 0) {
+    return 'ignore';
+  }
+
+  return result.behind_count > 1 ? 'refresh_now' : 'review';
+}
+
+export function buildUpstreamCheckResult(
+  upstream: UpstreamMaintenanceDefinition,
+  latest_checked_commit: string | null,
+  behind_count: number | null,
+  remote_error: string | null = null,
+): UpstreamCheckResult {
+  return {
+    name: upstream.name,
+    repo_url: upstream.repo_url,
+    pinned_commit: upstream.pinned_commit,
+    latest_checked_commit,
+    behind_count,
+    active_absorbed_capabilities: [...upstream.active_absorbed_capabilities],
+    triage_recommendation: resolveUpstreamTriageRecommendation({
+      latest_checked_commit,
+      behind_count,
+    }),
+    remote_error,
+  };
+}
+
+export function buildUpstreamCheckResultFromRecord(
+  record: UpstreamMaintenanceCheckRecord,
+  latest_checked_commit: string | null,
+  behind_count: number | null,
+  remote_error: string | null = null,
+): UpstreamCheckResult {
+  return {
+    name: record.name,
+    repo_url: record.repo_url,
+    pinned_commit: record.pinned_commit,
+    latest_checked_commit,
+    behind_count,
+    active_absorbed_capabilities: [...record.active_absorbed_capabilities],
+    triage_recommendation: resolveUpstreamTriageRecommendation({
+      latest_checked_commit,
+      behind_count,
+    }),
+    remote_error,
+  };
+}
+
+export function applyUpstreamCheckResults(
+  lock: UpstreamMaintenanceLock,
+  results: UpstreamCheckResult[],
+  checkedAt: string,
+): UpstreamMaintenanceLock {
+  const resultsByName = new Map(results.map((result) => [result.name, result]));
+
+  return {
+    ...lock,
+    updated_at: checkedAt,
+    upstreams: lock.upstreams.map((record) => {
+      const result = resultsByName.get(record.name);
+
+      if (!result) {
+        return record;
+      }
+
+      return {
+        ...record,
+        bootstrap_state: 'checked',
+        last_checked_commit: result.latest_checked_commit,
+        last_checked_at: checkedAt,
+        behind_count: result.behind_count,
+        refresh_status:
+          result.latest_checked_commit === null
+            ? 'unchecked'
+            : result.behind_count === null
+              ? 'unchecked'
+              : result.behind_count === 0
+                ? 'up_to_date'
+                : 'behind',
+        notes:
+          result.latest_checked_commit === null
+            ? 'Checked snapshot unavailable; imported upstream source material remains non-authoritative until refreshed.'
+            : result.behind_count === null
+              ? 'Checked snapshot with unresolved ancestry; imported upstream source material remains non-authoritative until refresh review.'
+              : 'Checked snapshot; imported upstream source material remains non-authoritative until refreshed.',
+      };
+    }),
+  };
+}
+
+function formatMaybeCommit(commit: string | null): string {
+  return commit ? `\`${commit}\`` : 'unknown';
+}
+
+function formatMaybeCount(count: number | null): string {
+  return count === null ? 'unknown' : String(count);
+}
+
+function formatCapabilities(capabilities: readonly string[]): string {
+  return capabilities.length === 0 ? 'none' : capabilities.map((capability) => `\`${capability}\``).join(', ');
+}
+
+export function renderUpstreamCheckStatus(lock: UpstreamMaintenanceLock, results: UpstreamCheckResult[], checkedAt: string): string {
+  const resultsByName = new Map(results.map((result) => [result.name, result]));
+  const lines: string[] = [];
+
+  lines.push('# Upstream Update Status');
+  lines.push('');
+  lines.push(`Last checked: \`${checkedAt}\``);
+  lines.push('');
+  lines.push('- Maintenance truth: `upstream-notes/upstream-lock.json`');
+  lines.push('- Human-readable freshness summary: `upstream-notes/update-status.md`');
+  lines.push('- Imported upstreams remain source material only');
+  lines.push('');
+  lines.push('| upstream | pinned_commit | latest_checked_commit | behind_count | active_absorbed_capabilities | triage_recommendation |');
+  lines.push('| --- | --- | --- | --- | --- | --- |');
+
+  for (const record of lock.upstreams) {
+    const result = resultsByName.get(record.name);
+    const latest = result ? result.latest_checked_commit : record.last_checked_commit;
+    const behindCount = result ? result.behind_count : record.behind_count;
+    const capabilities = result ? result.active_absorbed_capabilities : record.active_absorbed_capabilities;
+    const triage = result ? result.triage_recommendation : resolveUpstreamTriageRecommendation({
+      latest_checked_commit: latest,
+      behind_count: behindCount,
+    });
+
+    lines.push(
+      `| ${record.name} | ${formatMaybeCommit(record.pinned_commit)} | ${formatMaybeCommit(latest)} | ${formatMaybeCount(behindCount)} | ${formatCapabilities(capabilities)} | \`${triage}\` |`,
+    );
+  }
+
+  return `${lines.join('\n')}\n`;
 }

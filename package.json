@@ -12,6 +12,7 @@
     "dev:design": "bun run design/src/cli.ts",
     "gen:skill-docs": "bun run scripts/gen-skill-docs.ts",
     "nexus": "bun run bin/nexus.ts",
+    "upstream:check": "bun run scripts/upstream-check.ts",
     "test:nexus": "bun test test/nexus/",
     "dev": "bun run browse/src/cli.ts",
     "server": "bun run browse/src/server.ts",

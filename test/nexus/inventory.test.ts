@@ -209,10 +209,20 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(markdown).toContain('source material');
   });
 
-  test('upstream README stays aligned with the frozen maintenance lock and status stub', () => {
+  test('upstream README stays aligned with the checked maintenance lock and live status summary', () => {
     const readme = readFileSync(UPSTREAM_README_PATH, 'utf8');
     const lock = JSON.parse(readFileSync(UPSTREAM_LOCK_PATH, 'utf8')) as {
-      upstreams: Array<{ name: string; repo_url: string; pinned_commit: string; bootstrap_state: string }>;
+      upstreams: Array<{
+        name: string;
+        repo_url: string;
+        pinned_commit: string;
+        bootstrap_state: string;
+        last_checked_commit: string | null;
+        last_checked_at: string | null;
+        behind_count: number | null;
+        refresh_status: string;
+        active_absorbed_capabilities: string[];
+      }>;
     };
     const readmeEntries = parseUpstreamReadme(readme);
     const updateStatus = readFileSync(UPDATE_STATUS_PATH, 'utf8');
@@ -221,23 +231,35 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(readme).toContain('upstream-notes/update-status.md');
     expect(readme).toContain('bootstrap snapshot');
     expect(readmeEntries).toHaveLength(lock.upstreams.length);
+    expect(updateStatus).toContain('Last checked:');
+    expect(updateStatus).not.toContain('No upstream checks have run yet.');
+    expect(updateStatus).not.toContain('Bootstrap Snapshot');
 
     const readmeByName = new Map(readmeEntries.map((entry) => [entry.name, entry]));
 
     for (const record of lock.upstreams) {
-      expect(record.bootstrap_state).toBe('bootstrap');
+      const capabilities = record.active_absorbed_capabilities.map((capability) => `\`${capability}\``).join(', ');
+      const triage =
+        record.last_checked_commit === null
+          ? 'defer'
+          : record.behind_count === null
+            ? 'defer'
+            : record.behind_count === 0
+            ? 'ignore'
+            : record.behind_count > 1
+              ? 'refresh_now'
+              : 'review';
+
+      expect(record.bootstrap_state).toBe('checked');
       expect(readmeByName.get(record.name)).toEqual({
         name: record.name,
         repo_url: record.repo_url,
         pinned_commit: record.pinned_commit,
       });
+      expect(updateStatus).toContain(
+        `| ${record.name} | \`${record.pinned_commit}\` | \`${record.last_checked_commit}\` | ${record.behind_count} | ${capabilities} | \`${triage}\` |`,
+      );
     }
-
-    expect(updateStatus).toContain('No upstream checks have run yet.');
-    expect(updateStatus).toContain('Bootstrap Snapshot');
-    expect(updateStatus).toContain('bootstrap | unchecked | unknown | unknown | unknown | unknown');
-    expect(updateStatus).toContain('Maintenance truth: `upstream-notes/upstream-lock.json`');
-    expect(updateStatus).toContain('Imported upstreams remain source material only');
   });
 });
 
