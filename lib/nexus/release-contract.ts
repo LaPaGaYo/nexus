@@ -54,6 +54,12 @@ export function assertSupportedReleaseChannel(value: unknown, label = 'channel')
   }
 }
 
+export function assertKnownReleaseChannel(value: unknown, label = 'channel'): asserts value is ReleaseChannel {
+  if (!KNOWN_RELEASE_CHANNELS.includes(value as ReleaseChannel)) {
+    throw new Error(`${label} must be one of: ${KNOWN_RELEASE_CHANNELS.join(', ')}`);
+  }
+}
+
 export function assertReleaseManifest(manifest: unknown): asserts manifest is ReleaseManifest {
   if (!isRecord(manifest)) {
     throw new Error('release manifest must be an object');

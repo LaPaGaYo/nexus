@@ -1,11 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { assertSupportedReleaseChannel, type SupportedReleaseChannel } from './release-contract';
+import { assertKnownReleaseChannel, type ReleaseChannel } from './release-contract';
 
 export const UPDATE_STATE_DIRNAME = 'update-state' as const;
 export const LAST_CHECK_FILE = 'last-check.json' as const;
 export const SNOOZE_FILE = 'snooze.json' as const;
 export const JUST_UPGRADED_FILE = 'just-upgraded.json' as const;
+export const LEGACY_LAST_CHECK_FILE = 'last-update-check' as const;
+export const LEGACY_SNOOZE_FILE = 'update-snoozed' as const;
+export const LEGACY_JUST_UPGRADED_FILE = 'just-upgraded-from' as const;
 
 export const UPDATE_STATE_STATUSES = [
   'up_to_date',
@@ -26,7 +29,7 @@ export interface LastCheckUpdateState {
   schema_version: 1;
   status: UpdateStateStatus;
   checked_at: string;
-  release_channel: SupportedReleaseChannel;
+  release_channel: ReleaseChannel;
   local_version: string;
   local_tag: string;
   candidate_version: string | null;
@@ -36,7 +39,7 @@ export interface LastCheckUpdateState {
 
 export interface SnoozeUpdateState {
   schema_version: 1;
-  release_channel: SupportedReleaseChannel;
+  release_channel: ReleaseChannel;
   candidate_version: string;
   candidate_tag: string;
   snooze_level: number;
@@ -50,8 +53,18 @@ export interface JustUpgradedUpdateState {
   from_tag: string;
   to_version: string;
   to_tag: string;
-  release_channel: SupportedReleaseChannel;
+  release_channel: ReleaseChannel;
   completed_at: string;
+}
+
+export interface LegacyJustUpgradedMarker {
+  from_version: string;
+}
+
+export interface LegacySnoozeMarker {
+  candidate_version: string;
+  snooze_level: number;
+  snoozed_epoch: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,6 +96,14 @@ function writeJsonFile(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function readTextFile(path: string): string | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+
+  return readFileSync(path, 'utf8');
+}
+
 export function assertLastCheckUpdateState(state: unknown): asserts state is LastCheckUpdateState {
   if (!isRecord(state)) {
     throw new Error('last-check update state must be an object');
@@ -94,7 +115,7 @@ export function assertLastCheckUpdateState(state: unknown): asserts state is Las
 
   assertUpdateStateStatus(state.status);
   assertString(state.checked_at, 'checked_at');
-  assertSupportedReleaseChannel(state.release_channel, 'release_channel');
+  assertKnownReleaseChannel(state.release_channel, 'release_channel');
   assertString(state.local_version, 'local_version');
   assertString(state.local_tag, 'local_tag');
   const candidateVersionIsNull = state.candidate_version === null;
@@ -137,7 +158,7 @@ export function assertSnoozeUpdateState(state: unknown): asserts state is Snooze
     throw new Error('snooze update state schema_version must be 1');
   }
 
-  assertSupportedReleaseChannel(state.release_channel, 'release_channel');
+  assertKnownReleaseChannel(state.release_channel, 'release_channel');
   assertString(state.candidate_version, 'candidate_version');
   assertString(state.candidate_tag, 'candidate_tag');
   if (typeof state.snooze_level !== 'number' || !Number.isInteger(state.snooze_level) || state.snooze_level < 0) {
@@ -173,7 +194,7 @@ export function assertJustUpgradedUpdateState(state: unknown): asserts state is 
   assertString(state.from_tag, 'from_tag');
   assertString(state.to_version, 'to_version');
   assertString(state.to_tag, 'to_tag');
-  assertSupportedReleaseChannel(state.release_channel, 'release_channel');
+  assertKnownReleaseChannel(state.release_channel, 'release_channel');
   assertString(state.completed_at, 'completed_at');
 }
 
@@ -188,6 +209,62 @@ export function readJustUpgradedUpdateState(homeDir: string): JustUpgradedUpdate
 
 export function writeJustUpgradedUpdateState(state: JustUpgradedUpdateState, homeDir: string): void {
   writeJsonFile(getJustUpgradedPath(homeDir), state);
+}
+
+export function getLegacyLastCheckPath(stateRoot: string): string {
+  return join(stateRoot, LEGACY_LAST_CHECK_FILE);
+}
+
+export function getLegacySnoozePath(stateRoot: string): string {
+  return join(stateRoot, LEGACY_SNOOZE_FILE);
+}
+
+export function getLegacyJustUpgradedPath(stateRoot: string): string {
+  return join(stateRoot, LEGACY_JUST_UPGRADED_FILE);
+}
+
+export function parseLegacyJustUpgradedMarker(contents: string): LegacyJustUpgradedMarker | null {
+  const fromVersion = contents.trim();
+  if (fromVersion.length === 0) {
+    return null;
+  }
+
+  return { from_version: fromVersion };
+}
+
+export function parseLegacySnoozeMarker(contents: string): LegacySnoozeMarker | null {
+  const [candidateVersion, snoozeLevel, snoozedEpoch] = contents.trim().split(/\s+/);
+  if (!candidateVersion || !snoozeLevel || !snoozedEpoch) {
+    return null;
+  }
+
+  if (!/^[0-9]+$/.test(snoozeLevel) || !/^[0-9]+$/.test(snoozedEpoch)) {
+    return null;
+  }
+
+  return {
+    candidate_version: candidateVersion,
+    snooze_level: Number(snoozeLevel),
+    snoozed_epoch: Number(snoozedEpoch),
+  };
+}
+
+export function readLegacyJustUpgradedMarker(stateRoot: string): LegacyJustUpgradedMarker | null {
+  const contents = readTextFile(getLegacyJustUpgradedPath(stateRoot));
+  if (contents === null) {
+    return null;
+  }
+
+  return parseLegacyJustUpgradedMarker(contents);
+}
+
+export function readLegacySnoozeMarker(stateRoot: string): LegacySnoozeMarker | null {
+  const contents = readTextFile(getLegacySnoozePath(stateRoot));
+  if (contents === null) {
+    return null;
+  }
+
+  return parseLegacySnoozeMarker(contents);
 }
 
 export function getUpdateStateRoot(homeDir: string): string {
