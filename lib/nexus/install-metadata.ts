@@ -40,6 +40,18 @@ export interface InstallMetadata {
   migrated_from: InstallMigrationRecord | null;
 }
 
+const KNOWN_USER_INSTALL_SUFFIXES = [
+  '.claude/skills/nexus',
+  '.nexus/repos/nexus',
+  '.codex/skills/nexus',
+  '.kiro/skills/nexus',
+  '.factory/skills/nexus',
+] as const;
+
+const REPO_LOCAL_VENDORED_SUFFIXES = [
+  '.claude/skills/nexus',
+] as const;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -60,6 +72,16 @@ function assertInstallKind(value: unknown): asserts value is InstallKind {
   if (!INSTALL_KINDS.includes(value as InstallKind)) {
     throw new Error(`install_kind must be one of: ${INSTALL_KINDS.join(', ')}`);
   }
+}
+
+function normalizePathForMatch(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+function matchesInstallSuffix(path: string, suffix: string): boolean {
+  const normalizedPath = normalizePathForMatch(path);
+  const normalizedSuffix = normalizePathForMatch(suffix);
+  return normalizedPath === normalizedSuffix || normalizedPath.endsWith(`/${normalizedSuffix}`);
 }
 
 function assertInstallScope(value: unknown): asserts value is InstallScope {
@@ -160,6 +182,43 @@ export function buildManagedReleaseInstallMetadata(input: {
 
   validateInstallMetadata(metadata);
   return metadata;
+}
+
+export function isManagedInstallKind(kind: InstallKind): kind is 'managed_release' | 'managed_vendored' {
+  return kind === 'managed_release' || kind === 'managed_vendored';
+}
+
+export function isKnownUserInstallRoot(installRoot: string, homeDir = process.env.HOME ?? ''): boolean {
+  if (homeDir.length === 0) {
+    return false;
+  }
+
+  return KNOWN_USER_INSTALL_SUFFIXES.some(suffix => matchesInstallSuffix(installRoot, join(homeDir, suffix)));
+}
+
+export function isRepoLocalVendoredInstallRoot(installRoot: string, homeDir = process.env.HOME ?? ''): boolean {
+  if (!REPO_LOCAL_VENDORED_SUFFIXES.some(suffix => matchesInstallSuffix(installRoot, suffix))) {
+    return false;
+  }
+
+  return !isKnownUserInstallRoot(installRoot, homeDir);
+}
+
+export function getManagedInstallTarget(installRoot: string, homeDir = process.env.HOME ?? ''): {
+  install_kind: 'managed_release' | 'managed_vendored';
+  install_scope: InstallScope;
+} {
+  if (isRepoLocalVendoredInstallRoot(installRoot, homeDir)) {
+    return {
+      install_kind: 'managed_vendored',
+      install_scope: 'project',
+    };
+  }
+
+  return {
+    install_kind: 'managed_release',
+    install_scope: 'global',
+  };
 }
 
 export function readInstallMetadata(installRoot = process.cwd()): InstallMetadata | null {

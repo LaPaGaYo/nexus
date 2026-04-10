@@ -86,6 +86,26 @@ function recordE2E(name: string, suite: string, result: SkillTestResult, extra?:
   });
 }
 
+function getBashCommands(result: SkillTestResult): string[] {
+  return result.toolCalls
+    .filter(tc => tc.tool === 'Bash')
+    .map(tc => {
+      if (typeof tc.input === 'string') return tc.input;
+      if (tc.input && typeof tc.input.command === 'string') return tc.input.command;
+      if (tc.input && typeof tc.input.cmd === 'string') return tc.input.cmd;
+      return JSON.stringify(tc.input ?? {});
+    });
+}
+
+function assertNoForbiddenGitUpgradeCommands(result: SkillTestResult) {
+  const lowerCommands = getBashCommands(result).map(command => command.toLowerCase());
+  expect(lowerCommands.some(command =>
+    command.includes('git fetch')
+    || command.includes('git reset --hard')
+    || command.includes('origin/main'),
+  )).toBe(false);
+}
+
 let testServer: ReturnType<typeof startTestServer>;
 let tmpDir: string;
 const browseBin = path.resolve(ROOT, 'browse', 'dist', 'browse');
@@ -1883,55 +1903,84 @@ describeE2E('Deferred skill E2E', () => {
 
 describeIfSelected('nexus-upgrade E2E', ['nexus-upgrade-happy-path'], () => {
   let upgradeDir: string;
-  let remoteDir: string;
 
   beforeAll(() => {
     upgradeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-upgrade-'));
-    remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-remote-'));
 
-    const run = (cmd: string, args: string[], cwd: string) =>
-      spawnSync(cmd, args, { cwd, stdio: 'pipe', timeout: 5000 });
-
-    // Init the "project" repo
-    run('git', ['init'], upgradeDir);
-    run('git', ['config', 'user.email', 'test@test.com'], upgradeDir);
-    run('git', ['config', 'user.name', 'Test'], upgradeDir);
-
-    // Create mock nexus install directory (local-git type)
     const mockNexus = path.join(upgradeDir, '.claude', 'skills', 'nexus');
-    fs.mkdirSync(mockNexus, { recursive: true });
-
-    // Init as a git repo
-    run('git', ['init'], mockNexus);
-    run('git', ['config', 'user.email', 'test@test.com'], mockNexus);
-    run('git', ['config', 'user.name', 'Test'], mockNexus);
-
-    // Create bare remote
-    run('git', ['init', '--bare'], remoteDir);
-    run('git', ['remote', 'add', 'origin', remoteDir], mockNexus);
-
-    // Write old version files
+    fs.mkdirSync(path.join(mockNexus, 'bin'), { recursive: true });
     fs.writeFileSync(path.join(mockNexus, 'VERSION'), '0.5.0\n');
     fs.writeFileSync(path.join(mockNexus, 'CHANGELOG.md'),
-      '# Changelog\n\n## 0.5.0 — 2026-03-01\n\n- Initial release\n');
-    fs.writeFileSync(path.join(mockNexus, 'setup'),
-      '#!/bin/bash\necho "Setup completed"\n', { mode: 0o755 });
-
-    // Initial commit + push
-    run('git', ['add', '.'], mockNexus);
-    run('git', ['commit', '-m', 'initial'], mockNexus);
-    run('git', ['push', '-u', 'origin', 'HEAD:main'], mockNexus);
-
-    // Create new version (simulate upstream release)
-    fs.writeFileSync(path.join(mockNexus, 'VERSION'), '0.6.0\n');
-    fs.writeFileSync(path.join(mockNexus, 'CHANGELOG.md'),
       '# Changelog\n\n## 0.6.0 — 2026-03-15\n\n- New feature: interactive design review\n- Fix: snapshot flag validation\n\n## 0.5.0 — 2026-03-01\n\n- Initial release\n');
-    run('git', ['add', '.'], mockNexus);
-    run('git', ['commit', '-m', 'release 0.6.0'], mockNexus);
-    run('git', ['push', 'origin', 'HEAD:main'], mockNexus);
-
-    // Reset working copy back to old version
-    run('git', ['reset', '--hard', 'HEAD~1'], mockNexus);
+    fs.writeFileSync(path.join(mockNexus, '.nexus-install.json'), JSON.stringify({
+      schema_version: 1,
+      product: 'nexus',
+      install_kind: 'managed_vendored',
+      install_scope: 'project',
+      release_channel: 'stable',
+      installed_version: '0.5.0',
+      installed_tag: 'v0.5.0',
+      install_source: {
+        kind: 'github_release',
+        repo: 'LaPaGaYo/nexus',
+        bundle_url: 'https://example.com/nexus/v0.5.0.tar.gz',
+      },
+      last_upgrade_at: '2026-04-08T00:00:00Z',
+      migrated_from: null,
+    }, null, 2));
+    fs.writeFileSync(
+      path.join(mockNexus, 'bin', 'nexus-update-check'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+printf '%s\\n' "$*" > "$ROOT/update-check-args.txt"
+echo "UPGRADE_AVAILABLE 0.5.0 0.6.0"
+`,
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(
+      path.join(mockNexus, 'bin', 'nexus-config'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+if [ "$1" = "get" ] && [ "$2" = "auto_upgrade" ]; then
+  echo "true"
+elif [ "$1" = "get" ] && [ "$2" = "release_channel" ]; then
+  echo "stable"
+elif [ "$1" = "get" ] && [ "$2" = "update_check" ]; then
+  echo "true"
+fi
+`,
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(
+      path.join(mockNexus, 'bin', 'nexus-upgrade-install'),
+      `#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+printf 'VERSION=%s\\nTAG=%s\\n' "\${NEXUS_UPGRADE_TO_VERSION:-}" "\${NEXUS_UPGRADE_TO_TAG:-}" > "$ROOT/upgrade-install-env.txt"
+printf '%s\\n' "\${NEXUS_UPGRADE_TO_VERSION:-}" > "$ROOT/VERSION"
+cat > "$ROOT/.nexus-install.json" <<'EOFJSON'
+{
+  "schema_version": 1,
+  "product": "nexus",
+  "install_kind": "managed_vendored",
+  "install_scope": "project",
+  "release_channel": "stable",
+  "installed_version": "0.6.0",
+  "installed_tag": "v0.6.0",
+  "install_source": {
+    "kind": "github_release",
+    "repo": "LaPaGaYo/nexus",
+    "bundle_url": "https://example.com/nexus/v0.6.0.tar.gz"
+  },
+  "last_upgrade_at": "2026-04-10T00:00:00Z",
+  "migrated_from": null
+}
+EOFJSON
+printf 'installed %s\\n' "\${NEXUS_UPGRADE_TO_VERSION:-}" > "$ROOT/install-side-effect.txt"
+`,
+      { mode: 0o755 },
+    );
 
     // Copy nexus-upgrade skill
     fs.mkdirSync(path.join(upgradeDir, 'nexus-upgrade'), { recursive: true });
@@ -1940,34 +1989,36 @@ describeIfSelected('nexus-upgrade E2E', ['nexus-upgrade-happy-path'], () => {
       path.join(upgradeDir, 'nexus-upgrade', 'SKILL.md'),
     );
 
-    // Commit so git repo is clean
-    run('git', ['add', '.'], upgradeDir);
-    run('git', ['commit', '-m', 'initial project'], upgradeDir);
   });
 
   afterAll(() => {
     try { fs.rmSync(upgradeDir, { recursive: true, force: true }); } catch {}
-    try { fs.rmSync(remoteDir, { recursive: true, force: true }); } catch {}
   });
 
   testIfSelected('nexus-upgrade-happy-path', async () => {
-    const mockNexus = path.join(upgradeDir, '.claude', 'skills', 'nexus');
+    const outputPath = path.join(upgradeDir, 'upgrade-summary.md');
+    const updateCheckStubPath = path.join(upgradeDir, '.claude', 'skills', 'nexus', 'bin', 'nexus-update-check');
+    const upgradeInstallStubPath = path.join(upgradeDir, '.claude', 'skills', 'nexus', 'bin', 'nexus-upgrade-install');
+    const updateCheckStubBefore = fs.readFileSync(updateCheckStubPath, 'utf-8');
+    const upgradeInstallStubBefore = fs.readFileSync(upgradeInstallStubPath, 'utf-8');
     const result = await runSkillTest({
       prompt: `Read nexus-upgrade/SKILL.md for the upgrade workflow.
 
-You are running /nexus-upgrade standalone. The Nexus installation is at ./.claude/skills/nexus (local-git type — it has a .git directory with an origin remote).
+Run the standalone /nexus-upgrade flow against the managed install at ./.claude/skills/nexus.
+The scripts in ./.claude/skills/nexus/bin are safe local stubs for this test. Use them; do not rewrite them.
+After running the flow, write the final user-facing upgrade summary to ${outputPath}.
 
-Current version: 0.5.0. A new version 0.6.0 is available on origin/main.
+Scenario:
+- The current install is a release-based managed install (\`managed_vendored\`) at ./.claude/skills/nexus.
+- Current version: 0.5.0.
+- The local \`nexus-update-check\` stub reports \`UPGRADE_AVAILABLE 0.5.0 0.6.0\`.
+- The local \`nexus-upgrade-install\` stub upgrades the install by writing files in place.
 
-Follow the standalone upgrade flow:
-1. Detect install type (local-git)
-2. Run git fetch origin && git reset --hard origin/main in the install directory
-3. Run the setup script
-4. Show what's new from CHANGELOG
-
-Skip any AskUserQuestion calls — auto-approve the upgrade. Write a summary of what you did to stdout.
-
-IMPORTANT: The install directory is at ./.claude/skills/nexus — use that exact path.`,
+In the summary:
+1. Explain that upgrades follow the published release contract (\`nexus-update-check\` + \`nexus-upgrade-install\` / release bundle), not branch-head git pulls.
+2. Mention that this managed vendored install upgraded through the release flow.
+3. Mention what's new from CHANGELOG at a high level.
+4. Explicitly avoid any \`origin/main\`, \`git fetch\`, or \`git reset --hard\` instructions.`,
       workingDirectory: upgradeDir,
       maxTurns: 20,
       timeout: 180_000,
@@ -1977,19 +2028,54 @@ IMPORTANT: The install directory is at ./.claude/skills/nexus — use that exact
 
     logCost('/nexus-upgrade happy path', result);
 
-    // Check that the version was updated
-    const versionAfter = fs.readFileSync(path.join(mockNexus, 'VERSION'), 'utf-8').trim();
-    const output = result.output || '';
-    const mentionsUpgrade = output.toLowerCase().includes('0.6.0') ||
-      output.toLowerCase().includes('upgrade') ||
-      output.toLowerCase().includes('updated');
+    const output = fs.existsSync(outputPath)
+      ? fs.readFileSync(outputPath, 'utf-8')
+      : (result.output || '');
+    const lower = output.toLowerCase();
+    const versionAfter = fs.readFileSync(path.join(upgradeDir, '.claude', 'skills', 'nexus', 'VERSION'), 'utf-8').trim();
+    const updateArgs = fs.readFileSync(path.join(upgradeDir, '.claude', 'skills', 'nexus', 'update-check-args.txt'), 'utf-8').trim();
+    const installEnv = fs.readFileSync(path.join(upgradeDir, '.claude', 'skills', 'nexus', 'upgrade-install-env.txt'), 'utf-8');
+    const installSideEffect = fs.readFileSync(path.join(upgradeDir, '.claude', 'skills', 'nexus', 'install-side-effect.txt'), 'utf-8').trim();
+    const bashCommands = getBashCommands(result);
 
     recordE2E('/nexus-upgrade happy path', 'nexus-upgrade E2E', result, {
-      passed: versionAfter === '0.6.0' && ['success', 'error_max_turns'].includes(result.exitReason),
+      passed: versionAfter === '0.6.0'
+        && updateArgs === '--force'
+        && installEnv.includes('VERSION=0.6.0')
+        && installEnv.includes('TAG=v0.6.0')
+        && installSideEffect === 'installed 0.6.0'
+        && bashCommands.some(command => command.includes('nexus-update-check'))
+        && bashCommands.some(command => command.includes('nexus-upgrade-install'))
+        && !bashCommands.some(command => command.toLowerCase().includes('git fetch'))
+        && !bashCommands.some(command => command.toLowerCase().includes('git reset --hard'))
+        && !bashCommands.some(command => command.toLowerCase().includes('origin/main'))
+        && lower.includes('managed')
+        && lower.includes('release')
+        && lower.includes('release.json')
+        && lower.includes('nexus-upgrade-install')
+        && !lower.includes('origin/main')
+        && !lower.includes('git reset --hard')
+        && ['success', 'error_max_turns'].includes(result.exitReason),
     });
 
     expect(['success', 'error_max_turns']).toContain(result.exitReason);
     expect(versionAfter).toBe('0.6.0');
+    expect(updateArgs).toBe('--force');
+    expect(installEnv).toContain('VERSION=0.6.0');
+    expect(installEnv).toContain('TAG=v0.6.0');
+    expect(installSideEffect).toBe('installed 0.6.0');
+    expect(bashCommands.some(command => command.includes('nexus-update-check'))).toBe(true);
+    expect(bashCommands.some(command => command.includes('nexus-upgrade-install'))).toBe(true);
+    assertNoForbiddenGitUpgradeCommands(result);
+    expect(fs.readFileSync(updateCheckStubPath, 'utf-8')).toBe(updateCheckStubBefore);
+    expect(fs.readFileSync(upgradeInstallStubPath, 'utf-8')).toBe(upgradeInstallStubBefore);
+    expect(lower).toContain('managed');
+    expect(output).toContain('nexus-upgrade-install');
+    expect(lower).toContain('release');
+    expect(lower).toContain('release.json');
+    expect(lower.includes('origin/main')).toBe(false);
+    expect(lower.includes('git fetch')).toBe(false);
+    expect(lower.includes('git reset --hard')).toBe(false);
   }, 240_000);
 });
 

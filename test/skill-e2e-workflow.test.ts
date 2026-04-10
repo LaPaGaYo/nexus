@@ -13,6 +13,17 @@ import * as os from 'os';
 
 const evalCollector = createEvalCollector('e2e-workflow');
 
+function getBashCommands(result: { toolCalls: Array<{ tool: string; input: any }> }): string[] {
+  return result.toolCalls
+    .filter(tc => tc.tool === 'Bash')
+    .map(tc => {
+      if (typeof tc.input === 'string') return tc.input;
+      if (tc.input && typeof tc.input.command === 'string') return tc.input.command;
+      if (tc.input && typeof tc.input.cmd === 'string') return tc.input.cmd;
+      return JSON.stringify(tc.input ?? {});
+    });
+}
+
 // --- Document-Release skill E2E ---
 
 describeIfSelected('Document-Release skill E2E', ['document-release'], () => {
@@ -204,55 +215,22 @@ describeIfSelected('Ship workflow E2E', ['ship-local-workflow'], () => {
 
 describeIfSelected('nexus-upgrade E2E', ['nexus-upgrade-happy-path'], () => {
   let upgradeDir: string;
-  let remoteDir: string;
 
   beforeAll(() => {
     upgradeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-upgrade-'));
-    remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-remote-'));
 
     const run = (cmd: string, args: string[], cwd: string) =>
       spawnSync(cmd, args, { cwd, stdio: 'pipe', timeout: 5000 });
 
-    // Init the "project" repo
-    run('git', ['init'], upgradeDir);
-    run('git', ['config', 'user.email', 'test@test.com'], upgradeDir);
-    run('git', ['config', 'user.name', 'Test'], upgradeDir);
-
-    // Create mock nexus install directory (local-git type)
-    const mockNexus = path.join(upgradeDir, '.claude', 'skills', 'nexus');
-    fs.mkdirSync(mockNexus, { recursive: true });
-
-    // Init as a git repo
-    run('git', ['init'], mockNexus);
-    run('git', ['config', 'user.email', 'test@test.com'], mockNexus);
-    run('git', ['config', 'user.name', 'Test'], mockNexus);
-
-    // Create bare remote
-    run('git', ['init', '--bare'], remoteDir);
-    run('git', ['remote', 'add', 'origin', remoteDir], mockNexus);
-
-    // Write old version files
-    fs.writeFileSync(path.join(mockNexus, 'VERSION'), '0.5.0\n');
-    fs.writeFileSync(path.join(mockNexus, 'CHANGELOG.md'),
-      '# Changelog\n\n## 0.5.0 — 2026-03-01\n\n- Initial release\n');
-    fs.writeFileSync(path.join(mockNexus, 'setup'),
-      '#!/bin/bash\necho "Setup completed"\n', { mode: 0o755 });
-
-    // Initial commit + push
-    run('git', ['add', '.'], mockNexus);
-    run('git', ['commit', '-m', 'initial'], mockNexus);
-    run('git', ['push', '-u', 'origin', 'HEAD:main'], mockNexus);
-
-    // Create new version (simulate upstream release)
-    fs.writeFileSync(path.join(mockNexus, 'VERSION'), '0.6.0\n');
-    fs.writeFileSync(path.join(mockNexus, 'CHANGELOG.md'),
-      '# Changelog\n\n## 0.6.0 — 2026-03-15\n\n- New feature: interactive design review\n- Fix: snapshot flag validation\n\n## 0.5.0 — 2026-03-01\n\n- Initial release\n');
-    run('git', ['add', '.'], mockNexus);
-    run('git', ['commit', '-m', 'release 0.6.0'], mockNexus);
-    run('git', ['push', 'origin', 'HEAD:main'], mockNexus);
-
-    // Reset working copy back to old version
-    run('git', ['reset', '--hard', 'HEAD~1'], mockNexus);
+    const checkoutDir = path.join(upgradeDir, '.claude', 'skills', 'nexus');
+    fs.mkdirSync(checkoutDir, { recursive: true });
+    run('git', ['init'], checkoutDir);
+    run('git', ['config', 'user.email', 'test@test.com'], checkoutDir);
+    run('git', ['config', 'user.name', 'Test'], checkoutDir);
+    fs.writeFileSync(path.join(checkoutDir, 'VERSION'), '0.5.0\n');
+    fs.writeFileSync(path.join(checkoutDir, 'README.md'), 'development checkout\n');
+    run('git', ['add', '.'], checkoutDir);
+    run('git', ['commit', '-m', 'init'], checkoutDir);
 
     // Copy nexus-upgrade skill
     fs.mkdirSync(path.join(upgradeDir, 'nexus-upgrade'), { recursive: true });
@@ -261,34 +239,31 @@ describeIfSelected('nexus-upgrade E2E', ['nexus-upgrade-happy-path'], () => {
       path.join(upgradeDir, 'nexus-upgrade', 'SKILL.md'),
     );
 
-    // Commit so git repo is clean
-    run('git', ['add', '.'], upgradeDir);
-    run('git', ['commit', '-m', 'initial project'], upgradeDir);
   });
 
   afterAll(() => {
     try { fs.rmSync(upgradeDir, { recursive: true, force: true }); } catch {}
-    try { fs.rmSync(remoteDir, { recursive: true, force: true }); } catch {}
   });
 
   testConcurrentIfSelected('nexus-upgrade-happy-path', async () => {
-    const mockNexus = path.join(upgradeDir, '.claude', 'skills', 'nexus');
+    const outputPath = path.join(upgradeDir, 'upgrade-refusal.md');
     const result = await runSkillTest({
       prompt: `Read nexus-upgrade/SKILL.md for the upgrade workflow.
 
-You are running /nexus-upgrade standalone. The Nexus installation is at ./.claude/skills/nexus (local-git type — it has a .git directory with an origin remote).
+Inspect ./.claude/skills/nexus and decide whether /nexus-upgrade should proceed.
+This test is only about correct source-checkout refusal; do not run any destructive upgrade commands.
+Write the refusal note you would give the user to ${outputPath}.
 
-Current version: 0.5.0. A new version 0.6.0 is available on origin/main.
+Scenario:
+- The install candidate is ./.claude/skills/nexus.
+- That path is an actual git-backed checkout in this test fixture.
+- A separate legacy git install may only be migrated when it lives in a known user install root and has no tracked or untracked local modifications.
 
-Follow the standalone upgrade flow:
-1. Detect install type (local-git)
-2. Run git fetch origin && git reset --hard origin/main in the install directory
-3. Run the setup script
-4. Show what's new from CHANGELOG
-
-Skip any AskUserQuestion calls — auto-approve the upgrade. Write a summary of what you did to stdout.
-
-IMPORTANT: The install directory is at ./.claude/skills/nexus — use that exact path.`,
+In the refusal note:
+1. Explain that this path is a source checkout/development clone and is maintained manually.
+2. Mention that the evidence is the git-backed checkout at ./.claude/skills/nexus.
+3. Mention that legacy git migration is conservative and only applies to known user install roots when the tree is clean.
+3. Explicitly avoid any \`origin/main\`, \`git fetch\`, or \`git reset --hard\` instructions.`,
       workingDirectory: upgradeDir,
       maxTurns: 20,
       timeout: 180_000,
@@ -298,19 +273,36 @@ IMPORTANT: The install directory is at ./.claude/skills/nexus — use that exact
 
     logCost('/nexus-upgrade happy path', result);
 
-    // Check that the version was updated
-    const versionAfter = fs.readFileSync(path.join(mockNexus, 'VERSION'), 'utf-8').trim();
-    const output = result.output || '';
-    const mentionsUpgrade = output.toLowerCase().includes('0.6.0') ||
-      output.toLowerCase().includes('upgrade') ||
-      output.toLowerCase().includes('updated');
+    const output = fs.existsSync(outputPath)
+      ? fs.readFileSync(outputPath, 'utf-8')
+      : (result.output || '');
+    const lower = output.toLowerCase();
+    const bashCommands = getBashCommands(result);
 
     recordE2E(evalCollector, '/nexus-upgrade happy path', 'nexus-upgrade E2E', result, {
-      passed: versionAfter === '0.6.0' && ['success', 'error_max_turns'].includes(result.exitReason),
+      passed: lower.includes('source checkout')
+        && lower.includes('maintained manually')
+        && lower.includes('./.claude/skills/nexus')
+        && lower.includes('known user install roots')
+        && !bashCommands.some(command => command.toLowerCase().includes('git fetch'))
+        && !bashCommands.some(command => command.toLowerCase().includes('git reset --hard'))
+        && !bashCommands.some(command => command.toLowerCase().includes('origin/main'))
+        && !lower.includes('origin/main')
+        && !lower.includes('git reset --hard')
+        && ['success', 'error_max_turns'].includes(result.exitReason),
     });
 
     expect(['success', 'error_max_turns']).toContain(result.exitReason);
-    expect(versionAfter).toBe('0.6.0');
+    expect(lower).toContain('source checkout');
+    expect(lower).toContain('maintained manually');
+    expect(lower).toContain('./.claude/skills/nexus');
+    expect(lower).toContain('known user install roots');
+    expect(bashCommands.some(command => command.toLowerCase().includes('git fetch'))).toBe(false);
+    expect(bashCommands.some(command => command.toLowerCase().includes('git reset --hard'))).toBe(false);
+    expect(bashCommands.some(command => command.toLowerCase().includes('origin/main'))).toBe(false);
+    expect(lower.includes('origin/main')).toBe(false);
+    expect(lower.includes('git fetch')).toBe(false);
+    expect(lower.includes('git reset --hard')).toBe(false);
   }, 240_000);
 });
 
