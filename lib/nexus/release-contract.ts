@@ -96,24 +96,63 @@ export function assertReleaseManifest(manifest: unknown): asserts manifest is Re
 }
 
 export function assertReleaseManifestConsistency(
-  manifest: Pick<ReleaseManifest, 'version' | 'tag' | 'release_notes_path'>,
-  expected: { version: string; tag?: string; release_notes_path: string },
+  manifest: ReleaseManifest,
+  expected: ReleaseManifest,
+  label = 'release manifest',
 ): void {
-  const expectedTag = expected.tag ?? `v${expected.version}`;
-
-  if (manifest.version !== expected.version) {
-    throw new Error(`release manifest version ${manifest.version} does not match expected ${expected.version}`);
+  if (manifest.schema_version !== expected.schema_version) {
+    throw new Error(`${label} schema_version ${manifest.schema_version} does not match expected ${expected.schema_version}`);
   }
 
-  if (manifest.tag !== expectedTag) {
-    throw new Error(`release manifest tag ${manifest.tag} does not match expected ${expectedTag}`);
+  if (manifest.product !== expected.product) {
+    throw new Error(`${label} product ${manifest.product} does not match expected ${expected.product}`);
+  }
+
+  if (manifest.version !== expected.version) {
+    throw new Error(`${label} version ${manifest.version} does not match expected ${expected.version}`);
+  }
+
+  if (manifest.tag !== expected.tag) {
+    throw new Error(`${label} tag ${manifest.tag} does not match expected ${expected.tag}`);
+  }
+
+  if (manifest.channel !== expected.channel) {
+    throw new Error(`${label} channel ${manifest.channel} does not match expected ${expected.channel}`);
+  }
+
+  if (manifest.published_at !== expected.published_at) {
+    throw new Error(`${label} published_at ${manifest.published_at} does not match expected ${expected.published_at}`);
   }
 
   if (manifest.release_notes_path !== expected.release_notes_path) {
     throw new Error(
-      `release manifest release_notes_path ${manifest.release_notes_path} does not match expected ${expected.release_notes_path}`,
+      `${label} release_notes_path ${manifest.release_notes_path} does not match expected ${expected.release_notes_path}`,
     );
   }
+
+  if (manifest.bundle.type !== expected.bundle.type) {
+    throw new Error(`${label} bundle.type ${manifest.bundle.type} does not match expected ${expected.bundle.type}`);
+  }
+
+  if (manifest.bundle.url !== expected.bundle.url) {
+    throw new Error(`${label} bundle.url ${manifest.bundle.url} does not match expected ${expected.bundle.url}`);
+  }
+
+  if (manifest.compatibility.upgrade_from_min_version !== expected.compatibility.upgrade_from_min_version) {
+    throw new Error(
+      `${label} compatibility.upgrade_from_min_version ${manifest.compatibility.upgrade_from_min_version} does not match expected ${expected.compatibility.upgrade_from_min_version}`,
+    );
+  }
+
+  if (manifest.compatibility.requires_setup !== expected.compatibility.requires_setup) {
+    throw new Error(
+      `${label} compatibility.requires_setup ${manifest.compatibility.requires_setup} does not match expected ${expected.compatibility.requires_setup}`,
+    );
+  }
+}
+
+export function getReleaseTag(version: string): string {
+  return `v${version}`;
 }
 
 export function getReleaseManifestPath(rootDir = process.cwd()): string {

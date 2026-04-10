@@ -1,0 +1,485 @@
+#!/usr/bin/env bash
+# nexus-upgrade-install — install a tagged Nexus release bundle with rollback.
+#
+# Usage:
+#   nexus-upgrade-install
+#
+# Env overrides (for testing and skill execution):
+#   NEXUS_DIR                  — override the current install root
+#   NEXUS_STATE_DIR            — override the Nexus state directory
+#   NEXUS_RELEASE_REPO         — override the GitHub repo slug
+#   NEXUS_RELEASE_CHANNEL      — override the release channel
+#   NEXUS_UPGRADE_TO_VERSION   — required candidate version
+#   NEXUS_UPGRADE_TO_TAG       — optional candidate tag (defaults to v<version>)
+#   NEXUS_RELEASE_MANIFEST_URL — override candidate release.json URL
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-upgrade-install" >&2
+    exit 1
+    ;;
+esac
+
+NEXUS_DIR="${NEXUS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STATE_DIR="${NEXUS_STATE_DIR:-${HOME:-}/.nexus}"
+UPGRADE_TO_VERSION="${NEXUS_UPGRADE_TO_VERSION:-${NEXUS_UPGRADE_VERSION:-}}"
+UPGRADE_TO_TAG="${NEXUS_UPGRADE_TO_TAG:-}"
+RELEASE_CHANNEL="${NEXUS_RELEASE_CHANNEL:-}"
+RELEASE_MANIFEST_URL="${NEXUS_RELEASE_MANIFEST_URL:-}"
+RELEASE_REPO="${NEXUS_RELEASE_REPO:-}"
+INSTALL_SCOPE="${NEXUS_INSTALL_SCOPE:-}"
+
+if [ -z "$UPGRADE_TO_VERSION" ]; then
+  echo "ERROR: NEXUS_UPGRADE_TO_VERSION is required" >&2
+  exit 1
+fi
+
+CORE_JS="$(cat <<'EOF'
+const { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } = await import('fs');
+const { dirname, join, basename } = await import('path');
+const releaseContract = await import(process.env.NEXUS_RELEASE_CONTRACT_PATH);
+const installMetadata = await import(process.env.NEXUS_INSTALL_METADATA_PATH);
+const updateState = await import(process.env.NEXUS_UPDATE_STATE_PATH);
+
+const installRoot = process.env.NEXUS_DIR ?? process.cwd();
+const stateDir = process.env.NEXUS_STATE_DIR ?? join(process.env.HOME ?? '', '.nexus');
+const upgradeVersion = (process.env.NEXUS_UPGRADE_TO_VERSION ?? '').trim();
+const upgradeTag = (process.env.NEXUS_UPGRADE_TO_TAG ?? '').trim() || releaseContract.getReleaseTag(upgradeVersion);
+const releaseChannel = (process.env.NEXUS_RELEASE_CHANNEL ?? '').trim() || 'stable';
+const releaseRepo = (process.env.NEXUS_RELEASE_REPO ?? '').trim();
+const manifestUrlOverride = (process.env.NEXUS_RELEASE_MANIFEST_URL ?? '').trim();
+const installScopeOverride = (process.env.NEXUS_INSTALL_SCOPE ?? '').trim();
+const versionPath = join(installRoot, 'VERSION');
+const metadataPath = join(installRoot, installMetadata.INSTALL_METADATA_FILE);
+const updateStateRoot = updateState.getUpdateStateRootFromStateDir(stateDir);
+const lastCheckPath = updateState.getLastCheckPathFromStateDir(stateDir);
+const snoozePath = updateState.getSnoozePathFromStateDir(stateDir);
+const justUpgradedPath = updateState.getJustUpgradedPathFromStateDir(stateDir);
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function log(message) {
+  process.stdout.write(`${message}\n`);
+}
+
+function fail(message, error) {
+  if (error instanceof Error && error.message) {
+    process.stderr.write(`ERROR: ${message}: ${error.message}\n`);
+  } else if (error !== undefined) {
+    process.stderr.write(`ERROR: ${message}: ${String(error)}\n`);
+  } else {
+    process.stderr.write(`ERROR: ${message}\n`);
+  }
+  throw new Error(message);
+}
+
+function readJson(path) {
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function writeJson(path, value) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function readText(path) {
+  return readFileSync(path, 'utf8').trim();
+}
+
+function readCurrentInstallMetadata() {
+  try {
+    return installMetadata.readInstallMetadata(installRoot);
+  } catch (error) {
+    fail('invalid current install metadata', error);
+  }
+}
+
+async function loadText(url) {
+  if (url.startsWith('file://')) {
+    return Bun.file(new URL(url)).text();
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/vnd.github+json',
+      'user-agent': 'nexus-upgrade-install',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  return response.text();
+}
+
+async function loadJson(url, validator) {
+  const parsed = JSON.parse(await loadText(url));
+  return validator(parsed);
+}
+
+async function downloadBundle(url, destination) {
+  if (url.startsWith('file://')) {
+    const bytes = await Bun.file(new URL(url)).arrayBuffer();
+    writeFileSync(destination, new Uint8Array(bytes));
+    return;
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/octet-stream',
+      'user-agent': 'nexus-upgrade-install',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`failed to download ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  writeFileSync(destination, new Uint8Array(await response.arrayBuffer()));
+}
+
+function extractBundle(archivePath, destination) {
+  mkdirSync(destination, { recursive: true });
+  const result = Bun.spawnSync(['tar', '-xzf', archivePath, '-C', destination], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(`failed to extract release bundle: ${result.stderr.toString().trim() || result.stdout.toString().trim()}`);
+  }
+}
+
+function findReleaseRoot(extractedRoot) {
+  const directManifest = join(extractedRoot, 'release.json');
+  const directSetup = join(extractedRoot, 'setup');
+  if (existsSync(directManifest) && existsSync(directSetup)) {
+    return extractedRoot;
+  }
+
+  for (const entry of readdirSync(extractedRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const candidate = join(extractedRoot, entry.name);
+    if (existsSync(join(candidate, 'release.json')) && existsSync(join(candidate, 'setup'))) {
+      return candidate;
+    }
+  }
+
+  throw new Error('extracted release bundle does not contain a valid Nexus install root');
+}
+
+function runSetup(installPath) {
+  const result = Bun.spawnSync([join(installPath, 'setup')], {
+    cwd: installPath,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(`./setup failed: ${result.stderr.toString().trim() || result.stdout.toString().trim()}`);
+  }
+}
+
+function isManagedInstallKind(kind) {
+  return kind === 'managed_release' || kind === 'managed_vendored';
+}
+
+function compareVersionStrings(left, right) {
+  const leftParts = left.replace(/^v/, '').split('.');
+  const rightParts = right.replace(/^v/, '').split('.');
+  const segmentCount = Math.max(leftParts.length, rightParts.length);
+
+  for (let index = 0; index < segmentCount; index += 1) {
+    const leftPart = leftParts[index] ?? '0';
+    const rightPart = rightParts[index] ?? '0';
+    const leftIsNumeric = /^\d+$/.test(leftPart);
+    const rightIsNumeric = /^\d+$/.test(rightPart);
+
+    if (leftIsNumeric && rightIsNumeric) {
+      const leftNumber = Number(leftPart);
+      const rightNumber = Number(rightPart);
+      if (leftNumber !== rightNumber) {
+        return leftNumber < rightNumber ? -1 : 1;
+      }
+      continue;
+    }
+
+    if (leftPart !== rightPart) {
+      return leftPart < rightPart ? -1 : 1;
+    }
+  }
+
+  return 0;
+}
+
+function makeTreeWritable(root) {
+  if (!existsSync(root)) {
+    return;
+  }
+
+  try {
+    chmodSync(root, 0o700);
+  } catch {
+    // Best-effort only.
+  }
+
+  let entries = [];
+  try {
+    entries = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const child = join(root, entry.name);
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+    if (entry.isDirectory()) {
+      makeTreeWritable(child);
+      continue;
+    }
+
+    try {
+      chmodSync(child, 0o600);
+    } catch {
+      // Best-effort only. We still try to remove the tree below.
+    }
+  }
+}
+
+function buildInstallMetadata(manifest, metadata, repoSlug) {
+  return installMetadata.buildManagedReleaseInstallMetadata({
+    install_kind: metadata.install_kind,
+    install_scope: metadata.install_scope,
+    release_channel: releaseChannel,
+    installed_version: manifest.version,
+    installed_tag: manifest.tag,
+    install_source: {
+      kind: 'github_release',
+      repo: repoSlug,
+      bundle_url: manifest.bundle.url,
+    },
+    last_upgrade_at: nowIso(),
+    migrated_from: null,
+  });
+}
+
+function writeFailureState(localVersion, localTag, candidateVersion, candidateTag, reason, repoSlug) {
+  const state = {
+    schema_version: 1,
+    status: 'error',
+    checked_at: nowIso(),
+    release_channel: releaseChannel,
+    local_version: localVersion,
+    local_tag: localTag,
+    candidate_version: candidateVersion,
+    candidate_tag: candidateTag,
+    source: {
+      kind: 'github_release',
+      repo: repoSlug,
+    },
+  };
+
+  updateState.validateLastCheckUpdateState(state);
+  writeJson(lastCheckPath, state);
+  process.stderr.write(`ERROR: ${reason}\n`);
+}
+
+function restoreBackup(backupRoot) {
+  if (process.env.NEXUS_UPGRADE_TEST_FAIL_RESTORE === '1') {
+    throw new Error('test hook: restore failed');
+  }
+
+  makeTreeWritable(installRoot);
+  rmSync(installRoot, { recursive: true, force: true });
+  mkdirSync(installRoot, { recursive: true });
+  cpSync(backupRoot, installRoot, { recursive: true, force: true });
+}
+
+async function main() {
+  let metadata = null;
+  let localVersion = 'unknown';
+  let localTag = 'unknown';
+  let repoSlug = releaseRepo || 'LaPaGaYo/nexus';
+  let manifest = {
+    schema_version: 1,
+    product: 'nexus',
+    version: upgradeVersion,
+    tag: upgradeTag,
+    channel: releaseChannel,
+    published_at: '',
+    release_notes_path: '',
+    bundle: { type: 'tar.gz', url: '' },
+    compatibility: {
+      upgrade_from_min_version: '0.0.0',
+      requires_setup: true,
+    },
+  };
+  let scratchRoot = '';
+  let backupRoot = '';
+  let backupCreated = false;
+  let restoreFailed = false;
+
+  try {
+    if (!existsSync(installRoot)) {
+      throw new Error(`install root not found: ${installRoot}`);
+    }
+
+    metadata = readCurrentInstallMetadata();
+    if (metadata === null) {
+      process.stderr.write('ERROR: current install must already be a managed install with .nexus-install.json\n');
+      process.exitCode = 1;
+      return;
+    }
+    if (!isManagedInstallKind(metadata.install_kind)) {
+      process.stderr.write(`ERROR: current install_kind must be managed_release or managed_vendored, got ${metadata.install_kind}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    localVersion = existsSync(versionPath) ? readText(versionPath) : metadata?.installed_version ?? 'unknown';
+    localTag = metadata?.installed_tag ?? releaseContract.getReleaseTag(localVersion);
+
+    if (metadata && metadata.installed_version !== localVersion) {
+      throw new Error('local VERSION and .nexus-install.json disagree');
+    }
+
+    repoSlug = releaseRepo || metadata.install_source.repo;
+    const manifestUrl = manifestUrlOverride.length > 0
+      ? manifestUrlOverride
+      : `https://raw.githubusercontent.com/${repoSlug}/${upgradeTag}/release.json`;
+
+    manifest = await loadJson(manifestUrl, value => {
+      releaseContract.assertReleaseManifest(value);
+      return value;
+    });
+    if (manifest.channel !== releaseChannel) {
+      throw new Error(`release channel mismatch: ${manifest.channel}`);
+    }
+    if (manifest.version !== upgradeVersion || manifest.tag !== upgradeTag) {
+      throw new Error('candidate release metadata does not match the requested version');
+    }
+    if (compareVersionStrings(localVersion, manifest.compatibility.upgrade_from_min_version) < 0) {
+      throw new Error(
+        `current version ${localVersion} is below the minimum supported upgrade source version ${manifest.compatibility.upgrade_from_min_version}`,
+      );
+    }
+
+    const workDir = Bun.spawnSync(['mktemp', '-d', join(dirname(installRoot), 'nexus-upgrade-install-XXXXXX')], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    if (workDir.exitCode !== 0) {
+      throw new Error(`failed to create temp work directory: ${workDir.stderr.toString().trim()}`);
+    }
+    scratchRoot = workDir.stdout.toString().trim();
+    const bundlePath = join(scratchRoot, `${upgradeTag}.tar.gz`);
+    const extractRoot = join(scratchRoot, 'extract');
+    backupRoot = join(dirname(installRoot), `.${basename(installRoot)}.bak-${Date.now()}`);
+    mkdirSync(backupRoot, { recursive: true });
+
+    await downloadBundle(manifest.bundle.url, bundlePath);
+    extractBundle(bundlePath, extractRoot);
+    const releaseRoot = findReleaseRoot(extractRoot);
+    const extractedManifest = readJson(join(releaseRoot, 'release.json'));
+    releaseContract.assertReleaseManifest(extractedManifest);
+    releaseContract.assertReleaseManifestConsistency(extractedManifest, manifest, 'extracted release.json');
+    const extractedVersion = readText(join(releaseRoot, 'VERSION'));
+    if (extractedVersion !== manifest.version || releaseContract.getReleaseTag(extractedVersion) !== manifest.tag) {
+      throw new Error('extracted VERSION does not match the candidate release manifest');
+    }
+
+    cpSync(installRoot, backupRoot, { recursive: true, force: true });
+    backupCreated = true;
+    makeTreeWritable(installRoot);
+    rmSync(installRoot, { recursive: true, force: true });
+    mkdirSync(installRoot, { recursive: true });
+    cpSync(releaseRoot, installRoot, { recursive: true, force: true });
+
+    runSetup(installRoot);
+
+    const installMetadataRecord = buildInstallMetadata(manifest, metadata, repoSlug);
+    installMetadata.writeInstallMetadata(installMetadataRecord, installRoot);
+
+    updateState.clearStaleUpdateState(stateDir);
+    const justUpgradedState = {
+      schema_version: 1,
+      from_version: localVersion,
+      from_tag: localTag,
+      to_version: manifest.version,
+      to_tag: manifest.tag,
+      release_channel: releaseChannel,
+      completed_at: nowIso(),
+    };
+    updateState.validateJustUpgradedUpdateState(justUpgradedState);
+    writeJson(justUpgradedPath, justUpgradedState);
+
+    log(`Installed Nexus ${localTag} -> ${manifest.tag}`);
+    process.exitCode = 0;
+  } catch (error) {
+    if (backupCreated) {
+      try {
+        restoreBackup(backupRoot);
+      } catch (restoreError) {
+        restoreFailed = true;
+        process.stderr.write(`ERROR: failed to restore previous install: ${String(restoreError)}\n`);
+      }
+    }
+
+    writeFailureState(
+      localVersion,
+      localTag,
+      manifest.version,
+      manifest.tag,
+      error instanceof Error && error.message ? error.message : String(error),
+      repoSlug,
+    );
+    if (backupCreated) {
+      if (restoreFailed) {
+        process.stderr.write('ERROR: upgrade failed; previous install restore failed and backup copy was preserved\n');
+      } else {
+        process.stderr.write('ERROR: upgrade failed and the previous install was restored\n');
+      }
+    } else {
+      process.stderr.write('ERROR: upgrade failed\n');
+    }
+    process.exitCode = 1;
+  } finally {
+    if (scratchRoot.length > 0) {
+      rmSync(scratchRoot, { recursive: true, force: true });
+    }
+    if (backupRoot.length > 0 && !restoreFailed) {
+      rmSync(backupRoot, { recursive: true, force: true });
+    }
+  }
+}
+
+await main();
+EOF
+)"
+
+NEXUS_DIR="$NEXUS_DIR" \
+NEXUS_STATE_DIR="$STATE_DIR" \
+NEXUS_UPGRADE_TO_VERSION="$UPGRADE_TO_VERSION" \
+NEXUS_UPGRADE_TO_TAG="$UPGRADE_TO_TAG" \
+NEXUS_RELEASE_CHANNEL="$RELEASE_CHANNEL" \
+NEXUS_RELEASE_REPO="$RELEASE_REPO" \
+NEXUS_RELEASE_MANIFEST_URL="$RELEASE_MANIFEST_URL" \
+NEXUS_INSTALL_SCOPE="$INSTALL_SCOPE" \
+NEXUS_RELEASE_CONTRACT_PATH="$SCRIPT_ROOT/lib/nexus/release-contract.ts" \
+NEXUS_INSTALL_METADATA_PATH="$SCRIPT_ROOT/lib/nexus/install-metadata.ts" \
+NEXUS_UPDATE_STATE_PATH="$SCRIPT_ROOT/lib/nexus/update-state.ts" \
+bun -e "$CORE_JS"

@@ -135,6 +135,33 @@ export function validateInstallMetadata(metadata: unknown): InstallMetadata {
   return metadata;
 }
 
+export function buildManagedReleaseInstallMetadata(input: {
+  install_kind?: 'managed_release' | 'managed_vendored';
+  install_scope: InstallScope;
+  release_channel: SupportedReleaseChannel;
+  installed_version: string;
+  installed_tag: string;
+  install_source: InstallSourceRecord;
+  last_upgrade_at: string | null;
+  migrated_from: InstallMigrationRecord | null;
+}): InstallMetadata {
+  const metadata: InstallMetadata = {
+    schema_version: 1,
+    product: 'nexus',
+    install_kind: input.install_kind ?? 'managed_release',
+    install_scope: input.install_scope,
+    release_channel: input.release_channel,
+    installed_version: input.installed_version,
+    installed_tag: input.installed_tag,
+    install_source: input.install_source,
+    last_upgrade_at: input.last_upgrade_at,
+    migrated_from: input.migrated_from,
+  };
+
+  validateInstallMetadata(metadata);
+  return metadata;
+}
+
 export function readInstallMetadata(installRoot = process.cwd()): InstallMetadata | null {
   const path = getInstallMetadataPath(installRoot);
   if (!existsSync(path)) {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { assertKnownReleaseChannel, type ReleaseChannel } from './release-contract';
 
@@ -209,6 +209,33 @@ export function readJustUpgradedUpdateState(homeDir: string): JustUpgradedUpdate
 
 export function writeJustUpgradedUpdateState(state: JustUpgradedUpdateState, homeDir: string): void {
   writeJsonFile(getJustUpgradedPath(homeDir), state);
+}
+
+export function getUpdateStateRootFromStateDir(stateDir: string): string {
+  return join(stateDir, UPDATE_STATE_DIRNAME);
+}
+
+export function getLastCheckPathFromStateDir(stateDir: string): string {
+  return join(getUpdateStateRootFromStateDir(stateDir), LAST_CHECK_FILE);
+}
+
+export function getSnoozePathFromStateDir(stateDir: string): string {
+  return join(getUpdateStateRootFromStateDir(stateDir), SNOOZE_FILE);
+}
+
+export function getJustUpgradedPathFromStateDir(stateDir: string): string {
+  return join(getUpdateStateRootFromStateDir(stateDir), JUST_UPGRADED_FILE);
+}
+
+export function clearStaleUpdateState(stateDir: string): void {
+  const updateStateRoot = getUpdateStateRootFromStateDir(stateDir);
+  rmSync(getLastCheckPathFromStateDir(stateDir), { force: true });
+  rmSync(getSnoozePathFromStateDir(stateDir), { force: true });
+  rmSync(getJustUpgradedPathFromStateDir(stateDir), { force: true });
+  rmSync(join(stateDir, LEGACY_LAST_CHECK_FILE), { force: true });
+  rmSync(join(stateDir, LEGACY_SNOOZE_FILE), { force: true });
+  rmSync(join(stateDir, LEGACY_JUST_UPGRADED_FILE), { force: true });
+  rmSync(updateStateRoot, { force: true, recursive: true });
 }
 
 export function getLegacyLastCheckPath(stateRoot: string): string {
