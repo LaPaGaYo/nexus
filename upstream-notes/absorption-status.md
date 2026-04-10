@@ -3,6 +3,11 @@
 This file tracks which imported upstream capability sources have been absorbed
 into Nexus-owned stage content and stage packs.
 
+Upstream freshness maintenance is frozen in `upstream-notes/upstream-lock.json`,
+with `upstream-notes/update-status.md` as the human-readable summary. Imported
+upstreams remain source material only and never become runtime truth. The initial
+lock is a bootstrap snapshot with unknown check state.
+
 ## Imported upstream sources
 
 | Source | Imported path | Current role in Nexus |

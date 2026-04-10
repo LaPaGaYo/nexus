@@ -25,6 +25,10 @@ const IMPORTED_SOURCE_INVENTORIES = [
   'upstream-notes/ccb-inventory.md',
 ] as const;
 
+const UPSTREAM_LOCK_PATH = 'upstream-notes/upstream-lock.json';
+const UPSTREAM_README_PATH = 'upstream/README.md';
+const UPDATE_STATUS_PATH = 'upstream-notes/update-status.md';
+
 const SURFACE_DOCS = ['README.md', 'docs/skills.md'] as const;
 
 const MANDATORY_FIELDS = [
@@ -77,6 +81,16 @@ function parseCsvField(value: string): string[] {
     .split(',')
     .map((cell) => cell.trim())
     .filter(Boolean);
+}
+
+function parseUpstreamReadme(markdown: string): Array<{ name: string; repo_url: string; pinned_commit: string }> {
+  const matches = [...markdown.matchAll(/- `([^`]+)`\n\s+- repo: `([^`]+)`\n\s+- pinned_commit: `([^`]+)`/g)];
+
+  return matches.map((match) => ({
+    name: match[1],
+    repo_url: match[2],
+    pinned_commit: match[3],
+  }));
 }
 
 describe('nexus inventories', () => {
@@ -193,6 +207,37 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
 
     expect(markdown).toContain('Nexus-owned stage packs');
     expect(markdown).toContain('source material');
+  });
+
+  test('upstream README stays aligned with the frozen maintenance lock and status stub', () => {
+    const readme = readFileSync(UPSTREAM_README_PATH, 'utf8');
+    const lock = JSON.parse(readFileSync(UPSTREAM_LOCK_PATH, 'utf8')) as {
+      upstreams: Array<{ name: string; repo_url: string; pinned_commit: string; bootstrap_state: string }>;
+    };
+    const readmeEntries = parseUpstreamReadme(readme);
+    const updateStatus = readFileSync(UPDATE_STATUS_PATH, 'utf8');
+
+    expect(readme).toContain('upstream-notes/upstream-lock.json');
+    expect(readme).toContain('upstream-notes/update-status.md');
+    expect(readme).toContain('bootstrap snapshot');
+    expect(readmeEntries).toHaveLength(lock.upstreams.length);
+
+    const readmeByName = new Map(readmeEntries.map((entry) => [entry.name, entry]));
+
+    for (const record of lock.upstreams) {
+      expect(record.bootstrap_state).toBe('bootstrap');
+      expect(readmeByName.get(record.name)).toEqual({
+        name: record.name,
+        repo_url: record.repo_url,
+        pinned_commit: record.pinned_commit,
+      });
+    }
+
+    expect(updateStatus).toContain('No upstream checks have run yet.');
+    expect(updateStatus).toContain('Bootstrap Snapshot');
+    expect(updateStatus).toContain('bootstrap | unchecked | unknown | unknown | unknown | unknown');
+    expect(updateStatus).toContain('Maintenance truth: `upstream-notes/upstream-lock.json`');
+    expect(updateStatus).toContain('Imported upstreams remain source material only');
   });
 });
 
