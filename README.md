@@ -25,6 +25,10 @@ upstream repos remain source material only.
 Upstream maintenance is handled by Nexus maintainers.
 Users upgrade Nexus versions, not upstream repos.
 `/nexus-upgrade` and automatic upgrade are the only user-facing update paths.
+Release detection is channel-based through `release_channel` and published
+`release.json` manifests. Managed installs are recorded as
+`managed_release` or `managed_vendored`, and vendored copies sync to the same
+published Nexus release as the managed global install.
 
 ## What Nexus owns
 
@@ -207,7 +211,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/guard` | Combine destructive-command warnings and edit freeze. |
 | `/unfreeze` | Remove the edit freeze. |
 | `/setup-deploy` | Configure `/land-and-deploy`. |
-| `/nexus-upgrade` | Upgrade Nexus through the supported user-facing update flow. |
+| `/nexus-upgrade` | Upgrade Nexus through the supported release-based user-facing update flow. |
 | `/learn` | Manage project learnings across sessions. |
 | `/qa-only` | Run QA in report-only mode. |
 | `/codex` | Independent second-opinion review through Codex. |
@@ -268,6 +272,8 @@ cd ~/.claude/skills/nexus && bun install && bun run build
 **Stale install?**
 
 Run `/nexus-upgrade` or set `auto_upgrade: true` in `~/.nexus/config.yaml`.
+Upgrade checks follow the configured `release_channel` and published release
+metadata, not upstream repo heads.
 
 **Want shorter commands?**
 

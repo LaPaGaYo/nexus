@@ -8,6 +8,10 @@ Imported upstream repos remain source material only and do not own lifecycle tru
 Upstream maintenance is handled by Nexus maintainers.
 Users upgrade Nexus versions, not upstream repos.
 `/nexus-upgrade` and automatic upgrade are the only user-facing update paths.
+Release detection is channel-based through `release_channel` and published
+`release.json` manifests. Managed installs are recorded as
+`managed_release` or `managed_vendored`, and vendored copies sync to the same
+published Nexus release as the managed global install.
 Legacy aliases and host utilities remain documented below for migration, safety, and tooling,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 Legacy aliases and host utilities remain secondary compatibility surface only.
@@ -159,7 +163,7 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/learn` | Learned-pattern management. |
 | `/careful`, `/freeze`, `/guard`, `/unfreeze` | Safety and edit-boundary controls. |
 | `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. |
-| `/nexus-upgrade` | Upgrade Nexus itself through the supported update flow. |
+| `/nexus-upgrade` | Upgrade Nexus itself through the supported release-based update flow. |
 
 ## Historical Lineage Note
 

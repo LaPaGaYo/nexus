@@ -100,7 +100,7 @@ or invoking other Nexus commands, use the \`/nexus-\` prefix (e.g., \`/nexus-qa\
 of \`/qa\`, \`/nexus-ship\` instead of \`/ship\`). Disk paths are unaffected — always use
 \`${ctx.paths.skillRoot}/[skill-name]/SKILL.md\` for reading skill files.
 
-If output shows \`UPGRADE_AVAILABLE <old> <new>\`: read \`${ctx.paths.skillRoot}/nexus-upgrade/SKILL.md\` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). If \`JUST_UPGRADED <from> <to>\`: tell user "Running Nexus v{to} (just updated!)" and continue.`;
+If output shows \`UPGRADE_AVAILABLE <old> <new>\`: read \`${ctx.paths.skillRoot}/nexus-upgrade/SKILL.md\` and follow the release-based "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). \`/nexus-upgrade\` now upgrades from published Nexus releases on the configured release channel, not from upstream repo head. If \`JUST_UPGRADED <from> <to>\`: tell user "Running Nexus v{to} (just updated!)" and continue.`;
 }
 
 function generateLakeIntro(): string {

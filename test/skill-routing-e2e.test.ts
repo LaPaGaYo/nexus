@@ -33,12 +33,13 @@ describe('upgrade routing surface', () => {
     const normalized = nexusUpgrade.replace(/\s+/g, ' ');
 
     expect(nexusUpgrade).toContain('name: nexus-upgrade');
-    expect(normalized).toContain("Upgrade Nexus to the latest version and show what's new.");
-    expect(normalized).toContain('This helper updates Nexus itself.');
-    expect(normalized).toContain('It does not pull or absorb imported upstream repos directly.');
-    expect(normalized).toContain('For git-based Nexus installs, it may sync the installed Nexus repo as the implementation mechanism.');
-    expect(normalized).toContain('Upstream refresh work is maintainer-only and happens outside this user-facing flow.');
-    expect(normalized).toContain('Release/tag-based upgrade semantics are future roadmap work after Nexus stabilizes; this helper does not implement that path yet.');
+    expect(normalized).toContain("Upgrade Nexus to the latest published release and show what's new.");
+    expect(normalized).toContain('This helper updates Nexus itself from published releases.');
+    expect(normalized).toContain('Users upgrade Nexus versions, not upstream repos.');
+    expect(normalized).toContain('Release detection is channel-based through `release_channel` and published `release.json` manifests.');
+    expect(normalized).toContain('Managed installs include both `managed_release` and `managed_vendored`.');
+    expect(normalized).toContain('Vendored copies sync to the same published Nexus release as the managed global install.');
+    expect(normalized).not.toContain('Release/tag-based upgrade semantics are future roadmap work after Nexus stabilizes; this helper does not implement that path yet.');
   });
 });
 
