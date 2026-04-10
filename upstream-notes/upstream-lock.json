@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-04-10T02:44:33.178Z",
+  "updated_at": "2026-04-10T03:30:25.200Z",
   "maintenance_note": "Maintenance snapshot; upstream:check rewrites this file with live freshness data.",
   "upstreams": [
     {
@@ -12,14 +12,14 @@
       "last_checked_commit": "4aa4196c14873b84f5af7316e7f66328cb6dee4c",
       "last_checked_at": "2026-04-10T02:44:33.178Z",
       "behind_count": 0,
-      "refresh_status": "up_to_date",
-      "last_refresh_candidate_at": null,
+      "refresh_status": "refresh_candidate",
+      "last_refresh_candidate_at": "2026-04-10T03:30:25.200Z",
       "last_absorption_decision": null,
       "active_absorbed_capabilities": [
         "pm-discover",
         "pm-frame"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed."
+      "notes": "Refresh candidate staged from the checked snapshot; imported upstream source material remains non-authoritative until review."
     },
     {
       "name": "gsd",
