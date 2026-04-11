@@ -73,7 +73,7 @@ const DEFAULT_TIMEOUTS_MS = {
 } as const;
 
 interface ActiveLocalTopology {
-  mode: 'single_agent' | 'claude_subagents';
+  mode: 'single_agent' | 'claude_subagents' | 'codex_subagents' | 'codex_multi_session' | 'gemini_subagents';
 }
 
 function backendConflict(stage: NexusAdapterContext['stage'], message: string): ConflictRecord {
@@ -97,7 +97,23 @@ function activeLocalTopology(provider: PrimaryProvider, topology: ProviderTopolo
       return { mode: 'claude_subagents' };
     }
 
-    return 'local_provider topology subagents is only active for claude';
+    if (provider === 'codex') {
+      return { mode: 'codex_subagents' };
+    }
+
+    if (provider === 'gemini') {
+      return { mode: 'gemini_subagents' };
+    }
+
+    return 'local_provider topology subagents is only active for claude, codex, or gemini';
+  }
+
+  if (topology === 'multi_session') {
+    if (provider === 'codex') {
+      return { mode: 'codex_multi_session' };
+    }
+
+    return 'local_provider topology multi_session is only active for codex';
   }
 
   return `local_provider topology ${topology} is reserved and not yet active`;
@@ -251,7 +267,7 @@ function sanitizeTimestamp(value: string): string {
   return value.replace(/[:.]/g, '-');
 }
 
-interface ClaudeNamedAgent {
+interface LocalRoleAgent {
   name: string;
   description: string;
   systemPrompt: string;
@@ -335,7 +351,7 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
   };
 }
 
-function buildClaudeNamedAgentCommand(agent: ClaudeNamedAgent): string[] {
+function buildClaudeNamedAgentCommand(agent: LocalRoleAgent): string[] {
   return [
     'claude',
     '-p',
@@ -354,7 +370,7 @@ function buildClaudeNamedAgentCommand(agent: ClaudeNamedAgent): string[] {
   ];
 }
 
-function buildClaudeBuilderAgent(): ClaudeNamedAgent {
+function buildClaudeBuilderAgent(): LocalRoleAgent {
   return {
     name: 'nexus_builder',
     description: 'Implements the bounded Nexus local build contract.',
@@ -362,7 +378,7 @@ function buildClaudeBuilderAgent(): ClaudeNamedAgent {
   };
 }
 
-function buildClaudeVerifierAgent(): ClaudeNamedAgent {
+function buildClaudeVerifierAgent(): LocalRoleAgent {
   return {
     name: 'nexus_verifier',
     description: 'Verifies the repository state after the Nexus local build implementer runs.',
@@ -370,7 +386,7 @@ function buildClaudeVerifierAgent(): ClaudeNamedAgent {
   };
 }
 
-function buildClaudeAuditAgent(slot: 'a' | 'b'): ClaudeNamedAgent {
+function buildClaudeAuditAgent(slot: 'a' | 'b'): LocalRoleAgent {
   return {
     name: slot === 'a' ? 'nexus_audit_a' : 'nexus_audit_b',
     description: `Performs independent local Nexus review audit ${slot.toUpperCase()}.`,
@@ -378,7 +394,7 @@ function buildClaudeAuditAgent(slot: 'a' | 'b'): ClaudeNamedAgent {
   };
 }
 
-function buildClaudeQaAgent(): ClaudeNamedAgent {
+function buildClaudeQaAgent(): LocalRoleAgent {
   return {
     name: 'nexus_qa',
     description: 'Performs local Nexus QA validation.',
@@ -387,7 +403,7 @@ function buildClaudeQaAgent(): ClaudeNamedAgent {
 }
 
 async function runClaudeNamedAgentCommand(
-  agent: ClaudeNamedAgent,
+  agent: LocalRoleAgent,
   prompt: string,
   cwd: string,
   timeoutMs: number,
@@ -399,6 +415,72 @@ async function runClaudeNamedAgentCommand(
     throw new Error(localCommandFailureMessage(`claude subagent ${agent.name}`, result));
   }
   return { stdout: result.stdout, stderr: result.stderr, argv };
+}
+
+function buildCodexSubagentPrompt(agent: LocalRoleAgent, prompt: string): string {
+  return [
+    `Nexus local subagent role: ${agent.name}`,
+    `Role description: ${agent.description}`,
+    agent.systemPrompt,
+    '',
+    prompt.trim(),
+  ].join('\n');
+}
+
+async function runCodexRoleCommand(
+  agent: LocalRoleAgent,
+  prompt: string,
+  cwd: string,
+  timeoutMs: number,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  return runProviderCommand(
+    'codex',
+    buildCodexSubagentPrompt(agent, prompt),
+    cwd,
+    timeoutMs,
+    runCommand,
+  );
+}
+
+function buildGeminiSubagentPrompt(agent: LocalRoleAgent, prompt: string): string {
+  return [
+    `Nexus local subagent role: ${agent.name}`,
+    `Role description: ${agent.description}`,
+    agent.systemPrompt,
+    '',
+    prompt.trim(),
+  ].join('\n');
+}
+
+async function runGeminiRoleCommand(
+  agent: LocalRoleAgent,
+  prompt: string,
+  cwd: string,
+  timeoutMs: number,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  return runProviderCommand(
+    'gemini',
+    buildGeminiSubagentPrompt(agent, prompt),
+    cwd,
+    timeoutMs,
+    runCommand,
+  );
+}
+
+function localRoleRunnerForMode(mode: ActiveLocalTopology['mode']) {
+  switch (mode) {
+    case 'claude_subagents':
+      return runClaudeNamedAgentCommand;
+    case 'codex_subagents':
+    case 'codex_multi_session':
+      return runCodexRoleCommand;
+    case 'gemini_subagents':
+      return runGeminiRoleCommand;
+    case 'single_agent':
+      return null;
+  }
 }
 
 function combineBuildSummary(builderSummary: string, verifierSummary: string): string {
@@ -440,6 +522,43 @@ async function verifyClaudeSubagentSupport(
     return {
       ok: false,
       message: 'claude CLI does not support --agents for local_provider subagents',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  return {
+    ok: true,
+    verificationCommands: [describeCommand(argv)],
+    verificationOutput: output,
+  };
+}
+
+async function verifyCodexMultiSessionSupport(
+  cwd: string,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ ok: true; verificationCommands: string[]; verificationOutput: string } | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string }> {
+  const argv = ['codex', '--help'];
+  const result = await runCommand({
+    argv,
+    cwd,
+    timeout_ms: DEFAULT_TIMEOUTS_MS.handoff,
+  });
+
+  const output = `${result.stdout}\n${result.stderr}`.trim();
+  if (result.exit_code !== 0) {
+    return {
+      ok: false,
+      message: output || 'codex --help failed while verifying local multi_session support',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  if (!output.includes('exec') || !output.includes('resume')) {
+    return {
+      ok: false,
+      message: 'codex CLI does not expose the required multi_session commands for local_provider',
       verificationCommands: [describeCommand(argv)],
       verificationOutput: output,
     };
@@ -578,16 +697,31 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       return successResult<LocalExecuteGeneratorRaw>(
         {
           receipt: `local-build-${ctx.ledger.execution.primary_provider}`,
-          summary_markdown: buildPack.buildExecutionSummary(ctx, topology.mode === 'claude_subagents'
+          summary_markdown: buildPack.buildExecutionSummary(ctx, topology.mode === 'single_agent'
             ? {
-                actions: 'local claude subagent build',
-                verification: 'local verifier subagent',
-              }
-            : {
                 actions: 'local provider build',
                 verification: 'default Nexus local execution trace recorded',
-              }),
-          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_builder', 'nexus_verifier'] : undefined,
+              }
+            : topology.mode === 'claude_subagents'
+              ? {
+                  actions: 'local claude subagent build',
+                  verification: 'local verifier subagent',
+                }
+              : topology.mode === 'codex_multi_session'
+                ? {
+                    actions: 'local codex multi-session build',
+                    verification: 'local verifier session',
+                  }
+                : topology.mode === 'gemini_subagents'
+                  ? {
+                      actions: 'local gemini subagent build',
+                      verification: 'local verifier pass',
+                    }
+              : {
+                  actions: 'local codex subagent build',
+                  verification: 'local verifier pass',
+                }),
+          agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_builder', 'nexus_verifier'],
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -621,7 +755,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         {
           markdown: reviewPack.buildAuditMarkdown('local_a'),
           receipt: `local-review-a-${ctx.ledger.execution.primary_provider}`,
-          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_audit_a'] : undefined,
+          agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_audit_a'],
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -655,7 +789,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         {
           markdown: reviewPack.buildAuditMarkdown('local_b'),
           receipt: `local-review-b-${ctx.ledger.execution.primary_provider}`,
-          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_audit_b'] : undefined,
+          agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_audit_b'],
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -693,7 +827,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
           ready: true,
           findings: [],
           receipt: `local-qa-${ctx.ledger.execution.primary_provider}`,
-          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_qa'] : undefined,
+          agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_qa'],
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -788,6 +922,40 @@ export function createRuntimeLocalAdapter(
           );
         }
 
+        if (topology.mode === 'codex_multi_session') {
+          const multiSessionSupport = await verifyCodexMultiSessionSupport(ctx.cwd, runCommand);
+          if (!multiSessionSupport.ok) {
+            return blockedResult(
+              ctx.stage,
+              multiSessionSupport.message,
+              {
+                available: false,
+                provider,
+                topology: ctx.ledger.execution.provider_topology,
+                verification_command: `which ${providerCommand(provider)}`,
+                verification_output: [result.stdout.trim(), multiSessionSupport.verificationOutput].filter(Boolean).join('\n'),
+                verification_commands: [`which ${providerCommand(provider)}`, ...multiSessionSupport.verificationCommands],
+              },
+              ctx.requested_route,
+              localTraceability('local-provider-routing'),
+            );
+          }
+
+          return successResult<LocalResolveRouteRaw>(
+            {
+              available: true,
+              provider,
+              topology: ctx.ledger.execution.provider_topology,
+              verification_command: `which ${providerCommand(provider)}`,
+              verification_output: [result.stdout.trim(), multiSessionSupport.verificationOutput].filter(Boolean).join('\n'),
+              verification_commands: [`which ${providerCommand(provider)}`, ...multiSessionSupport.verificationCommands],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'handoff'),
+            ctx.requested_route,
+            localTraceability('local-provider-routing'),
+          );
+        }
+
         return successResult<LocalResolveRouteRaw>(
           {
             available: true,
@@ -830,17 +998,21 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
-        if (topology.mode === 'claude_subagents') {
+        if (topology.mode !== 'single_agent') {
           const builderAgent = buildClaudeBuilderAgent();
           const verifierAgent = buildClaudeVerifierAgent();
-          const builderExecution = await runClaudeNamedAgentCommand(
+          const runLocalSubagent = localRoleRunnerForMode(topology.mode);
+          if (!runLocalSubagent) {
+            throw new Error(`no local role runner for topology ${topology.mode}`);
+          }
+          const builderExecution = await runLocalSubagent(
             builderAgent,
             buildGeneratorPrompt(ctx),
             ctx.cwd,
             DEFAULT_TIMEOUTS_MS.build,
             runCommand,
           );
-          const verifierExecution = await runClaudeNamedAgentCommand(
+          const verifierExecution = await runLocalSubagent(
             verifierAgent,
             buildBuildVerifierPrompt(ctx, builderExecution.stdout),
             ctx.cwd,
@@ -912,9 +1084,13 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
-        if (topology.mode === 'claude_subagents') {
+        if (topology.mode !== 'single_agent') {
           const agent = buildClaudeAuditAgent('a');
-          const execution = await runClaudeNamedAgentCommand(
+          const runLocalSubagent = localRoleRunnerForMode(topology.mode);
+          if (!runLocalSubagent) {
+            throw new Error(`no local role runner for topology ${topology.mode}`);
+          }
+          const execution = await runLocalSubagent(
             agent,
             buildAuditPrompt(ctx, 'a'),
             ctx.cwd,
@@ -984,9 +1160,13 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
-        if (topology.mode === 'claude_subagents') {
+        if (topology.mode !== 'single_agent') {
           const agent = buildClaudeAuditAgent('b');
-          const execution = await runClaudeNamedAgentCommand(
+          const runLocalSubagent = localRoleRunnerForMode(topology.mode);
+          if (!runLocalSubagent) {
+            throw new Error(`no local role runner for topology ${topology.mode}`);
+          }
+          const execution = await runLocalSubagent(
             agent,
             buildAuditPrompt(ctx, 'b'),
             ctx.cwd,
@@ -1058,9 +1238,13 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
-        if (topology.mode === 'claude_subagents') {
+        if (topology.mode !== 'single_agent') {
           const agent = buildClaudeQaAgent();
-          const execution = await runClaudeNamedAgentCommand(
+          const runLocalSubagent = localRoleRunnerForMode(topology.mode);
+          if (!runLocalSubagent) {
+            throw new Error(`no local role runner for topology ${topology.mode}`);
+          }
+          const execution = await runLocalSubagent(
             agent,
             buildQaPrompt(ctx),
             ctx.cwd,

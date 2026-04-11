@@ -1,3 +1,4 @@
+import { writeFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
 import { createRuntimeLocalAdapter } from '../../lib/nexus/adapters/local';
@@ -15,6 +16,27 @@ const LOCAL_SUBAGENT_EXECUTION = {
   primary_provider: 'claude' as const,
   provider_topology: 'subagents' as const,
   requested_execution_path: 'claude-local-subagents',
+};
+
+const CODEX_LOCAL_SUBAGENT_EXECUTION = {
+  mode: 'local_provider' as const,
+  primary_provider: 'codex' as const,
+  provider_topology: 'subagents' as const,
+  requested_execution_path: 'codex-local-subagents',
+};
+
+const CODEX_LOCAL_MULTI_SESSION_EXECUTION = {
+  mode: 'local_provider' as const,
+  primary_provider: 'codex' as const,
+  provider_topology: 'multi_session' as const,
+  requested_execution_path: 'codex-local-multi_session',
+};
+
+const GEMINI_LOCAL_SUBAGENT_EXECUTION = {
+  mode: 'local_provider' as const,
+  primary_provider: 'gemini' as const,
+  provider_topology: 'subagents' as const,
+  requested_execution_path: 'gemini-local-subagents',
 };
 
 describe('nexus local_provider mode', () => {
@@ -241,6 +263,207 @@ describe('nexus local_provider mode', () => {
     });
   });
 
+  test('runs the thin slice end-to-end with codex local subagents and records subagent topology explicitly', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('build', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('review', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('qa', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('ship', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('closeout', undefined, CODEX_LOCAL_SUBAGENT_EXECUTION);
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'closeout',
+        status: 'completed',
+        execution: {
+          mode: 'local_provider',
+          primary_provider: 'codex',
+          provider_topology: 'subagents',
+          requested_path: 'codex-local-subagents',
+          actual_path: 'codex-local-subagents',
+        },
+      });
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'subagents',
+        requested_execution_path: 'codex-local-subagents',
+        requested_route: {
+          transport: 'local',
+          generator: 'codex-local-subagents',
+          evaluator_a: 'codex-local-subagents-audit-a',
+          evaluator_b: 'codex-local-subagents-audit-b',
+        },
+        route_validation: {
+          transport: 'local',
+          available: true,
+          approved: true,
+        },
+      });
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        execution_mode: 'local_provider',
+        provider_topology: 'subagents',
+        requested_execution_path: 'codex-local-subagents',
+        actual_execution_path: 'codex-local-subagents',
+        requested_route: {
+          transport: 'local',
+          generator: 'codex-local-subagents',
+        },
+        actual_route: {
+          provider: 'codex',
+          route: 'codex-local-subagents',
+          transport: 'local',
+        },
+      });
+
+      expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'subagents',
+        implementation: {
+          requested_route: {
+            transport: 'local',
+            generator: 'codex-local-subagents',
+          },
+          actual_route: {
+            provider: 'codex',
+            route: 'codex-local-subagents',
+            transport: 'local',
+          },
+        },
+      });
+
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        stage: 'qa',
+        execution_mode: 'local_provider',
+        provider_topology: 'subagents',
+        ready: true,
+        actual_route: {
+          provider: 'codex',
+          route: 'codex-local-subagents-qa',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('runs the thin slice end-to-end with codex local multi_session and records topology explicitly', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('handoff', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('build', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('review', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('qa', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('ship', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('closeout', undefined, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'closeout',
+        status: 'completed',
+        execution: {
+          mode: 'local_provider',
+          primary_provider: 'codex',
+          provider_topology: 'multi_session',
+          requested_path: 'codex-local-multi_session',
+          actual_path: 'codex-local-multi_session',
+        },
+      });
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'multi_session',
+        requested_execution_path: 'codex-local-multi_session',
+        requested_route: {
+          transport: 'local',
+          generator: 'codex-local-multi_session',
+          evaluator_a: 'codex-local-multi_session-audit-a',
+          evaluator_b: 'codex-local-multi_session-audit-b',
+        },
+        route_validation: {
+          transport: 'local',
+          available: true,
+          approved: true,
+        },
+      });
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        execution_mode: 'local_provider',
+        provider_topology: 'multi_session',
+        requested_execution_path: 'codex-local-multi_session',
+        actual_execution_path: 'codex-local-multi_session',
+        actual_route: {
+          provider: 'codex',
+          route: 'codex-local-multi_session',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('runs the thin slice end-to-end with gemini local subagents and records subagent topology explicitly', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('build', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('review', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('qa', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('ship', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('closeout', undefined, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'closeout',
+        status: 'completed',
+        execution: {
+          mode: 'local_provider',
+          primary_provider: 'gemini',
+          provider_topology: 'subagents',
+          requested_path: 'gemini-local-subagents',
+          actual_path: 'gemini-local-subagents',
+        },
+      });
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'gemini',
+        provider_topology: 'subagents',
+        requested_execution_path: 'gemini-local-subagents',
+        requested_route: {
+          transport: 'local',
+          generator: 'gemini-local-subagents',
+          evaluator_a: 'gemini-local-subagents-audit-a',
+          evaluator_b: 'gemini-local-subagents-audit-b',
+        },
+        route_validation: {
+          transport: 'local',
+          available: true,
+          approved: true,
+        },
+      });
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        execution_mode: 'local_provider',
+        provider_topology: 'subagents',
+        requested_execution_path: 'gemini-local-subagents',
+        actual_execution_path: 'gemini-local-subagents',
+        actual_route: {
+          provider: 'gemini',
+          route: 'gemini-local-subagents',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
   test('blocks handoff when local_provider mode is selected but the provider CLI is unavailable', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = getDefaultNexusAdapters();
@@ -287,40 +510,7 @@ describe('nexus local_provider mode', () => {
     });
   });
 
-  test('blocks handoff when local subagents are selected for a non-claude provider', async () => {
-    await runInTempRepo(async ({ run }) => {
-      const reservedExecution = {
-        mode: 'local_provider' as const,
-        primary_provider: 'codex' as const,
-        provider_topology: 'subagents' as const,
-        requested_execution_path: 'codex-local-subagents',
-      };
-
-      await run('plan', undefined, reservedExecution);
-      await expect(run('handoff', undefined, reservedExecution)).rejects.toThrow(
-        'Local provider route is not approved by Nexus',
-      );
-
-      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
-        stage: 'handoff',
-        execution_mode: 'local_provider',
-        primary_provider: 'codex',
-        provider_topology: 'subagents',
-        state: 'blocked',
-        decision: 'route_recorded',
-        ready: false,
-        route_validation: {
-          transport: 'local',
-          available: false,
-          approved: false,
-          reason: 'local_provider topology subagents is only active for claude',
-        },
-        errors: ['local_provider topology subagents is only active for claude'],
-      });
-    });
-  });
-
-  test('blocks handoff when a reserved local multi_session topology is configured', async () => {
+  test('blocks handoff when local multi_session is selected for claude', async () => {
     await runInTempRepo(async ({ run }) => {
       const reservedExecution = {
         mode: 'local_provider' as const,
@@ -346,9 +536,42 @@ describe('nexus local_provider mode', () => {
           transport: 'local',
           available: false,
           approved: false,
-          reason: 'local_provider topology multi_session is reserved and not yet active',
+          reason: 'local_provider topology multi_session is only active for codex',
         },
-        errors: ['local_provider topology multi_session is reserved and not yet active'],
+        errors: ['local_provider topology multi_session is only active for codex'],
+      });
+    });
+  });
+
+  test('blocks handoff when local multi_session is selected for gemini', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const reservedExecution = {
+        mode: 'local_provider' as const,
+        primary_provider: 'gemini' as const,
+        provider_topology: 'multi_session' as const,
+        requested_execution_path: 'gemini-local-multi_session',
+      };
+
+      await run('plan', undefined, reservedExecution);
+      await expect(run('handoff', undefined, reservedExecution)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'gemini',
+        provider_topology: 'multi_session',
+        state: 'blocked',
+        decision: 'route_recorded',
+        ready: false,
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'local_provider topology multi_session is only active for codex',
+        },
+        errors: ['local_provider topology multi_session is only active for codex'],
       });
 
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
@@ -356,9 +579,9 @@ describe('nexus local_provider mode', () => {
         status: 'blocked',
         execution: {
           mode: 'local_provider',
-          primary_provider: 'claude',
+          primary_provider: 'gemini',
           provider_topology: 'multi_session',
-          requested_path: 'claude-local-multi_session',
+          requested_path: 'gemini-local-multi_session',
           actual_path: null,
         },
       });
@@ -456,6 +679,298 @@ describe('nexus local_provider mode', () => {
         actual_route: {
           provider: 'claude',
           route: 'claude-local-subagents',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('uses codex role-specific passes for local subagent execution at runtime', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: Array<{ argv: string[]; stdin_text?: string }> = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        now: () => '2026-04-11T00:00:00.000Z',
+        runCommand: async (spec) => {
+          calls.push({ argv: spec.argv, stdin_text: spec.stdin_text });
+
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/codex\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] !== 'codex') {
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          }
+
+          const outputFlag = spec.argv.indexOf('--output-last-message');
+          const outputPath = outputFlag >= 0 ? spec.argv[outputFlag + 1] : null;
+          if (!outputPath) {
+            throw new Error(`missing --output-last-message: ${spec.argv.join(' ')}`);
+          }
+
+          const prompt = spec.stdin_text ?? '';
+          let payload = '';
+          if (prompt.includes('nexus_builder')) {
+            payload = '# Build Execution Summary\n\n- Status: completed\n- Actions: applied codex local subagent build\n- Files touched: README.md\n- Verification: pending verifier\n';
+          } else if (prompt.includes('nexus_verifier')) {
+            payload = '- Verification: verifier checked the resulting repo state\n';
+          } else if (prompt.includes('nexus_audit_a')) {
+            payload = '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n';
+          } else if (prompt.includes('nexus_audit_b')) {
+            payload = '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n';
+          } else if (prompt.includes('nexus_qa')) {
+            payload = JSON.stringify({
+              ready: true,
+              findings: [],
+              report_markdown: '# QA Report\n\nResult: pass\n',
+            });
+          } else {
+            throw new Error(`unexpected codex prompt: ${prompt}`);
+          }
+
+          writeFileSync(outputPath, payload, 'utf8');
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        },
+      });
+
+      await run('plan', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('build', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('review', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await run('qa', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+
+      expect(calls.map((call) => call.argv[0])).toEqual([
+        'which',
+        'codex',
+        'codex',
+        'codex',
+        'codex',
+        'codex',
+      ]);
+      expect(calls.slice(1).every((call) => call.argv.includes('exec'))).toBe(true);
+      expect(calls.slice(1).every((call) => call.argv.includes('--output-last-message'))).toBe(true);
+      expect(calls[1]?.stdin_text).toContain('nexus_builder');
+      expect(calls[2]?.stdin_text).toContain('nexus_verifier');
+      expect(calls[3]?.stdin_text).toContain('nexus_audit_a');
+      expect(calls[4]?.stdin_text).toContain('nexus_audit_b');
+      expect(calls[5]?.stdin_text).toContain('nexus_qa');
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'subagents',
+        actual_route: {
+          provider: 'codex',
+          route: 'codex-local-subagents',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('uses codex role-specific passes for local multi_session execution at runtime', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: Array<{ argv: string[]; stdin_text?: string }> = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        now: () => '2026-04-11T00:00:00.000Z',
+        runCommand: async (spec) => {
+          calls.push({ argv: spec.argv, stdin_text: spec.stdin_text });
+
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/codex\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === 'codex' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: codex [OPTIONS] [PROMPT]\nCommands:\n  exec\n  review\n  resume\n  fork\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] !== 'codex') {
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          }
+
+          const outputFlag = spec.argv.indexOf('--output-last-message');
+          const outputPath = outputFlag >= 0 ? spec.argv[outputFlag + 1] : null;
+          if (!outputPath) {
+            throw new Error(`missing --output-last-message: ${spec.argv.join(' ')}`);
+          }
+
+          const prompt = spec.stdin_text ?? '';
+          let payload = '';
+          if (prompt.includes('nexus_builder')) {
+            payload = '# Build Execution Summary\n\n- Status: completed\n- Actions: applied codex local multi-session build\n- Files touched: README.md\n- Verification: pending verifier\n';
+          } else if (prompt.includes('nexus_verifier')) {
+            payload = '- Verification: verifier checked the resulting repo state\n';
+          } else if (prompt.includes('nexus_audit_a')) {
+            payload = '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n';
+          } else if (prompt.includes('nexus_audit_b')) {
+            payload = '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n';
+          } else if (prompt.includes('nexus_qa')) {
+            payload = JSON.stringify({
+              ready: true,
+              findings: [],
+              report_markdown: '# QA Report\n\nResult: pass\n',
+            });
+          } else {
+            throw new Error(`unexpected codex prompt: ${prompt}`);
+          }
+
+          writeFileSync(outputPath, payload, 'utf8');
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        },
+      });
+
+      await run('plan', adapters, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('handoff', adapters, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('build', adapters, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('review', adapters, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+      await run('qa', adapters, CODEX_LOCAL_MULTI_SESSION_EXECUTION);
+
+      expect(calls.map((call) => call.argv[0])).toEqual([
+        'which',
+        'codex',
+        'codex',
+        'codex',
+        'codex',
+        'codex',
+        'codex',
+      ]);
+      expect(calls[1]?.argv.join(' ')).toContain('codex --help');
+      expect(calls.slice(2).every((call) => call.argv.includes('exec'))).toBe(true);
+      expect(calls[2]?.stdin_text).toContain('nexus_builder');
+      expect(calls[3]?.stdin_text).toContain('nexus_verifier');
+      expect(calls[4]?.stdin_text).toContain('nexus_audit_a');
+      expect(calls[5]?.stdin_text).toContain('nexus_audit_b');
+      expect(calls[6]?.stdin_text).toContain('nexus_qa');
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'multi_session',
+        actual_route: {
+          provider: 'codex',
+          route: 'codex-local-multi_session',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('uses gemini role-specific passes for local subagent execution at runtime', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: Array<{ argv: string[]; stdin_text?: string }> = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        now: () => '2026-04-11T00:00:00.000Z',
+        runCommand: async (spec) => {
+          calls.push({ argv: spec.argv, stdin_text: spec.stdin_text });
+
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/gemini\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] !== 'gemini') {
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          }
+
+          const promptIndex = spec.argv.indexOf('-p');
+          const prompt = promptIndex >= 0 ? spec.argv[promptIndex + 1] ?? '' : '';
+
+          if (prompt.includes('nexus_builder')) {
+            return {
+              exit_code: 0,
+              stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: applied gemini local subagent build\n- Files touched: README.md\n- Verification: pending verifier\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('nexus_verifier')) {
+            return {
+              exit_code: 0,
+              stdout: '- Verification: verifier checked the resulting repo state\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('nexus_audit_a')) {
+            return {
+              exit_code: 0,
+              stdout: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('nexus_audit_b')) {
+            return {
+              exit_code: 0,
+              stdout: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('nexus_qa')) {
+            return {
+              exit_code: 0,
+              stdout: JSON.stringify({
+                ready: true,
+                findings: [],
+                report_markdown: '# QA Report\n\nResult: pass\n',
+              }),
+              stderr: '',
+            };
+          }
+          throw new Error(`unexpected gemini prompt: ${prompt}`);
+        },
+      });
+
+      await run('plan', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('build', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('review', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await run('qa', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+
+      expect(calls.map((call) => call.argv[0])).toEqual([
+        'which',
+        'gemini',
+        'gemini',
+        'gemini',
+        'gemini',
+        'gemini',
+      ]);
+      expect(calls.slice(1).every((call) => call.argv.includes('-p'))).toBe(true);
+      expect(calls[1]?.argv.join(' ')).toContain('nexus_builder');
+      expect(calls[2]?.argv.join(' ')).toContain('nexus_verifier');
+      expect(calls[3]?.argv.join(' ')).toContain('nexus_audit_a');
+      expect(calls[4]?.argv.join(' ')).toContain('nexus_audit_b');
+      expect(calls[5]?.argv.join(' ')).toContain('nexus_qa');
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        execution_mode: 'local_provider',
+        primary_provider: 'gemini',
+        provider_topology: 'subagents',
+        actual_route: {
+          provider: 'gemini',
+          route: 'gemini-local-subagents',
           transport: 'local',
         },
       });

@@ -47,8 +47,9 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 #                           # when CCB is detected and no explicit mode is saved yet
 # primary_provider: claude  # used by local_provider mode
 # provider_topology: single_agent
-#                           # current active local topology; reserved future values:
-#                           # subagents, multi_session
+#                           # active local topologies:
+#                           # subagents = claude, codex, or gemini
+#                           # multi_session = codex only
 #
 # ─── Skill naming ────────────────────────────────────────────────────
 # skill_prefix: false       # true = namespace skills as /nexus-qa, /nexus-ship

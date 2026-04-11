@@ -76,8 +76,10 @@ Use this when you do not want to install or run CCB.
 - repo-visible Nexus artifacts remain the only lifecycle truth
 - the active local runtime defaults to `single_agent`
 - `claude + subagents` is an active local topology when `provider_topology=subagents`
-- local `multi_session` remains reserved and still blocks at `/handoff`
-- non-Claude local subagents remain blocked instead of silently degrading to `single_agent`
+- `codex + subagents` is an active local topology when `provider_topology=subagents`
+- `codex + multi_session` is an active local topology when `provider_topology=multi_session`
+- `gemini + subagents` is an active local topology when `provider_topology=subagents`
+- non-Codex local `multi_session` still blocks at `/handoff`
 
 ## Quick start
 
@@ -125,6 +127,11 @@ which local Claude topology to use:
 - `single_agent`
 - `subagents`
 
+Interactive Codex setup follows the same pattern, but the local subagent path is
+role-specific Codex passes for build, review, and QA.
+Interactive Codex setup also offers `multi_session` when the installed Codex CLI
+exposes the required commands.
+
 If setup is non-interactive, the default remains:
 
 - `governed_ccb` when `ask` is installed
@@ -162,14 +169,19 @@ Nexus reads execution defaults from `~/.nexus/config.yaml` via `nexus-config`:
 nexus-config set execution_mode governed_ccb
 nexus-config set execution_mode local_provider
 nexus-config set primary_provider claude
+nexus-config set primary_provider codex
+nexus-config set primary_provider gemini
 nexus-config set provider_topology single_agent
 nexus-config set provider_topology subagents
+nexus-config set provider_topology multi_session
 ```
 
 Practical defaults:
 
 - interactive Claude setup asks when `ask` is installed and no explicit mode is saved
 - interactive Claude setup also asks `single_agent` vs `subagents` when `local_provider` is selected for Claude
+- interactive Codex setup asks `single_agent` vs `subagents` vs `multi_session` when `local_provider` is selected for Codex
+- Gemini local subagents are supported through `nexus-config set primary_provider gemini` plus `nexus-config set provider_topology subagents`
 - non-interactive setup uses `governed_ccb` if `ask` is installed
 - `local_provider` if `ask` is missing
 - `primary_provider` auto-detects `claude`, then `codex`, then `gemini`

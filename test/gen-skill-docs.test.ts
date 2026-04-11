@@ -2282,6 +2282,13 @@ describe('setup script validation', () => {
     expect(setupContent).not.toContain('claude --help 2>&1 || true');
   });
 
+  test('setup exposes a Codex local topology path for subagents', () => {
+    expect(setupContent).toContain('Local Codex topology');
+    expect(setupContent).toContain('Codex role-specific local passes for build, review, and QA.');
+    expect(setupContent).toContain('selected local_provider (codex, subagents)');
+    expect(setupContent).toContain('selected local_provider (codex, multi_session)');
+  });
+
   test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {
     expect(setupContent).toContain('~/.claude/CLAUDE.md');
     expect(setupContent).toContain('nexus-global-claude');
