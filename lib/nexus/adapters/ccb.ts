@@ -3,6 +3,12 @@ import { homedir } from 'os';
 import { join, dirname, resolve } from 'path';
 import { spawn } from 'child_process';
 import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath } from '../artifacts';
+import {
+  buildBuildExecutionPrompt,
+  buildPromptContextPreamble,
+  buildQaValidationPrompt,
+  buildReviewAuditPrompt,
+} from './prompt-contracts';
 import { createBuildStagePack, createHandoffStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
 import type { ActualRouteRecord, ConflictRecord } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter, NexusAdapterContext } from './types';
@@ -278,40 +284,8 @@ function buildActualRoute(
   };
 }
 
-function buildContextPreamble(ctx: NexusAdapterContext): string {
-  return [
-    `Nexus governed stage: ${ctx.stage}`,
-    `Run ID: ${ctx.run_id}`,
-    `Command: ${ctx.command}`,
-    `Repository cwd: ${ctx.cwd}`,
-    '',
-    'Use only repo-visible artifacts as the source of truth.',
-    'Do not rely on hidden session memory or unstated prior context.',
-    '',
-    'Predecessor artifacts:',
-    ...ctx.predecessor_artifacts.map((artifact) => `- ${artifact.path}`),
-    '',
-    'Requested route:',
-    JSON.stringify(ctx.requested_route, null, 2),
-    '',
-  ].join('\n');
-}
-
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
-  return [
-    buildContextPreamble(ctx),
-    'Execute the bounded Nexus /build contract for this repository.',
-    'Apply repository changes only if the repo-visible governed artifacts require them.',
-    'After execution, reply with markdown only in this form:',
-    '# Build Execution Summary',
-    '',
-    '- Status: completed | blocked',
-    '- Actions: ...',
-    '- Files touched: ...',
-    '- Verification: ...',
-    '',
-    'If the contract is missing or inconsistent, say so explicitly in the summary.',
-  ].join('\n');
+  return buildBuildExecutionPrompt(ctx, 'Nexus governed stage');
 }
 
 function buildAuditPrompt(
@@ -320,40 +294,25 @@ function buildAuditPrompt(
 ): string {
   const header = provider === 'codex' ? '# Codex Audit' : '# Gemini Audit';
 
-  return [
-    buildContextPreamble(ctx),
+  return buildReviewAuditPrompt(
+    ctx,
+    'Nexus governed stage',
     `Perform the governed Nexus /review audit for the ${provider} path.`,
-    'Review the current repo state and relevant changed files.',
-    'Reply with markdown only in this exact shape:',
     header,
-    '',
-    'Result: pass | fail',
-    '',
-    'Findings:',
-    '- ...',
-    '',
-    'If there are no material findings, say "- none".',
-  ].join('\n');
+  );
 }
 
 function buildQaPrompt(ctx: NexusAdapterContext): string {
-  return [
-    buildContextPreamble(ctx),
+  return buildQaValidationPrompt(
+    ctx,
+    'Nexus governed stage',
     'Perform the governed Nexus /qa validation for this repository.',
-    'Return JSON only, with no code fences and no extra prose.',
-    'Required JSON schema:',
-    JSON.stringify(
-      {
-        ready: true,
-        findings: ['example finding'],
-        report_markdown: '# QA Report\n\nResult: pass\n',
-      },
-      null,
-      2,
-    ),
-    'Set ready=false and include findings when defects remain.',
-    'report_markdown must begin with "# QA Report" and include a "Result:" line.',
-  ].join('\n');
+    [
+      'Required JSON schema:',
+      'Set ready=false and include findings when defects remain.',
+      'report_markdown must begin with "# QA Report" and include a "Result:" line.',
+    ],
+  );
 }
 
 function stripMarkdownFences(text: string): string {
@@ -416,7 +375,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
 
 function buildRouteCheckPrompt(ctx: NexusAdapterContext, provider: 'codex' | 'gemini'): string {
   return [
-    buildContextPreamble(ctx),
+    buildPromptContextPreamble(ctx, 'Nexus governed stage'),
     `Run a Nexus governed route availability check for provider ${provider}.`,
     'Reply exactly with: Nexus route check ok',
   ].join('\n');

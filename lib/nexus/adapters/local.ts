@@ -2,6 +2,12 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawn } from 'child_process';
+import {
+  buildBuildExecutionPrompt,
+  buildPromptContextPreamble,
+  buildQaValidationPrompt,
+  buildReviewAuditPrompt,
+} from './prompt-contracts';
 import { createBuildStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
 import type { ActualRouteRecord, ConflictRecord, PrimaryProvider, ProviderTopology } from '../types';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
@@ -251,45 +257,13 @@ interface ClaudeNamedAgent {
   systemPrompt: string;
 }
 
-function buildContextPreamble(ctx: NexusAdapterContext): string {
-  return [
-    `Nexus stage: ${ctx.stage}`,
-    `Run ID: ${ctx.run_id}`,
-    `Command: ${ctx.command}`,
-    `Repository cwd: ${ctx.cwd}`,
-    '',
-    'Use only repo-visible artifacts as the source of truth.',
-    'Do not rely on hidden session memory or unstated prior context.',
-    '',
-    'Predecessor artifacts:',
-    ...ctx.predecessor_artifacts.map((artifact) => `- ${artifact.path}`),
-    '',
-    'Requested route:',
-    JSON.stringify(ctx.requested_route, null, 2),
-    '',
-  ].join('\n');
-}
-
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
-  return [
-    buildContextPreamble(ctx),
-    'Execute the bounded Nexus /build contract for this repository.',
-    'Apply repository changes only if the repo-visible governed artifacts require them.',
-    'After execution, reply with markdown only in this form:',
-    '# Build Execution Summary',
-    '',
-    '- Status: completed | blocked',
-    '- Actions: ...',
-    '- Files touched: ...',
-    '- Verification: ...',
-    '',
-    'If the contract is missing or inconsistent, say so explicitly in the summary.',
-  ].join('\n');
+  return buildBuildExecutionPrompt(ctx, 'Nexus stage');
 }
 
 function buildBuildVerifierPrompt(ctx: NexusAdapterContext, builderSummary: string): string {
   return [
-    buildContextPreamble(ctx),
+    buildPromptContextPreamble(ctx, 'Nexus stage'),
     'Verify the current repository state after the local build subagent ran.',
     'Reply with exactly one markdown bullet in this form:',
     '- Verification: ...',
@@ -300,37 +274,20 @@ function buildBuildVerifierPrompt(ctx: NexusAdapterContext, builderSummary: stri
 }
 
 function buildAuditPrompt(ctx: NexusAdapterContext, slot: 'a' | 'b'): string {
-  return [
-    buildContextPreamble(ctx),
+  return buildReviewAuditPrompt(
+    ctx,
+    'Nexus stage',
     `Perform local Nexus /review audit pass ${slot.toUpperCase()}.`,
-    'Review the current repo state and relevant changed files independently.',
-    'Reply with markdown only in this exact shape:',
     `# Local Audit ${slot.toUpperCase()}`,
-    '',
-    'Result: pass | fail',
-    '',
-    'Findings:',
-    '- ...',
-    '',
-    'If there are no material findings, say "- none".',
-  ].join('\n');
+  );
 }
 
 function buildQaPrompt(ctx: NexusAdapterContext): string {
-  return [
-    buildContextPreamble(ctx),
+  return buildQaValidationPrompt(
+    ctx,
+    'Nexus stage',
     'Perform Nexus /qa validation for this repository.',
-    'Return JSON only, with no code fences and no extra prose.',
-    JSON.stringify(
-      {
-        ready: true,
-        findings: ['example finding'],
-        report_markdown: '# QA Report\n\nResult: pass\n',
-      },
-      null,
-      2,
-    ),
-  ].join('\n');
+  );
 }
 
 function stripMarkdownFences(text: string): string {
