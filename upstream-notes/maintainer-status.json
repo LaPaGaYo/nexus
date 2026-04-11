@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-11T04:24:48.072Z",
+  "generated_at": "2026-04-11T04:55:02.749Z",
   "status": "action_required",
-  "next_action": "prepare_release",
-  "summary": "Local Nexus release drift exists, but release preflight is still blocked.",
+  "next_action": "publish_release",
+  "summary": "A release-ready Nexus version is not published yet.",
   "issues": [
-    "Local Nexus-owned changes exist without a release-ready publish state."
+    "Local release markers are ready, but the matching published release is missing."
   ],
   "recommendations": [
-    "Run ./bin/nexus-release-preflight and align the local release markers before publishing."
+    "Publish the Git tag and GitHub Release after re-running ./bin/nexus-release-preflight."
   ],
   "upstreams": {
     "pending_refresh_candidates": [],
     "behind_upstreams": []
   },
   "release": {
-    "current_version": "1.0.1",
-    "current_tag": "v1.0.1",
-    "preflight_status": "blocked",
+    "current_version": "1.0.2",
+    "current_tag": "v1.0.2",
+    "preflight_status": "ready",
     "remote_smoke_status": "unknown"
   }
 }

@@ -1,13 +1,13 @@
 # Nexus Maintainer Status
 
-Generated: `2026-04-11T04:24:48.072Z`
+Generated: `2026-04-11T04:55:02.749Z`
 
 - Status: `action_required`
-- Next action: `prepare_release`
-- Summary: Local Nexus release drift exists, but release preflight is still blocked.
-- Current version: `1.0.1`
-- Current tag: `v1.0.1`
-- Release preflight: `blocked`
+- Next action: `publish_release`
+- Summary: A release-ready Nexus version is not published yet.
+- Current version: `1.0.2`
+- Current tag: `v1.0.2`
+- Release preflight: `ready`
 - Remote release smoke: `unknown`
 
 ## Upstreams
@@ -17,8 +17,8 @@ Generated: `2026-04-11T04:24:48.072Z`
 
 ## Issues
 
-- Local Nexus-owned changes exist without a release-ready publish state.
+- Local release markers are ready, but the matching published release is missing.
 
 ## Recommendations
 
-- Run ./bin/nexus-release-preflight and align the local release markers before publishing.
+- Publish the Git tag and GitHub Release after re-running ./bin/nexus-release-preflight.
