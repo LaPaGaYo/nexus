@@ -166,9 +166,9 @@ describe('nexus local_provider mode', () => {
           transport: 'local',
           available: false,
           approved: false,
-          reason: 'Local provider route validation blocked the requested route',
+          reason: 'claude not found',
         },
-        errors: ['Local provider route validation blocked the requested route'],
+        errors: ['claude not found'],
       });
 
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
@@ -179,6 +179,51 @@ describe('nexus local_provider mode', () => {
           primary_provider: 'claude',
           provider_topology: 'single_agent',
           requested_path: 'claude-local-single_agent',
+          actual_path: null,
+        },
+      });
+    });
+  });
+
+  test('blocks handoff when a reserved local topology is configured', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const reservedExecution = {
+        mode: 'local_provider' as const,
+        primary_provider: 'claude' as const,
+        provider_topology: 'subagents' as const,
+        requested_execution_path: 'claude-local-subagents',
+      };
+
+      await run('plan', undefined, reservedExecution);
+      await expect(run('handoff', undefined, reservedExecution)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'claude',
+        provider_topology: 'subagents',
+        state: 'blocked',
+        decision: 'route_recorded',
+        ready: false,
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'local_provider topology subagents is reserved and not yet active',
+        },
+        errors: ['local_provider topology subagents is reserved and not yet active'],
+      });
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'handoff',
+        status: 'blocked',
+        execution: {
+          mode: 'local_provider',
+          primary_provider: 'claude',
+          provider_topology: 'subagents',
+          requested_path: 'claude-local-subagents',
           actual_path: null,
         },
       });

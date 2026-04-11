@@ -69,6 +69,14 @@ function backendConflict(stage: NexusAdapterContext['stage'], message: string): 
   };
 }
 
+function unsupportedTopologyMessage(topology: ProviderTopology): string | null {
+  if (topology === 'single_agent') {
+    return null;
+  }
+
+  return `local_provider topology ${topology} is reserved and not yet active`;
+}
+
 function successResult<TRaw>(
   raw_output: TRaw,
   actual_route: ActualRouteRecord | null,
@@ -385,79 +393,161 @@ async function runProviderCommand(
 
 export function createDefaultLocalAdapter(): LocalAdapter {
   return {
-    resolve_route: async (ctx) => successResult<LocalResolveRouteRaw>(
-      {
-        available: true,
-        provider: ctx.ledger.execution.primary_provider,
-        topology: ctx.ledger.execution.provider_topology,
-      },
-      buildActualRoute(
-        ctx.ledger.execution.primary_provider,
-        ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path,
-        ctx.requested_route?.substrate ?? 'superpowers-core',
-        'handoff',
-      ),
-      ctx.requested_route,
-      localTraceability('local-provider-routing'),
-    ),
-    execute_generator: async (ctx) => successResult<LocalExecuteGeneratorRaw>(
-      {
-        receipt: `local-build-${ctx.ledger.execution.primary_provider}`,
-        summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: local provider build\n- Files touched: none\n- Verification: placeholder\n',
-      },
-      buildActualRoute(
-        ctx.ledger.execution.primary_provider,
-        ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path,
-        ctx.requested_route?.substrate ?? 'superpowers-core',
-        'build',
-      ),
-      ctx.requested_route,
-      localTraceability('local-provider-execution'),
-    ),
-    execute_audit_a: async (ctx) => successResult<LocalExecuteAuditRaw>(
-      {
-        markdown: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
-        receipt: `local-review-a-${ctx.ledger.execution.primary_provider}`,
-      },
-      buildActualRoute(
-        ctx.ledger.execution.primary_provider,
-        ctx.requested_route?.evaluator_a ?? ctx.ledger.execution.requested_path,
-        ctx.requested_route?.substrate ?? 'superpowers-core',
-        'review',
-      ),
-      ctx.requested_route,
-      localTraceability('local-provider-review-a'),
-    ),
-    execute_audit_b: async (ctx) => successResult<LocalExecuteAuditRaw>(
-      {
-        markdown: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
-        receipt: `local-review-b-${ctx.ledger.execution.primary_provider}`,
-      },
-      buildActualRoute(
-        ctx.ledger.execution.primary_provider,
-        ctx.requested_route?.evaluator_b ?? ctx.ledger.execution.requested_path,
-        ctx.requested_route?.substrate ?? 'superpowers-core',
-        'review',
-      ),
-      ctx.requested_route,
-      localTraceability('local-provider-review-b'),
-    ),
-    execute_qa: async (ctx) => successResult<LocalExecuteQaRaw>(
-      {
-        report_markdown: '# QA Report\n\nResult: pass\n',
-        ready: true,
-        findings: [],
-        receipt: `local-qa-${ctx.ledger.execution.primary_provider}`,
-      },
-      buildActualRoute(
-        ctx.ledger.execution.primary_provider,
-        ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path,
-        ctx.requested_route?.substrate ?? 'superpowers-core',
-        'qa',
-      ),
-      ctx.requested_route,
-      localTraceability('local-provider-qa'),
-    ),
+    resolve_route: async (ctx) => {
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            available: false,
+            provider: ctx.ledger.execution.primary_provider,
+            topology: ctx.ledger.execution.provider_topology,
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-routing'),
+        );
+      }
+
+      return successResult<LocalResolveRouteRaw>(
+        {
+          available: true,
+          provider: ctx.ledger.execution.primary_provider,
+          topology: ctx.ledger.execution.provider_topology,
+        },
+        buildActualRoute(
+          ctx.ledger.execution.primary_provider,
+          ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path,
+          ctx.requested_route?.substrate ?? 'superpowers-core',
+          'handoff',
+        ),
+        ctx.requested_route,
+        localTraceability('local-provider-routing'),
+      );
+    },
+    execute_generator: async (ctx) => {
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-execution'),
+        );
+      }
+
+      return successResult<LocalExecuteGeneratorRaw>(
+        {
+          receipt: `local-build-${ctx.ledger.execution.primary_provider}`,
+          summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: local provider build\n- Files touched: none\n- Verification: placeholder\n',
+        },
+        buildActualRoute(
+          ctx.ledger.execution.primary_provider,
+          ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path,
+          ctx.requested_route?.substrate ?? 'superpowers-core',
+          'build',
+        ),
+        ctx.requested_route,
+        localTraceability('local-provider-execution'),
+      );
+    },
+    execute_audit_a: async (ctx) => {
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            markdown: '',
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-review-a'),
+        );
+      }
+
+      return successResult<LocalExecuteAuditRaw>(
+        {
+          markdown: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
+          receipt: `local-review-a-${ctx.ledger.execution.primary_provider}`,
+        },
+        buildActualRoute(
+          ctx.ledger.execution.primary_provider,
+          ctx.requested_route?.evaluator_a ?? ctx.ledger.execution.requested_path,
+          ctx.requested_route?.substrate ?? 'superpowers-core',
+          'review',
+        ),
+        ctx.requested_route,
+        localTraceability('local-provider-review-a'),
+      );
+    },
+    execute_audit_b: async (ctx) => {
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            markdown: '',
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-review-b'),
+        );
+      }
+
+      return successResult<LocalExecuteAuditRaw>(
+        {
+          markdown: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
+          receipt: `local-review-b-${ctx.ledger.execution.primary_provider}`,
+        },
+        buildActualRoute(
+          ctx.ledger.execution.primary_provider,
+          ctx.requested_route?.evaluator_b ?? ctx.ledger.execution.requested_path,
+          ctx.requested_route?.substrate ?? 'superpowers-core',
+          'review',
+        ),
+        ctx.requested_route,
+        localTraceability('local-provider-review-b'),
+      );
+    },
+    execute_qa: async (ctx) => {
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            report_markdown: '',
+            ready: false,
+            findings: [],
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-qa'),
+        );
+      }
+
+      return successResult<LocalExecuteQaRaw>(
+        {
+          report_markdown: '# QA Report\n\nResult: pass\n',
+          ready: true,
+          findings: [],
+          receipt: `local-qa-${ctx.ledger.execution.primary_provider}`,
+        },
+        buildActualRoute(
+          ctx.ledger.execution.primary_provider,
+          ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path,
+          ctx.requested_route?.substrate ?? 'superpowers-core',
+          'qa',
+        ),
+        ctx.requested_route,
+        localTraceability('local-provider-qa'),
+      );
+    },
   };
 }
 
@@ -470,6 +560,21 @@ export function createRuntimeLocalAdapter(
   return {
     resolve_route: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            available: false,
+            provider,
+            topology: ctx.ledger.execution.provider_topology,
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-routing'),
+        );
+      }
+
       try {
         const result = await runCommand({
           argv: ['which', providerCommand(provider)],
@@ -520,6 +625,19 @@ export function createRuntimeLocalAdapter(
     },
     execute_generator: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-execution'),
+        );
+      }
+
       try {
         const execution = await runProviderCommand(
           provider,
@@ -553,6 +671,20 @@ export function createRuntimeLocalAdapter(
     },
     execute_audit_a: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            markdown: '',
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-review-a'),
+        );
+      }
+
       try {
         const execution = await runProviderCommand(
           provider,
@@ -587,6 +719,20 @@ export function createRuntimeLocalAdapter(
     },
     execute_audit_b: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            markdown: '',
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-review-b'),
+        );
+      }
+
       try {
         const execution = await runProviderCommand(
           provider,
@@ -621,6 +767,22 @@ export function createRuntimeLocalAdapter(
     },
     execute_qa: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
+      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
+      if (unsupportedTopology) {
+        return blockedResult(
+          ctx.stage,
+          unsupportedTopology,
+          {
+            report_markdown: '',
+            ready: false,
+            findings: [],
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-qa'),
+        );
+      }
+
       try {
         const execution = await runProviderCommand(
           provider,

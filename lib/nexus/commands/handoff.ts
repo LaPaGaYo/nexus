@@ -91,9 +91,10 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
           transport: requestedRoute.transport,
           available: false,
           approved: false,
-          reason: result.outcome === 'refused'
-            ? `${requestedRoute.transport === 'local' ? 'Local provider' : 'CCB'} route validation refused the requested route`
-            : `${requestedRoute.transport === 'local' ? 'Local provider' : 'CCB'} route validation blocked the requested route`,
+          reason: result.notices[0]
+            ?? (result.outcome === 'refused'
+              ? `${requestedRoute.transport === 'local' ? 'Local provider' : 'CCB'} route validation refused the requested route`
+              : `${requestedRoute.transport === 'local' ? 'Local provider' : 'CCB'} route validation blocked the requested route`),
         },
         approved: false,
       };

@@ -76,6 +76,8 @@ Use this when you do not want to install or run CCB.
 - repo-visible Nexus artifacts remain the only lifecycle truth
 - the active local runtime defaults to `single_agent`
 - `subagents` and `multi_session` remain reserved topology values for later activation
+- if you force one of those reserved local topologies today, Nexus blocks at `/handoff`
+  instead of pretending the topology is active
 
 ## Quick start
 
