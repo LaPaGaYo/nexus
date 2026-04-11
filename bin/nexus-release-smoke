@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# nexus-release-smoke — verify a published Nexus release matches local release truth.
+#
+# Usage:
+#   nexus-release-smoke
+#
+# Env overrides (for testing):
+#   NEXUS_DIR                  — override the local release artifact root
+#   NEXUS_RELEASE_REPO         — override the GitHub repo slug
+#   NEXUS_GH_RELEASE_JSON      — override gh release view output
+#   NEXUS_REMOTE_RELEASE_JSON  — override the tagged remote release.json payload
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-release-smoke" >&2
+    exit 1
+    ;;
+esac
+
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NEXUS_DIR="${NEXUS_DIR:-$SCRIPT_ROOT}"
+RELEASE_REPO="${NEXUS_RELEASE_REPO:-LaPaGaYo/nexus}"
+
+CORE_JS="$(cat <<'EOF'
+const fs = await import('fs');
+const { join } = await import('path');
+const releaseContract = await import(process.env.NEXUS_RELEASE_CONTRACT_PATH);
+const releaseRemote = await import(process.env.NEXUS_RELEASE_REMOTE_PATH);
+
+const nexusDir = process.env.NEXUS_DIR;
+const releaseRepo = process.env.NEXUS_RELEASE_REPO;
+const localManifestText = fs.readFileSync(join(nexusDir, 'release.json'), 'utf8');
+const localManifest = JSON.parse(localManifestText);
+releaseContract.assertReleaseManifest(localManifest);
+
+const expectedTag = localManifest.tag;
+const expectedVersion = localManifest.version;
+const expectedNotesBody = fs.readFileSync(join(nexusDir, localManifest.release_notes_path), 'utf8');
+
+async function loadGitHubReleaseJson() {
+  if ((process.env.NEXUS_GH_RELEASE_JSON ?? '').trim().length > 0) {
+    return process.env.NEXUS_GH_RELEASE_JSON;
+  }
+
+  const result = Bun.spawnSync(
+    ['gh', 'release', 'view', expectedTag, '--repo', releaseRepo, '--json', 'tagName,body,publishedAt,url,name'],
+    {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  );
+
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr.toString().trim() || result.stdout.toString().trim() || 'gh release view failed');
+  }
+
+  return result.stdout.toString();
+}
+
+async function loadRemoteReleaseJson() {
+  if ((process.env.NEXUS_REMOTE_RELEASE_JSON ?? '').trim().length > 0) {
+    return process.env.NEXUS_REMOTE_RELEASE_JSON;
+  }
+
+  const releaseJsonUrl = `https://raw.githubusercontent.com/${releaseRepo}/${expectedTag}/release.json`;
+  const response = await fetch(releaseJsonUrl, {
+    headers: {
+      accept: 'application/json',
+      'user-agent': 'nexus-release-smoke',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`failed to fetch ${releaseJsonUrl}: ${response.status} ${response.statusText}`);
+  }
+
+  return response.text();
+}
+
+const report = await releaseRemote.buildRemoteReleaseSmokeReport({
+  expectedTag,
+  expectedVersion,
+  expectedNotesBody,
+  ghReleaseJson: await loadGitHubReleaseJson(),
+  releaseManifestText: await loadRemoteReleaseJson(),
+});
+
+if (report.status === 'ready') {
+  console.log(`READY ${report.version} ${report.tag}`);
+  process.exit(0);
+}
+
+console.log(`BLOCKED ${report.version} ${report.tag}`);
+for (const issue of report.issues) {
+  console.log(`- ${issue}`);
+}
+process.exit(1);
+EOF
+)"
+
+NEXUS_DIR="$NEXUS_DIR" \
+NEXUS_RELEASE_REPO="$RELEASE_REPO" \
+NEXUS_GH_RELEASE_JSON="${NEXUS_GH_RELEASE_JSON:-}" \
+NEXUS_REMOTE_RELEASE_JSON="${NEXUS_REMOTE_RELEASE_JSON:-}" \
+NEXUS_RELEASE_CONTRACT_PATH="$SCRIPT_ROOT/lib/nexus/release-contract.ts" \
+NEXUS_RELEASE_REMOTE_PATH="$SCRIPT_ROOT/lib/nexus/release-remote.ts" \
+bun -e "$CORE_JS"
