@@ -125,6 +125,42 @@ maybe_offer_global_claude_guidance() {
   esac
 }
 
+maybe_offer_execution_mode_choice() {
+  [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
+  [ -t 0 ] || return 0
+  command -v ask >/dev/null 2>&1 || return 0
+
+  _mode="$("$NEXUS_CONFIG" get execution_mode 2>/dev/null || true)"
+  [ -n "$_mode" ] && return 0
+
+  echo ""
+  echo "Execution mode: CCB was detected on this machine. How should Nexus run?"
+  echo ""
+  echo "  1) Continue in the current Claude session (local_provider)"
+  echo "     Recommended if you want to keep working in this Claude window right now."
+  echo ""
+  echo "  2) Use tmux + CCB for governed multi-model runs (governed_ccb)"
+  echo "     Requires restarting Claude inside: tmux && ccb codex gemini claude"
+  echo ""
+  printf "Choice [1/2] (default: 1, auto-selects in 10s): "
+  read -t 10 -r _execution_choice </dev/tty 2>/dev/null || _execution_choice=""
+
+  case "$_execution_choice" in
+    2)
+      "$NEXUS_CONFIG" set execution_mode governed_ccb 2>/dev/null || true
+      echo "  selected governed_ccb"
+      echo "  next: finish setup, then relaunch Claude inside tmux with: ccb codex gemini claude"
+      ;;
+    *)
+      "$NEXUS_CONFIG" set execution_mode local_provider 2>/dev/null || true
+      "$NEXUS_CONFIG" set primary_provider claude 2>/dev/null || true
+      "$NEXUS_CONFIG" set provider_topology single_agent 2>/dev/null || true
+      echo "  selected local_provider (claude, single_agent)"
+      echo "  next: you can keep using the current Claude session"
+      ;;
+  esac
+}
+
 announce_execution_mode() {
   [ -x "$NEXUS_CONFIG" ] || return 0
 
@@ -142,6 +178,7 @@ announce_execution_mode() {
 
   if [ "$_mode" = "governed_ccb" ]; then
     echo "  execution: governed_ccb (CCB transport)"
+    echo "  session: use tmux + 'ccb codex gemini claude' for governed runs"
     return 0
   fi
 
@@ -664,11 +701,13 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     else
       echo "Nexus ready (claude)."
     fi
+    maybe_offer_execution_mode_choice
     maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
     announce_execution_mode
   else
     echo "Nexus ready (claude)."
+    maybe_offer_execution_mode_choice
     maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
     announce_execution_mode

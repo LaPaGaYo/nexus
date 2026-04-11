@@ -43,6 +43,8 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 # execution_mode: governed_ccb
 #                           # governed_ccb = Claude -> Nexus -> CCB -> Codex/Gemini
 #                           # local_provider = Nexus uses a local Claude/Codex/Gemini CLI
+#                           # interactive Claude setup asks which mode to prefer
+#                           # when CCB is detected and no explicit mode is saved yet
 # primary_provider: claude  # used by local_provider mode
 # provider_topology: single_agent
 #                           # current active local topology; reserved future values:

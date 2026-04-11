@@ -2252,6 +2252,20 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('global_claude_declined');
   });
 
+  test('setup offers an execution-mode chooser when CCB is detected for Claude installs', () => {
+    expect(setupContent).toContain('maybe_offer_execution_mode_choice');
+    expect(setupContent).toContain('command -v ask');
+    expect(setupContent).toContain('Continue in the current Claude session (local_provider)');
+    expect(setupContent).toContain('Use tmux + CCB for governed multi-model runs (governed_ccb)');
+    expect(setupContent).toContain('set execution_mode local_provider');
+    expect(setupContent).toContain('set execution_mode governed_ccb');
+  });
+
+  test('setup explains that governed_ccb requires relaunching Claude inside tmux', () => {
+    expect(setupContent).toContain("session: use tmux + 'ccb codex gemini claude' for governed runs");
+    expect(setupContent).toContain('relaunch Claude inside tmux with: ccb codex gemini claude');
+  });
+
   test('setup warns when local_provider is selected but the provider CLI is unavailable', () => {
     expect(setupContent).toContain('provider CLI missing');
     expect(setupContent).toContain('/handoff will block until');

@@ -111,8 +111,17 @@ cd ~/.claude/skills/nexus && ./setup
 
 If `~/.claude/skills/nexus` already exists, do not clone over it. Run `/nexus-upgrade` instead.
 
-If `ask` / CCB is not installed, Nexus automatically chooses `local_provider`
-mode. If `ask` is installed, the default remains `governed_ccb`.
+If `ask` / CCB is installed and setup is interactive in Claude, Nexus asks which
+path you want:
+
+- continue in the current Claude session with `local_provider`
+- switch to `governed_ccb` and relaunch Claude inside `tmux` with `ccb codex gemini claude`
+
+If setup is non-interactive, the default remains:
+
+- `governed_ccb` when `ask` is installed
+- `local_provider` when `ask` is missing
+
 If neither CCB nor the selected local provider CLI is available, Nexus does not
 silently continue. `/handoff` records a blocked route decision until you either
 install CCB or configure a working local provider binary.
@@ -149,7 +158,8 @@ nexus-config set provider_topology single_agent
 
 Practical defaults:
 
-- `governed_ccb` if `ask` is installed
+- interactive Claude setup asks when `ask` is installed and no explicit mode is saved
+- non-interactive setup uses `governed_ccb` if `ask` is installed
 - `local_provider` if `ask` is missing
 - `primary_provider` auto-detects `claude`, then `codex`, then `gemini`
 
