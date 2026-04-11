@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawn } from 'child_process';
-import { createQaStagePack } from '../stage-packs';
+import { createQaStagePack, createReviewStagePack } from '../stage-packs';
 import type { ActualRouteRecord, ConflictRecord, PrimaryProvider, ProviderTopology } from '../types';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
@@ -545,6 +545,7 @@ async function runProviderCommand(
 
 export function createDefaultLocalAdapter(): LocalAdapter {
   const qaPack = createQaStagePack();
+  const reviewPack = createReviewStagePack();
 
   return {
     resolve_route: async (ctx) => {
@@ -637,7 +638,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
 
       return successResult<LocalExecuteAuditRaw>(
         {
-          markdown: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
+          markdown: reviewPack.buildAuditMarkdown('local_a'),
           receipt: `local-review-a-${ctx.ledger.execution.primary_provider}`,
           agent_roles: topology.mode === 'claude_subagents' ? ['nexus_audit_a'] : undefined,
         },
@@ -671,7 +672,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
 
       return successResult<LocalExecuteAuditRaw>(
         {
-          markdown: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
+          markdown: reviewPack.buildAuditMarkdown('local_b'),
           receipt: `local-review-b-${ctx.ledger.execution.primary_provider}`,
           agent_roles: topology.mode === 'claude_subagents' ? ['nexus_audit_b'] : undefined,
         },

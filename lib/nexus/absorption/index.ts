@@ -1,6 +1,7 @@
 export * from './types';
 export * from './render';
 export * from './qa';
+export * from './review';
 export * from './pm/source-map';
 export * from './pm/discover';
 export * from './pm/frame';

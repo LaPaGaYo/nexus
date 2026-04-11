@@ -203,6 +203,25 @@ describe('nexus review', () => {
     });
   });
 
+  test('default review audits carry Nexus-owned absorbed review guidance', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      expect(await run.readFile('.planning/audits/current/codex.md')).toContain(
+        'Nexus-owned review guidance for governed dual-audit completion, synthesis, and explicit gate state.',
+      );
+      expect(await run.readFile('.planning/audits/current/codex.md')).toContain(
+        'run dual audits through Nexus-owned review completion',
+      );
+      expect(await run.readFile('.planning/audits/current/gemini.md')).toContain(
+        'Superpowers review discipline and CCB dual-audit transport remain subordinate runtime seams and never own lifecycle authority.',
+      );
+    });
+  });
+
   test('blocks review when an audit route diverges from the requested governed route', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

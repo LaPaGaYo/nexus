@@ -1,4 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildReviewAuditMarkdown } from '../absorption/review';
 import { buildReviewDisciplineSummary } from '../absorption/superpowers/review';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
@@ -7,6 +8,7 @@ export interface NexusReviewStagePack {
   stage: 'review';
   source_binding: ReturnType<typeof getStagePackSourceBinding>;
   buildDisciplineSummary(ctx: NexusAdapterContext): string;
+  buildAuditMarkdown(slot: 'codex' | 'gemini' | 'local_a' | 'local_b'): string;
   disciplineTraceability(): AdapterTraceability;
   auditTraceability(provider: 'codex' | 'gemini'): AdapterTraceability;
 }
@@ -19,6 +21,7 @@ export function createReviewStagePack(): NexusReviewStagePack {
     stage: 'review',
     source_binding,
     buildDisciplineSummary: (ctx) => buildReviewDisciplineSummary(ctx),
+    buildAuditMarkdown: (slot) => buildReviewAuditMarkdown(slot),
     disciplineTraceability: () => ({
       nexus_stage_pack: 'nexus-review-pack',
       absorbed_capability: 'superpowers-review-discipline',

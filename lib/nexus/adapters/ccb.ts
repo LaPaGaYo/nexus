@@ -570,7 +570,7 @@ export function createDefaultCcbAdapter(): CcbAdapter {
     execute_audit_a: async (ctx) =>
       successResult<CcbExecuteAuditRaw>(
         {
-          markdown: '# Codex Audit\n\nResult: pass\n',
+          markdown: reviewPack.buildAuditMarkdown('codex'),
           receipt: 'ccb-review-codex',
         },
         {
@@ -586,7 +586,7 @@ export function createDefaultCcbAdapter(): CcbAdapter {
     execute_audit_b: async (ctx) =>
       successResult<CcbExecuteAuditRaw>(
         {
-          markdown: '# Gemini Audit\n\nResult: pass\n',
+          markdown: reviewPack.buildAuditMarkdown('gemini'),
           receipt: 'ccb-review-gemini',
         },
         {
