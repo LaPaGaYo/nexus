@@ -497,18 +497,32 @@ async function runAskDispatch(
     stage === 'handoff' ? '30' : DEFAULT_TIMEOUTS_SECONDS[stage],
   ];
 
-  const execution = await options.runCommand({
-    argv,
-    cwd: ctx.cwd,
-    env: {
-      CCB_CALLER: 'claude',
-      CCB_ASKD_AUTOSTART: '1',
-      CCB_ALLOW_FOREGROUND: '1',
-      CCB_SESSION_FILE: sessionFile,
-    },
-    stdin_text: prompt,
-    timeout_ms: Number(stage === 'handoff' ? '30' : DEFAULT_TIMEOUTS_SECONDS[stage]) * 1000 + 10_000,
-  });
+  let execution: CcbCommandResult;
+  try {
+    execution = await options.runCommand({
+      argv,
+      cwd: ctx.cwd,
+      env: {
+        CCB_CALLER: 'claude',
+        CCB_ASKD_AUTOSTART: '1',
+        CCB_ALLOW_FOREGROUND: '1',
+        CCB_SESSION_FILE: sessionFile,
+      },
+      stdin_text: prompt,
+      timeout_ms: Number(stage === 'handoff' ? '30' : DEFAULT_TIMEOUTS_SECONDS[stage]) * 1000 + 10_000,
+    });
+  } catch (error) {
+    return blockedResult(
+      ctx.stage,
+      error instanceof Error ? error.message : String(error),
+      {
+        receipt: '',
+        dispatch_command: describeCommand(argv),
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
 
   if (execution.exit_code !== 0) {
     return blockedResult(

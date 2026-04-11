@@ -73,7 +73,7 @@ describe('nexus types', () => {
     };
 
     expect(actual.transport).toBe('ccb');
-    expect(ACTUAL_ROUTE_TRANSPORTS).toEqual(['ccb', null]);
+    expect(ACTUAL_ROUTE_TRANSPORTS).toEqual(['ccb', 'local', null]);
   });
 
   test('locks route validation and implementation provenance records', () => {
@@ -101,7 +101,7 @@ describe('nexus types', () => {
 
     expect(validation.approved).toBe(false);
     expect(provenance.path).toContain('build-result.md');
-    expect(ROUTE_VALIDATION_TRANSPORTS).toEqual(['ccb', 'none']);
+    expect(ROUTE_VALIDATION_TRANSPORTS).toEqual(['ccb', 'local', 'none']);
   });
 
   test('freezes the governed tail lifecycle decisions', () => {

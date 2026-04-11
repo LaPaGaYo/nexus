@@ -170,6 +170,31 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('blocks gracefully when the ask binary is missing instead of throwing', async () => {
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/missing/ask',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+      }),
+      runCommand: async () => {
+        throw new Error('spawn /missing/ask ENOENT');
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.resolve_route(buildContext('handoff', 'handoff'));
+
+    expect(result.outcome).toBe('blocked');
+    expect(result.actual_route).toBeNull();
+    expect(result.notices[0]).toContain('ENOENT');
+    expect(result.conflict_candidates[0]).toMatchObject({
+      stage: 'handoff',
+      adapter: 'ccb',
+      kind: 'backend_conflict',
+    });
+  });
+
   test('blocks qa when CCB returns malformed structured validation output', async () => {
     const adapter = createRuntimeCcbAdapter({
       resolveSessionRoot: () => '/repo/root',

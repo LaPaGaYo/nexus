@@ -1,6 +1,7 @@
 import { writeLedger, readLedger, startLedger, makeRunId } from '../ledger';
 import { writeStageStatus } from '../status';
 import { CANONICAL_MANIFEST } from '../command-manifest';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { stageStatusPath } from '../artifacts';
 import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
@@ -33,7 +34,7 @@ function nextLedger(
 }
 
 function buildStatus(
-  runId: string,
+  ledger: RunLedger,
   at: string,
   state: StageStatus['state'],
   decision: StageStatus['decision'],
@@ -41,8 +42,9 @@ function buildStatus(
   errors: string[],
 ): StageStatus {
   return {
-    run_id: runId,
+    run_id: ledger.run_id,
     stage: 'discover',
+    ...executionFieldsFromLedger(ledger),
     state,
     decision,
     ready,
@@ -65,7 +67,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     throw new Error(`Illegal Nexus transition: ${existingLedger.current_stage} -> discover`);
   }
 
-  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), 'discover');
+  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), 'discover', ctx.execution);
   const at = ctx.clock();
   const manifest = CANONICAL_MANIFEST.discover;
   const requestPayload = {
@@ -85,7 +87,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   }) as Awaited<ReturnType<typeof ctx.adapters.pm.discover>> & { raw_output: PmDiscoverRaw };
 
   if (result.outcome === 'refused') {
-    const status = buildStatus(ledger.run_id, at, 'refused', 'refused', false, ['PM discovery refused']);
+    const status = buildStatus(ledger, at, 'refused', 'refused', false, ['PM discovery refused']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'discover',
@@ -106,7 +108,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   }
 
   if (result.outcome !== 'success') {
-    const status = buildStatus(ledger.run_id, at, 'blocked', 'not_ready', false, ['PM discovery blocked']);
+    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['PM discovery blocked']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'discover',
@@ -128,7 +130,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizePmDiscover(result);
-    const status = buildStatus(ledger.run_id, at, 'completed', 'ready', true, []);
+    const status = buildStatus(ledger, at, 'completed', 'ready', true, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
@@ -171,7 +173,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
         '.planning/current/discover/normalization.json',
       ],
     };
-    const status = buildStatus(ledger.run_id, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
+    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'discover',

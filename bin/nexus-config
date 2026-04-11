@@ -39,6 +39,15 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 # auto_upgrade: false       # true = silently upgrade on session start
 # update_check: true        # false = suppress version check notifications
 #
+# ─── Execution ───────────────────────────────────────────────────────
+# execution_mode: governed_ccb
+#                           # governed_ccb = Claude -> Nexus -> CCB -> Codex/Gemini
+#                           # local_provider = Nexus uses a local Claude/Codex/Gemini CLI
+# primary_provider: claude  # used by local_provider mode
+# provider_topology: single_agent
+#                           # current active local topology; reserved future values:
+#                           # subagents, multi_session
+#
 # ─── Skill naming ────────────────────────────────────────────────────
 # skill_prefix: false       # true = namespace skills as /nexus-qa, /nexus-ship
 #                           # false = short names /qa, /ship

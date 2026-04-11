@@ -1,6 +1,7 @@
 import { createDefaultPmAdapter } from './pm';
 import { createDefaultGsdAdapter } from './gsd';
 import { createDefaultCcbAdapter, createRuntimeCcbAdapter } from './ccb';
+import { createDefaultLocalAdapter, createRuntimeLocalAdapter } from './local';
 import { createDefaultSuperpowersAdapter } from './superpowers';
 import type { AdapterRegistryShape, NexusAdapters } from './types';
 
@@ -8,10 +9,10 @@ const DEFAULT_REGISTRY: AdapterRegistryShape = {
   discover: { pm: 'active' },
   frame: { pm: 'active' },
   plan: { gsd: 'active' },
-  handoff: { ccb: 'active' },
-  build: { superpowers: 'active', ccb: 'active' },
-  review: { superpowers: 'active', ccb: 'active' },
-  qa: { ccb: 'active' },
+  handoff: { ccb: 'active', local: 'active' },
+  build: { superpowers: 'active', ccb: 'active', local: 'active' },
+  review: { superpowers: 'active', ccb: 'active', local: 'active' },
+  qa: { ccb: 'active', local: 'active' },
   ship: { superpowers: 'active' },
   closeout: { gsd: 'active' },
 };
@@ -37,6 +38,7 @@ export function getDefaultNexusAdapters(): NexusAdapters {
     gsd: createDefaultGsdAdapter(),
     superpowers: createDefaultSuperpowersAdapter(),
     ccb: createDefaultCcbAdapter(),
+    local: createDefaultLocalAdapter(),
   };
 }
 
@@ -47,5 +49,6 @@ export function getRuntimeNexusAdapters(): NexusAdapters {
     gsd: createDefaultGsdAdapter(),
     superpowers: createDefaultSuperpowersAdapter(),
     ccb: createRuntimeCcbAdapter(),
+    local: createRuntimeLocalAdapter(),
   };
 }

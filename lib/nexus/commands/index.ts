@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import type { NexusAdapters } from '../adapters/types';
 import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
+import type { ExecutionSelection } from '../execution-topology';
 import { stageStatusPath } from '../artifacts';
 import { makeRunId, readLedger, startLedger, writeLedger } from '../ledger';
 import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
@@ -22,6 +23,7 @@ export interface CommandContext {
   clock: () => string;
   via: string | null;
   adapters: NexusAdapters;
+  execution: ExecutionSelection;
 }
 
 export interface CommandResult {
@@ -50,7 +52,7 @@ export async function runPlaceholder(
   ctx: CommandContext,
 ): Promise<CommandResult> {
   const existingLedger = readLedger(ctx.cwd);
-  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), command);
+  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), command, ctx.execution);
   const contract = CANONICAL_MANIFEST[command];
   const startedAt = ctx.clock();
   const statusPointer = artifactPointerFor(stageStatusPath(command));
@@ -59,6 +61,11 @@ export async function runPlaceholder(
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: command,
+    execution_mode: ledger.execution.mode,
+    primary_provider: ledger.execution.primary_provider,
+    provider_topology: ledger.execution.provider_topology,
+    requested_execution_path: ledger.execution.requested_path,
+    actual_execution_path: ledger.execution.actual_path,
     state: PLACEHOLDER_OUTCOME.state,
     decision: PLACEHOLDER_OUTCOME.decision,
     ready: PLACEHOLDER_OUTCOME.ready,

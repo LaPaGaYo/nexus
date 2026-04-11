@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { readLedger, startLedger, makeRunId } from '../ledger';
 import { CANONICAL_MANIFEST } from '../command-manifest';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { stageStatusPath } from '../artifacts';
 import { applyNormalizationPlan } from '../normalizers';
 import { canonicalNextStages, normalizePmFrame, buildPmTraceabilityPayloads } from '../normalizers/pm';
@@ -35,7 +36,7 @@ function nextLedger(
 }
 
 function buildStatus(
-  runId: string,
+  ledger: RunLedger,
   at: string,
   state: StageStatus['state'],
   decision: StageStatus['decision'],
@@ -43,8 +44,9 @@ function buildStatus(
   errors: string[],
 ): StageStatus {
   return {
-    run_id: runId,
+    run_id: ledger.run_id,
     stage: 'frame',
+    ...executionFieldsFromLedger(ledger),
     state,
     decision,
     ready,
@@ -71,7 +73,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
     assertLegalTransition(existingLedger.current_stage, 'frame');
   }
 
-  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), 'frame');
+  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), 'frame', ctx.execution);
   const at = ctx.clock();
   const manifest = CANONICAL_MANIFEST.frame;
   const requestPayload = {
@@ -82,7 +84,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
 
   if (!inputExists) {
     const status = buildStatus(
-      ledger.run_id,
+      ledger,
       at,
       'blocked',
       'not_ready',
@@ -113,7 +115,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
   }) as Awaited<ReturnType<typeof ctx.adapters.pm.frame>> & { raw_output: PmFrameRaw };
 
   if (result.outcome === 'refused') {
-    const status = buildStatus(ledger.run_id, at, 'refused', 'refused', false, ['PM framing refused']);
+    const status = buildStatus(ledger, at, 'refused', 'refused', false, ['PM framing refused']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
@@ -134,7 +136,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
   }
 
   if (result.outcome !== 'success') {
-    const status = buildStatus(ledger.run_id, at, 'blocked', 'not_ready', false, ['PM framing blocked']);
+    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['PM framing blocked']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
@@ -156,7 +158,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizePmFrame(result);
-    const status = buildStatus(ledger.run_id, at, 'completed', 'ready', true, []);
+    const status = buildStatus(ledger, at, 'completed', 'ready', true, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
@@ -204,7 +206,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         '.planning/current/frame/normalization.json',
       ],
     };
-    const status = buildStatus(ledger.run_id, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
+    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',

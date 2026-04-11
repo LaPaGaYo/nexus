@@ -1,5 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { qaReportPath, stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -11,6 +12,7 @@ import {
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
+import type { LocalExecuteQaRaw } from '../adapters/local';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
@@ -39,7 +41,7 @@ function nextLedger(
 }
 
 function blockedQaStatus(
-  runId: string,
+  ledger: RunLedger,
   startedAt: string,
   inputs: ArtifactPointer[],
   requestedRoute: StageStatus['requested_route'],
@@ -48,8 +50,9 @@ function blockedQaStatus(
   state: 'blocked' | 'refused' = 'blocked',
 ): StageStatus {
   return {
-    run_id: runId,
+    run_id: ledger.run_id,
     stage: 'qa',
+    ...executionFieldsFromLedger(ledger, actualRoute?.route ?? null),
     state,
     decision: state === 'refused' ? 'refused' : 'qa_recorded',
     ready: false,
@@ -83,7 +86,8 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const reportPath = qaReportPath();
   const predecessorArtifacts = [artifactPointerFor(reviewStatusPath)];
   const requestedRoute = requestedQaRouteFromLedger(ledger);
-  const result = await ctx.adapters.ccb.execute_qa({
+  const qaAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
+  const result = await qaAdapter.execute_qa({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'qa',
@@ -92,14 +96,14 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
-  }) as Awaited<ReturnType<typeof ctx.adapters.ccb.execute_qa>> & { raw_output: CcbExecuteQaRaw };
+  }) as Awaited<ReturnType<typeof qaAdapter.execute_qa>> & { raw_output: CcbExecuteQaRaw | LocalExecuteQaRaw };
 
   if (result.outcome !== 'success') {
     const message = result.outcome === 'refused'
-      ? 'CCB QA validation refused'
-      : 'CCB QA validation blocked';
+      ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} QA validation refused`
+      : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} QA validation blocked`;
     const status = blockedQaStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       requestedRoute,
@@ -109,7 +113,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     );
     const conflict: ConflictRecord = {
       stage: 'qa',
-      adapter: 'ccb',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'backend_conflict',
       message,
       canonical_paths: [statusPath],
@@ -146,7 +150,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   if (!requestedAndActualRouteMatch(requestedRoute, result.actual_route)) {
     const message = 'Requested and actual QA route diverged';
     const status = blockedQaStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       requestedRoute,
@@ -155,7 +159,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     );
     const conflict: ConflictRecord = {
       stage: 'qa',
-      adapter: 'ccb',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'route_mismatch',
       message,
       canonical_paths: [statusPath],
@@ -194,7 +198,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   if (!reportMarkdown) {
     const message = 'QA report markdown is empty';
     const status = blockedQaStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       requestedRoute,
@@ -203,7 +207,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     );
     const conflict: ConflictRecord = {
       stage: 'qa',
-      adapter: 'ccb',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'backend_conflict',
       message,
       canonical_paths: [statusPath],
@@ -243,6 +247,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'qa',
+    ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
     state: 'completed',
     decision: 'qa_recorded',
     ready,

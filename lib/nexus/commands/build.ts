@@ -1,5 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger, withActualExecutionPath } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -12,6 +13,7 @@ import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '.
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbExecuteGeneratorRaw } from '../adapters/ccb';
+import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
@@ -64,6 +66,9 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     content: JSON.stringify(
       {
         run_id: ledger.run_id,
+        execution_mode: ledger.execution.mode,
+        primary_provider: ledger.execution.primary_provider,
+        provider_topology: ledger.execution.provider_topology,
         requested_route: requestedRoute,
       },
       null,
@@ -90,6 +95,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
+      ...executionFieldsFromLedger(ledger),
       state: disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
       decision: disciplineResult.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
@@ -153,6 +159,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
+      ...executionFieldsFromLedger(ledger),
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -209,7 +216,8 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     throw error;
   }
 
-  const result = await ctx.adapters.ccb.execute_generator({
+  const executionAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
+  const result = await executionAdapter.execute_generator({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'build',
@@ -218,12 +226,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
-  }) as Awaited<ReturnType<typeof ctx.adapters.ccb.execute_generator>> & { raw_output: CcbExecuteGeneratorRaw };
+  }) as Awaited<ReturnType<typeof executionAdapter.execute_generator>> & { raw_output: CcbExecuteGeneratorRaw | LocalExecuteGeneratorRaw };
 
   if (result.outcome !== 'success') {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
+      ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
       state: result.outcome === 'refused' ? 'refused' : 'blocked',
       decision: result.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
@@ -231,11 +240,18 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
       started_at: startedAt,
       completed_at: startedAt,
-      errors: [result.outcome === 'refused' ? 'CCB generator execution refused' : 'CCB generator execution blocked'],
+      errors: [
+        result.outcome === 'refused'
+          ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution refused`
+          : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution blocked`,
+      ],
       requested_route: requestedRoute,
       actual_route: result.actual_route,
     };
-    const next = nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via);
+    const next = withActualExecutionPath(
+      nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+      result.actual_route?.route ?? null,
+    );
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -244,9 +260,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
 
     const conflict: ConflictRecord = {
       stage: 'build',
-      adapter: 'ccb',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'backend_conflict',
-      message: result.outcome === 'refused' ? 'CCB generator execution refused' : 'CCB generator execution blocked',
+      message: result.outcome === 'refused'
+        ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution refused`
+        : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution blocked`,
       canonical_paths: [buildRequestPath, statusPath],
       trace_paths: [
         '.planning/current/build/adapter-request.json',
@@ -277,14 +295,18 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
-    throw new Error(result.outcome === 'refused' ? 'CCB generator execution refused' : 'CCB generator execution blocked');
+    throw new Error(
+      result.outcome === 'refused'
+        ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution refused`
+        : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution blocked`,
+    );
   }
 
   const routesMatch = requestedAndActualRouteMatch(requestedRoute, result.actual_route);
   if (!routesMatch) {
     const conflict: ConflictRecord = {
       stage: 'build',
-      adapter: 'ccb',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'route_mismatch',
       message: 'Requested and actual route diverged',
       canonical_paths: [buildRequestPath, statusPath],
@@ -297,6 +319,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
+      ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -308,7 +331,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: result.actual_route,
     };
-    const next = nextLedger(ledger, 'blocked', startedAt, ctx.via);
+    const next = withActualExecutionPath(nextLedger(ledger, 'blocked', startedAt, ctx.via), result.actual_route?.route ?? null);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -353,6 +376,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'build',
+    ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
     state: 'completed',
     decision: 'build_recorded',
     ready: true,
@@ -368,7 +392,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     requested_route: requestedRoute,
     actual_route: result.actual_route,
   };
-  const next = nextLedger(ledger, 'active', startedAt, ctx.via);
+  const next = withActualExecutionPath(nextLedger(ledger, 'active', startedAt, ctx.via), result.actual_route?.route ?? null);
   next.artifact_index = {
     ...next.artifact_index,
     [buildRequestPath]: artifactPointerFor(buildRequestPath),

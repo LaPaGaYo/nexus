@@ -125,6 +125,47 @@ maybe_offer_global_claude_guidance() {
   esac
 }
 
+announce_execution_mode() {
+  [ -x "$NEXUS_CONFIG" ] || return 0
+
+  _mode="$("$NEXUS_CONFIG" get execution_mode 2>/dev/null || true)"
+  _provider="$("$NEXUS_CONFIG" get primary_provider 2>/dev/null || true)"
+  _topology="$("$NEXUS_CONFIG" get provider_topology 2>/dev/null || true)"
+
+  if [ -z "$_mode" ]; then
+    if command -v ask >/dev/null 2>&1; then
+      _mode="governed_ccb"
+    else
+      _mode="local_provider"
+    fi
+  fi
+
+  if [ "$_mode" = "governed_ccb" ]; then
+    echo "  execution: governed_ccb (CCB transport)"
+    return 0
+  fi
+
+  if [ -z "$_provider" ]; then
+    if command -v claude >/dev/null 2>&1; then
+      _provider="claude"
+    elif command -v codex >/dev/null 2>&1; then
+      _provider="codex"
+    elif command -v gemini >/dev/null 2>&1; then
+      _provider="gemini"
+    else
+      _provider="claude"
+    fi
+  fi
+
+  [ -n "$_topology" ] || _topology="single_agent"
+  if ! command -v "$_provider" >/dev/null 2>&1; then
+    echo "  execution: local_provider (${_provider}, ${_topology}) [provider CLI missing]"
+    echo "  note: /handoff will block until ${_provider} is installed or execution_mode is switched to governed_ccb"
+    return 0
+  fi
+  echo "  execution: local_provider (${_provider}, ${_topology})"
+}
+
 # --local: install to .claude/skills/ in the current working directory
 if [ "$LOCAL_INSTALL" -eq 1 ]; then
   if [ "$HOST" = "codex" ]; then
@@ -625,10 +666,12 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     fi
     maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
+    announce_execution_mode
   else
     echo "Nexus ready (claude)."
     maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
+    announce_execution_mode
     echo "  (skipped skill symlinks — not inside .claude/skills/)"
   fi
 fi
@@ -652,6 +695,7 @@ if [ "$INSTALL_CODEX" -eq 1 ]; then
   echo "Nexus ready (codex)."
   echo "  browse: $BROWSE_BIN"
   echo "  codex skills: $CODEX_SKILLS"
+  announce_execution_mode
 fi
 
 # 6. Install for Kiro CLI (copy from .agents/skills, rewrite paths)
@@ -707,6 +751,7 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
     echo "Nexus ready (kiro)."
     echo "  browse: $BROWSE_BIN"
     echo "  kiro skills: $KIRO_SKILLS"
+    announce_execution_mode
   fi
 fi
 
@@ -718,6 +763,7 @@ if [ "$INSTALL_FACTORY" -eq 1 ]; then
   echo "Nexus ready (factory)."
   echo "  browse: $BROWSE_BIN"
   echo "  factory skills: $FACTORY_SKILLS"
+  announce_execution_mode
 fi
 
 # 7. Create .agents/ sidecar symlinks for the real Codex skill target.

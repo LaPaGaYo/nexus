@@ -1,5 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { shipChecklistPath, shipReleaseGateRecordPath, stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { assertQaReadyForCloseout, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -36,15 +37,16 @@ function nextLedger(
 }
 
 function blockedShipStatus(
-  runId: string,
+  ledger: RunLedger,
   startedAt: string,
   inputs: ArtifactPointer[],
   error: string,
   state: 'blocked' | 'refused' = 'blocked',
 ): StageStatus {
   return {
-    run_id: runId,
+    run_id: ledger.run_id,
     stage: 'ship',
+    ...executionFieldsFromLedger(ledger),
     state,
     decision: state === 'refused' ? 'refused' : 'ship_recorded',
     ready: false,
@@ -111,7 +113,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ? 'Superpowers ship discipline refused ship'
       : 'Superpowers ship discipline blocked ship';
     const status = blockedShipStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       message,
@@ -160,7 +162,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
 
   if (!result.raw_output.release_gate_record?.trim()) {
     const message = 'Release gate record is empty';
-    const status = blockedShipStatus(ledger.run_id, startedAt, predecessorArtifacts, message);
+    const status = blockedShipStatus(ledger, startedAt, predecessorArtifacts, message);
     const conflict: ConflictRecord = {
       stage: 'ship',
       adapter: 'superpowers',
@@ -201,6 +203,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'ship',
+    ...executionFieldsFromLedger(ledger),
     state: 'completed',
     decision: 'ship_recorded',
     ready: result.raw_output.merge_ready,

@@ -61,14 +61,22 @@ export interface CcbAdapter {
   execute_qa(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
+export interface LocalAdapter {
+  resolve_route(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+  execute_generator(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+  execute_audit_a(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+  execute_audit_b(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+  execute_qa(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+}
+
 export interface AdapterRegistryShape {
   discover: { pm: AdapterActivationState };
   frame: { pm: AdapterActivationState };
   plan: { gsd: AdapterActivationState };
-  handoff: { ccb: AdapterActivationState };
-  build: { superpowers: AdapterActivationState; ccb: AdapterActivationState };
-  review: { superpowers: AdapterActivationState; ccb: AdapterActivationState };
-  qa: { ccb: AdapterActivationState };
+  handoff: { ccb: AdapterActivationState; local: AdapterActivationState };
+  build: { superpowers: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
+  review: { superpowers: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
+  qa: { ccb: AdapterActivationState; local: AdapterActivationState };
   ship: { superpowers: AdapterActivationState };
   closeout: { gsd: AdapterActivationState };
 }
@@ -79,4 +87,5 @@ export interface NexusAdapters {
   gsd: GsdAdapter;
   superpowers: SuperpowersAdapter;
   ccb: CcbAdapter;
+  local: LocalAdapter;
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { getRuntimeNexusAdapters } from '../lib/nexus/adapters/registry';
 import { resolveInvocation } from '../lib/nexus/commands/index';
+import { defaultExecutionSelection } from '../lib/nexus/execution-topology';
 
 const [, , rawCommand] = process.argv;
 
@@ -16,6 +17,7 @@ try {
     clock: () => new Date().toISOString(),
     via: invocation.via,
     adapters: getRuntimeNexusAdapters(),
+    execution: defaultExecutionSelection(),
   });
 
   console.log(JSON.stringify(result, null, 2));

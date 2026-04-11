@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { defaultExecutionSelection, type ExecutionSelection } from './execution-topology';
 import { getAllowedNextStages } from './transitions';
 import type { CanonicalCommandId, RunLedger } from './types';
 
@@ -27,7 +28,11 @@ export function makeRunId(clock: () => string): string {
   return `run-${clock().replace(/[:.]/g, '-')}`;
 }
 
-export function startLedger(run_id: string, stage: CanonicalCommandId): RunLedger {
+export function startLedger(
+  run_id: string,
+  stage: CanonicalCommandId,
+  execution: ExecutionSelection = defaultExecutionSelection(),
+): RunLedger {
   return {
     run_id,
     status: 'active',
@@ -37,6 +42,13 @@ export function startLedger(run_id: string, stage: CanonicalCommandId): RunLedge
     allowed_next_stages: getAllowedNextStages(stage),
     command_history: [],
     artifact_index: {},
+    execution: {
+      mode: execution.mode,
+      primary_provider: execution.primary_provider,
+      provider_topology: execution.provider_topology,
+      requested_path: execution.requested_execution_path,
+      actual_path: null,
+    },
     route_intent: {
       planner: null,
       generator: null,

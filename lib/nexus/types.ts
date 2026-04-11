@@ -47,6 +47,15 @@ export type ImplementationStatus = (typeof IMPLEMENTATION_STATUSES)[number];
 export const RUN_STATUSES = ['active', 'blocked', 'completed', 'refused'] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
 
+export const EXECUTION_MODES = ['governed_ccb', 'local_provider'] as const;
+export type ExecutionMode = (typeof EXECUTION_MODES)[number];
+
+export const PRIMARY_PROVIDERS = ['claude', 'codex', 'gemini'] as const;
+export type PrimaryProvider = (typeof PRIMARY_PROVIDERS)[number];
+
+export const PROVIDER_TOPOLOGIES = ['single_agent', 'subagents', 'multi_session'] as const;
+export type ProviderTopology = (typeof PROVIDER_TOPOLOGIES)[number];
+
 export const STAGE_STATES = ['not_started', 'in_progress', 'completed', 'blocked', 'refused'] as const;
 export type StageState = (typeof STAGE_STATES)[number];
 
@@ -65,10 +74,10 @@ export const STAGE_DECISIONS = [
 ] as const;
 export type StageDecision = (typeof STAGE_DECISIONS)[number];
 
-export const ROUTE_VALIDATION_TRANSPORTS = ['ccb', 'none'] as const;
+export const ROUTE_VALIDATION_TRANSPORTS = ['ccb', 'local', 'none'] as const;
 export type RouteValidationTransport = (typeof ROUTE_VALIDATION_TRANSPORTS)[number];
 
-export const ACTUAL_ROUTE_TRANSPORTS = ['ccb', null] as const;
+export const ACTUAL_ROUTE_TRANSPORTS = ['ccb', 'local', null] as const;
 export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
 
 export interface ArtifactPointer {
@@ -79,12 +88,16 @@ export interface ArtifactPointer {
 export interface RequestedRouteRecord {
   command: CanonicalCommandId;
   governed: boolean;
+  execution_mode: ExecutionMode;
+  primary_provider: PrimaryProvider;
+  provider_topology: ProviderTopology;
   planner: string | null;
   generator: string | null;
   evaluator_a: string | null;
   evaluator_b: string | null;
   synthesizer: string | null;
   substrate: string | null;
+  transport: 'ccb' | 'local';
   fallback_policy: 'disabled';
 }
 
@@ -113,7 +126,7 @@ export interface ReviewRequestedRouteRecord {
   provider: string | null;
   route: string | null;
   substrate: string | null;
-  transport: 'ccb';
+  transport: 'ccb' | 'local';
 }
 
 export interface ReviewAuditProvenanceRecord {
@@ -125,6 +138,9 @@ export interface ReviewAuditProvenanceRecord {
 
 export interface ReviewMetaRecord {
   run_id: string;
+  execution_mode?: ExecutionMode;
+  primary_provider?: PrimaryProvider;
+  provider_topology?: ProviderTopology;
   implementation_provider: string;
   implementation_path: string;
   implementation_route: string | null;
@@ -139,13 +155,13 @@ export interface ReviewMetaRecord {
     summary: string;
   };
   codex_audit: {
-    provider: 'codex';
+    provider: string;
     path: string;
     route: string | null;
     substrate: string | null;
   };
   gemini_audit: {
-    provider: 'gemini';
+    provider: string;
     path: string;
     route: string | null;
     substrate: string | null;
@@ -174,6 +190,11 @@ export interface ConflictRecord {
 export interface StageStatus {
   run_id: string;
   stage: CanonicalCommandId;
+  execution_mode?: ExecutionMode;
+  primary_provider?: PrimaryProvider;
+  provider_topology?: ProviderTopology;
+  requested_execution_path?: string;
+  actual_execution_path?: string | null;
   state: StageState;
   decision: StageDecision;
   ready: boolean;
@@ -203,6 +224,13 @@ export interface RunLedger {
   allowed_next_stages: CanonicalCommandId[];
   command_history: Array<{ command: CanonicalCommandId; at: string; via: string | null }>;
   artifact_index: Record<string, ArtifactPointer>;
+  execution: {
+    mode: ExecutionMode;
+    primary_provider: PrimaryProvider;
+    provider_topology: ProviderTopology;
+    requested_path: string;
+    actual_path: string | null;
+  };
   route_intent: {
     planner: string | null;
     generator: string | null;

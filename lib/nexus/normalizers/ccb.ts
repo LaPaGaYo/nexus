@@ -3,8 +3,10 @@ import {
   stageAdapterRequestPath,
   stageNormalizationPath,
 } from '../artifacts';
+import { localExecutionPath } from '../execution-topology';
 import type { AdapterResult } from '../adapters/types';
 import type { CcbExecuteAuditRaw, CcbExecuteGeneratorRaw, CcbExecuteQaRaw, CcbResolveRouteRaw } from '../adapters/ccb';
+import type { LocalExecuteAuditRaw, LocalExecuteQaRaw, LocalResolveRouteRaw } from '../adapters/local';
 import type {
   ActualRouteRecord,
   ReviewRequestedRouteRecord,
@@ -53,23 +55,66 @@ function expectedProviderFor(requestedRoute: RequestedRouteRecord): string | nul
 }
 
 export function requestedBuildRouteFromLedger(ledger: RunLedger): RequestedRouteRecord {
+  if (ledger.execution.mode === 'local_provider') {
+    return {
+      command: 'build',
+      governed: false,
+      execution_mode: ledger.execution.mode,
+      primary_provider: ledger.execution.primary_provider,
+      provider_topology: ledger.execution.provider_topology,
+      planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
+      generator: ledger.route_intent.generator ?? ledger.execution.requested_path,
+      evaluator_a: ledger.route_intent.evaluator_a ?? localExecutionPath(ledger.execution.primary_provider, ledger.execution.provider_topology, 'audit_a'),
+      evaluator_b: ledger.route_intent.evaluator_b ?? localExecutionPath(ledger.execution.primary_provider, ledger.execution.provider_topology, 'audit_b'),
+      synthesizer: ledger.route_intent.synthesizer ?? ledger.execution.primary_provider,
+      substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+      transport: 'local',
+      fallback_policy: 'disabled',
+    };
+  }
+
   return {
     command: 'build',
     governed: true,
+    execution_mode: ledger.execution.mode,
+    primary_provider: ledger.execution.primary_provider,
+    provider_topology: ledger.execution.provider_topology,
     planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
     generator: ledger.route_intent.generator ?? 'codex-via-ccb',
     evaluator_a: ledger.route_intent.evaluator_a ?? 'codex-via-ccb',
     evaluator_b: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
     synthesizer: ledger.route_intent.synthesizer ?? 'claude',
     substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+    transport: 'ccb',
     fallback_policy: 'disabled',
   };
 }
 
 export function normalizeHandoffRouteValidation(
   requestedRoute: RequestedRouteRecord,
-  result: AdapterResult<CcbResolveRouteRaw>,
+  result: AdapterResult<CcbResolveRouteRaw | LocalResolveRouteRaw>,
 ): { route_validation: RouteValidationRecord; approved: boolean } {
+  if (requestedRoute.transport === 'local') {
+    const raw = result.raw_output as LocalResolveRouteRaw;
+    const approved = raw.available
+      && requestedRoute.generator === localExecutionPath(requestedRoute.primary_provider, requestedRoute.provider_topology)
+      && requestedRoute.fallback_policy === 'disabled';
+
+    return {
+      route_validation: {
+        transport: 'local',
+        available: raw.available,
+        approved,
+        reason: !raw.available
+          ? 'Local provider route is unavailable'
+          : approved
+            ? 'Nexus approved the requested local provider route'
+            : 'Nexus rejected the requested local provider route',
+      },
+      approved,
+    };
+  }
+
   const expectedProvider = expectedProviderFor(requestedRoute);
   const approved = result.raw_output.available
     && requestedRoute.generator === 'codex-via-ccb'
@@ -101,7 +146,7 @@ export function requestedAndActualRouteMatch(
   return actualRoute !== null
     && actualRoute.route === requestedRoute.generator
     && actualRoute.substrate === requestedRoute.substrate
-    && actualRoute.transport === 'ccb'
+    && actualRoute.transport === requestedRoute.transport
     && (expectedProvider === null || actualRoute.provider === expectedProvider);
 }
 
@@ -181,6 +226,15 @@ export function requestedAuditRouteFromBuild(
   requestedRoute: RequestedRouteRecord,
   provider: 'codex' | 'gemini',
 ): ReviewRequestedRouteRecord {
+  if (requestedRoute.transport === 'local') {
+    return {
+      provider: requestedRoute.primary_provider,
+      route: provider === 'codex' ? requestedRoute.evaluator_a : requestedRoute.evaluator_b,
+      substrate: requestedRoute.substrate,
+      transport: 'local',
+    };
+  }
+
   return {
     provider,
     route: provider === 'codex' ? requestedRoute.evaluator_a : requestedRoute.evaluator_b,
@@ -234,8 +288,8 @@ export function buildReviewTraceabilityPayloads(
   inputs: string[],
   requestedRoute: RequestedRouteRecord,
   disciplineResult: AdapterResult<unknown> | null,
-  auditAResult: AdapterResult<CcbExecuteAuditRaw> | null,
-  auditBResult: AdapterResult<CcbExecuteAuditRaw> | null,
+  auditAResult: AdapterResult<CcbExecuteAuditRaw | LocalExecuteAuditRaw> | null,
+  auditBResult: AdapterResult<CcbExecuteAuditRaw | LocalExecuteAuditRaw> | null,
   normalizationPayload: Record<string, unknown>,
 ): ArtifactWrite[] {
   return [
@@ -245,7 +299,7 @@ export function buildReviewTraceabilityPayloads(
         {
           run_id: runId,
           inputs,
-          adapter_chain: ['superpowers', 'ccb', 'ccb'],
+          adapter_chain: ['superpowers', requestedRoute.transport, requestedRoute.transport],
           requested_route: requestedRoute,
           requested_audit_routes: {
             codex: requestedAuditRouteFromBuild(requestedRoute, 'codex'),
@@ -276,15 +330,37 @@ export function buildReviewTraceabilityPayloads(
 }
 
 export function requestedQaRouteFromLedger(ledger: RunLedger): RequestedRouteRecord {
+  if (ledger.execution.mode === 'local_provider') {
+    return {
+      command: 'qa',
+      governed: false,
+      execution_mode: ledger.execution.mode,
+      primary_provider: ledger.execution.primary_provider,
+      provider_topology: ledger.execution.provider_topology,
+      planner: null,
+      generator: localExecutionPath(ledger.execution.primary_provider, ledger.execution.provider_topology, 'qa'),
+      evaluator_a: null,
+      evaluator_b: null,
+      synthesizer: null,
+      substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+      transport: 'local',
+      fallback_policy: 'disabled',
+    };
+  }
+
   return {
     command: 'qa',
     governed: true,
+    execution_mode: ledger.execution.mode,
+    primary_provider: ledger.execution.primary_provider,
+    provider_topology: ledger.execution.provider_topology,
     planner: null,
     generator: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
     evaluator_a: null,
     evaluator_b: null,
     synthesizer: null,
     substrate: ledger.route_intent.substrate ?? 'superpowers-core',
+    transport: 'ccb',
     fallback_policy: 'disabled',
   };
 }
@@ -293,7 +369,7 @@ export function buildQaTraceabilityPayloads(
   runId: string,
   inputs: string[],
   requestedRoute: RequestedRouteRecord,
-  result: AdapterResult<CcbExecuteQaRaw>,
+  result: AdapterResult<CcbExecuteQaRaw | LocalExecuteQaRaw>,
   normalizationPayload: Record<string, unknown>,
 ): ArtifactWrite[] {
   return buildTraceWrites(
@@ -301,7 +377,7 @@ export function buildQaTraceabilityPayloads(
     {
       run_id: runId,
       inputs,
-      adapter_chain: ['ccb'],
+      adapter_chain: [requestedRoute.transport],
       requested_route: requestedRoute,
     },
     result,

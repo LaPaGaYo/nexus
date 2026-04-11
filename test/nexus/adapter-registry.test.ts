@@ -6,18 +6,22 @@ import { applyNormalizationPlan } from '../../lib/nexus/normalizers';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus adapter registry', () => {
-  test('activates only the governed tail seams required for milestone 6', () => {
+  test('activates both governed and local execution seams in the Nexus runtime', () => {
     const registry = getDefaultAdapterRegistry();
 
     expect(registry.discover.pm).toBe('active');
     expect(registry.frame.pm).toBe('active');
     expect(registry.plan.gsd).toBe('active');
     expect(registry.handoff.ccb).toBe('active');
+    expect(registry.handoff.local).toBe('active');
     expect(registry.build.superpowers).toBe('active');
     expect(registry.build.ccb).toBe('active');
+    expect(registry.build.local).toBe('active');
     expect(registry.review.superpowers).toBe('active');
     expect(registry.review.ccb).toBe('active');
+    expect(registry.review.local).toBe('active');
     expect(registry.qa.ccb).toBe('active');
+    expect(registry.qa.local).toBe('active');
     expect(registry.ship.superpowers).toBe('active');
     expect(registry.closeout.gsd).toBe('active');
   });

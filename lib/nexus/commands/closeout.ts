@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger } from '../execution-topology';
 import {
   archiveAuditWorkspace,
   archiveExists,
@@ -59,6 +60,9 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
   const meta = JSON.parse(readFileSync(join(ctx.cwd, metaPath), 'utf8')) as {
     run_id: string;
+    execution_mode?: string;
+    primary_provider?: string;
+    provider_topology?: string;
     implementation_route?: string;
     implementation_substrate?: string;
     implementation?: {
@@ -75,6 +79,14 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const gateDecisionMarkdown = readFileSync(join(ctx.cwd, gateDecisionPath), 'utf8');
 
   assertSameRunId(ledger.run_id, meta.run_id, 'reviewed provenance');
+
+  if (meta.execution_mode && meta.execution_mode !== ledger.execution.mode) {
+    throw new Error('Reviewed execution mode does not match ledger execution mode');
+  }
+
+  if (meta.primary_provider && meta.primary_provider !== ledger.execution.primary_provider) {
+    throw new Error('Reviewed primary provider does not match ledger primary provider');
+  }
 
   const reviewedGenerator = meta.implementation?.requested_route?.generator ?? meta.implementation_route;
   const reviewedSubstrate = meta.implementation?.requested_route?.substrate ?? meta.implementation_substrate;
@@ -133,6 +145,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'closeout',
+      ...executionFieldsFromLedger(ledger),
       state: result.outcome === 'refused' ? 'refused' : 'blocked',
       decision: result.outcome === 'refused' ? 'refused' : 'closeout_recorded',
       ready: false,
@@ -184,6 +197,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'closeout',
+      ...executionFieldsFromLedger(ledger),
       state: result.raw_output.merge_ready ? 'completed' : 'blocked',
       decision: 'closeout_recorded',
       ready: result.raw_output.merge_ready,
@@ -257,6 +271,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'closeout',
+      ...executionFieldsFromLedger(ledger),
       state: 'blocked',
       decision: 'closeout_recorded',
       ready: false,

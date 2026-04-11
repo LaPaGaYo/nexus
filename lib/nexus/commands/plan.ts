@@ -1,5 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildGsdTraceabilityPayloads, normalizeGsdPlan } from '../normalizers/gsd';
 import { makeRunId, readLedger, startLedger } from '../ledger';
@@ -34,7 +35,7 @@ function nextLedger(
 export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
   const existingLedger = readLedger(ctx.cwd);
   const runId = existingLedger?.run_id ?? makeRunId(ctx.clock);
-  const ledger = existingLedger ?? startLedger(runId, 'plan');
+  const ledger = existingLedger ?? startLedger(runId, 'plan', ctx.execution);
   const startedAt = ctx.clock();
   const statusPath = stageStatusPath('plan');
   const manifest = CANONICAL_MANIFEST.plan;
@@ -53,6 +54,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: runId,
       stage: 'plan',
+      ...executionFieldsFromLedger(ledger),
       state: result.outcome === 'refused' ? 'refused' : 'blocked',
       decision: result.outcome === 'refused' ? 'refused' : 'not_ready',
       ready: false,
@@ -89,6 +91,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: runId,
       stage: 'plan',
+      ...executionFieldsFromLedger(ledger),
       state: result.raw_output.ready ? 'completed' : 'blocked',
       decision: result.raw_output.ready ? 'ready' : 'not_ready',
       ready: result.raw_output.ready,
@@ -163,6 +166,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: runId,
       stage: 'plan',
+      ...executionFieldsFromLedger(ledger),
       state: 'blocked',
       decision: 'not_ready',
       ready: false,

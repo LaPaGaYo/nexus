@@ -2252,6 +2252,12 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('global_claude_declined');
   });
 
+  test('setup warns when local_provider is selected but the provider CLI is unavailable', () => {
+    expect(setupContent).toContain('provider CLI missing');
+    expect(setupContent).toContain('/handoff will block until');
+    expect(setupContent).toContain('execution_mode is switched to governed_ccb');
+  });
+
   test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {
     expect(setupContent).toContain('~/.claude/CLAUDE.md');
     expect(setupContent).toContain('nexus-global-claude');

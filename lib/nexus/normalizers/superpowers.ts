@@ -47,7 +47,7 @@ export function buildBuildStageTraceabilityPayloads(
         {
           run_id: runId,
           inputs,
-          adapter_chain: ['superpowers', 'ccb'],
+          adapter_chain: ['superpowers', requestedRoute.transport],
           requested_route: requestedRoute,
           discipline_required: true,
         },

@@ -1,5 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { currentAuditPointer, stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -13,6 +14,7 @@ import {
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
+import type { LocalExecuteAuditRaw } from '../adapters/local';
 import type { SuperpowersReviewDisciplineRaw } from '../adapters/superpowers';
 import type {
   ArtifactPointer,
@@ -50,7 +52,7 @@ function nextLedger(
 }
 
 function blockedReviewStatus(
-  runId: string,
+  ledger: RunLedger,
   startedAt: string,
   inputs: ArtifactPointer[],
   outputs: ArtifactPointer[],
@@ -60,8 +62,9 @@ function blockedReviewStatus(
   state: 'blocked' | 'refused' = 'blocked',
 ): StageStatus {
   return {
-    run_id: runId,
+    run_id: ledger.run_id,
     stage: 'review',
+    ...executionFieldsFromLedger(ledger, actualRoute?.route ?? null),
     state,
     decision: state === 'refused' ? 'refused' : 'audit_recorded',
     ready: false,
@@ -142,7 +145,7 @@ export async function runReviewWithWriteAtomicFile(
       ? 'Superpowers review discipline refused review'
       : 'Superpowers review discipline blocked review';
     const status = blockedReviewStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
@@ -199,7 +202,7 @@ export async function runReviewWithWriteAtomicFile(
   if (!disciplineSummary) {
     const message = 'Review discipline summary is missing';
     const status = blockedReviewStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
@@ -247,7 +250,8 @@ export async function runReviewWithWriteAtomicFile(
     throw new Error(message);
   }
 
-  const auditAResult = await ctx.adapters.ccb.execute_audit_a({
+  const auditAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
+  const auditAResult = await auditAdapter.execute_audit_a({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'review',
@@ -256,8 +260,8 @@ export async function runReviewWithWriteAtomicFile(
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
-  }) as Awaited<ReturnType<typeof ctx.adapters.ccb.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw };
-  const auditBResult = await ctx.adapters.ccb.execute_audit_b({
+  }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
+  const auditBResult = await auditAdapter.execute_audit_b({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'review',
@@ -266,7 +270,7 @@ export async function runReviewWithWriteAtomicFile(
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
-  }) as Awaited<ReturnType<typeof ctx.adapters.ccb.execute_audit_b>> & { raw_output: CcbExecuteAuditRaw };
+  }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_b>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
 
   for (const [label, result] of [
     ['codex', auditAResult] as const,
@@ -274,10 +278,10 @@ export async function runReviewWithWriteAtomicFile(
   ]) {
     if (result.outcome !== 'success') {
       const message = result.outcome === 'refused'
-        ? `CCB ${label} audit refused review`
-        : `CCB ${label} audit blocked review`;
+        ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} ${label} audit refused review`
+        : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} ${label} audit blocked review`;
       const status = blockedReviewStatus(
-        ledger.run_id,
+        ledger,
         startedAt,
         predecessorArtifacts,
         [artifactPointerFor(reviewStatusPath)],
@@ -288,7 +292,7 @@ export async function runReviewWithWriteAtomicFile(
       );
       const conflict: ConflictRecord = {
         stage: 'review',
-        adapter: 'ccb',
+        adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
         kind: 'backend_conflict',
         message,
         canonical_paths: [reviewStatusPath],
@@ -335,7 +339,7 @@ export async function runReviewWithWriteAtomicFile(
   ) {
     const message = 'Requested and actual audit route diverged';
     const status = blockedReviewStatus(
-      ledger.run_id,
+      ledger,
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
@@ -345,7 +349,7 @@ export async function runReviewWithWriteAtomicFile(
     );
     const conflict: ConflictRecord = {
       stage: 'review',
-      adapter: 'ccb',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'route_mismatch',
       message,
       canonical_paths: [reviewStatusPath],
@@ -392,7 +396,10 @@ export async function runReviewWithWriteAtomicFile(
   const gateDecisionMarkdown = buildReviewGateDecisionMarkdown('pass');
   const meta: ReviewMetaRecord = {
     run_id: ledger.run_id,
-    implementation_provider: 'codex',
+    execution_mode: ledger.execution.mode,
+    primary_provider: ledger.execution.primary_provider,
+    provider_topology: ledger.execution.provider_topology,
+    implementation_provider: actualRoute.provider ?? ledger.execution.primary_provider,
     implementation_path: '.planning/current/build/build-result.md',
     implementation_route: requestedRoute.generator,
     implementation_substrate: requestedRoute.substrate,
@@ -403,13 +410,13 @@ export async function runReviewWithWriteAtomicFile(
     },
     audits: {
       codex: {
-        provider: 'codex',
+        provider: requestedCodexRoute.provider ?? ledger.execution.primary_provider,
         path: codexPath,
         requested_route: requestedCodexRoute,
         actual_route: auditAResult.actual_route,
       },
       gemini: {
-        provider: 'gemini',
+        provider: requestedGeminiRoute.provider ?? ledger.execution.primary_provider,
         path: geminiPath,
         requested_route: requestedGeminiRoute,
         actual_route: auditBResult.actual_route,
@@ -420,13 +427,13 @@ export async function runReviewWithWriteAtomicFile(
       summary: disciplineSummary,
     },
     codex_audit: {
-      provider: 'codex',
+      provider: requestedCodexRoute.provider ?? ledger.execution.primary_provider,
       path: codexPath,
       route: requestedCodexRoute.route,
       substrate: requestedCodexRoute.substrate,
     },
     gemini_audit: {
-      provider: 'gemini',
+      provider: requestedGeminiRoute.provider ?? ledger.execution.primary_provider,
       path: geminiPath,
       route: requestedGeminiRoute.route,
       substrate: requestedGeminiRoute.substrate,
@@ -449,6 +456,7 @@ export async function runReviewWithWriteAtomicFile(
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'review',
+    ...executionFieldsFromLedger(ledger, actualRoute.route),
     state: 'completed',
     decision: 'audit_recorded',
     ready: true,

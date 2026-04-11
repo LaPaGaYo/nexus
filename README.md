@@ -47,14 +47,16 @@ Governed work is recorded in `lib/nexus/` and `.planning/`.
 
 ## How it runs
 
-The intended operating path requires a live tmux + CCB session first:
+Nexus supports two explicit execution modes.
+
+### `governed_ccb`
+
+Use this when you want the full governed cross-provider path.
 
 1. Start `tmux`
 2. Inside tmux, run `ccb codex gemini claude`
 3. Enter the Claude session
 4. Then operate through Nexus from Claude
-
-The intended operating path is then:
 
 **Human → Claude → Nexus → CCB → Codex/Gemini**
 
@@ -63,6 +65,17 @@ The intended operating path is then:
 - Nexus owns commands, lifecycle, artifacts, and governance
 - Nexus dispatches external model work through CCB when needed
 - repo-visible Nexus artifacts remain the only governed truth source
+
+### `local_provider`
+
+Use this when you do not want to install or run CCB.
+
+**Human → Claude/Codex/Gemini → Nexus → local provider CLI**
+
+- Nexus still owns commands, lifecycle, artifacts, and governance
+- repo-visible Nexus artifacts remain the only lifecycle truth
+- the active local runtime defaults to `single_agent`
+- `subagents` and `multi_session` remain reserved topology values for later activation
 
 ## Quick start
 
@@ -83,7 +96,9 @@ Canonical lifecycle:
 
 ## Install
 
-**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+, [tmux](https://github.com/tmux/tmux/wiki), [CCB](https://github.com/bfly123/claude_code_bridge), [Node.js](https://nodejs.org/) on Windows
+**Base requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or another supported host, [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+, [Node.js](https://nodejs.org/) on Windows
+
+**Additional governed-mode requirements:** [tmux](https://github.com/tmux/tmux/wiki) and [CCB](https://github.com/bfly123/claude_code_bridge)
 
 ### Step 1: Install Nexus on your machine
 
@@ -95,6 +110,12 @@ cd ~/.claude/skills/nexus && ./setup
 ```
 
 If `~/.claude/skills/nexus` already exists, do not clone over it. Run `/nexus-upgrade` instead.
+
+If `ask` / CCB is not installed, Nexus automatically chooses `local_provider`
+mode. If `ask` is installed, the default remains `governed_ccb`.
+If neither CCB nor the selected local provider CLI is available, Nexus does not
+silently continue. `/handoff` records a blocked route decision until you either
+install CCB or configure a working local provider binary.
 
 During interactive Claude installs, `./setup` can also offer to add a concise
 Nexus-managed section to `~/.claude/CLAUDE.md` for cross-project defaults.
@@ -114,6 +135,23 @@ If you want Claude to do the install for you, open Claude Code and paste this:
 > - Legacy aliases **`/office-hours`**, **`/plan-ceo-review`**, **`/plan-eng-review`**, and **`/autoplan`** are compatibility-only.
 >
 > Then ask the user if they also want to add Nexus to the current project so teammates get it.
+
+### Choose or override execution mode
+
+Nexus reads execution defaults from `~/.nexus/config.yaml` via `nexus-config`:
+
+```bash
+nexus-config set execution_mode governed_ccb
+nexus-config set execution_mode local_provider
+nexus-config set primary_provider claude
+nexus-config set provider_topology single_agent
+```
+
+Practical defaults:
+
+- `governed_ccb` if `ask` is installed
+- `local_provider` if `ask` is missing
+- `primary_provider` auto-detects `claude`, then `codex`, then `gemini`
 
 ### Step 2: Add Nexus to your repo so teammates get it
 

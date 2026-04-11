@@ -1,5 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
+import { executionFieldsFromLedger } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -13,6 +14,7 @@ import {
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
+import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
@@ -58,10 +60,12 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     ...ledger,
     route_intent: {
       planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
-      generator: ledger.route_intent.generator ?? 'codex-via-ccb',
-      evaluator_a: ledger.route_intent.evaluator_a ?? 'codex-via-ccb',
-      evaluator_b: ledger.route_intent.evaluator_b ?? 'gemini-via-ccb',
-      synthesizer: ledger.route_intent.synthesizer ?? 'claude',
+      generator: ledger.route_intent.generator,
+      evaluator_a: ledger.route_intent.evaluator_a,
+      evaluator_b: ledger.route_intent.evaluator_b,
+      synthesizer: ledger.route_intent.synthesizer ?? (ledger.execution.mode === 'local_provider'
+        ? ledger.execution.primary_provider
+        : 'claude'),
       substrate: ledger.route_intent.substrate ?? 'superpowers-core',
       fallback_policy: 'disabled',
     },
@@ -69,7 +73,8 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const routingPath = '.planning/current/handoff/governed-execution-routing.md';
   const handoffPath = '.planning/current/handoff/governed-handoff.md';
   const statusPath = stageStatusPath('handoff');
-  const result = await ctx.adapters.ccb.resolve_route({
+  const routeAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
+  const result = await routeAdapter.resolve_route({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'handoff',
@@ -78,17 +83,17 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: [artifactPointerFor(planStatusPath)],
     requested_route: requestedRoute,
-  }) as Awaited<ReturnType<typeof ctx.adapters.ccb.resolve_route>> & { raw_output: CcbResolveRouteRaw };
+  }) as Awaited<ReturnType<typeof routeAdapter.resolve_route>> & { raw_output: CcbResolveRouteRaw | LocalResolveRouteRaw };
   const routeValidation = result.outcome === 'success'
     ? normalizeHandoffRouteValidation(requestedRoute, result)
     : {
         route_validation: {
-          transport: 'ccb' as const,
+          transport: requestedRoute.transport,
           available: false,
           approved: false,
           reason: result.outcome === 'refused'
-            ? 'CCB route validation refused the governed route'
-            : 'CCB route validation blocked the governed route',
+            ? `${requestedRoute.transport === 'local' ? 'Local provider' : 'CCB'} route validation refused the requested route`
+            : `${requestedRoute.transport === 'local' ? 'Local provider' : 'CCB'} route validation blocked the requested route`,
         },
         approved: false,
       };
@@ -111,6 +116,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'handoff',
+    ...executionFieldsFromLedger(ledger),
     state: result.outcome === 'refused'
       ? 'refused'
       : routeValidation.approved
@@ -129,6 +135,10 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const next = nextLedger(
     {
       ...ledger,
+      execution: {
+        ...ledger.execution,
+        requested_path: requestedRoute.generator ?? ledger.execution.requested_path,
+      },
       route_intent: {
         planner: requestedRoute.planner,
         generator: requestedRoute.generator,
@@ -153,7 +163,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   if (result.outcome !== 'success' || routeValidation.approved !== true) {
     const conflict: ConflictRecord = {
       stage: 'handoff',
-      adapter: 'ccb',
+      adapter: requestedRoute.transport === 'local' ? 'local' : 'ccb',
       kind: 'backend_conflict',
       message: routeValidation.route_validation.reason,
       canonical_paths: [routingPath, handoffPath, statusPath],
@@ -174,7 +184,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         [planStatusPath],
         {
-          adapter: 'ccb',
+          adapter: requestedRoute.transport === 'local' ? 'local' : 'ccb',
           stage: 'handoff',
           requested_route: requestedRoute,
         },
@@ -190,7 +200,11 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
-    throw new Error('Governed route is not approved by Nexus');
+    throw new Error(
+      requestedRoute.transport === 'local'
+        ? 'Local provider route is not approved by Nexus'
+        : 'Governed route is not approved by Nexus',
+    );
   }
 
   await applyNormalizationPlan({
@@ -203,7 +217,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       ledger.run_id,
       [planStatusPath],
       {
-        adapter: 'ccb',
+        adapter: requestedRoute.transport === 'local' ? 'local' : 'ccb',
         stage: 'handoff',
         requested_route: requestedRoute,
       },
