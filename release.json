@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
   "product": "nexus",
-  "version": "1.0.7",
-  "tag": "v1.0.7",
+  "version": "1.0.8",
+  "tag": "v1.0.8",
   "channel": "stable",
   "published_at": "2026-04-11T00:00:00Z",
-  "release_notes_path": "docs/releases/2026-04-11-nexus-v1.0.7.md",
+  "release_notes_path": "docs/releases/2026-04-11-nexus-v1.0.8.md",
   "bundle": {
     "type": "tar.gz",
-    "url": "https://github.com/LaPaGaYo/nexus/archive/refs/tags/v1.0.7.tar.gz"
+    "url": "https://github.com/LaPaGaYo/nexus/archive/refs/tags/v1.0.8.tar.gz"
   },
   "compatibility": {
-    "upgrade_from_min_version": "1.0.6",
+    "upgrade_from_min_version": "1.0.7",
     "requires_setup": true
   }
 }
