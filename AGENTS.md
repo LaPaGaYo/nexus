@@ -1,12 +1,12 @@
-# Nexus — AI Engineering Workflow
+# Nexus — Agent Surface
 
-Nexus is a single-package AI engineering operating system.
-Claude remains the only interactive front door. Nexus owns the lifecycle,
-artifacts, governance, and project progression.
+This file mirrors the public Nexus command surface for non-Claude hosts.
+Claude follows `CLAUDE.md`; other agents can use this file to stay aligned with the
+same Nexus-owned lifecycle and support surface.
 
 ## Canonical Nexus lifecycle
 
-Skills live in `.agents/skills/`. Invoke canonical Nexus commands first.
+Invoke canonical Nexus commands first.
 
 | Skill | What it does |
 |-------|-------------|
@@ -25,7 +25,7 @@ Skills live in `.agents/skills/`. Invoke canonical Nexus commands first.
 | Skill | What it does |
 |-------|-------------|
 | `/design-consultation` | Build a complete design system from scratch. |
-| `/debug` | Systematic root-cause debugging. No fixes without investigation. |
+| `/investigate` | Systematic root-cause debugging. No fixes without investigation. |
 | `/design-review` | Design audit + fix loop with atomic commits. |
 | `/qa-only` | Same as /qa but report only — no code changes. |
 | `/document-release` | Update all docs to match what you just shipped. |
@@ -59,7 +59,7 @@ bun run skill:check      # health dashboard for all skills
 
 ## Key conventions
 
-- SKILL.md files are **generated** from `.tmpl` templates. Edit the template, not the output.
+- `SKILL.md` files are generated from `.tmpl` templates. Edit the template, not the output.
 - Run `bun run gen:skill-docs --host codex` to regenerate Codex-specific output.
 - The browse binary provides headless browser access. Use `$B <command>` in skills.
 - Safety skills (careful, freeze, guard) use inline advisory prose — always confirm before destructive operations.

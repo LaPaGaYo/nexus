@@ -68,8 +68,15 @@ describe('nexus product surface contract', () => {
 
   test('agent-facing docs keep canonical Nexus lifecycle commands primary', () => {
     const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8');
+    const claude = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
     const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
     const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
+
+    expect(claude).toContain('Claude-facing project instructions');
+    expect(claude).toContain('## Nexus Skill Routing');
+    expect(claude).toContain('invoke investigate');
+    expect(claude).toContain('invoke browse');
+    expect(claude).not.toContain('.agents/skills/');
 
     expect(agents).toContain('## Canonical Nexus lifecycle');
     expect(agents).toContain('| `/discover` |');
@@ -81,6 +88,7 @@ describe('nexus product surface contract', () => {
     expect(agents).toContain('| `/qa` |');
     expect(agents).toContain('| `/ship` |');
     expect(agents).toContain('| `/closeout` |');
+    expect(agents).toContain('| `/investigate` |');
     expect(agents).toContain('## Legacy compatibility aliases');
     expect(agents).not.toContain('Invoke them by name (e.g., `/office-hours`)');
 

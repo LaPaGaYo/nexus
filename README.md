@@ -107,11 +107,11 @@ If you want Claude to do the install for you, open Claude Code and paste this:
 > Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`/nexus-upgrade`** instead. After the install or upgrade finishes, make sure the global **`CLAUDE.md`** routes Claude through Nexus. If setup did not already offer to update it, add a **`Nexus`** section that says:
 >
 > - Claude is the only interactive front door.
-> - Route product work through **`/discover`**, **`/frame`**, **`/plan`**, **`/handoff`**, **`/build`**, **`/review`**, **`/qa`**, **`/ship`**, and **`/closeout`**.
+> - When a repository exposes canonical Nexus commands, route lifecycle work through **`/discover`**, **`/frame`**, **`/plan`**, **`/handoff`**, **`/build`**, **`/review`**, **`/qa`**, **`/ship`**, and **`/closeout`**.
+> - Keep global **`CLAUDE.md`** limited to cross-project defaults. Keep project-specific workflow and architecture in the repository **`CLAUDE.md`**, **`.claude/rules/`**, or skills.
 > - Use **`/browse`** from Nexus for all web browsing.
 > - Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.
 > - Legacy aliases **`/office-hours`**, **`/plan-ceo-review`**, **`/plan-eng-review`**, and **`/autoplan`** are compatibility-only.
-> - Additional Nexus utility skills available include **`/connect-chrome`**, **`/setup-browser-cookies`**, **`/setup-deploy`**, **`/document-release`**, **`/retro`**, **`/investigate`**, **`/land-and-deploy`**, **`/canary`**, **`/benchmark`**, **`/careful`**, **`/freeze`**, **`/guard`**, **`/unfreeze`**, **`/nexus-upgrade`**, **`/learn`**, and **`/cso`**.
 >
 > Then ask the user if they also want to add Nexus to the current project so teammates get it.
 
@@ -129,7 +129,7 @@ cd .claude/skills/nexus && ./setup
 
 This must be a real repo copy, not a submodule and not just a symlink.
 
-Then update the project `CLAUDE.md` so it stays Nexus-first: canonical lifecycle commands come first, `/browse` stays the web tool, `mcp__claude-in-chrome__*` stays disallowed unless explicitly requested, and legacy aliases are documented only as compatibility entries.
+Then update the project `CLAUDE.md` so it stays Nexus-first, and use `.claude/rules/` for heavier or path-scoped project guidance. Canonical lifecycle commands come first, `/browse` stays the web tool, `mcp__claude-in-chrome__*` stays disallowed unless explicitly requested, and legacy aliases are documented only as compatibility entries.
 
 ### Other hosts
 

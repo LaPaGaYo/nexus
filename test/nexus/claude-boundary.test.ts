@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = join(import.meta.dir, '..', '..');
@@ -9,7 +9,7 @@ describe('nexus claude boundary', () => {
     const content = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
     const routingSection = content.slice(
       content.indexOf('## Nexus Skill Routing'),
-      content.indexOf('\n## Commands'),
+      content.indexOf('\n## Project Truths'),
     );
     const normalizedSection = routingSection.replace(/\s+/g, ' ');
 
@@ -18,6 +18,9 @@ describe('nexus claude boundary', () => {
       'Contracts, transitions, governed artifacts, and lifecycle truth are owned by `lib/nexus/` and canonical `.planning/` artifacts.',
     );
     expect(routingSection).not.toMatch(/current-run\.json|status\.json|ready\/blocked\/refused/i);
+    expect(content.split('\n').length).toBeLessThan(200);
+    expect(content).toContain('.claude/rules/');
+    expect(content).not.toContain('.agents/skills/');
   });
 
   test('generated canonical wrappers do not ship gstack-owned routing contract language', () => {
@@ -29,5 +32,18 @@ describe('nexus claude boundary', () => {
     expect(content).not.toContain('gstack follows the **Boil the Lake** principle');
     expect(content).toContain('Nexus follows the **Boil the Lake** principle');
     expect(content).not.toContain('specialized workflows that produce better results than ad-hoc answers');
+  });
+
+  test('Claude-facing maintenance guidance is split into topic rules', () => {
+    expect(existsSync(join(ROOT, '.claude', 'rules', 'maintainer-surface.md'))).toBe(true);
+    expect(existsSync(join(ROOT, '.claude', 'rules', 'skill-authoring.md'))).toBe(true);
+
+    const maintainerRule = readFileSync(join(ROOT, '.claude', 'rules', 'maintainer-surface.md'), 'utf8');
+    const skillRule = readFileSync(join(ROOT, '.claude', 'rules', 'skill-authoring.md'), 'utf8');
+
+    expect(maintainerRule).toContain('paths:');
+    expect(maintainerRule).toContain('release-based');
+    expect(skillRule).toContain('SKILL.md');
+    expect(skillRule).toContain('bun run gen:skill-docs --host codex');
   });
 });
