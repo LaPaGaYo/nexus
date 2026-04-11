@@ -237,6 +237,7 @@ const report = maintainerLoop.buildMaintainerLoopReport({
     preflightStatus: preflight.status,
     remoteSmokeStatus: remoteState.remoteSmokeStatus,
   }),
+  unpublished_local_release: preflight.status === 'ready' && !((process.env.NEXUS_EXISTING_TAGS ?? '').split('\n').filter(Boolean).includes(manifest.tag)),
   local_release_drift: localReleaseDrift,
   published_release_missing: remoteState.publishedReleaseMissing,
 });

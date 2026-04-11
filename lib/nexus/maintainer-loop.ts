@@ -111,6 +111,7 @@ export function buildMaintainerLoopReport(input: {
   generatedAt: string;
   upstreams: MaintainerLoopReport['upstreams'];
   release: MaintainerLoopReport['release'];
+  unpublished_local_release?: boolean;
   local_release_drift?: boolean;
   published_release_missing?: boolean;
 }): MaintainerLoopReport {
@@ -172,7 +173,7 @@ export function buildMaintainerLoopReport(input: {
     });
   }
 
-  if (input.local_release_drift === true && input.release.preflight_status === 'ready' && input.published_release_missing) {
+  if (input.release.preflight_status === 'ready' && (input.unpublished_local_release === true || input.published_release_missing)) {
     return validateMaintainerLoopReport({
       schema_version: 1,
       generated_at: input.generatedAt,

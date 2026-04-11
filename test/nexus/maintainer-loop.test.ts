@@ -105,8 +105,29 @@ describe('nexus maintainer loop contract', () => {
         preflight_status: 'ready',
         remote_smoke_status: 'unknown',
       },
+      unpublished_local_release: true,
       local_release_drift: true,
       published_release_missing: true,
+    });
+
+    expect(report.status).toBe('action_required');
+    expect(report.next_action).toBe('publish_release');
+  });
+
+  test('requests release publication when local release markers are ready and the tag is not created yet', () => {
+    const report = buildMaintainerLoopReport({
+      generatedAt: '2026-04-10T12:00:00.000Z',
+      upstreams: {
+        pending_refresh_candidates: [],
+        behind_upstreams: [],
+      },
+      release: {
+        current_version: '1.0.2',
+        current_tag: 'v1.0.2',
+        preflight_status: 'ready',
+        remote_smoke_status: 'unknown',
+      },
+      unpublished_local_release: true,
     });
 
     expect(report.status).toBe('action_required');
