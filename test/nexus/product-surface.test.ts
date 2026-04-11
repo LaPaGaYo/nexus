@@ -177,4 +177,25 @@ describe('nexus product surface contract', () => {
     expect(REMOVED_LEGACY_RUNTIME_IDENTITIES).toContain('.gstack-worktrees');
     expect(HISTORICAL_LEGACY_REFERENCES).toEqual(['archived docs and closeouts']);
   });
+
+  test('maintainer runbooks and workflow route through the unified Nexus maintainer check', () => {
+    const upstreamRunbook = readFileSync(join(ROOT, 'docs', 'superpowers', 'runbooks', 'upstream-refresh.md'), 'utf8');
+    const releaseRunbook = readFileSync(join(ROOT, 'docs', 'superpowers', 'runbooks', 'nexus-release-publish.md'), 'utf8');
+    const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'maintainer-loop.yml'), 'utf8');
+
+    expect(upstreamRunbook).toContain('bun run maintainer:check');
+    expect(upstreamRunbook).toContain('upstream-notes/maintainer-status.json');
+    expect(upstreamRunbook).toContain('upstream-notes/maintainer-status.md');
+
+    expect(releaseRunbook).toContain('bun run maintainer:check');
+    expect(releaseRunbook).toContain('./bin/nexus-release-preflight');
+    expect(releaseRunbook).toContain('./bin/nexus-release-smoke');
+
+    expect(workflow).toContain('workflow_dispatch');
+    expect(workflow).toContain('schedule:');
+    expect(workflow).toContain('bun run upstream:check');
+    expect(workflow).toContain('bun run maintainer:check');
+    expect(workflow).toContain('NEXUS_REMOTE_RELEASE_MODE: live');
+    expect(workflow).toContain('does not define repository truth');
+  });
 });

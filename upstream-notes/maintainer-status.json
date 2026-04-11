@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-11T04:05:33.932Z",
+  "status": "action_required",
+  "next_action": "review_refresh_candidate",
+  "summary": "1 upstream refresh candidate needs maintainer review.",
+  "issues": [
+    "pm-skills refresh candidate pending review"
+  ],
+  "recommendations": [
+    "Review upstream-notes/refresh-candidates/pm-skills.md"
+  ],
+  "upstreams": {
+    "pending_refresh_candidates": [
+      "pm-skills"
+    ],
+    "behind_upstreams": [
+      "gsd"
+    ]
+  },
+  "release": {
+    "current_version": "1.0.1",
+    "current_tag": "v1.0.1",
+    "preflight_status": "blocked",
+    "remote_smoke_status": "unknown"
+  }
+}

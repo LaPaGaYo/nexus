@@ -25,6 +25,7 @@ Write or update the release notes for the release you are publishing before crea
 Run these before creating the tag:
 
 ```bash
+bun run maintainer:check
 bun test test/nexus/release-publish.test.ts test/nexus/release-remote.test.ts
 ./bin/nexus-release-preflight
 ```
@@ -58,5 +59,11 @@ Use the published tag as the source of truth for the release artifact:
 Do not publish a release if the version markers disagree or if the release notes path in `release.json` does not match the notes you intend to ship.
 
 ## Maintainer Check
+
+Use the unified maintainer report before and after publication:
+
+- `bun run maintainer:check`
+- machine-readable report: `upstream-notes/maintainer-status.json`
+- human-readable report: `upstream-notes/maintainer-status.md`
 
 After publication, verify that the released `release.json` matches the tag and that the release notes are reachable from the GitHub Release page. If any mismatch appears, treat it as a maintainer publishing error, not a runtime upgrade issue.

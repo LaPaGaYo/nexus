@@ -13,6 +13,19 @@ Run `upstream:check` when you need a freshness snapshot for the imported upstrea
 
 `upstream:check` updates the maintenance lock and `upstream-notes/update-status.md`. It does not change Nexus-owned runtime assets.
 
+After `upstream:check`, run the unified maintainer report:
+
+```bash
+bun run maintainer:check
+```
+
+Treat these as the maintainer report outputs:
+
+- machine-readable: `upstream-notes/maintainer-status.json`
+- human-readable: `upstream-notes/maintainer-status.md`
+
+Those files are derived from repo-visible maintenance and release inputs. Console output, chat state, and GitHub workflow logs remain notification surfaces only.
+
 ## When To Run `upstream:refresh`
 
 Run `upstream:refresh <name>` only after a maintainer decides the checked snapshot should be staged for review.
@@ -75,6 +88,15 @@ Do not release when the refresh only changes imported source material or maintai
 - maintainer absorption-review labels that do not alter Nexus-owned assets
 
 Do not release for `ignore` or `defer` decisions unless a separate Nexus-owned asset also changed.
+
+If the refresh does change Nexus-owned assets, re-run:
+
+```bash
+bun run maintainer:check
+./bin/nexus-release-preflight
+```
+
+Do not jump straight from a refresh candidate to a publish decision without updating the maintainer report first.
 
 ## CCB Boundary
 
