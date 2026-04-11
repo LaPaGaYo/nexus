@@ -183,6 +183,14 @@ describe('nexus product surface contract', () => {
     expect(nexusUpdateCheck).not.toContain('GSTACK_STATE_DIR');
   });
 
+  test('live command runtime does not retain the Milestone 1 placeholder dispatcher path', () => {
+    const commandIndex = readFileSync(join(ROOT, 'lib', 'nexus', 'commands', 'index.ts'), 'utf8');
+
+    expect(commandIndex).not.toContain('runPlaceholder');
+    expect(commandIndex).not.toContain('not implemented in Nexus v0.1');
+    expect(commandIndex).not.toContain('PLACEHOLDER_OUTCOME');
+  });
+
   test('legacy runtime identity is constrained to removed or historical references only', () => {
     expect(REMOVED_LEGACY_RUNTIME_IDENTITIES).toContain('~/.gstack');
     expect(REMOVED_LEGACY_RUNTIME_IDENTITIES).toContain('.gstack-worktrees');
