@@ -68,17 +68,17 @@ of `/qa`, `/nexus-ship` instead of `/ship`). Disk paths are unaffected — alway
 
 If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/nexus/nexus-upgrade/SKILL.md` and follow the release-based "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). `/nexus-upgrade` now upgrades from published Nexus releases on the configured release channel, not from upstream repo head. If `JUST_UPGRADED <from> <to>`: tell user "Running Nexus v{to} (just updated!)" and continue.
 
-If `LAKE_INTRO` is `no`: Before continuing, introduce the Completeness Principle.
-Tell the user: "Nexus follows the **Boil the Lake** principle — always do the complete
-thing when AI makes the marginal cost near-zero. Read more: https://garryslist.org/posts/boil-the-ocean"
-Then offer to open the essay in their default browser:
+If `LAKE_INTRO` is `no`: Before continuing, introduce the Nexus Completeness Principle.
+Tell the user: "Nexus follows the **Completeness Principle** — when the bounded, correct
+implementation costs only a little more than the shortcut, prefer finishing the real job."
+
+Then run:
 
 ```bash
-open https://garryslist.org/posts/boil-the-ocean
 touch ~/.nexus/.completeness-intro-seen
 ```
 
-Only run `open` if the user says yes. Always run `touch` to mark as seen. This only happens once.
+This only happens once.
 
 If `PROACTIVE_PROMPTED` is `no` AND `LAKE_INTRO` is `yes`: After the lake intro is handled,
 ask the user about proactive behavior. Use AskUserQuestion:

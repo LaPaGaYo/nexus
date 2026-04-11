@@ -30,7 +30,8 @@ describe('nexus claude boundary', () => {
     expect(content).toContain('## Nexus Skill Routing');
     expect(content).not.toContain('gstack works best when');
     expect(content).not.toContain('gstack follows the **Boil the Lake** principle');
-    expect(content).toContain('Nexus follows the **Boil the Lake** principle');
+    expect(content).toContain('Nexus follows the **Completeness Principle**');
+    expect(content).not.toContain('garryslist.org');
     expect(content).not.toContain('specialized workflows that produce better results than ad-hoc answers');
   });
 

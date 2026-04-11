@@ -2401,10 +2401,11 @@ describe('preamble privacy surface', () => {
 
   test('generated SKILL.md uses Nexus-primary preamble prose', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('Nexus follows the **Boil the Lake** principle');
+    expect(content).toContain('Nexus follows the **Completeness Principle**');
     expect(content).toContain('Nexus can proactively figure out when you might need a skill while you work');
     expect(content).toContain('Running Nexus v{to} (just updated!)');
     expect(content).not.toContain('Running gstack v{to} (just updated!)');
+    expect(content).not.toContain('garryslist.org');
   });
 
   test('telemetry blocks do not appear in skill files that use PREAMBLE', () => {

@@ -79,17 +79,17 @@ If output shows \`UPGRADE_AVAILABLE <old> <new>\`: read \`${ctx.paths.skillRoot}
 }
 
 function generateLakeIntro(): string {
-  return `If \`LAKE_INTRO\` is \`no\`: Before continuing, introduce the Completeness Principle.
-Tell the user: "Nexus follows the **Boil the Lake** principle — always do the complete
-thing when AI makes the marginal cost near-zero. Read more: https://garryslist.org/posts/boil-the-ocean"
-Then offer to open the essay in their default browser:
+  return `If \`LAKE_INTRO\` is \`no\`: Before continuing, introduce the Nexus Completeness Principle.
+Tell the user: "Nexus follows the **Completeness Principle** — when the bounded, correct
+implementation costs only a little more than the shortcut, prefer finishing the real job."
+
+Then run:
 
 \`\`\`bash
-open https://garryslist.org/posts/boil-the-ocean
 touch ~/.nexus/.completeness-intro-seen
 \`\`\`
 
-Only run \`open\` if the user says yes. Always run \`touch\` to mark as seen. This only happens once.`;
+This only happens once.`;
 }
 
 function generateProactivePrompt(ctx: TemplateContext): string {
@@ -175,9 +175,9 @@ Per-skill instructions may add additional formatting rules on top of this baseli
 }
 
 function generateCompletenessSection(): string {
-  return `## Completeness Principle — Boil the Lake
+  return `## Nexus Completeness Principle
 
-AI makes completeness near-free. Always recommend the complete option over shortcuts — the delta is minutes with CC+Nexus. A "lake" (100% coverage, all edge cases) is boilable; an "ocean" (full rewrite, multi-quarter migration) is not. Boil lakes, flag oceans.
+AI makes completeness near-free. Always recommend the complete option over shortcuts when the work is bounded and governable — the delta is minutes with CC+Nexus. Finish bounded work completely; explicitly flag unbounded rewrites and multi-quarter migrations instead of pretending they are the same kind of task.
 
 **Effort reference** — always show both scales:
 

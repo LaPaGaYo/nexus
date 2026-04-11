@@ -18,9 +18,9 @@
 
 ### First-time Search Before Building intro
 
-**What:** Add a `generateSearchIntro()` function (like `generateLakeIntro()`) that introduces the Search Before Building principle on first use, with a link to the blog essay.
+**What:** Add a `generateSearchIntro()` function (like `generateLakeIntro()`) that introduces the Search Before Building principle on first use, with a Nexus-owned explanation.
 
-**Why:** Boil the Lake has an intro flow that links to the essay and marks `.completeness-intro-seen`. Search Before Building should have the same pattern for discoverability.
+**Why:** The Nexus Completeness Principle now has a first-use intro flow and marks `.completeness-intro-seen`. Search Before Building should have the same discoverability pattern.
 
 **Context:** Blocked on a blog post to link to. When the essay exists, add the intro flow with a `.search-intro-seen` marker file. Pattern: `generateLakeIntro()` at gen-skill-docs.ts:176.
 
@@ -36,7 +36,7 @@
 
 **Why:** Right now, headed mode launches a fresh Chromium profile. Users must log in manually or import cookies. Chrome DevTools MCP connects to the user's actual Chrome ... instant access to every authenticated site. This is the future of browser automation for AI agents.
 
-**Context:** Google shipped Chrome DevTools MCP in Chrome 146+ (June 2025). It provides screenshots, console messages, performance traces, Lighthouse audits, and full page interaction through the user's real browser. gstack should use it for real-session access while keeping Playwright for headless CI/testing workflows.
+**Context:** Google shipped Chrome DevTools MCP in Chrome 146+ (June 2025). It provides screenshots, console messages, performance traces, Lighthouse audits, and full page interaction through the user's real browser. Nexus should use it for real-session access while keeping Playwright for headless CI/testing workflows.
 
 Potential new skills:
 - `/debug-browser`: JS error tracing with source-mapped stack traces
@@ -602,15 +602,15 @@ Shipped in v0.8.3. Step 8.5 added to `/ship` — after creating the PR, `/ship` 
 
 ### Completeness metrics dashboard
 
-**What:** Track how often Claude chooses the complete option vs shortcut across gstack sessions. Aggregate into a dashboard showing completeness trend over time.
+**What:** Track how often Claude chooses the complete option vs shortcut across Nexus sessions. Aggregate into a dashboard showing completeness trend over time.
 
-**Why:** Without measurement, we can't know if the Completeness Principle is working. Could surface patterns (e.g., certain skills still bias toward shortcuts).
+**Why:** Without measurement, we can't know if the Nexus Completeness Principle is working. Could surface patterns (e.g., certain skills still bias toward shortcuts).
 
 **Context:** Would require logging choices (e.g., append to a JSONL file when AskUserQuestion resolves), parsing them, and displaying trends. Similar pattern to eval persistence.
 
 **Effort:** M (human) / S (CC)
 **Priority:** P3
-**Depends on:** Boil the Lake shipped (v0.6.1)
+**Depends on:** Nexus Completeness Principle shipped (v0.6.1)
 
 ## Safety & Observability
 

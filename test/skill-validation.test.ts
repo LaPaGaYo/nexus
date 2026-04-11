@@ -975,8 +975,9 @@ describe('Completeness Principle in generated SKILL.md files', () => {
   for (const skill of skillsWithPreamble) {
     test(`${skill} contains Completeness Principle section`, () => {
       const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
-      expect(content).toContain('Completeness Principle');
-      expect(content).toContain('Boil the Lake');
+      expect(content).toContain('Nexus Completeness Principle');
+      expect(content).not.toContain('Boil the Lake');
+      expect(content).not.toContain('garryslist.org');
     });
   }
 
