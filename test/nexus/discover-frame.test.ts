@@ -111,6 +111,27 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('default discover and frame outputs use Nexus-owned absorbed stage content', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('discover');
+      await run('frame');
+
+      expect(await run.readFile('docs/product/idea-brief.md')).toContain(
+        'Nexus-owned discovery guidance for clarifying the problem before framing.',
+      );
+      expect(await run.readFile('docs/product/idea-brief.md')).toContain('capture goals');
+      expect(await run.readFile('docs/product/idea-brief.md')).toContain(
+        'Advance to `/frame` only after Nexus writes the discovery artifacts.',
+      );
+
+      expect(await run.readFile('docs/product/decision-brief.md')).toContain(
+        'Nexus-owned framing guidance for scope, non-goals, and success criteria.',
+      );
+      expect(await run.readFile('docs/product/decision-brief.md')).toContain('define scope');
+      expect(await run.readFile('docs/product/prd.md')).toContain('define success criteria');
+    });
+  });
+
   test('blocks discover when normalized PM output is malformed', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({

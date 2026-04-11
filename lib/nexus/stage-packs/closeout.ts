@@ -1,4 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildCloseoutRecord } from '../absorption/gsd/closeout';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusCloseoutStagePack {
@@ -18,7 +19,7 @@ export function createCloseoutStagePack(): NexusCloseoutStagePack {
     stage: 'closeout',
     absorbed_capability: 'gsd-closeout',
     source_binding,
-    buildCloseoutRecord: (_ctx) => '# Closeout Record\n\nResult: merge ready\n',
+    buildCloseoutRecord: (ctx) => buildCloseoutRecord(ctx),
     traceability: () => ({
       nexus_stage_pack: 'nexus-closeout-pack',
       absorbed_capability: 'gsd-closeout',

@@ -1,5 +1,6 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
 import { getStagePackSourceMap } from '../../stage-packs';
+import { getAbsorbedStageSections } from '../render';
 
 export function buildSuperpowersBuildTraceability(): AdapterTraceability {
   return {
@@ -10,5 +11,11 @@ export function buildSuperpowersBuildTraceability(): AdapterTraceability {
 }
 
 export function buildVerificationSummary(_ctx: NexusAdapterContext): string {
-  return 'TDD checks passed';
+  const sections = getAbsorbedStageSections('build');
+
+  return [
+    sections.overview,
+    ...sections.checklist,
+    sections.routing,
+  ].join('; ');
 }

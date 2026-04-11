@@ -1,4 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildPmDiscoverIdeaBrief } from '../absorption/pm/discover';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusDiscoverStagePack {
@@ -18,7 +19,7 @@ export function createDiscoverStagePack(): NexusDiscoverStagePack {
     stage: 'discover',
     absorbed_capability: 'pm-discover',
     source_binding,
-    buildIdeaBrief: (_ctx) => '# Idea Brief\n\nProblem: normalized by Nexus\n',
+    buildIdeaBrief: (ctx) => buildPmDiscoverIdeaBrief(ctx),
     traceability: () => ({
       nexus_stage_pack: 'nexus-discover-pack',
       absorbed_capability: 'pm-discover',

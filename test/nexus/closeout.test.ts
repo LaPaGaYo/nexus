@@ -20,6 +20,15 @@ describe('nexus closeout', () => {
         archive_required: true,
         archive_state: 'archived',
       });
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'Nexus-owned closeout guidance for archive verification, provenance consistency, and final readiness.',
+      );
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'verify audit completeness',
+      );
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'Closeout is the final governed conclusion of the work unit and must remain blocked if archive or provenance checks are inconsistent.',
+      );
       expect(readFileSync(join(cwd, '.planning/audits/archive', closeout.run_id, 'meta.json'), 'utf8')).toContain(
         closeout.run_id,
       );

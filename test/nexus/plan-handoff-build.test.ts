@@ -86,6 +86,21 @@ describe('nexus plan -> handoff -> build', () => {
     });
   });
 
+  test('default plan artifacts use Nexus-owned absorbed stage content', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+
+      expect(await run.readFile('.planning/current/plan/execution-readiness-packet.md')).toContain(
+        'Nexus-owned planning guidance for execution readiness and bounded scope.',
+      );
+      expect(await run.readFile('.planning/current/plan/execution-readiness-packet.md')).toContain('verify framing inputs');
+      expect(await run.readFile('.planning/current/plan/sprint-contract.md')).toContain('produce sprint contract');
+      expect(await run.readFile('.planning/current/plan/sprint-contract.md')).toContain(
+        'Advance to `/handoff` only after Nexus declares execution ready.',
+      );
+    });
+  });
+
   test('blocks plan when GSD readiness is false', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({

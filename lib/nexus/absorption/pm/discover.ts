@@ -1,5 +1,6 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../../adapters/types';
 import { getStagePackSourceMap } from '../../stage-packs';
+import { getAbsorbedStageSections, renderChecklist, renderExecutionContext } from '../render';
 
 export function buildPmDiscoverTraceability(): AdapterTraceability {
   return {
@@ -10,5 +11,25 @@ export function buildPmDiscoverTraceability(): AdapterTraceability {
 }
 
 export function buildPmDiscoverIdeaBrief(_ctx: NexusAdapterContext): string {
-  return '# Idea Brief\n\nProblem: normalized by Nexus\n';
+  const ctx = _ctx;
+  const sections = getAbsorbedStageSections('discover');
+
+  return [
+    '# Idea Brief',
+    '',
+    '## Overview',
+    '',
+    sections.overview,
+    '',
+    renderExecutionContext(ctx),
+    renderChecklist('Discovery Checklist', sections.checklist),
+    '## Canonical Artifact Contract',
+    '',
+    sections.artifact_contract,
+    '',
+    '## Transition Rule',
+    '',
+    sections.routing,
+    '',
+  ].join('\n');
 }

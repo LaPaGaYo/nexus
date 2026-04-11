@@ -1,4 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildExecutionReadinessPacket, buildSprintContract } from '../absorption/gsd/plan';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusPlanStagePack {
@@ -19,8 +20,8 @@ export function createPlanStagePack(): NexusPlanStagePack {
     stage: 'plan',
     absorbed_capability: 'gsd-plan',
     source_binding,
-    buildExecutionReadinessPacket: (_ctx) => '# Execution Readiness Packet\n\nStatus: ready\n\nScope: governed thin slice\n',
-    buildSprintContract: (_ctx) => '# Sprint Contract\n\nScope: governed thin slice\n\nVerification: review then closeout\n',
+    buildExecutionReadinessPacket: (ctx) => buildExecutionReadinessPacket(ctx),
+    buildSprintContract: (ctx) => buildSprintContract(ctx),
     traceability: () => ({
       nexus_stage_pack: 'nexus-plan-pack',
       absorbed_capability: 'gsd-plan',

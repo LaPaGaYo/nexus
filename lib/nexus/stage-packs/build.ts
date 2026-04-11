@@ -1,5 +1,6 @@
 import { stageAdapterOutputPath } from '../artifacts';
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildVerificationSummary } from '../absorption/superpowers/build';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 function expectedProvider(generator: string | null): string | null {
@@ -40,7 +41,7 @@ export function createBuildStagePack(): NexusBuildStagePack {
     id: 'nexus-build-pack',
     stage: 'build',
     source_binding,
-    buildVerificationSummary: (_ctx) => 'TDD checks passed',
+    buildVerificationSummary: (ctx) => buildVerificationSummary(ctx),
     buildGeneratorExecution: (ctx) => {
       const provider = expectedProvider(ctx.requested_route?.generator ?? null);
 

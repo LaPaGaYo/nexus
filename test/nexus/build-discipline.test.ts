@@ -50,6 +50,24 @@ describe('nexus superpowers build discipline', () => {
     });
   });
 
+  test('default build result carries Nexus-owned absorbed build discipline guidance', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      expect(await run.readFile('.planning/current/build/build-result.md')).toContain(
+        'Nexus-owned build guidance for disciplined implementation under governed routing.',
+      );
+      expect(await run.readFile('.planning/current/build/build-result.md')).toContain(
+        'run build discipline before transport',
+      );
+      expect(await run.readFile('.planning/current/build/build-result.md')).toContain(
+        'Advance to `/review` only after Nexus records a bounded build result with requested and actual route provenance kept distinct.',
+      );
+    });
+  });
+
   test('blocks build when Superpowers discipline fails before generator transport starts', async () => {
     await runInTempRepo(async ({ run }) => {
       let transportCalled = false;

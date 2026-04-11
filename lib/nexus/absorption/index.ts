@@ -1,4 +1,5 @@
 export * from './types';
+export * from './render';
 export * from './pm/source-map';
 export * from './pm/discover';
 export * from './pm/frame';

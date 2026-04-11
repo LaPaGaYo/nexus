@@ -1,4 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildPmDecisionBrief, buildPmPrd } from '../absorption/pm/frame';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusFrameStagePack {
@@ -19,8 +20,8 @@ export function createFrameStagePack(): NexusFrameStagePack {
     stage: 'frame',
     absorbed_capability: 'pm-frame',
     source_binding,
-    buildDecisionBrief: (_ctx) => '# Decision Brief\n\nScope: Nexus PM seam\n',
-    buildPrd: (_ctx) => '# PRD\n\nSuccess: repo-visible PM outputs\n',
+    buildDecisionBrief: (ctx) => buildPmDecisionBrief(ctx),
+    buildPrd: (ctx) => buildPmPrd(ctx),
     traceability: () => ({
       nexus_stage_pack: 'nexus-frame-pack',
       absorbed_capability: 'pm-frame',
