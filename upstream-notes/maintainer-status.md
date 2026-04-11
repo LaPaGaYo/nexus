@@ -1,24 +1,16 @@
 # Nexus Maintainer Status
 
-Generated: `2026-04-11T21:55:25.911Z`
+Generated: `2026-04-11T21:56:12.073Z`
 
-- Status: `action_required`
-- Next action: `publish_release`
-- Summary: A release-ready Nexus version is not published yet.
+- Status: `ready`
+- Next action: `none`
+- Summary: No maintainer action is currently required.
 - Current version: `1.0.8`
 - Current tag: `v1.0.8`
-- Release preflight: `ready`
-- Remote release smoke: `unknown`
+- Release preflight: `blocked`
+- Remote release smoke: `ready`
 
 ## Upstreams
 
 - Pending refresh candidates: none
 - Behind upstreams: none
-
-## Issues
-
-- Local release markers are ready, but the matching published release is missing.
-
-## Recommendations
-
-- Publish the Git tag and GitHub Release after re-running ./bin/nexus-release-preflight.
