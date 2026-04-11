@@ -20,6 +20,23 @@ Write or update the release notes for the release you are publishing before crea
 - Include the user-facing changes that ship in the release.
 - Keep the notes aligned with the `release.json.release_notes_path` field.
 
+## Maintainer Gate
+
+Run these before creating the tag:
+
+```bash
+bun test test/nexus/release-publish.test.ts test/nexus/release-remote.test.ts
+./bin/nexus-release-preflight
+```
+
+Run this immediately after the GitHub Release is published:
+
+```bash
+./bin/nexus-release-smoke
+```
+
+Do not treat the release as complete until both commands report `READY`.
+
 ## Publish Steps
 
 1. Update `VERSION`, `package.json.version`, and `release.json.version` together.
