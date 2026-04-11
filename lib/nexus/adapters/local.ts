@@ -11,18 +11,23 @@ export interface LocalResolveRouteRaw {
   topology: ProviderTopology;
   verification_command?: string;
   verification_output?: string;
+  verification_commands?: string[];
 }
 
 export interface LocalExecuteGeneratorRaw {
   receipt: string;
   summary_markdown?: string;
   dispatch_command?: string;
+  dispatch_commands?: string[];
+  agent_roles?: string[];
 }
 
 export interface LocalExecuteAuditRaw {
   markdown: string;
   receipt: string;
   dispatch_command?: string;
+  dispatch_commands?: string[];
+  agent_roles?: string[];
 }
 
 export interface LocalExecuteQaRaw {
@@ -31,6 +36,8 @@ export interface LocalExecuteQaRaw {
   findings: string[];
   receipt: string;
   dispatch_command?: string;
+  dispatch_commands?: string[];
+  agent_roles?: string[];
 }
 
 interface LocalCommandSpec {
@@ -58,6 +65,10 @@ const DEFAULT_TIMEOUTS_MS = {
   qa: 910_000,
 } as const;
 
+interface ActiveLocalTopology {
+  mode: 'single_agent' | 'claude_subagents';
+}
+
 function backendConflict(stage: NexusAdapterContext['stage'], message: string): ConflictRecord {
   return {
     stage,
@@ -69,9 +80,17 @@ function backendConflict(stage: NexusAdapterContext['stage'], message: string): 
   };
 }
 
-function unsupportedTopologyMessage(topology: ProviderTopology): string | null {
+function activeLocalTopology(provider: PrimaryProvider, topology: ProviderTopology): ActiveLocalTopology | string {
   if (topology === 'single_agent') {
-    return null;
+    return { mode: 'single_agent' };
+  }
+
+  if (topology === 'subagents') {
+    if (provider === 'claude') {
+      return { mode: 'claude_subagents' };
+    }
+
+    return 'local_provider topology subagents is only active for claude';
   }
 
   return `local_provider topology ${topology} is reserved and not yet active`;
@@ -225,6 +244,12 @@ function sanitizeTimestamp(value: string): string {
   return value.replace(/[:.]/g, '-');
 }
 
+interface ClaudeNamedAgent {
+  name: string;
+  description: string;
+  systemPrompt: string;
+}
+
 function buildContextPreamble(ctx: NexusAdapterContext): string {
   return [
     `Nexus stage: ${ctx.stage}`,
@@ -258,6 +283,18 @@ function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
     '- Verification: ...',
     '',
     'If the contract is missing or inconsistent, say so explicitly in the summary.',
+  ].join('\n');
+}
+
+function buildBuildVerifierPrompt(ctx: NexusAdapterContext, builderSummary: string): string {
+  return [
+    buildContextPreamble(ctx),
+    'Verify the current repository state after the local build subagent ran.',
+    'Reply with exactly one markdown bullet in this form:',
+    '- Verification: ...',
+    '',
+    'Builder summary:',
+    builderSummary.trim(),
   ].join('\n');
 }
 
@@ -335,6 +372,120 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
   };
 }
 
+function buildClaudeNamedAgentCommand(agent: ClaudeNamedAgent): string[] {
+  return [
+    'claude',
+    '-p',
+    '--output-format',
+    'text',
+    '--dangerously-skip-permissions',
+    '--agents',
+    JSON.stringify({
+      [agent.name]: {
+        description: agent.description,
+        prompt: agent.systemPrompt,
+      },
+    }),
+    '--agent',
+    agent.name,
+  ];
+}
+
+function buildClaudeBuilderAgent(): ClaudeNamedAgent {
+  return {
+    name: 'nexus_builder',
+    description: 'Implements the bounded Nexus local build contract.',
+    systemPrompt: 'You are the Nexus local build implementer. Execute only the bounded build contract and reply exactly in the requested markdown format.',
+  };
+}
+
+function buildClaudeVerifierAgent(): ClaudeNamedAgent {
+  return {
+    name: 'nexus_verifier',
+    description: 'Verifies the repository state after the Nexus local build implementer runs.',
+    systemPrompt: 'You are the Nexus local build verifier. Inspect the repository after the build subagent finishes and reply with exactly one markdown bullet that starts with "- Verification:".',
+  };
+}
+
+function buildClaudeAuditAgent(slot: 'a' | 'b'): ClaudeNamedAgent {
+  return {
+    name: slot === 'a' ? 'nexus_audit_a' : 'nexus_audit_b',
+    description: `Performs independent local Nexus review audit ${slot.toUpperCase()}.`,
+    systemPrompt: `You are the Nexus local review audit ${slot.toUpperCase()} subagent. Review independently and reply exactly in the requested markdown format.`,
+  };
+}
+
+function buildClaudeQaAgent(): ClaudeNamedAgent {
+  return {
+    name: 'nexus_qa',
+    description: 'Performs local Nexus QA validation.',
+    systemPrompt: 'You are the Nexus local QA subagent. Return only the requested JSON payload with ready, findings, and report_markdown.',
+  };
+}
+
+async function runClaudeNamedAgentCommand(
+  agent: ClaudeNamedAgent,
+  prompt: string,
+  cwd: string,
+  timeoutMs: number,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  const argv = buildClaudeNamedAgentCommand(agent);
+  const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+  return { stdout: result.stdout, stderr: result.stderr, argv };
+}
+
+function combineBuildSummary(builderSummary: string, verifierSummary: string): string {
+  const normalizedBuilder = builderSummary.trim();
+  const normalizedVerifier = verifierSummary.trim();
+  if (!normalizedVerifier) {
+    return normalizedBuilder;
+  }
+
+  if (normalizedBuilder.includes('- Verification:')) {
+    return normalizedBuilder.replace(/- Verification:[^\n]*/, normalizedVerifier);
+  }
+
+  return `${normalizedBuilder}\n${normalizedVerifier}`;
+}
+
+async function verifyClaudeSubagentSupport(
+  cwd: string,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ ok: true; verificationCommands: string[]; verificationOutput: string } | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string }> {
+  const argv = ['claude', '--help'];
+  const result = await runCommand({
+    argv,
+    cwd,
+    timeout_ms: DEFAULT_TIMEOUTS_MS.handoff,
+  });
+
+  const output = `${result.stdout}\n${result.stderr}`.trim();
+  if (result.exit_code !== 0) {
+    return {
+      ok: false,
+      message: output || 'claude --help failed while verifying local subagent support',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  if (!output.includes('--agents') || !output.includes('--agent')) {
+    return {
+      ok: false,
+      message: 'claude CLI does not support --agents for local_provider subagents',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  return {
+    ok: true,
+    verificationCommands: [describeCommand(argv)],
+    verificationOutput: output,
+  };
+}
+
 async function runProviderCommand(
   provider: PrimaryProvider,
   prompt: string,
@@ -394,11 +545,14 @@ async function runProviderCommand(
 export function createDefaultLocalAdapter(): LocalAdapter {
   return {
     resolve_route: async (ctx) => {
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(
+        ctx.ledger.execution.primary_provider,
+        ctx.ledger.execution.provider_topology,
+      );
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             available: false,
             provider: ctx.ledger.execution.primary_provider,
@@ -426,11 +580,14 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       );
     },
     execute_generator: async (ctx) => {
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(
+        ctx.ledger.execution.primary_provider,
+        ctx.ledger.execution.provider_topology,
+      );
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             receipt: '',
           },
@@ -442,7 +599,10 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       return successResult<LocalExecuteGeneratorRaw>(
         {
           receipt: `local-build-${ctx.ledger.execution.primary_provider}`,
-          summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: local provider build\n- Files touched: none\n- Verification: placeholder\n',
+          summary_markdown: topology.mode === 'claude_subagents'
+            ? '# Build Execution Summary\n\n- Status: completed\n- Actions: local claude subagent build\n- Files touched: none\n- Verification: local verifier subagent\n'
+            : '# Build Execution Summary\n\n- Status: completed\n- Actions: local provider build\n- Files touched: none\n- Verification: placeholder\n',
+          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_builder', 'nexus_verifier'] : undefined,
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -455,11 +615,14 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       );
     },
     execute_audit_a: async (ctx) => {
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(
+        ctx.ledger.execution.primary_provider,
+        ctx.ledger.execution.provider_topology,
+      );
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             markdown: '',
             receipt: '',
@@ -473,6 +636,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         {
           markdown: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
           receipt: `local-review-a-${ctx.ledger.execution.primary_provider}`,
+          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_audit_a'] : undefined,
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -485,11 +649,14 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       );
     },
     execute_audit_b: async (ctx) => {
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(
+        ctx.ledger.execution.primary_provider,
+        ctx.ledger.execution.provider_topology,
+      );
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             markdown: '',
             receipt: '',
@@ -503,6 +670,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         {
           markdown: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
           receipt: `local-review-b-${ctx.ledger.execution.primary_provider}`,
+          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_audit_b'] : undefined,
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -515,11 +683,14 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       );
     },
     execute_qa: async (ctx) => {
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(
+        ctx.ledger.execution.primary_provider,
+        ctx.ledger.execution.provider_topology,
+      );
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             report_markdown: '',
             ready: false,
@@ -537,6 +708,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
           ready: true,
           findings: [],
           receipt: `local-qa-${ctx.ledger.execution.primary_provider}`,
+          agent_roles: topology.mode === 'claude_subagents' ? ['nexus_qa'] : undefined,
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -560,11 +732,11 @@ export function createRuntimeLocalAdapter(
   return {
     resolve_route: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             available: false,
             provider,
@@ -592,6 +764,40 @@ export function createRuntimeLocalAdapter(
               verification_command: `which ${providerCommand(provider)}`,
               verification_output: result.stdout.trim(),
             },
+            ctx.requested_route,
+            localTraceability('local-provider-routing'),
+          );
+        }
+
+        if (topology.mode === 'claude_subagents') {
+          const subagentSupport = await verifyClaudeSubagentSupport(ctx.cwd, runCommand);
+          if (!subagentSupport.ok) {
+            return blockedResult(
+              ctx.stage,
+              subagentSupport.message,
+              {
+                available: false,
+                provider,
+                topology: ctx.ledger.execution.provider_topology,
+                verification_command: `which ${providerCommand(provider)}`,
+                verification_output: [result.stdout.trim(), subagentSupport.verificationOutput].filter(Boolean).join('\n'),
+                verification_commands: [`which ${providerCommand(provider)}`, ...subagentSupport.verificationCommands],
+              },
+              ctx.requested_route,
+              localTraceability('local-provider-routing'),
+            );
+          }
+
+          return successResult<LocalResolveRouteRaw>(
+            {
+              available: true,
+              provider,
+              topology: ctx.ledger.execution.provider_topology,
+              verification_command: `which ${providerCommand(provider)}`,
+              verification_output: [result.stdout.trim(), subagentSupport.verificationOutput].filter(Boolean).join('\n'),
+              verification_commands: [`which ${providerCommand(provider)}`, ...subagentSupport.verificationCommands],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'handoff'),
             ctx.requested_route,
             localTraceability('local-provider-routing'),
           );
@@ -625,11 +831,11 @@ export function createRuntimeLocalAdapter(
     },
     execute_generator: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             receipt: '',
           },
@@ -639,6 +845,41 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_subagents') {
+          const builderAgent = buildClaudeBuilderAgent();
+          const verifierAgent = buildClaudeVerifierAgent();
+          const builderExecution = await runClaudeNamedAgentCommand(
+            builderAgent,
+            buildGeneratorPrompt(ctx),
+            ctx.cwd,
+            DEFAULT_TIMEOUTS_MS.build,
+            runCommand,
+          );
+          const verifierExecution = await runClaudeNamedAgentCommand(
+            verifierAgent,
+            buildBuildVerifierPrompt(ctx, builderExecution.stdout),
+            ctx.cwd,
+            DEFAULT_TIMEOUTS_MS.build,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteGeneratorRaw>(
+            {
+              receipt: `local-build-${provider}-${sanitizeTimestamp(now())}`,
+              summary_markdown: combineBuildSummary(builderExecution.stdout, verifierExecution.stdout),
+              dispatch_command: describeCommand(builderExecution.argv),
+              dispatch_commands: [
+                describeCommand(builderExecution.argv),
+                describeCommand(verifierExecution.argv),
+              ],
+              agent_roles: [builderAgent.name, verifierAgent.name],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'build'),
+            ctx.requested_route,
+            localTraceability('local-provider-execution'),
+          );
+        }
+
         const execution = await runProviderCommand(
           provider,
           buildGeneratorPrompt(ctx),
@@ -671,11 +912,11 @@ export function createRuntimeLocalAdapter(
     },
     execute_audit_a: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             markdown: '',
             receipt: '',
@@ -686,6 +927,30 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_subagents') {
+          const agent = buildClaudeAuditAgent('a');
+          const execution = await runClaudeNamedAgentCommand(
+            agent,
+            buildAuditPrompt(ctx, 'a'),
+            ctx.cwd,
+            DEFAULT_TIMEOUTS_MS.review,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteAuditRaw>(
+            {
+              markdown: execution.stdout.trim(),
+              receipt: `local-review-a-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: [agent.name],
+            },
+            buildActualRoute(provider, ctx.requested_route?.evaluator_a ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'review'),
+            ctx.requested_route,
+            localTraceability('local-provider-review-a'),
+          );
+        }
+
         const execution = await runProviderCommand(
           provider,
           buildAuditPrompt(ctx, 'a'),
@@ -719,11 +984,11 @@ export function createRuntimeLocalAdapter(
     },
     execute_audit_b: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             markdown: '',
             receipt: '',
@@ -734,6 +999,30 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_subagents') {
+          const agent = buildClaudeAuditAgent('b');
+          const execution = await runClaudeNamedAgentCommand(
+            agent,
+            buildAuditPrompt(ctx, 'b'),
+            ctx.cwd,
+            DEFAULT_TIMEOUTS_MS.review,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteAuditRaw>(
+            {
+              markdown: execution.stdout.trim(),
+              receipt: `local-review-b-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: [agent.name],
+            },
+            buildActualRoute(provider, ctx.requested_route?.evaluator_b ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'review'),
+            ctx.requested_route,
+            localTraceability('local-provider-review-b'),
+          );
+        }
+
         const execution = await runProviderCommand(
           provider,
           buildAuditPrompt(ctx, 'b'),
@@ -767,11 +1056,11 @@ export function createRuntimeLocalAdapter(
     },
     execute_qa: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
-      const unsupportedTopology = unsupportedTopologyMessage(ctx.ledger.execution.provider_topology);
-      if (unsupportedTopology) {
+      const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
-          unsupportedTopology,
+          topology,
           {
             report_markdown: '',
             ready: false,
@@ -784,6 +1073,31 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_subagents') {
+          const agent = buildClaudeQaAgent();
+          const execution = await runClaudeNamedAgentCommand(
+            agent,
+            buildQaPrompt(ctx),
+            ctx.cwd,
+            DEFAULT_TIMEOUTS_MS.qa,
+            runCommand,
+          );
+          const parsed = parseQaPayload(execution.stdout);
+
+          return successResult<LocalExecuteQaRaw>(
+            {
+              ...parsed,
+              receipt: `local-qa-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: [agent.name],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'qa'),
+            ctx.requested_route,
+            localTraceability('local-provider-qa'),
+          );
+        }
+
         const execution = await runProviderCommand(
           provider,
           buildQaPrompt(ctx),

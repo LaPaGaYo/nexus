@@ -154,9 +154,54 @@ maybe_offer_execution_mode_choice() {
     *)
       "$NEXUS_CONFIG" set execution_mode local_provider 2>/dev/null || true
       "$NEXUS_CONFIG" set primary_provider claude 2>/dev/null || true
+      echo "  selected local_provider (claude)"
+      echo "  next: you can keep using the current Claude session"
+      ;;
+  esac
+}
+
+maybe_offer_local_topology_choice() {
+  [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
+  [ -t 0 ] || return 0
+  command -v claude >/dev/null 2>&1 || return 0
+
+  _mode="$("$NEXUS_CONFIG" get execution_mode 2>/dev/null || true)"
+  if [ -z "$_mode" ]; then
+    if command -v ask >/dev/null 2>&1; then
+      _mode="governed_ccb"
+    else
+      _mode="local_provider"
+    fi
+  fi
+  [ "$_mode" = "local_provider" ] || return 0
+
+  _provider="$("$NEXUS_CONFIG" get primary_provider 2>/dev/null || true)"
+  [ -n "$_provider" ] || _provider="claude"
+  [ "$_provider" = "claude" ] || return 0
+
+  _topology="$("$NEXUS_CONFIG" get provider_topology 2>/dev/null || true)"
+  [ -n "$_topology" ] && return 0
+
+  echo ""
+  echo "Local Claude topology: how should Nexus run without CCB?"
+  echo ""
+  echo "  1) single_agent"
+  echo "     One Claude local execution path. Lowest friction."
+  echo ""
+  echo "  2) subagents"
+  echo "     Claude local subagents for build, review, and QA."
+  echo ""
+  printf "Choice [1/2] (default: 1, auto-selects in 10s): "
+  read -t 10 -r _topology_choice </dev/tty 2>/dev/null || _topology_choice=""
+
+  case "$_topology_choice" in
+    2)
+      "$NEXUS_CONFIG" set provider_topology subagents 2>/dev/null || true
+      echo "  selected local_provider (claude, subagents)"
+      ;;
+    *)
       "$NEXUS_CONFIG" set provider_topology single_agent 2>/dev/null || true
       echo "  selected local_provider (claude, single_agent)"
-      echo "  next: you can keep using the current Claude session"
       ;;
   esac
 }
@@ -702,12 +747,14 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
       echo "Nexus ready (claude)."
     fi
     maybe_offer_execution_mode_choice
+    maybe_offer_local_topology_choice
     maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
     announce_execution_mode
   else
     echo "Nexus ready (claude)."
     maybe_offer_execution_mode_choice
+    maybe_offer_local_topology_choice
     maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
     announce_execution_mode

@@ -47,6 +47,7 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(readme).toContain('~/.claude/skills/nexus');
     expect(readme).toContain('~/.nexus/config.yaml');
+    expect(readme).toContain('nexus-config set provider_topology subagents');
     expect(readme).toContain('git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus');
     expect(readme).toContain('Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.');
     expect(installSection).toContain('/nexus-upgrade');
@@ -135,6 +136,8 @@ describe('nexus product surface contract', () => {
 
     expect(setup).toContain('nexus setup');
     expect(setup).toContain('~/.claude/skills/nexus');
+    expect(setup).toContain('selected local_provider (claude, subagents)');
+    expect(setup).toContain('provider_topology subagents');
     expect(setup).not.toContain('.claude/skills/gstack');
     expect(setup).not.toContain('.gstack-worktrees');
   });

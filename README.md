@@ -75,9 +75,9 @@ Use this when you do not want to install or run CCB.
 - Nexus still owns commands, lifecycle, artifacts, and governance
 - repo-visible Nexus artifacts remain the only lifecycle truth
 - the active local runtime defaults to `single_agent`
-- `subagents` and `multi_session` remain reserved topology values for later activation
-- if you force one of those reserved local topologies today, Nexus blocks at `/handoff`
-  instead of pretending the topology is active
+- `claude + subagents` is an active local topology when `provider_topology=subagents`
+- local `multi_session` remains reserved and still blocks at `/handoff`
+- non-Claude local subagents remain blocked instead of silently degrading to `single_agent`
 
 ## Quick start
 
@@ -119,10 +119,17 @@ path you want:
 - continue in the current Claude session with `local_provider`
 - switch to `governed_ccb` and relaunch Claude inside `tmux` with `ccb codex gemini claude`
 
+If you choose `local_provider` in interactive Claude setup, Nexus then asks
+which local Claude topology to use:
+
+- `single_agent`
+- `subagents`
+
 If setup is non-interactive, the default remains:
 
 - `governed_ccb` when `ask` is installed
 - `local_provider` when `ask` is missing
+- `single_agent` when `provider_topology` is not already configured
 
 If neither CCB nor the selected local provider CLI is available, Nexus does not
 silently continue. `/handoff` records a blocked route decision until you either
@@ -156,11 +163,13 @@ nexus-config set execution_mode governed_ccb
 nexus-config set execution_mode local_provider
 nexus-config set primary_provider claude
 nexus-config set provider_topology single_agent
+nexus-config set provider_topology subagents
 ```
 
 Practical defaults:
 
 - interactive Claude setup asks when `ask` is installed and no explicit mode is saved
+- interactive Claude setup also asks `single_agent` vs `subagents` when `local_provider` is selected for Claude
 - non-interactive setup uses `governed_ccb` if `ask` is installed
 - `local_provider` if `ask` is missing
 - `primary_provider` auto-detects `claude`, then `codex`, then `gemini`
