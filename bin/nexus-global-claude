@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# nexus-global-claude — manage the Nexus-owned global CLAUDE.md guidance block.
+#
+# Usage:
+#   nexus-global-claude status [path]
+#   nexus-global-claude apply [path]
+#
+# Env override:
+#   NEXUS_GLOBAL_CLAUDE_MD_PATH — override the target CLAUDE.md path
+set -euo pipefail
+
+TARGET_PATH="${NEXUS_GLOBAL_CLAUDE_MD_PATH:-${2:-$HOME/.claude/CLAUDE.md}}"
+START_MARKER='<!-- nexus-global-routing:start -->'
+END_MARKER='<!-- nexus-global-routing:end -->'
+SECTION_CONTENT="$(cat <<'EOF'
+<!-- nexus-global-routing:start -->
+## Nexus Global Routing
+
+Claude is the only interactive front door.
+Route product work through `/discover`, `/frame`, `/plan`, `/handoff`, `/build`, `/review`, `/qa`, `/ship`, and `/closeout`.
+Use `/browse` from Nexus for all web browsing.
+Never use `mcp__claude-in-chrome__*` tools unless the user explicitly asks for them.
+Legacy aliases `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, and `/autoplan` are compatibility-only.
+<!-- nexus-global-routing:end -->
+EOF
+)"
+
+render_with_section() {
+  local source_file="$1"
+  local section_file
+  section_file="$(mktemp "${TMPDIR:-/tmp}/nexus-global-claude-section.XXXXXX")"
+  printf '%s\n' "$SECTION_CONTENT" > "$section_file"
+
+  if [ -f "$source_file" ]; then
+    awk -v start="$START_MARKER" -v end="$END_MARKER" -v section_file="$section_file" '
+      function print_section() {
+        while ((getline line < section_file) > 0) {
+          print line;
+        }
+        close(section_file);
+      }
+      BEGIN {
+        in_block = 0;
+        replaced = 0;
+      }
+      $0 == start {
+        if (!replaced) {
+          print_section();
+          replaced = 1;
+        }
+        in_block = 1;
+        next;
+      }
+      $0 == end {
+        in_block = 0;
+        next;
+      }
+      !in_block {
+        print;
+      }
+      END {
+        if (!replaced) {
+          if (NR > 0) {
+            print "";
+          }
+          print_section();
+        }
+      }
+    ' "$source_file"
+  else
+    printf '%s\n' "$SECTION_CONTENT"
+  fi
+
+  rm -f "$section_file"
+}
+
+case "${1:-}" in
+  status)
+    if [ -f "$TARGET_PATH" ] && grep -Fq "$START_MARKER" "$TARGET_PATH" && grep -Fq "$END_MARKER" "$TARGET_PATH"; then
+      printf 'present\n'
+      exit 0
+    fi
+    printf 'missing\n'
+    exit 1
+    ;;
+  apply)
+    mkdir -p "$(dirname "$TARGET_PATH")"
+    _tmpfile="$(mktemp "${TMPDIR:-/tmp}/nexus-global-claude.XXXXXX")"
+    render_with_section "$TARGET_PATH" > "$_tmpfile"
+    mv "$_tmpfile" "$TARGET_PATH"
+    printf '%s\n' "$TARGET_PATH"
+    ;;
+  *)
+    echo "Usage: nexus-global-claude {status|apply} [path]" >&2
+    exit 1
+    ;;
+esac

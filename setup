@@ -51,6 +51,7 @@ esac
 # ─── Resolve skill prefix preference ─────────────────────────
 # Priority: CLI flag > saved config > interactive prompt (or flat default for non-TTY)
 NEXUS_CONFIG="$SOURCE_NEXUS_DIR/bin/nexus-config"
+GLOBAL_CLAUDE_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-global-claude"
 export NEXUS_SETUP_RUNNING=1  # Prevent nexus-config post-set hook from triggering relink mid-setup
 if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
   _saved_prefix="$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || true)"
@@ -86,6 +87,43 @@ else
   # Flag was passed explicitly — persist the choice
   "$NEXUS_CONFIG" set skill_prefix "$([ "$SKILL_PREFIX" -eq 1 ] && echo true || echo false)" 2>/dev/null || true
 fi
+
+maybe_offer_global_claude_guidance() {
+  [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
+  [ "$LOCAL_INSTALL" -eq 0 ] || return 0
+  [ -t 0 ] || return 0
+  [ -x "$GLOBAL_CLAUDE_HELPER" ] || return 0
+
+  _global_declined="$("$NEXUS_CONFIG" get global_claude_declined 2>/dev/null || echo "false")"
+  [ "$_global_declined" = "true" ] && return 0
+
+  if "$GLOBAL_CLAUDE_HELPER" status >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo ""
+  echo "Global Claude guidance: should Nexus update ~/.claude/CLAUDE.md?"
+  echo ""
+  echo "  1) Add Nexus-first guidance to ~/.claude/CLAUDE.md (recommended)"
+  echo "     Claude will route lifecycle work through Nexus globally."
+  echo ""
+  echo "  2) Skip for now"
+  echo "     Leaves your global Claude instructions unchanged."
+  echo ""
+  printf "Choice [1/2] (default: 2, auto-selects in 10s): "
+  read -t 10 -r _global_choice </dev/tty 2>/dev/null || _global_choice=""
+  case "$_global_choice" in
+    1)
+      _global_target="$("$GLOBAL_CLAUDE_HELPER" apply)"
+      "$NEXUS_CONFIG" set global_claude_declined false 2>/dev/null || true
+      echo "  updated global CLAUDE.md: $_global_target"
+      ;;
+    *)
+      "$NEXUS_CONFIG" set global_claude_declined true 2>/dev/null || true
+      echo "  skipped global CLAUDE.md update"
+      ;;
+  esac
+}
 
 # --local: install to .claude/skills/ in the current working directory
 if [ "$LOCAL_INSTALL" -eq 1 ]; then
@@ -585,9 +623,11 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     else
       echo "Nexus ready (claude)."
     fi
+    maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
   else
     echo "Nexus ready (claude)."
+    maybe_offer_global_claude_guidance
     echo "  browse: $BROWSE_BIN"
     echo "  (skipped skill symlinks — not inside .claude/skills/)"
   fi

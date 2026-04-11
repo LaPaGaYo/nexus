@@ -87,9 +87,22 @@ Canonical lifecycle:
 
 ### Step 1: Install Nexus on your machine
 
-Open Claude Code and paste this. Claude does the rest.
+Fast path from the shell:
 
-> Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`/nexus-upgrade`** instead. After the install or upgrade finishes, update the global **`CLAUDE.md`** by adding a **`Nexus`** section that says:
+```bash
+git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus
+cd ~/.claude/skills/nexus && ./setup
+```
+
+If `~/.claude/skills/nexus` already exists, do not clone over it. Run `/nexus-upgrade` instead.
+
+During interactive Claude installs, `./setup` can also offer to add a Nexus-managed
+section to `~/.claude/CLAUDE.md` so Claude routes lifecycle work through Nexus globally.
+Non-interactive installs skip that global file change by default.
+
+If you want Claude to do the install for you, open Claude Code and paste this:
+
+> Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`/nexus-upgrade`** instead. After the install or upgrade finishes, make sure the global **`CLAUDE.md`** routes Claude through Nexus. If setup did not already offer to update it, add a **`Nexus`** section that says:
 >
 > - Claude is the only interactive front door.
 > - Route product work through **`/discover`**, **`/frame`**, **`/plan`**, **`/handoff`**, **`/build`**, **`/review`**, **`/qa`**, **`/ship`**, and **`/closeout`**.
@@ -104,7 +117,17 @@ Open Claude Code and paste this. Claude does the rest.
 
 Optional, but recommended for team consistency.
 
-> Add Nexus to this project. Copy **`~/.claude/skills/nexus`** into **`.claude/skills/nexus`** as real files for the repo, not a submodule and not just a symlink. Do not copy the source repo’s **`.git`** directory into the project copy. Then run **`cd .claude/skills/nexus && ./setup`**. After that, update the project **`CLAUDE.md`** so it stays Nexus-first: canonical lifecycle commands come first, `/browse` stays the web tool, `mcp__claude-in-chrome__*` stays disallowed unless explicitly requested, and legacy aliases are documented only as compatibility entries.
+Shell path:
+
+```bash
+mkdir -p .claude/skills
+rsync -a --delete --exclude '.git' ~/.claude/skills/nexus/ .claude/skills/nexus/
+cd .claude/skills/nexus && ./setup
+```
+
+This must be a real repo copy, not a submodule and not just a symlink.
+
+Then update the project `CLAUDE.md` so it stays Nexus-first: canonical lifecycle commands come first, `/browse` stays the web tool, `mcp__claude-in-chrome__*` stays disallowed unless explicitly requested, and legacy aliases are documented only as compatibility entries.
 
 ### Other hosts
 
@@ -253,7 +276,7 @@ The intended usage pattern is:
 | [Architecture](ARCHITECTURE.md) | System structure and implementation notes |
 | [Contributing](CONTRIBUTING.md) | Dev setup, testing, and contributor workflows |
 | [Changelog](CHANGELOG.md) | Version history |
-| [Release Notes](docs/releases/2026-04-08-nexus-v1.0.0.md) | Nexus v1.0.0 release notes |
+| [Release Notes](docs/releases/2026-04-10-nexus-v1.0.2.md) | Nexus v1.0.2 release notes |
 
 ## Troubleshooting
 

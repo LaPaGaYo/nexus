@@ -2248,6 +2248,16 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('set skill_prefix');
   });
 
+  test('setup exposes global CLAUDE.md opt-in config', () => {
+    expect(setupContent).toContain('global_claude_declined');
+  });
+
+  test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {
+    expect(setupContent).toContain('~/.claude/CLAUDE.md');
+    expect(setupContent).toContain('nexus-global-claude');
+    expect(setupContent).toContain('Add Nexus-first guidance to ~/.claude/CLAUDE.md');
+  });
+
   test('interactive prompt shows when no config', () => {
     expect(setupContent).toContain('Short names');
     expect(setupContent).toContain('Namespaced');
