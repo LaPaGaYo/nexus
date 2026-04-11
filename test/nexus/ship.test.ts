@@ -67,6 +67,26 @@ describe('nexus ship', () => {
     });
   });
 
+  test('default ship gate record carries Nexus-owned absorbed ship guidance', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('ship');
+
+      expect(await run.readFile('.planning/current/ship/release-gate-record.md')).toContain(
+        'Nexus-owned ship guidance for governed release gating and explicit merge readiness.',
+      );
+      expect(await run.readFile('.planning/current/ship/release-gate-record.md')).toContain(
+        'require completed review artifacts',
+      );
+      expect(await run.readFile('.planning/current/ship/release-gate-record.md')).toContain(
+        'Ship content starts only after completed review and optional ready QA.',
+      );
+    });
+  });
+
   test('blocks ship without completed review', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

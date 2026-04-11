@@ -42,13 +42,13 @@ export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
       successResult<SuperpowersBuildDisciplineRaw>({
         verification_summary: buildPack.buildVerificationSummary(ctx),
       }, buildPack.disciplineTraceability()),
-    review_discipline: async () =>
+    review_discipline: async (ctx) =>
       successResult<SuperpowersReviewDisciplineRaw>({
-        discipline_summary: 'Verification-before-completion passed',
+        discipline_summary: reviewPack.buildDisciplineSummary(ctx),
       }, reviewPack.disciplineTraceability()),
     ship_discipline: async (ctx) =>
       successResult<SuperpowersShipDisciplineRaw>({
-        release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+        release_gate_record: shipPack.buildReleaseGateRecord(ctx, true),
         checklist: {
           review_complete: true,
           qa_ready: true,

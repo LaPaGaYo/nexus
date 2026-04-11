@@ -184,6 +184,25 @@ describe('nexus review', () => {
     });
   });
 
+  test('default review discipline summary carries Nexus-owned absorbed review guidance', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain(
+        'Nexus-owned review guidance for governed dual-audit completion, synthesis, and explicit gate state.',
+      );
+      expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain(
+        'run dual audits through Nexus-owned review completion',
+      );
+      expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain(
+        'Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state.',
+      );
+    });
+  });
+
   test('blocks review when an audit route diverges from the requested governed route', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');
