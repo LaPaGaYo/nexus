@@ -52,6 +52,11 @@ The local contract layer is now in place:
 - `./bin/nexus-release-smoke`
   - pass
   - `READY 1.0.1 v1.0.1`
+- live managed-install dogfood against the published release:
+  - `nexus-update-check --force` reported `UPGRADE_AVAILABLE 1.0.0 1.0.1`
+  - `nexus-upgrade-install` reported `Installed Nexus v1.0.0 -> v1.0.1`
+  - the temporary managed install ended on `VERSION = 1.0.1`
+  - `just-upgraded.json` recorded the completed `1.0.0 -> 1.0.1` upgrade
 
 ## Notes
 
