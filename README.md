@@ -96,8 +96,10 @@ cd ~/.claude/skills/nexus && ./setup
 
 If `~/.claude/skills/nexus` already exists, do not clone over it. Run `/nexus-upgrade` instead.
 
-During interactive Claude installs, `./setup` can also offer to add a Nexus-managed
-section to `~/.claude/CLAUDE.md` so Claude routes lifecycle work through Nexus globally.
+During interactive Claude installs, `./setup` can also offer to add a concise
+Nexus-managed section to `~/.claude/CLAUDE.md` for cross-project defaults.
+Project-specific workflow, architecture, and build instructions should stay in the
+repository `CLAUDE.md`, rules, or skills.
 Non-interactive installs skip that global file change by default.
 
 If you want Claude to do the install for you, open Claude Code and paste this:

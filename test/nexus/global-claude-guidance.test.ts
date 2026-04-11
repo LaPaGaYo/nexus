@@ -53,10 +53,12 @@ describe('nexus global CLAUDE.md guidance', () => {
       expect(once).toContain('# Existing Claude Rules');
       expect(once).toContain('Keep my custom section.');
       expect(once).toContain('## Nexus Global Routing');
+      expect(once).toContain('cross-project Nexus defaults only');
       expect(once).toContain('/discover');
       expect(once).toContain('/closeout');
       expect(once).toContain('/browse');
       expect(once).toContain('mcp__claude-in-chrome__*');
+      expect(once).toContain('repo-visible instructions and artifacts as the source of truth');
 
       const second = Bun.spawnSync([SCRIPT, 'apply'], {
         env: {

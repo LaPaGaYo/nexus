@@ -16,11 +16,14 @@ SECTION_CONTENT="$(cat <<'EOF'
 <!-- nexus-global-routing:start -->
 ## Nexus Global Routing
 
-Claude is the only interactive front door.
-Route product work through `/discover`, `/frame`, `/plan`, `/handoff`, `/build`, `/review`, `/qa`, `/ship`, and `/closeout`.
-Use `/browse` from Nexus for all web browsing.
-Never use `mcp__claude-in-chrome__*` tools unless the user explicitly asks for them.
-Legacy aliases `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, and `/autoplan` are compatibility-only.
+Use this section for cross-project Nexus defaults only. Keep project-specific build, architecture, and multi-step workflow instructions in repo `CLAUDE.md`, `.claude/rules/`, or skills.
+
+- Claude is the interactive front door.
+- When a repo exposes canonical Nexus commands, route lifecycle work through `/discover`, `/frame`, `/plan`, `/handoff`, `/build`, `/review`, `/qa`, `/ship`, and `/closeout`.
+- Treat repo-visible instructions and artifacts as the source of truth.
+- Prefer the repository-sanctioned browsing path. When Nexus is present, use `/browse`.
+- Do not use `mcp__claude-in-chrome__*` unless explicitly requested.
+- Legacy aliases `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, and `/autoplan` are compatibility-only.
 <!-- nexus-global-routing:end -->
 EOF
 )"
