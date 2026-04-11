@@ -257,6 +257,11 @@ interface ClaudeNamedAgent {
   systemPrompt: string;
 }
 
+function localCommandFailureMessage(label: string, result: LocalCommandResult): string {
+  const detail = result.stderr.trim() || result.stdout.trim() || `exit code ${result.exit_code}`;
+  return `${label} failed: ${detail}`;
+}
+
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
   return buildBuildExecutionPrompt(ctx, 'Nexus stage');
 }
@@ -390,6 +395,9 @@ async function runClaudeNamedAgentCommand(
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
   const argv = buildClaudeNamedAgentCommand(agent);
   const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+  if (result.exit_code !== 0) {
+    throw new Error(localCommandFailureMessage(`claude subagent ${agent.name}`, result));
+  }
   return { stdout: result.stdout, stderr: result.stderr, argv };
 }
 
@@ -460,6 +468,9 @@ async function runProviderCommand(
       '--dangerously-skip-permissions',
     ];
     const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+    if (result.exit_code !== 0) {
+      throw new Error(localCommandFailureMessage('claude local command', result));
+    }
     return { stdout: result.stdout, stderr: result.stderr, argv };
   }
 
@@ -478,6 +489,9 @@ async function runProviderCommand(
     ];
     try {
       const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+      if (result.exit_code !== 0) {
+        throw new Error(localCommandFailureMessage('codex local command', result));
+      }
       return {
         stdout: readFileSync(outputPath, 'utf8'),
         stderr: result.stderr,
@@ -497,6 +511,9 @@ async function runProviderCommand(
     '--yolo',
   ];
   const result = await runCommand({ argv, cwd, timeout_ms: timeoutMs });
+  if (result.exit_code !== 0) {
+    throw new Error(localCommandFailureMessage('gemini local command', result));
+  }
   return { stdout: result.stdout, stderr: result.stderr, argv };
 }
 

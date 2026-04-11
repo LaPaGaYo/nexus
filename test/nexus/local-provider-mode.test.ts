@@ -461,4 +461,64 @@ describe('nexus local_provider mode', () => {
       });
     });
   });
+
+  test('blocks build when a claude local subagent exits non-zero even if it prints markdown', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        runCommand: async (spec) => {
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/claude\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === 'claude' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: claude [options]\n  --agent <agent>\n  --agents <json>\n',
+              stderr: '',
+            };
+          }
+
+          const agentIndex = spec.argv.indexOf('--agent');
+          const agent = agentIndex >= 0 ? spec.argv[agentIndex + 1] : null;
+          if (agent === 'nexus_builder') {
+            return {
+              exit_code: 1,
+              stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: printed markdown before failing\n- Files touched: README.md\n- Verification: pending verifier\n',
+              stderr: 'builder failed',
+            };
+          }
+
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      await run('plan', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await expect(run('build', adapters, LOCAL_SUBAGENT_EXECUTION)).rejects.toThrow(
+        'Local provider generator execution blocked',
+      );
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        execution_mode: 'local_provider',
+        provider_topology: 'subagents',
+        state: 'blocked',
+        ready: false,
+        actual_route: null,
+        errors: ['Local provider generator execution blocked'],
+      });
+      expect(await run.readJson('.planning/current/build/adapter-output.json')).toMatchObject({
+        transport: {
+          adapter_id: 'local',
+          outcome: 'blocked',
+          notices: ['claude subagent nexus_builder failed: builder failed'],
+        },
+      });
+    });
+  });
 });

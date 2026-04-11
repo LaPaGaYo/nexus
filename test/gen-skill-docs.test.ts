@@ -2272,6 +2272,16 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('execution_mode is switched to governed_ccb');
   });
 
+  test('setup only offers local Claude subagents when the installed CLI supports them', () => {
+    expect(setupContent).toContain('supports_local_claude_subagents');
+    expect(setupContent).toContain('if ! _claude_help="$(claude --help 2>&1)"; then');
+    expect(setupContent).toContain('--agents');
+    expect(setupContent).toContain('--agent');
+    expect(setupContent).toContain('subagents are unavailable with the installed claude CLI');
+    expect(setupContent).toContain('set provider_topology single_agent');
+    expect(setupContent).not.toContain('claude --help 2>&1 || true');
+  });
+
   test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {
     expect(setupContent).toContain('~/.claude/CLAUDE.md');
     expect(setupContent).toContain('nexus-global-claude');
