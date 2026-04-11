@@ -18,6 +18,7 @@ import { dirname, join, resolve } from 'path';
 import { tmpdir } from 'os';
 import { createHash } from 'crypto';
 import { describe, expect, test } from 'bun:test';
+import { getUpstreamPinnedCommit } from '../../lib/nexus/upstream-maintenance';
 
 const REPO_ROOT = resolve(import.meta.dir, '..', '..');
 const SCRIPT_PATH = join(REPO_ROOT, 'scripts/upstream-refresh.ts');
@@ -222,7 +223,7 @@ describe('nexus upstream refresh', () => {
     const maintenanceContract = readFileSync(join(root, 'lib/nexus/upstream-maintenance.ts'), 'utf8');
     const pmSourceMap = readFileSync(join(root, 'lib/nexus/absorption/pm/source-map.ts'), 'utf8');
 
-    expect(candidate).toContain('Previous pinned commit: `4aa4196c14873b84f5af7316e7f66328cb6dee4c`');
+    expect(candidate).toContain(`Previous pinned commit: \`${getUpstreamPinnedCommit('pm-skills')}\``);
     expect(candidate).toContain(`New pinned commit: \`${fixture.commit}\``);
     expect(candidate).toContain('## Changed upstream paths');
     expect(candidate).toContain('- none');

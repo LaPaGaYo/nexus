@@ -270,3 +270,20 @@ export function renderMaintainerLoopMarkdown(report: MaintainerLoopReport): stri
 
   return `${lines.join('\n')}\n`;
 }
+
+export function serializeMaintainerLoopReport(report: MaintainerLoopReport): string {
+  return `${JSON.stringify(validateMaintainerLoopReport(report), null, 2)}\n`;
+}
+
+export function reportsMatchExceptGeneratedAt(left: MaintainerLoopReport, right: MaintainerLoopReport): boolean {
+  const normalizedLeft = {
+    ...validateMaintainerLoopReport(left),
+    generated_at: '__ignored__',
+  };
+  const normalizedRight = {
+    ...validateMaintainerLoopReport(right),
+    generated_at: '__ignored__',
+  };
+
+  return serializeMaintainerLoopReport(normalizedLeft) === serializeMaintainerLoopReport(normalizedRight);
+}

@@ -111,7 +111,7 @@ describe('nexus upstream freshness checks', () => {
     const upstream = {
       name: 'pm-skills' as const,
       repo_url: 'https://github.com/deanpeters/Product-Manager-Skills.git',
-      pinned_commit: '4aa4196c14873b84f5af7316e7f66328cb6dee4c',
+      pinned_commit: getUpstreamPinnedCommit('pm-skills'),
       active_absorbed_capabilities: ['pm-discover', 'pm-frame'] as const,
     };
     const latestCommit = upstream.pinned_commit;
@@ -147,10 +147,10 @@ describe('nexus upstream freshness checks', () => {
     const upstream = {
       name: 'pm-skills' as const,
       repo_url: 'https://github.com/deanpeters/Product-Manager-Skills.git',
-      pinned_commit: '4aa4196c14873b84f5af7316e7f66328cb6dee4c',
+      pinned_commit: getUpstreamPinnedCommit('pm-skills'),
       active_absorbed_capabilities: ['pm-discover', 'pm-frame'] as const,
     };
-    const latestCommit = '4aa4196c14873b84f5af7316e7f66328cb6dee4c';
+    const latestCommit = getUpstreamPinnedCommit('pm-skills');
     const lock = createInitialUpstreamLock('2026-04-09T00:00:00.000Z');
     const result = buildUpstreamCheckResultFromRecord(upstream, latestCommit, null);
     const updatedLock = applyUpstreamCheckResults(lock, [result], checkedAt);
@@ -212,7 +212,7 @@ describe('nexus upstream freshness checks', () => {
     const upstream = {
       name: 'superpowers' as const,
       repo_url: 'https://github.com/obra/superpowers.git',
-      pinned_commit: '917e5f53b16b115b70a3a355ed5f4993b9f8b73d',
+      pinned_commit: getUpstreamPinnedCommit('superpowers'),
       active_absorbed_capabilities: [
         'superpowers-build-discipline',
         'superpowers-build-verification',

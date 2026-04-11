@@ -81,6 +81,39 @@ function readGitDiffNames(tag, paths) {
   return result.stdout.toString().split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
+function readTextIfPresent(path) {
+  try {
+    return fs.readFileSync(path, 'utf8');
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function readExistingReport(path) {
+  const text = readTextIfPresent(path);
+  if (text === null) {
+    return null;
+  }
+
+  try {
+    return maintainerLoop.validateMaintainerLoopReport(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
+
+function writeTextIfChanged(path, nextText) {
+  const existingText = readTextIfPresent(path);
+  if (existingText === nextText) {
+    return;
+  }
+
+  fs.writeFileSync(path, nextText);
+}
+
 async function resolveRemoteReleaseState() {
   if (remoteMode === 'skip' || remoteMode === 'unknown') {
     return {
@@ -208,11 +241,21 @@ const report = maintainerLoop.buildMaintainerLoopReport({
   published_release_missing: remoteState.publishedReleaseMissing,
 });
 
-fs.writeFileSync(join(root, 'upstream-notes', 'maintainer-status.json'), `${JSON.stringify(report, null, 2)}\n`);
-fs.writeFileSync(join(root, 'upstream-notes', 'maintainer-status.md'), maintainerLoop.renderMaintainerLoopMarkdown(report));
+const reportPath = join(root, 'upstream-notes', 'maintainer-status.json');
+const markdownPath = join(root, 'upstream-notes', 'maintainer-status.md');
+const existingReport = readExistingReport(reportPath);
+const finalReport = existingReport !== null && maintainerLoop.reportsMatchExceptGeneratedAt(existingReport, report)
+  ? maintainerLoop.validateMaintainerLoopReport({
+      ...report,
+      generated_at: existingReport.generated_at,
+    })
+  : report;
 
-console.log(`${report.status.toUpperCase()} ${report.next_action}`);
-process.exit(report.status === 'ready' ? 0 : 1);
+writeTextIfChanged(reportPath, maintainerLoop.serializeMaintainerLoopReport(finalReport));
+writeTextIfChanged(markdownPath, maintainerLoop.renderMaintainerLoopMarkdown(finalReport));
+
+console.log(`${finalReport.status.toUpperCase()} ${finalReport.next_action}`);
+process.exit(finalReport.status === 'ready' ? 0 : 1);
 EOF
 )"
 
