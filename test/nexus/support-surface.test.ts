@@ -15,8 +15,6 @@ describe('nexus support surface contract', () => {
     expect(mod.PRIMARY_SUPPORT_NAMESPACE).toBe('nexus');
 
     expect(mod.PRIMARY_SUPPORT_HELPERS).toEqual({
-      analytics: 'nexus-analytics',
-      community_dashboard: 'nexus-community-dashboard',
       global_discover: 'nexus-global-discover',
       learnings_log: 'nexus-learnings-log',
       learnings_search: 'nexus-learnings-search',
@@ -24,8 +22,6 @@ describe('nexus support surface contract', () => {
       review_read: 'nexus-review-read',
       repo_mode: 'nexus-repo-mode',
       slug: 'nexus-slug',
-      telemetry_log: 'nexus-telemetry-log',
-      telemetry_sync: 'nexus-telemetry-sync',
     });
   });
 

@@ -31,18 +31,13 @@ describe('Audit compliance', () => {
     expect(tmpl).toContain('$TEST_PASSWORD');
   });
 
-  // Fix 2: Conditional telemetry — binary calls wrapped with existence check
-  test('preamble telemetry calls are conditional on _TEL and binary existence', () => {
+  // Fix 2: Privacy — active preamble no longer emits telemetry
+  test('preamble has no telemetry or Supabase hooks', () => {
     const preamble = readFileSync(join(ROOT, 'scripts/resolvers/preamble.ts'), 'utf-8');
-    // Pending finalization must check _TEL and binary existence
-    expect(preamble).toContain('_TEL" != "off"');
-    expect(preamble).toContain('-x ');
-    expect(preamble).toContain('nexus-telemetry-log');
-    // End-of-skill telemetry must also be conditional
-    const completionIdx = preamble.indexOf('Telemetry (run last)');
-    expect(completionIdx).toBeGreaterThan(-1);
-    const completionSection = preamble.slice(completionIdx);
-    expect(completionSection).toContain('_TEL" != "off"');
+    expect(preamble).not.toContain('telemetry');
+    expect(preamble).not.toContain('nexus-telemetry-log');
+    expect(preamble).not.toContain('Supabase');
+    expect(preamble).not.toContain('skill-usage.jsonl');
   });
 
   test('active resolver guidance uses Nexus-owned utilities and state roots', () => {
@@ -122,13 +117,13 @@ describe('Audit compliance', () => {
     expect(cdp).toContain('--remote-allow-origins=');
   });
 
-  // Fix 2+6: All generated SKILL.md files with telemetry are conditional
-  test('all generated SKILL.md files with telemetry calls use conditional pattern', () => {
+  // Fix 2+6: All generated SKILL.md files are telemetry-free
+  test('all generated SKILL.md files are telemetry-free', () => {
     const skills = getAllSkillMds();
     for (const { name, content } of skills) {
-      if (content.includes('nexus-telemetry-log')) {
-        expect(content).toContain('_TEL" != "off"');
-      }
+      expect(content).not.toContain('nexus-telemetry-log');
+      expect(content).not.toContain('skill-usage.jsonl');
+      expect(content).not.toContain('set telemetry');
     }
   });
 });

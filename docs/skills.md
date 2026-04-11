@@ -120,7 +120,7 @@ The canonical closeout command. Nexus verifies the governed work unit and final 
 ## Legacy compatibility deep dives
 
 This appendix exists so older names remain decipherable when they show up in
-archived plans, imported upstream material, analytics, or generated
+archived plans, imported upstream material, or generated
 compatibility wrappers. It does not define a second lifecycle.
 
 ## Compatibility aliases
@@ -172,7 +172,7 @@ You may still encounter legacy terms like "CEO review", "eng review", or
 - imported upstream source material
 - archived closeouts and plans
 - compatibility wrappers under `.agents/skills/`
-- analytics and migration history
+- migration history
 
 Those terms are lineage markers, not active product boundaries. Nexus remains
 the only command surface and the only lifecycle authority.

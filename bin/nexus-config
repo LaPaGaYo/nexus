@@ -27,12 +27,6 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 #                           # Set to true to skip the ~/.claude/CLAUDE.md prompt
 #                           # during setup. Set back to false to be asked again.
 #
-# ─── Telemetry ───────────────────────────────────────────────────────
-# telemetry: anonymous      # off | anonymous | community
-#                           #   off       — no data sent, no local analytics
-#                           #   anonymous — counter only, no device ID
-#                           #   community — usage data + stable device ID
-#
 # ─── Updates ─────────────────────────────────────────────────────────
 # release_channel: stable   # stable = published release channel for user upgrades
 #                           # reserved future values: candidate, nightly

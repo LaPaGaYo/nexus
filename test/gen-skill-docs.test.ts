@@ -322,10 +322,10 @@ describe('gen-skill-docs', () => {
     expect(content).not.toContain('## Completeness Principle');
   });
 
-  test('generated SKILL.md contains telemetry line', () => {
+  test('generated SKILL.md does not mention telemetry storage', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('skill-usage.jsonl');
-    expect(content).toContain('~/.nexus/analytics');
+    expect(content).not.toContain('skill-usage.jsonl');
+    expect(content).not.toContain('~/.nexus/analytics');
   });
 
   test('preamble .pending-* glob is zsh-safe (uses find, not shell glob)', () => {
@@ -376,7 +376,7 @@ describe('gen-skill-docs', () => {
     }
   });
 
-  test('preamble-using skills have correct skill name in telemetry', () => {
+  test('preamble-using skills do not emit telemetry scaffolding', () => {
     const PREAMBLE_SKILLS = [
       { dir: '.', name: 'nexus' },
       { dir: 'ship', name: 'ship' },
@@ -386,7 +386,9 @@ describe('gen-skill-docs', () => {
     ];
     for (const skill of PREAMBLE_SKILLS) {
       const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
-      expect(content).toContain(`"skill":"${skill.name}"`);
+      expect(content).not.toContain('_TEL_START');
+      expect(content).not.toContain('nexus-telemetry-log');
+      expect(content).not.toContain('set telemetry');
     }
   });
 
@@ -1830,7 +1832,7 @@ describe('Codex generation (--host codex)', () => {
       // No skill should reference Claude paths
       expect(content).not.toContain('~/.claude/skills');
       expect(content).not.toContain('.claude/skills');
-      if (content.includes('nexus-config') || content.includes('nexus-update-check') || content.includes('nexus-telemetry-log')) {
+      if (content.includes('nexus-config') || content.includes('nexus-update-check')) {
         expect(content).toContain('$NEXUS_ROOT');
       }
       // If a skill references checklist.md, it must use the correct sidecar path
@@ -2362,43 +2364,39 @@ describe('discover-skills hidden directory filtering', () => {
   });
 });
 
-describe('telemetry', () => {
-  test('generated SKILL.md contains telemetry start block', () => {
+describe('preamble privacy surface', () => {
+  test('generated SKILL.md no longer contains telemetry start block', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('_TEL_START');
-    expect(content).toContain('_SESSION_ID');
-    expect(content).toContain('TELEMETRY:');
-    expect(content).toContain('TEL_PROMPTED:');
-    expect(content).toContain('nexus-config get telemetry');
+    expect(content).not.toContain('_TEL_START');
+    expect(content).not.toContain('_SESSION_ID');
+    expect(content).not.toContain('TELEMETRY:');
+    expect(content).not.toContain('TEL_PROMPTED:');
+    expect(content).not.toContain('nexus-config get telemetry');
   });
 
-  test('generated SKILL.md contains telemetry opt-in prompt', () => {
+  test('generated SKILL.md no longer contains telemetry opt-in prompt', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('.telemetry-prompted');
-    expect(content).toContain('Help Nexus get better');
-    expect(content).toContain('Nexus community telemetry backend');
-    expect(content).toContain('Today that backend still runs on an inherited');
-    expect(content).toContain('Supabase project while Nexus completes telemetry cutover');
-    expect(content).toContain('nexus-config set telemetry community');
-    expect(content).toContain('nexus-config set telemetry anonymous');
-    expect(content).toContain('nexus-config set telemetry off');
+    expect(content).not.toContain('.telemetry-prompted');
+    expect(content).not.toContain('Help Nexus get better');
+    expect(content).not.toContain('community telemetry backend');
+    expect(content).not.toContain('Supabase project while Nexus completes telemetry cutover');
+    expect(content).not.toContain('nexus-config set telemetry community');
+    expect(content).not.toContain('nexus-config set telemetry anonymous');
+    expect(content).not.toContain('nexus-config set telemetry off');
   });
 
-  test('generated SKILL.md contains telemetry epilogue', () => {
+  test('generated SKILL.md no longer contains telemetry epilogue', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('Telemetry (run last)');
-    expect(content).toContain('nexus-telemetry-log');
-    expect(content).toContain('_TEL_END');
-    expect(content).toContain('_TEL_DUR');
-    expect(content).toContain('SKILL_NAME');
-    expect(content).toContain('OUTCOME');
-    expect(content).toContain('PLAN MODE EXCEPTION');
+    expect(content).not.toContain('Telemetry (run last)');
+    expect(content).not.toContain('nexus-telemetry-log');
+    expect(content).not.toContain('_TEL_END');
+    expect(content).not.toContain('_TEL_DUR');
   });
 
-  test('generated SKILL.md contains pending marker handling', () => {
+  test('generated SKILL.md no longer contains telemetry pending markers', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
-    expect(content).toContain('.pending');
-    expect(content).toContain('_pending_finalize');
+    expect(content).not.toContain('.pending');
+    expect(content).not.toContain('_pending_finalize');
   });
 
   test('generated SKILL.md uses Nexus-primary preamble prose', () => {
@@ -2409,14 +2407,14 @@ describe('telemetry', () => {
     expect(content).not.toContain('Running gstack v{to} (just updated!)');
   });
 
-  test('telemetry blocks appear in all skill files that use PREAMBLE', () => {
+  test('telemetry blocks do not appear in skill files that use PREAMBLE', () => {
     const skills = ['qa', 'ship', 'review', 'plan-ceo-review', 'plan-eng-review', 'retro'];
     for (const skill of skills) {
       const skillPath = path.join(ROOT, skill, 'SKILL.md');
       if (fs.existsSync(skillPath)) {
         const content = fs.readFileSync(skillPath, 'utf-8');
-        expect(content).toContain('_TEL_START');
-        expect(content).toContain('Telemetry (run last)');
+        expect(content).not.toContain('_TEL_START');
+        expect(content).not.toContain('Telemetry (run last)');
       }
     }
   });
@@ -2507,24 +2505,12 @@ describe('community fixes wave', () => {
     }
   });
 
-  // #467 — Telemetry: preamble JSONL writes are gated by telemetry setting
-  test('preamble JSONL writes are inside telemetry conditional', () => {
+  // #467 — Privacy: preamble no longer writes telemetry JSONL files
+  test('preamble contains no telemetry JSONL writes', () => {
     const preamble = fs.readFileSync(path.join(ROOT, 'scripts/resolvers/preamble.ts'), 'utf-8');
-    // Find all skill-usage.jsonl write lines
-    const lines = preamble.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('skill-usage.jsonl') && lines[i].includes('>>')) {
-        // Look backwards for a telemetry conditional within 5 lines
-        let foundConditional = false;
-        for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
-          if (lines[j].includes('_TEL') && lines[j].includes('off')) {
-            foundConditional = true;
-            break;
-          }
-        }
-        expect(foundConditional).toBe(true);
-      }
-    }
+    expect(preamble).not.toContain('skill-usage.jsonl');
+    expect(preamble).not.toContain('telemetry');
+    expect(preamble).not.toContain('nexus-telemetry-log');
   });
 });
 

@@ -4,7 +4,7 @@
 
 ### ML Prompt Injection Classifier
 
-**What:** Add DeBERTa-v3-base-prompt-injection-v2 via @huggingface/transformers v4 (WASM backend) as an ML defense layer for the Chrome sidebar. Reusable `browse/src/security.ts` module with `checkInjection()` API. Includes canary tokens, attack logging, shield icon, special telemetry (AskUserQuestion on detection even when telemetry off), and BrowseSafe-bench red team test harness (3,680 adversarial cases from Perplexity).
+**What:** Add DeBERTa-v3-base-prompt-injection-v2 via @huggingface/transformers v4 (WASM backend) as an ML defense layer for the Chrome sidebar. Reusable `browse/src/security.ts` module with `checkInjection()` API. Includes canary tokens, attack logging, shield icon, explicit incident reporting, and BrowseSafe-bench red team test harness (3,680 adversarial cases from Perplexity).
 
 **Why:** PR 1 fixes the architecture (command allowlist, XML framing, Opus default). But attackers can still trick Claude into navigating to phishing sites or exfiltrating visible page data via allowed browse commands. The ML classifier catches prompt injection patterns that architectural controls can't see. 94.8% accuracy, 99.6% recall, ~50-100ms inference via WASM. Defense-in-depth.
 
@@ -499,11 +499,11 @@ Shipped: Default model changed to Sonnet for structure tests (~30), Opus retaine
 
 ## Office Hours / Design
 
-### Design docs → Supabase team store sync
+### Design docs → team store sync
 
-**What:** Add design docs (`*-design-*.md`) to the Supabase sync pipeline alongside test plans, retro snapshots, and QA reports.
+**What:** Add design docs (`*-design-*.md`) to the team-store sync pipeline alongside test plans, retro snapshots, and QA reports.
 
-**Why:** Cross-team design discovery at scale. Local `~/.nexus/projects/$SLUG/` keyword-grep discovery works for same-machine users now, but Supabase sync makes it work across the whole team. Duplicate ideas surface, everyone sees what's been explored.
+**Why:** Cross-team design discovery at scale. Local `~/.nexus/projects/$SLUG/` keyword-grep discovery works for same-machine users now, but team-store sync makes it work across the whole team. Duplicate ideas surface, everyone sees what's been explored.
 
 **Context:** /office-hours writes design docs to `~/.nexus/projects/$SLUG/`. The team store already syncs test plans, retro snapshots, QA reports. Design docs follow the same pattern — just add a sync adapter.
 
@@ -618,31 +618,7 @@ Shipped in v0.8.3. Step 8.5 added to `/ship` — after creating the PR, `/ship` 
 
 ~~**What:** Three new skills that use Claude Code's session-scoped PreToolUse hooks to add safety guardrails on demand.~~
 
-Shipped as `/careful`, `/freeze`, `/guard`, and `/unfreeze` in v0.6.5. Includes hook fire-rate telemetry (pattern name only, no command content) and inline skill activation telemetry.
-
-### Skill usage telemetry — SHIPPED
-
-~~**What:** Track which skills get invoked, how often, from which repo.~~
-
-Shipped in v0.6.5. TemplateContext in gen-skill-docs.ts bakes skill name into preamble telemetry line. Analytics CLI (`bun run analytics`) for querying. /retro integration shows skills-used-this-week.
-
-### /investigate scoped debugging enhancements (gated on telemetry)
-
-**What:** Six enhancements to /investigate auto-freeze, contingent on telemetry showing the freeze hook actually fires in real debugging sessions.
-
-**Why:** /investigate v0.7.1 auto-freezes edits to the module being debugged. If telemetry shows the hook fires often, these enhancements make the experience smarter. If it never fires, the problem wasn't real and these aren't worth building.
-
-**Context:** All items are prose additions to `investigate/SKILL.md.tmpl`. No new scripts.
-
-**Items:**
-1. Stack trace auto-detection for freeze directory (parse deepest app frame)
-2. Freeze boundary widening (ask to widen instead of hard-block when hitting boundary)
-3. Post-fix auto-unfreeze + full test suite run
-4. Debug instrumentation cleanup (tag with DEBUG-TEMP, remove before commit)
-5. Debug session persistence (~/.nexus/investigate-sessions/ — save investigation for reuse)
-6. Investigation timeline in debug report (hypothesis log with timing)
-
-**Effort:** M (all 6 combined)
+Shipped as `/careful`, `/freeze`, `/guard`, and `/unfreeze` in v0.6.5. Nexus no longer uses telemetry or Supabase-backed analytics for these flows; regressions should surface through GitHub issues or PRs instead.
 **Priority:** P3
 **Depends on:** Telemetry data showing freeze hook fires in real /investigate sessions
 

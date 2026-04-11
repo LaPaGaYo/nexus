@@ -3,8 +3,6 @@ import { join } from 'path';
 export const PRIMARY_SUPPORT_NAMESPACE = 'nexus' as const;
 
 export const PRIMARY_SUPPORT_HELPERS = {
-  analytics: 'nexus-analytics',
-  community_dashboard: 'nexus-community-dashboard',
   global_discover: 'nexus-global-discover',
   learnings_log: 'nexus-learnings-log',
   learnings_search: 'nexus-learnings-search',
@@ -12,8 +10,6 @@ export const PRIMARY_SUPPORT_HELPERS = {
   review_read: 'nexus-review-read',
   repo_mode: 'nexus-repo-mode',
   slug: 'nexus-slug',
-  telemetry_log: 'nexus-telemetry-log',
-  telemetry_sync: 'nexus-telemetry-sync',
 } as const;
 
 export const PRIMARY_WORKTREE_ROOT = '.nexus-worktrees' as const;

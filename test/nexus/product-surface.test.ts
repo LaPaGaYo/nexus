@@ -53,9 +53,9 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`gemini + subagents` is an active local topology');
     expect(readme).toContain('If you want Codex to do the install for you, open Codex and paste this:');
     expect(readme).toContain('Codex does not use a Nexus-managed global instruction file equivalent to **`~/.claude/CLAUDE.md`**.');
-    expect(readme).toContain('Nexus community telemetry backend');
-    expect(readme).toContain('inherited Supabase project shared with legacy Gstack infrastructure');
-    expect(readme).toContain('docs/superpowers/runbooks/nexus-telemetry-backend-cutover.md');
+    expect(readme).toContain('Nexus does not ship usage telemetry.');
+    expect(readme).toContain('no remote analytics backend');
+    expect(readme).toContain('file an issue or PR on GitHub instead');
     expect(readme).toContain('git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus');
     expect(readme).toContain('Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.');
     expect(installSection).toContain('/nexus-upgrade');

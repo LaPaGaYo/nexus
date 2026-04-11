@@ -74,22 +74,6 @@ RELEASE_CHANNEL="${NEXUS_RELEASE_CHANNEL:-${RELEASE_CHANNEL:-$("$NEXUS_DIR/bin/n
 
 mkdir -p "$STATE_DIR"
 
-if [ -z "${NEXUS_SUPABASE_URL:-}" ] && [ -f "$NEXUS_DIR/supabase/config.sh" ]; then
-  . "$NEXUS_DIR/supabase/config.sh"
-fi
-_SUPA_URL="${NEXUS_SUPABASE_URL:-}"
-_SUPA_KEY="${NEXUS_SUPABASE_ANON_KEY:-}"
-_TEL_TIER="$("$NEXUS_DIR/bin/nexus-config" get telemetry 2>/dev/null || true)"
-if [ -n "$_SUPA_URL" ] && [ -n "$_SUPA_KEY" ] && [ "${_TEL_TIER:-off}" != "off" ]; then
-  _OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-  curl -sf --max-time 5 \
-    -X POST "${_SUPA_URL}/functions/v1/update-check" \
-    -H "Content-Type: application/json" \
-    -H "apikey: ${_SUPA_KEY}" \
-    -d "{\"version\":\"$(cat "$VERSION_FILE" 2>/dev/null | tr -d '[:space:]')\",\"os\":\"$_OS\"}" \
-    >/dev/null 2>&1 &
-fi
-
 CORE_JS="$(cat <<'EOF'
 const { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = await import('fs');
 const { dirname, join } = await import('path');

@@ -197,8 +197,8 @@ After the loop completes (PASS, max iterations, or convergence guard):
 
 3. Append metrics:
 \`\`\`bash
-mkdir -p ~/.nexus/analytics
-echo '{"skill":"${ctx.skillName}","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","iterations":ITERATIONS,"issues_found":FOUND,"issues_fixed":FIXED,"remaining":REMAINING,"quality_score":SCORE}' >> ~/.nexus/analytics/spec-review.jsonl 2>/dev/null || true
+mkdir -p ~/.nexus/review-metrics
+echo '{"skill":"${ctx.skillName}","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","iterations":ITERATIONS,"issues_found":FOUND,"issues_fixed":FIXED,"remaining":REMAINING,"quality_score":SCORE}' >> ~/.nexus/review-metrics/spec-review.jsonl 2>/dev/null || true
 \`\`\`
 Replace ITERATIONS, FOUND, FIXED, REMAINING, SCORE with actual values from the review.`;
 }
