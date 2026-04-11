@@ -1446,6 +1446,35 @@ describe('preamble routing injection', () => {
   });
 });
 
+describe('preamble execution mode guidance', () => {
+  const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+
+  test('preamble bash emits execution mode state separately from repo mode', () => {
+    expect(shipContent).toContain('CCB_AVAILABLE:');
+    expect(shipContent).toContain('EXECUTION_MODE:');
+    expect(shipContent).toContain('EXECUTION_MODE_CONFIGURED:');
+    expect(shipContent).toContain('PRIMARY_PROVIDER:');
+    expect(shipContent).toContain('PROVIDER_TOPOLOGY:');
+    expect(shipContent).toContain('REPO_MODE:');
+  });
+
+  test('upgrade guidance forbids treating repo mode as execution mode', () => {
+    expect(shipContent).toContain('REPO_MODE');
+    expect(shipContent).toContain('EXECUTION_MODE');
+    expect(shipContent).toContain('Never describe `solo` or `collaborative` as an execution mode');
+    expect(shipContent).toContain('default derived from machine state, not a saved preference');
+  });
+
+  test('claude post-upgrade guidance persists execution mode when CCB is already installed', () => {
+    expect(shipContent).toContain('Nexus just upgraded, but this machine still has no saved execution-mode preference.');
+    expect(shipContent).toContain('Stay in the current Claude session with local_provider');
+    expect(shipContent).toContain('Persist governed_ccb and relaunch Claude inside tmux');
+    expect(shipContent).toContain('nexus-config set execution_mode governed_ccb');
+    expect(shipContent).toContain('nexus-config set execution_mode local_provider');
+    expect(shipContent).toContain('ccb codex gemini claude');
+  });
+});
+
 describe('Nexus-first wrapper language', () => {
   test('canonical wrappers stay Nexus-first even after upstream imports exist', () => {
     const content = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');

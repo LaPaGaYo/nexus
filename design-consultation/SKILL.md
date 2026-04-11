@@ -41,6 +41,51 @@ _SKILL_PREFIX=$(~/.claude/skills/nexus/bin/nexus-config get skill_prefix 2>/dev/
 echo "PROACTIVE: $_PROACTIVE"
 echo "PROACTIVE_PROMPTED: $_PROACTIVE_PROMPTED"
 echo "SKILL_PREFIX: $_SKILL_PREFIX"
+_MODE_CONFIGURED=$(~/.claude/skills/nexus/bin/nexus-config get execution_mode 2>/dev/null || true)
+_PRIMARY_PROVIDER_CONFIG=$(~/.claude/skills/nexus/bin/nexus-config get primary_provider 2>/dev/null || true)
+_TOPOLOGY_CONFIG=$(~/.claude/skills/nexus/bin/nexus-config get provider_topology 2>/dev/null || true)
+if command -v ask >/dev/null 2>&1; then
+  _CCB_AVAILABLE="yes"
+else
+  _CCB_AVAILABLE="no"
+fi
+if [ -n "$_MODE_CONFIGURED" ]; then
+  _EXECUTION_MODE="$_MODE_CONFIGURED"
+  _EXECUTION_MODE_CONFIGURED="yes"
+else
+  _EXECUTION_MODE_CONFIGURED="no"
+  if [ "$_CCB_AVAILABLE" = "yes" ]; then
+    _EXECUTION_MODE="governed_ccb"
+  else
+    _EXECUTION_MODE="local_provider"
+  fi
+fi
+if [ "$_EXECUTION_MODE" = "governed_ccb" ]; then
+  _PRIMARY_PROVIDER="codex"
+  _PROVIDER_TOPOLOGY="multi_session"
+else
+  if [ -n "$_PRIMARY_PROVIDER_CONFIG" ]; then
+    _PRIMARY_PROVIDER="$_PRIMARY_PROVIDER_CONFIG"
+  elif command -v claude >/dev/null 2>&1; then
+    _PRIMARY_PROVIDER="claude"
+  elif command -v codex >/dev/null 2>&1; then
+    _PRIMARY_PROVIDER="codex"
+  elif command -v gemini >/dev/null 2>&1; then
+    _PRIMARY_PROVIDER="gemini"
+  else
+    _PRIMARY_PROVIDER="claude"
+  fi
+  if [ -n "$_TOPOLOGY_CONFIG" ]; then
+    _PROVIDER_TOPOLOGY="$_TOPOLOGY_CONFIG"
+  else
+    _PROVIDER_TOPOLOGY="single_agent"
+  fi
+fi
+echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
+echo "EXECUTION_MODE: $_EXECUTION_MODE"
+echo "EXECUTION_MODE_CONFIGURED: $_EXECUTION_MODE_CONFIGURED"
+echo "PRIMARY_PROVIDER: $_PRIMARY_PROVIDER"
+echo "PROVIDER_TOPOLOGY: $_PROVIDER_TOPOLOGY"
 source <(~/.claude/skills/nexus/bin/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -77,6 +122,39 @@ of `/qa`, `/nexus-ship` instead of `/ship`). Disk paths are unaffected — alway
 `~/.claude/skills/nexus/[skill-name]/SKILL.md` for reading skill files.
 
 If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/nexus/nexus-upgrade/SKILL.md` and follow the release-based "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). `/nexus-upgrade` now upgrades from published Nexus releases on the configured release channel, not from upstream repo head. If `JUST_UPGRADED <from> <to>`: tell user "Running Nexus v{to} (just updated!)" and continue.
+
+When summarizing setup or upgrade state, always keep `REPO_MODE` and `EXECUTION_MODE` separate:
+- `REPO_MODE` is repo ownership only, for example `solo` or `collaborative`
+- `EXECUTION_MODE` is runtime routing only, either `governed_ccb` or `local_provider`
+- Never describe `solo` or `collaborative` as an execution mode
+- If `EXECUTION_MODE_CONFIGURED` is `no`, say it is the current default derived from machine state, not a saved preference
+
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE`, `PRIMARY_PROVIDER`, `PROVIDER_TOPOLOGY`, and `CCB_AVAILABLE`.
+
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `yes`, use AskUserQuestion to persist the execution preference:
+
+> Nexus just upgraded, but this machine still has no saved execution-mode preference.
+> Repo mode only tells you whether the repo is solo or collaborative.
+> Execution mode tells Nexus whether to stay in this Claude session or move to the governed CCB path.
+>
+> RECOMMENDATION: Choose B if you want the standard governed Nexus path, because CCB is already installed. Completeness: 9/10.
+> A) Stay in the current Claude session with local_provider (human: ~0m / CC: ~0m) — Completeness: 8/10
+> B) Persist governed_ccb and relaunch Claude inside tmux (human: ~1m / CC: ~0m) — Completeness: 9/10
+
+If A:
+```bash
+~/.claude/skills/nexus/bin/nexus-config set execution_mode local_provider
+~/.claude/skills/nexus/bin/nexus-config set primary_provider claude
+```
+Then explain that the current session can continue with `local_provider`, and if `PROVIDER_TOPOLOGY` is empty the default local topology is `single_agent`.
+
+If B:
+```bash
+~/.claude/skills/nexus/bin/nexus-config set execution_mode governed_ccb
+```
+Then explain that `governed_ccb` requires leaving the current Claude session and relaunching inside tmux with `ccb codex gemini claude`.
+
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `no`, tell the user Nexus is defaulting to `local_provider` because CCB is not detected, state the effective provider/topology, and tell them they can run `./setup` later if they want Nexus to help install CCB before switching to `governed_ccb`.
 
 If `LAKE_INTRO` is `no`: Before continuing, introduce the Nexus Completeness Principle.
 Tell the user: "Nexus follows the **Completeness Principle** — when the bounded, correct
@@ -226,6 +304,22 @@ AI makes completeness near-free. Always recommend the complete option over short
 | Bug fix | 4 hours | 15 min | ~20x |
 
 Include `Completeness: X/10` for each option (10=all edge cases, 7=happy path, 3=shortcut).
+
+## Execution Mode
+
+`EXECUTION_MODE` is the active Nexus runtime route. `REPO_MODE` is not the same thing.
+
+- `REPO_MODE`: repo ownership, for example `solo`, `collaborative`, or `unknown`
+- `EXECUTION_MODE`: runtime routing, either `governed_ccb` or `local_provider`
+- `PRIMARY_PROVIDER`: the active local provider when `EXECUTION_MODE=local_provider`
+- `PROVIDER_TOPOLOGY`: the active local topology when `EXECUTION_MODE=local_provider`
+- `CCB_AVAILABLE`: whether `ask` is installed on this machine
+
+Whenever you summarize the current state, show both:
+- Repo mode: `REPO_MODE`
+- Execution mode: `EXECUTION_MODE`
+
+If `EXECUTION_MODE_CONFIGURED` is `no`, explicitly say the execution mode is a default derived from machine state, not a persisted preference.
 
 ## Repo Ownership — See Something, Say Something
 

@@ -133,6 +133,16 @@ which path you want:
 That choice is now explicit. Interactive Claude setup does not silently time out into
 `local_provider` when CCB is present.
 
+If you arrive through `/nexus-upgrade` instead of `./setup`, the first post-upgrade
+Claude session now treats repo mode and execution mode separately:
+
+- `repo mode` stays `solo` / `collaborative`
+- `execution mode` stays `governed_ccb` / `local_provider`
+
+If no explicit `execution_mode` is saved yet, Nexus states the effective default
+execution path and, when CCB is already installed, asks whether to persist
+`governed_ccb` or stay in the current Claude session with `local_provider`.
+
 If you choose `local_provider` in interactive Claude setup, Nexus then asks
 which local Claude topology to use:
 
@@ -191,6 +201,7 @@ nexus-config set provider_topology multi_session
 Practical defaults:
 
 - interactive Claude setup requires an explicit mode choice when `ask` is installed and no explicit mode is saved
+- the first Claude session after `/nexus-upgrade` now also makes repo mode and execution mode explicit when no mode is saved yet
 - interactive Claude setup asks whether to install CCB when `ask` is missing and no explicit local choice is already saved
 - interactive Claude setup also asks `single_agent` vs `subagents` when `local_provider` is selected for Claude
 - interactive Codex setup asks `single_agent` vs `subagents` vs `multi_session` when `local_provider` is selected for Codex

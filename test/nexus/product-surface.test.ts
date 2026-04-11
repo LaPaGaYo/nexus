@@ -50,6 +50,10 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('whether you want to install CCB now');
     expect(readme).toContain('continue without CCB and use `local_provider`');
     expect(readme).toContain('does not silently time out into');
+    expect(readme).toContain('the first post-upgrade');
+    expect(readme).toContain('repo mode and execution mode separately');
+    expect(readme).toContain('asks whether to persist');
+    expect(readme).toContain('the current Claude session with `local_provider`');
     expect(readme).toContain('nexus-config set provider_topology subagents');
     expect(readme).toContain('`codex + subagents` is an active local topology');
     expect(readme).toContain('`codex + multi_session` is an active local topology');
