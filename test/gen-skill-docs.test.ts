@@ -2376,6 +2376,9 @@ describe('telemetry', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).toContain('.telemetry-prompted');
     expect(content).toContain('Help Nexus get better');
+    expect(content).toContain('Nexus community telemetry backend');
+    expect(content).toContain('Today that backend still runs on an inherited');
+    expect(content).toContain('Supabase project while Nexus completes telemetry cutover');
     expect(content).toContain('nexus-config set telemetry community');
     expect(content).toContain('nexus-config set telemetry anonymous');
     expect(content).toContain('nexus-config set telemetry off');

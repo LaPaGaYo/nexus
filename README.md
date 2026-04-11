@@ -414,8 +414,11 @@ Telemetry is opt-in.
 
 - default is off
 - on first run, Nexus asks
+- remote telemetry goes to the Nexus community telemetry backend
+- today that backend still runs on an inherited Supabase project shared with legacy Gstack infrastructure until the Nexus telemetry cutover is completed
 - remote telemetry excludes code, prompts, file contents, and repo-private text
 - local analytics remain available through `nexus-analytics`
+- maintainers should use `docs/superpowers/runbooks/nexus-telemetry-backend-cutover.md` for the backend cutover procedure
 
 Configuration lives under `~/.nexus/config.yaml`.
 

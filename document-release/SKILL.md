@@ -111,8 +111,10 @@ If `TEL_PROMPTED` is `no` AND `LAKE_INTRO` is `yes`: After the lake intro is han
 ask the user about telemetry. Use AskUserQuestion:
 
 > Help Nexus get better! Community mode shares usage data (which skills you use, how long
-> they take, crash info) with a stable device ID so we can track trends and fix bugs faster.
-> No code, file paths, or repo names are ever sent.
+> they take, crash info) with the Nexus community telemetry backend and a stable device ID
+> so we can track trends and fix bugs faster. Today that backend still runs on an inherited
+> Supabase project while Nexus completes telemetry cutover. No code, file paths, or repo
+> names are ever sent.
 > Change anytime with `nexus-config set telemetry off`.
 
 Options:
