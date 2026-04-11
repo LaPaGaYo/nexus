@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# nexus-release-preflight — validate local Nexus release artifacts before tagging.
+#
+# Usage:
+#   nexus-release-preflight
+#
+# Env overrides (for testing):
+#   NEXUS_DIR               — override the release artifact root to validate
+#   NEXUS_GIT_STATUS_LINES  — override git status --short output
+#   NEXUS_EXISTING_TAGS     — override git tag --list output
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-release-preflight" >&2
+    exit 1
+    ;;
+esac
+
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NEXUS_DIR="${NEXUS_DIR:-$SCRIPT_ROOT}"
+GIT_STATUS_LINES="${NEXUS_GIT_STATUS_LINES:-$(git -C "$NEXUS_DIR" status --short 2>/dev/null || true)}"
+EXISTING_TAGS="${NEXUS_EXISTING_TAGS:-$(git -C "$NEXUS_DIR" tag --list 2>/dev/null || true)}"
+
+CORE_JS="$(cat <<'EOF'
+const releasePublish = await import(process.env.NEXUS_RELEASE_PUBLISH_PATH);
+
+const report = releasePublish.buildReleasePreflightReport({
+  rootDir: process.env.NEXUS_DIR,
+  gitStatusLines: (process.env.NEXUS_GIT_STATUS_LINES ?? '').split('\n').filter(Boolean),
+  existingTags: (process.env.NEXUS_EXISTING_TAGS ?? '').split('\n').filter(Boolean),
+});
+
+if (report.status === 'ready') {
+  console.log(`READY ${report.version} ${report.tag}`);
+  process.exit(0);
+}
+
+console.log(`BLOCKED ${report.version} ${report.tag}`);
+for (const issue of report.issues) {
+  console.log(`- ${issue}`);
+}
+process.exit(1);
+EOF
+)"
+
+NEXUS_DIR="$NEXUS_DIR" \
+NEXUS_GIT_STATUS_LINES="$GIT_STATUS_LINES" \
+NEXUS_EXISTING_TAGS="$EXISTING_TAGS" \
+NEXUS_RELEASE_PUBLISH_PATH="$SCRIPT_ROOT/lib/nexus/release-publish.ts" \
+bun -e "$CORE_JS"
