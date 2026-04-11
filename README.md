@@ -115,11 +115,23 @@ cd ~/.claude/skills/nexus && ./setup
 
 If `~/.claude/skills/nexus` already exists, do not clone over it. Run `/nexus-upgrade` instead.
 
-If `ask` / CCB is installed and setup is interactive in Claude, Nexus asks which
-path you want:
+If setup is interactive in Claude and `ask` / CCB is missing, Nexus asks first
+whether you want to install CCB now:
+
+- install CCB now through the official `claude_code_bridge` installer, then continue setup
+- continue without CCB and use `local_provider`
+
+If CCB installation fails, setup stops there instead of silently falling through to a
+governed or local execution choice.
+
+If `ask` / CCB is already installed and setup is interactive in Claude, Nexus then asks
+which path you want:
 
 - continue in the current Claude session with `local_provider`
 - switch to `governed_ccb` and relaunch Claude inside `tmux` with `ccb codex gemini claude`
+
+That choice is now explicit. Interactive Claude setup does not silently time out into
+`local_provider` when CCB is present.
 
 If you choose `local_provider` in interactive Claude setup, Nexus then asks
 which local Claude topology to use:
@@ -150,7 +162,7 @@ Non-interactive installs skip that global file change by default.
 
 If you want Claude to do the install for you, open Claude Code and paste this:
 
-> Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`/nexus-upgrade`** instead. After the install or upgrade finishes, make sure the global **`CLAUDE.md`** routes Claude through Nexus. If setup did not already offer to update it, add a **`Nexus`** section that says:
+> Install Nexus. If **`~/.claude/skills/nexus`** does not exist, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus`**. If it already exists, run **`/nexus-upgrade`** instead. During setup, if CCB is missing, ask whether to install it before finalizing execution mode. After the install or upgrade finishes, make sure the global **`CLAUDE.md`** routes Claude through Nexus. If setup did not already offer to update it, add a **`Nexus`** section that says:
 >
 > - Claude is the only interactive front door.
 > - When a repository exposes canonical Nexus commands, route lifecycle work through **`/discover`**, **`/frame`**, **`/plan`**, **`/handoff`**, **`/build`**, **`/review`**, **`/qa`**, **`/ship`**, and **`/closeout`**.
@@ -178,7 +190,8 @@ nexus-config set provider_topology multi_session
 
 Practical defaults:
 
-- interactive Claude setup asks when `ask` is installed and no explicit mode is saved
+- interactive Claude setup requires an explicit mode choice when `ask` is installed and no explicit mode is saved
+- interactive Claude setup asks whether to install CCB when `ask` is missing and no explicit local choice is already saved
 - interactive Claude setup also asks `single_agent` vs `subagents` when `local_provider` is selected for Claude
 - interactive Codex setup asks `single_agent` vs `subagents` vs `multi_session` when `local_provider` is selected for Codex
 - Gemini local subagents are supported through `nexus-config set primary_provider gemini` plus `nexus-config set provider_topology subagents`

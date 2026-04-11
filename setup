@@ -53,6 +53,7 @@ esac
 NEXUS_CONFIG="$SOURCE_NEXUS_DIR/bin/nexus-config"
 GLOBAL_CLAUDE_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-global-claude"
 LEGACY_CLAUDE_HOOKS_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-clean-claude-hooks"
+CCB_REPO_URL="${NEXUS_CCB_REPO_URL:-https://github.com/bfly123/claude_code_bridge.git}"
 export NEXUS_SETUP_RUNNING=1  # Prevent nexus-config post-set hook from triggering relink mid-setup
 if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
   _saved_prefix="$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || true)"
@@ -141,10 +142,108 @@ maybe_clean_legacy_claude_hooks() {
   done
 }
 
+ensure_local_bin_on_path() {
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+  esac
+}
+
+ask_available() {
+  if command -v ask >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ -x "$HOME/.local/bin/ask" ]; then
+    ensure_local_bin_on_path
+    return 0
+  fi
+  if [ -x "$HOME/.local/share/codex-dual/bin/ask" ]; then
+    ensure_local_bin_on_path
+    return 0
+  fi
+  return 1
+}
+
+install_ccb_now() {
+  ensure_local_bin_on_path
+  ask_available && return 0
+
+  if ! command -v git >/dev/null 2>&1; then
+    echo "Error: git is required to install CCB." >&2
+    return 1
+  fi
+
+  _ccb_tmp="$(mktemp -d "${TMPDIR:-/tmp}/nexus-ccb.XXXXXX")"
+
+  echo "  cloning CCB from $CCB_REPO_URL"
+  if ! git clone --single-branch --depth 1 "$CCB_REPO_URL" "$_ccb_tmp/claude_code_bridge"; then
+    rm -rf "$_ccb_tmp"
+    echo "Error: failed to clone claude_code_bridge." >&2
+    return 1
+  fi
+
+  echo "  running CCB installer"
+  if ! (
+    cd "$_ccb_tmp/claude_code_bridge" &&
+    ./install.sh install
+  ); then
+    rm -rf "$_ccb_tmp"
+    echo "Error: CCB installer exited unsuccessfully." >&2
+    return 1
+  fi
+
+  ensure_local_bin_on_path
+  if ! ask_available; then
+    rm -rf "$_ccb_tmp"
+    return 1
+  fi
+  rm -rf "$_ccb_tmp"
+  return 0
+}
+
+maybe_offer_ccb_install_choice() {
+  [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
+  [ -t 0 ] || return 0
+  ask_available && return 0
+
+  _mode="$("$NEXUS_CONFIG" get execution_mode 2>/dev/null || true)"
+  [ "$_mode" = "local_provider" ] && return 0
+
+  echo ""
+  echo "CCB was not detected on this machine."
+  echo ""
+  echo "  1) Install CCB now (recommended for governed multi-model runs)"
+  echo "     Nexus will clone the official claude_code_bridge repo and run ./install.sh install."
+  echo ""
+  echo "  2) Continue without CCB and use local_provider"
+  echo "     You can keep working in this Claude session without governed multi-model routing."
+  echo ""
+  printf "Choice [1/2] (default: 2, auto-selects in 10s): "
+  read -t 10 -r _ccb_choice </dev/tty 2>/dev/null || _ccb_choice=""
+
+  case "$_ccb_choice" in
+    1)
+      echo "  installing CCB..."
+      if install_ccb_now; then
+        echo "  CCB install complete"
+        return 0
+      fi
+      echo "Error: CCB installation failed. Re-run ./setup after fixing the installer output above." >&2
+      return 1
+      ;;
+    *)
+      "$NEXUS_CONFIG" set execution_mode local_provider 2>/dev/null || true
+      "$NEXUS_CONFIG" set primary_provider claude 2>/dev/null || true
+      echo "  continuing without CCB"
+      echo "  selected local_provider (claude)"
+      ;;
+  esac
+}
+
 maybe_offer_execution_mode_choice() {
   [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
   [ -t 0 ] || return 0
-  command -v ask >/dev/null 2>&1 || return 0
+  ask_available || return 0
 
   _mode="$("$NEXUS_CONFIG" get execution_mode 2>/dev/null || true)"
   [ -n "$_mode" ] && return 0
@@ -158,8 +257,8 @@ maybe_offer_execution_mode_choice() {
   echo "  2) Use tmux + CCB for governed multi-model runs (governed_ccb)"
   echo "     Requires restarting Claude inside: tmux && ccb codex gemini claude"
   echo ""
-  printf "Choice [1/2] (default: 1, auto-selects in 10s): "
-  read -t 10 -r _execution_choice </dev/tty 2>/dev/null || _execution_choice=""
+  printf "Choice [1/2] (required): "
+  read -r _execution_choice </dev/tty 2>/dev/null || _execution_choice=""
 
   case "$_execution_choice" in
     2)
@@ -167,11 +266,15 @@ maybe_offer_execution_mode_choice() {
       echo "  selected governed_ccb"
       echo "  next: finish setup, then relaunch Claude inside tmux with: ccb codex gemini claude"
       ;;
-    *)
+    1)
       "$NEXUS_CONFIG" set execution_mode local_provider 2>/dev/null || true
       "$NEXUS_CONFIG" set primary_provider claude 2>/dev/null || true
       echo "  selected local_provider (claude)"
       echo "  next: you can keep using the current Claude session"
+      ;;
+    *)
+      echo "Error: explicit execution-mode choice required when CCB is detected. Re-run ./setup and choose 1 or 2." >&2
+      return 1
       ;;
   esac
 }
@@ -205,7 +308,7 @@ maybe_offer_local_topology_choice() {
     if [ "$HOST" = "codex" ] || { [ "$INSTALL_CODEX" -eq 1 ] && [ "$INSTALL_CLAUDE" -eq 0 ]; }; then
       _mode="local_provider"
       "$NEXUS_CONFIG" set execution_mode local_provider 2>/dev/null || true
-    elif command -v ask >/dev/null 2>&1; then
+    elif ask_available; then
       _mode="governed_ccb"
     else
       _mode="local_provider"
@@ -306,7 +409,7 @@ announce_execution_mode() {
   if [ -z "$_mode" ]; then
     if [ "$HOST" = "codex" ] || { [ "$INSTALL_CODEX" -eq 1 ] && [ "$INSTALL_CLAUDE" -eq 0 ]; }; then
       _mode="local_provider"
-    elif command -v ask >/dev/null 2>&1; then
+    elif ask_available; then
       _mode="governed_ccb"
     else
       _mode="local_provider"
@@ -841,6 +944,7 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
       echo "Nexus ready (claude)."
     fi
     maybe_clean_legacy_claude_hooks
+    maybe_offer_ccb_install_choice
     maybe_offer_execution_mode_choice
     maybe_offer_local_topology_choice
     maybe_offer_global_claude_guidance
@@ -849,6 +953,7 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
   else
     echo "Nexus ready (claude)."
     maybe_clean_legacy_claude_hooks
+    maybe_offer_ccb_install_choice
     maybe_offer_execution_mode_choice
     maybe_offer_local_topology_choice
     maybe_offer_global_claude_guidance

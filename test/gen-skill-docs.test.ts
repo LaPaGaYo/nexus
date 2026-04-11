@@ -2256,11 +2256,23 @@ describe('setup script validation', () => {
 
   test('setup offers an execution-mode chooser when CCB is detected for Claude installs', () => {
     expect(setupContent).toContain('maybe_offer_execution_mode_choice');
-    expect(setupContent).toContain('command -v ask');
+    expect(setupContent).toContain('ask_available || return 0');
     expect(setupContent).toContain('Continue in the current Claude session (local_provider)');
     expect(setupContent).toContain('Use tmux + CCB for governed multi-model runs (governed_ccb)');
     expect(setupContent).toContain('set execution_mode local_provider');
     expect(setupContent).toContain('set execution_mode governed_ccb');
+    expect(setupContent).toContain('Choice [1/2] (required):');
+    expect(setupContent).toContain('explicit execution-mode choice required when CCB is detected');
+  });
+
+  test('setup offers to install CCB before falling back to local Claude mode', () => {
+    expect(setupContent).toContain('maybe_offer_ccb_install_choice');
+    expect(setupContent).toContain('CCB was not detected on this machine.');
+    expect(setupContent).toContain('Install CCB now (recommended for governed multi-model runs)');
+    expect(setupContent).toContain('claude_code_bridge repo and run ./install.sh install');
+    expect(setupContent).toContain('Continue without CCB and use local_provider');
+    expect(setupContent).toContain('CCB installation failed. Re-run ./setup after fixing the installer output above.');
+    expect(setupContent).toContain('CCB install complete');
   });
 
   test('setup explains that governed_ccb requires relaunching Claude inside tmux', () => {

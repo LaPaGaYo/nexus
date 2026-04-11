@@ -47,6 +47,9 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(readme).toContain('~/.claude/skills/nexus');
     expect(readme).toContain('~/.nexus/config.yaml');
+    expect(readme).toContain('whether you want to install CCB now');
+    expect(readme).toContain('continue without CCB and use `local_provider`');
+    expect(readme).toContain('does not silently time out into');
     expect(readme).toContain('nexus-config set provider_topology subagents');
     expect(readme).toContain('`codex + subagents` is an active local topology');
     expect(readme).toContain('`codex + multi_session` is an active local topology');
@@ -147,6 +150,11 @@ describe('nexus product surface contract', () => {
     expect(setup).toContain('selected local_provider (claude, subagents)');
     expect(setup).toContain('selected local_provider (codex, subagents)');
     expect(setup).toContain('selected local_provider (codex, multi_session)');
+    expect(setup).toContain('maybe_offer_ccb_install_choice');
+    expect(setup).toContain('Install CCB now (recommended for governed multi-model runs)');
+    expect(setup).toContain('CCB installation failed. Re-run ./setup after fixing the installer output above.');
+    expect(setup).toContain('Choice [1/2] (required):');
+    expect(setup).toContain('explicit execution-mode choice required when CCB is detected');
     expect(setup).toContain('provider_topology subagents');
     expect(setup).toContain('removed legacy GSD hook entries from');
     expect(setup).not.toContain('.claude/skills/gstack');
