@@ -86,6 +86,8 @@ describe('nexus-config', () => {
     expect((content.match(/# Nexus configuration/g) || []).length).toBe(1);
     expect(content).toContain('nexus_contributor:');
     expect(content).not.toContain('# gstack configuration');
+    expect(content).not.toContain('# ─── Telemetry');
+    expect(content).not.toContain('usage data + stable device ID');
   });
 
   test('set rejects invalid keys', () => {
