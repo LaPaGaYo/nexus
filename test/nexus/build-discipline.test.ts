@@ -65,6 +65,12 @@ describe('nexus superpowers build discipline', () => {
       expect(await run.readFile('.planning/current/build/build-result.md')).toContain(
         'Advance to `/review` only after Nexus records a bounded build result with requested and actual route provenance kept distinct.',
       );
+      expect((await run.readJson('.planning/current/build/adapter-output.json')).transport.raw_output.summary_markdown).toContain(
+        'Nexus-owned build guidance for disciplined implementation under governed routing.',
+      );
+      expect((await run.readJson('.planning/current/build/adapter-output.json')).transport.raw_output.summary_markdown).toContain(
+        'run build discipline before transport',
+      );
     });
   });
 

@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawn } from 'child_process';
-import { createQaStagePack, createReviewStagePack } from '../stage-packs';
+import { createBuildStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
 import type { ActualRouteRecord, ConflictRecord, PrimaryProvider, ProviderTopology } from '../types';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
@@ -544,6 +544,7 @@ async function runProviderCommand(
 }
 
 export function createDefaultLocalAdapter(): LocalAdapter {
+  const buildPack = createBuildStagePack();
   const qaPack = createQaStagePack();
   const reviewPack = createReviewStagePack();
 
@@ -603,9 +604,15 @@ export function createDefaultLocalAdapter(): LocalAdapter {
       return successResult<LocalExecuteGeneratorRaw>(
         {
           receipt: `local-build-${ctx.ledger.execution.primary_provider}`,
-          summary_markdown: topology.mode === 'claude_subagents'
-            ? '# Build Execution Summary\n\n- Status: completed\n- Actions: local claude subagent build\n- Files touched: none\n- Verification: local verifier subagent\n'
-            : '# Build Execution Summary\n\n- Status: completed\n- Actions: local provider build\n- Files touched: none\n- Verification: placeholder\n',
+          summary_markdown: buildPack.buildExecutionSummary(ctx, topology.mode === 'claude_subagents'
+            ? {
+                actions: 'local claude subagent build',
+                verification: 'local verifier subagent',
+              }
+            : {
+                actions: 'local provider build',
+                verification: 'default Nexus local execution trace recorded',
+              }),
           agent_roles: topology.mode === 'claude_subagents' ? ['nexus_builder', 'nexus_verifier'] : undefined,
         },
         buildActualRoute(

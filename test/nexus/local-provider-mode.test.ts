@@ -74,6 +74,12 @@ describe('nexus local_provider mode', () => {
           transport: 'local',
         },
       });
+      expect((await run.readJson('.planning/current/build/adapter-output.json')).transport.raw_output.summary_markdown).toContain(
+        'Nexus-owned build guidance for disciplined implementation under governed routing.',
+      );
+      expect((await run.readJson('.planning/current/build/adapter-output.json')).transport.raw_output.summary_markdown).not.toContain(
+        'placeholder',
+      );
 
       expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
         stage: 'review',

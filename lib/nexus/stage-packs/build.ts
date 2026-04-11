@@ -1,27 +1,19 @@
-import { stageAdapterOutputPath } from '../artifacts';
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
+import { buildExecutionSummary, buildGeneratorExecution } from '../absorption/ccb/build';
 import { buildVerificationSummary } from '../absorption/superpowers/build';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
-
-function expectedProvider(generator: string | null): string | null {
-  if (generator?.startsWith('codex')) {
-    return 'codex';
-  }
-
-  if (generator?.startsWith('gemini')) {
-    return 'gemini';
-  }
-
-  return null;
-}
 
 export interface NexusBuildStagePack {
   id: 'nexus-build-pack';
   stage: 'build';
   source_binding: ReturnType<typeof getStagePackSourceBinding>;
   buildVerificationSummary(ctx: NexusAdapterContext): string;
+  buildExecutionSummary(
+    ctx: NexusAdapterContext,
+    options: { actions: string; verification: string; files_touched?: string },
+  ): string;
   buildGeneratorExecution(ctx: NexusAdapterContext): {
-    raw_output: { receipt: string };
+    raw_output: { receipt: string; summary_markdown?: string };
     actual_route: {
       provider: string | null;
       route: string;
@@ -42,22 +34,14 @@ export function createBuildStagePack(): NexusBuildStagePack {
     stage: 'build',
     source_binding,
     buildVerificationSummary: (ctx) => buildVerificationSummary(ctx),
-    buildGeneratorExecution: (ctx) => {
-      const provider = expectedProvider(ctx.requested_route?.generator ?? null);
-
-      return {
-        raw_output: {
-          receipt: 'ccb-default',
-        },
-        actual_route: {
-          provider,
-          route: ctx.requested_route?.generator ?? 'codex-via-ccb',
-          substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
-          transport: 'ccb' as const,
-          receipt_path: stageAdapterOutputPath('build'),
-        },
-      };
-    },
+    buildExecutionSummary: (ctx, options) => buildExecutionSummary(ctx, options),
+    buildGeneratorExecution: (ctx) => buildGeneratorExecution(
+      ctx,
+      buildExecutionSummary(ctx, {
+        actions: 'default CCB transport recorded the bounded build execution path',
+        verification: 'default Nexus CCB execution trace recorded',
+      }),
+    ),
     disciplineTraceability: () => ({
       nexus_stage_pack: 'nexus-build-pack',
       absorbed_capability: 'superpowers-build-discipline',
