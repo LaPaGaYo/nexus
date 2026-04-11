@@ -24,13 +24,11 @@ New pinned commit: `4aa4196c14873b84f5af7316e7f66328cb6dee4c`
 
 - `bun test test/nexus/upstream-refresh.test.ts test/nexus/upstream-check.test.ts test/nexus/inventory.test.ts`
 
-## Absorption decision placeholder
+## Maintainer review outcome
 
-- `ignore`
-- `defer`
-- `absorb_partial`
-- `absorb_full`
-- `reject`
+- decision: `ignore`
+- rationale: the staged candidate introduced no imported source delta, no source-map impact, and no Nexus-owned absorption work.
+- release impact: none
 
 ## Guardrails
 

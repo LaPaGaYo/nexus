@@ -23,8 +23,10 @@ import { PM_SOURCE_MAP } from '../lib/nexus/absorption/pm/source-map';
 import { SUPERPOWERS_SOURCE_MAP } from '../lib/nexus/absorption/superpowers/source-map';
 import {
   alignUpstreamLockWithContract,
+  buildUpstreamCheckResultFromRecord,
   getUpstreamMaintenanceDefinition,
   parseUpstreamMaintenanceLock,
+  renderUpstreamCheckStatus,
   serializeUpstreamMaintenanceLock,
   type UpstreamMaintenanceDefinition,
   type UpstreamMaintenanceLock,
@@ -40,6 +42,7 @@ const REPO_URL_OVERRIDE = process.env.UPSTREAM_REFRESH_REPO_URL_OVERRIDE?.trim()
 
 const LOCK_TARGET = 'upstream-notes/upstream-lock.json';
 const README_TARGET = 'upstream/README.md';
+const STATUS_TARGET = 'upstream-notes/update-status.md';
 
 interface UpstreamRefreshAnalysis {
   changed_upstream_paths: string[];
@@ -82,6 +85,32 @@ export interface UpstreamRefreshOutputs extends UpstreamRefreshAnalysis {
   target_snapshot_path: string;
   source_snapshot_path: string;
 }
+
+const CONTRACT_PIN_TARGETS: Record<UpstreamName, string[]> = {
+  'pm-skills': [
+    'lib/nexus/upstream-maintenance.ts',
+    'lib/nexus/absorption/pm/source-map.ts',
+    'upstream-notes/pm-skills-inventory.md',
+  ],
+  gsd: [
+    'lib/nexus/upstream-maintenance.ts',
+    'lib/nexus/absorption/gsd/source-map.ts',
+    'lib/nexus/stage-content/source-map.ts',
+    'upstream-notes/gsd-inventory.md',
+  ],
+  superpowers: [
+    'lib/nexus/upstream-maintenance.ts',
+    'lib/nexus/absorption/superpowers/source-map.ts',
+    'lib/nexus/stage-content/source-map.ts',
+    'upstream-notes/superpowers-inventory.md',
+  ],
+  'claude-code-bridge': [
+    'lib/nexus/upstream-maintenance.ts',
+    'lib/nexus/absorption/ccb/source-map.ts',
+    'lib/nexus/stage-content/source-map.ts',
+    'upstream-notes/ccb-inventory.md',
+  ],
+};
 
 const SOURCE_MAP_INDEX: SourceMapIndexEntry[] = [
   {
@@ -236,6 +265,14 @@ function restoreTextFileState(path: string, state: TextFileState): void {
 
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, state.content);
+}
+
+function rewritePinnedCommit(content: string, previousPinnedCommit: string, newPinnedCommit: string, targetLabel: string): string {
+  if (!content.includes(previousPinnedCommit)) {
+    throw new Error(`Unable to find pinned commit ${previousPinnedCommit} in ${targetLabel}`);
+  }
+
+  return content.split(previousPinnedCommit).join(newPinnedCommit);
 }
 
 function ensureImportedTreeIsClean(root: string, importedPath: string): void {
@@ -505,6 +542,33 @@ function rewriteUpstreamReadmePinnedCommit(readme: string, upstream: UpstreamNam
   return readme.replace(pattern, `$1${pinnedCommit}$2`);
 }
 
+function resolveStatusCheckedAt(lock: UpstreamMaintenanceLock): string {
+  const latestCheckedAt = lock.upstreams
+    .map((record) => record.last_checked_at)
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .sort()
+    .at(-1);
+
+  return latestCheckedAt ?? lock.updated_at;
+}
+
+function renderUpdateStatusFromLock(lock: UpstreamMaintenanceLock): string {
+  const results = lock.upstreams.map((record) =>
+    buildUpstreamCheckResultFromRecord(
+      {
+        name: record.name,
+        repo_url: record.repo_url,
+        pinned_commit: record.pinned_commit,
+        active_absorbed_capabilities: record.active_absorbed_capabilities,
+      },
+      record.last_checked_commit,
+      record.behind_count,
+    ),
+  );
+
+  return renderUpstreamCheckStatus(lock, results, resolveStatusCheckedAt(lock));
+}
+
 export function runUpstreamRefresh(options: {
   upstreamName: string;
   root?: string;
@@ -538,10 +602,18 @@ export function runUpstreamRefresh(options: {
   const beforeSnapshot = readSnapshot(targetSnapshotPath);
   ensureImportedTreeIsClean(root, upstream.imported_path);
   const candidateNotePath = join(root, 'upstream-notes/refresh-candidates', `${upstream.name}.md`);
-  ensureWriteTargetsAreClean(root, [lockPath, readmePath, candidateNotePath]);
-  const lockState = captureTextFileState(lockPath);
-  const readmeState = captureTextFileState(readmePath);
-  const candidateNoteState = captureTextFileState(candidateNotePath);
+  const contractTargets = CONTRACT_PIN_TARGETS[upstream.name];
+  const metadataTargetPaths = [
+    LOCK_TARGET,
+    README_TARGET,
+    STATUS_TARGET,
+    `upstream-notes/refresh-candidates/${upstream.name}.md`,
+    ...contractTargets,
+  ];
+  ensureWriteTargetsAreClean(root, metadataTargetPaths);
+  const textStates = new Map(
+    metadataTargetPaths.map((relativePath) => [relativePath, captureTextFileState(join(root, relativePath))] as const),
+  );
   const sourceSnapshot =
     options.sourceRoot && resolve(options.sourceRoot) !== root
       ? { snapshotPath: resolve(options.sourceRoot), cleanupRoot: null as string | null }
@@ -567,6 +639,8 @@ export function runUpstreamRefresh(options: {
         return {
           ...row,
           pinned_commit: newPinnedCommit,
+          last_checked_commit: newPinnedCommit,
+          behind_count: 0,
           last_refresh_candidate_at: refreshedAt,
           last_absorption_decision: null,
           refresh_status: 'refresh_candidate',
@@ -578,12 +652,26 @@ export function runUpstreamRefresh(options: {
       }),
     };
     const updatedReadme = rewriteUpstreamReadmePinnedCommit(readFileSync(readmePath, 'utf8'), upstream.name, newPinnedCommit);
+    const updatedStatus = renderUpdateStatusFromLock(updatedLock);
     const candidateNote = renderUpstreamRefreshCandidateNote(upstream, previousPinnedCommit, newPinnedCommit, refreshedAt, analysis);
+    const rewrittenTargets = new Map<string, string>();
+
+    for (const relativePath of contractTargets) {
+      const targetPath = join(root, relativePath);
+      rewrittenTargets.set(
+        relativePath,
+        rewritePinnedCommit(readFileSync(targetPath, 'utf8'), previousPinnedCommit, newPinnedCommit, relativePath),
+      );
+    }
 
     mkdirSync(dirname(candidateNotePath), { recursive: true });
     writeFileSync(lockPath, `${serializeUpstreamMaintenanceLock(updatedLock)}`);
     writeFileSync(readmePath, updatedReadme);
+    writeFileSync(join(root, STATUS_TARGET), updatedStatus);
     writeFileSync(candidateNotePath, candidateNote);
+    for (const [relativePath, updatedContent] of rewrittenTargets) {
+      writeFileSync(join(root, relativePath), updatedContent);
+    }
 
     return {
       upstream,
@@ -602,7 +690,9 @@ export function runUpstreamRefresh(options: {
       write_targets: [
         LOCK_TARGET,
         README_TARGET,
+        STATUS_TARGET,
         `upstream-notes/refresh-candidates/${upstream.name}.md`,
+        ...contractTargets,
         ...analysis.changed_upstream_paths.map((path) => `${upstream.imported_path}/${path}`),
       ],
       root,
@@ -612,9 +702,9 @@ export function runUpstreamRefresh(options: {
     };
   } catch (error) {
     writeSnapshot(targetSnapshotPath, beforeSnapshot);
-    restoreTextFileState(lockPath, lockState);
-    restoreTextFileState(readmePath, readmeState);
-    restoreTextFileState(candidateNotePath, candidateNoteState);
+    for (const [relativePath, state] of textStates) {
+      restoreTextFileState(join(root, relativePath), state);
+    }
     throw error;
   } finally {
     if (!sourceSnapshot) {

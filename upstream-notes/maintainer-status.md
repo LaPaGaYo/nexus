@@ -1,10 +1,10 @@
 # Nexus Maintainer Status
 
-Generated: `2026-04-11T04:05:33.932Z`
+Generated: `2026-04-11T04:24:48.072Z`
 
 - Status: `action_required`
-- Next action: `review_refresh_candidate`
-- Summary: 1 upstream refresh candidate needs maintainer review.
+- Next action: `prepare_release`
+- Summary: Local Nexus release drift exists, but release preflight is still blocked.
 - Current version: `1.0.1`
 - Current tag: `v1.0.1`
 - Release preflight: `blocked`
@@ -12,13 +12,13 @@ Generated: `2026-04-11T04:05:33.932Z`
 
 ## Upstreams
 
-- Pending refresh candidates: `pm-skills`
-- Behind upstreams: `gsd`
+- Pending refresh candidates: none
+- Behind upstreams: none
 
 ## Issues
 
-- pm-skills refresh candidate pending review
+- Local Nexus-owned changes exist without a release-ready publish state.
 
 ## Recommendations
 
-- Review upstream-notes/refresh-candidates/pm-skills.md
+- Run ./bin/nexus-release-preflight and align the local release markers before publishing.

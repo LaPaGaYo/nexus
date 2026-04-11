@@ -8,6 +8,7 @@ import {
   applyUpstreamCheckResults,
   buildUpstreamCheckResultFromRecord,
   createInitialUpstreamLock,
+  getUpstreamPinnedCommit,
   renderUpstreamCheckStatus,
   resolveUpstreamTriageRecommendation,
   serializeUpstreamMaintenanceLock,
@@ -79,7 +80,7 @@ describe('nexus upstream freshness checks', () => {
     const upstream = {
       name: 'gsd' as const,
       repo_url: 'https://github.com/gsd-build/get-shit-done.git',
-      pinned_commit: 'caf337508fe9c84f4d1a0edb423b76b83f256e91',
+      pinned_commit: getUpstreamPinnedCommit('gsd'),
       active_absorbed_capabilities: ['gsd-plan', 'gsd-closeout'] as const,
     };
     const latestCommit = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -176,7 +177,7 @@ describe('nexus upstream freshness checks', () => {
     const upstream = {
       name: 'gsd' as const,
       repo_url: 'https://github.com/gsd-build/get-shit-done.git',
-      pinned_commit: 'caf337508fe9c84f4d1a0edb423b76b83f256e91',
+      pinned_commit: getUpstreamPinnedCommit('gsd'),
       active_absorbed_capabilities: ['gsd-plan', 'gsd-closeout'] as const,
     };
     const lock = createInitialUpstreamLock('2026-04-09T00:00:00.000Z');

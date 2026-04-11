@@ -147,7 +147,7 @@ const UPSTREAM_MAINTENANCE_METADATA: Record<
     repo_url: 'https://github.com/gsd-build/get-shit-done.git',
     imported_path: 'upstream/gsd',
     inventory_path: 'upstream-notes/gsd-inventory.md',
-    pinned_commit: 'caf337508fe9c84f4d1a0edb423b76b83f256e91',
+    pinned_commit: '295a5726dc6139f383acfc0dbef6b88d4ec94dfa',
     active_absorbed_capabilities: ['gsd-plan', 'gsd-closeout'],
   },
   superpowers: {

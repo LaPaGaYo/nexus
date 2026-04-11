@@ -23,7 +23,11 @@ const REPO_ROOT = resolve(import.meta.dir, '..', '..');
 const SCRIPT_PATH = join(REPO_ROOT, 'scripts/upstream-refresh.ts');
 const REPO_README_PATH = join(REPO_ROOT, 'upstream/README.md');
 const REPO_LOCK_PATH = join(REPO_ROOT, 'upstream-notes/upstream-lock.json');
+const REPO_UPDATE_STATUS_PATH = join(REPO_ROOT, 'upstream-notes/update-status.md');
+const REPO_PM_INVENTORY_PATH = join(REPO_ROOT, 'upstream-notes/pm-skills-inventory.md');
 const REPO_PM_SKILLS_PATH = join(REPO_ROOT, 'upstream/pm-skills');
+const REPO_UPSTREAM_MAINTENANCE_PATH = join(REPO_ROOT, 'lib/nexus/upstream-maintenance.ts');
+const REPO_PM_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/absorption/pm/source-map.ts');
 const STAGE_CONTENT_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/stage-content/source-map.ts');
 const STAGE_PACK_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/stage-packs/source-map.ts');
 
@@ -78,7 +82,11 @@ function prepareWorkspace() {
   copyTree(REPO_PM_SKILLS_PATH, join(root, 'upstream/pm-skills'));
   copyTree(REPO_README_PATH, join(root, 'upstream/README.md'));
   copyTree(REPO_LOCK_PATH, join(root, 'upstream-notes/upstream-lock.json'));
+  copyTree(REPO_UPDATE_STATUS_PATH, join(root, 'upstream-notes/update-status.md'));
+  copyTree(REPO_PM_INVENTORY_PATH, join(root, 'upstream-notes/pm-skills-inventory.md'));
   copyTree(join(REPO_ROOT, 'upstream-notes/refresh-candidates/.gitkeep'), join(root, 'upstream-notes/refresh-candidates/.gitkeep'));
+  copyTree(REPO_UPSTREAM_MAINTENANCE_PATH, join(root, 'lib/nexus/upstream-maintenance.ts'));
+  copyTree(REPO_PM_SOURCE_MAP_PATH, join(root, 'lib/nexus/absorption/pm/source-map.ts'));
   copyTree(STAGE_CONTENT_SOURCE_MAP_PATH, join(root, 'lib/nexus/stage-content/source-map.ts'));
   copyTree(STAGE_PACK_SOURCE_MAP_PATH, join(root, 'lib/nexus/stage-packs/source-map.ts'));
   git(['init', '--quiet'], root);
@@ -209,6 +217,10 @@ describe('nexus upstream refresh', () => {
 
     const candidate = readFileSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
     const readme = readFileSync(join(root, 'upstream/README.md'), 'utf8');
+    const updateStatus = readFileSync(join(root, 'upstream-notes/update-status.md'), 'utf8');
+    const inventory = readFileSync(join(root, 'upstream-notes/pm-skills-inventory.md'), 'utf8');
+    const maintenanceContract = readFileSync(join(root, 'lib/nexus/upstream-maintenance.ts'), 'utf8');
+    const pmSourceMap = readFileSync(join(root, 'lib/nexus/absorption/pm/source-map.ts'), 'utf8');
 
     expect(candidate).toContain('Previous pinned commit: `4aa4196c14873b84f5af7316e7f66328cb6dee4c`');
     expect(candidate).toContain(`New pinned commit: \`${fixture.commit}\``);
@@ -217,9 +229,15 @@ describe('nexus upstream refresh', () => {
     expect(candidate).toContain('## Tests to rerun before review');
     expect(pm.pinned_commit).toBe(fixture.commit);
     expect(pm.last_checked_commit).toBe(fixture.commit);
+    expect(pm.behind_count).toBe(0);
     expect(pm.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(pm.refresh_status).toBe('refresh_candidate');
     expect(readme).toContain(`\`${fixture.commit}\``);
+    expect(updateStatus).toContain(`| pm-skills | \`${fixture.commit}\` | \`${fixture.commit}\` | 0 |`);
+    expect(updateStatus).toContain('## Pending Refresh Candidates');
+    expect(inventory).toContain(`| pm-discover-idea-brief | pm-skills | upstream/pm-skills | https://github.com/deanpeters/Product-Manager-Skills.git | ${fixture.commit} |`);
+    expect(maintenanceContract).toContain(`pinned_commit: '${fixture.commit}'`);
+    expect(pmSourceMap).toContain(`pinned_commit: '${fixture.commit}'`);
     expect(hashFile(join(root, 'lib/nexus/stage-content/source-map.ts'))).toBe(stageContentBefore);
     expect(hashFile(join(root, 'lib/nexus/stage-packs/source-map.ts'))).toBe(stagePackBefore);
   });
@@ -307,6 +325,10 @@ describe('nexus upstream refresh', () => {
 
     const candidate = readFileSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
     const readme = readFileSync(join(root, 'upstream/README.md'), 'utf8');
+    const updateStatus = readFileSync(join(root, 'upstream-notes/update-status.md'), 'utf8');
+    const inventory = readFileSync(join(root, 'upstream-notes/pm-skills-inventory.md'), 'utf8');
+    const maintenanceContract = readFileSync(join(root, 'lib/nexus/upstream-maintenance.ts'), 'utf8');
+    const pmSourceMap = readFileSync(join(root, 'lib/nexus/absorption/pm/source-map.ts'), 'utf8');
     const lock = readLock(root);
     const pm = lock.upstreams.find((row) => row.name === 'pm-skills');
     if (!pm) throw new Error('pm-skills row missing from lock');
@@ -322,9 +344,14 @@ describe('nexus upstream refresh', () => {
     expect(candidate).toContain('test/nexus/discover-frame.test.ts');
     expect(readme).toContain(`\`${fixture.commit}\``);
     expect(pm.pinned_commit).toBe(fixture.commit);
+    expect(pm.behind_count).toBe(0);
     expect(pm.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(pm.refresh_status).toBe('refresh_candidate');
     expect(pm.notes).toContain('1 changed upstream file');
+    expect(updateStatus).toContain(`| pm-skills | \`${fixture.commit}\` | \`${fixture.commit}\` | 0 |`);
+    expect(inventory).toContain(fixture.commit);
+    expect(maintenanceContract).toContain(`pinned_commit: '${fixture.commit}'`);
+    expect(pmSourceMap).toContain(`pinned_commit: '${fixture.commit}'`);
   });
 
   test('CLI refresh clears any stale prior absorption decision when staging a new candidate', () => {

@@ -83,14 +83,17 @@ describe('nexus upstream maintenance contract', () => {
         imported_path: definition.imported_path,
         pinned_commit: definition.pinned_commit,
         bootstrap_state: 'checked',
-        last_absorption_decision: null,
       });
       expect(record?.active_absorbed_capabilities).toEqual([...definition.active_absorbed_capabilities]);
       expect(record?.refresh_status).toMatch(/^(unchecked|up_to_date|behind|refresh_candidate)$/);
       if (record?.refresh_status === 'refresh_candidate') {
         expect(record?.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(record?.last_absorption_decision).toBeNull();
       } else {
         expect(record?.last_refresh_candidate_at).toBeNull();
+        expect(record?.last_absorption_decision === null || UPSTREAM_ABSORPTION_DECISIONS.includes(record?.last_absorption_decision)).toBe(
+          true,
+        );
       }
       expect(record?.last_checked_commit).toMatch(/^[0-9a-f]{40}$/);
       expect(record?.last_checked_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -101,7 +104,7 @@ describe('nexus upstream maintenance contract', () => {
         expect(record?.behind_count).not.toBeNull();
         expect(record?.refresh_status).toBe('behind');
       }
-      expect(record?.notes.toLowerCase()).toContain('checked snapshot');
+      expect(record?.notes.toLowerCase()).toMatch(/checked snapshot|reviewed and ignored|reviewed and deferred/);
       expect(record?.notes).toContain('non-authoritative');
       expect(record?.notes).not.toContain('bootstrap snapshot only');
       expect(Object.values(record).join(' ')).not.toMatch(/runtime truth/i);
@@ -126,7 +129,13 @@ describe('nexus upstream maintenance contract', () => {
       expect(record.last_checked_commit).toMatch(/^[0-9a-f]{40}$/);
       expect(record.last_checked_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(record.behind_count === null || typeof record.behind_count === 'number').toBe(true);
-      expect(record.last_absorption_decision).toBeNull();
+      if (record.refresh_status === 'refresh_candidate') {
+        expect(record.last_absorption_decision).toBeNull();
+      } else {
+        expect(record.last_absorption_decision === null || UPSTREAM_ABSORPTION_DECISIONS.includes(record.last_absorption_decision)).toBe(
+          true,
+        );
+      }
     }
   });
 });

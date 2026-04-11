@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-04-10T03:30:25.200Z",
+  "updated_at": "2026-04-11T04:23:11.923Z",
   "maintenance_note": "Maintenance snapshot; upstream:check rewrites this file with live freshness data.",
   "upstreams": [
     {
@@ -12,32 +12,32 @@
       "last_checked_commit": "4aa4196c14873b84f5af7316e7f66328cb6dee4c",
       "last_checked_at": "2026-04-10T02:44:33.178Z",
       "behind_count": 0,
-      "refresh_status": "refresh_candidate",
-      "last_refresh_candidate_at": "2026-04-10T03:30:25.200Z",
-      "last_absorption_decision": null,
+      "refresh_status": "up_to_date",
+      "last_refresh_candidate_at": null,
+      "last_absorption_decision": "ignore",
       "active_absorbed_capabilities": [
         "pm-discover",
         "pm-frame"
       ],
-      "notes": "Refresh candidate staged from the checked snapshot; imported upstream source material remains non-authoritative until review. No maintainer absorption decision recorded yet."
+      "notes": "Refresh candidate reviewed and ignored because it introduced no imported source delta and no Nexus-owned absorption work was warranted. Imported PM source material remains non-authoritative."
     },
     {
       "name": "gsd",
       "bootstrap_state": "checked",
       "repo_url": "https://github.com/gsd-build/get-shit-done.git",
       "imported_path": "upstream/gsd",
-      "pinned_commit": "caf337508fe9c84f4d1a0edb423b76b83f256e91",
+      "pinned_commit": "295a5726dc6139f383acfc0dbef6b88d4ec94dfa",
       "last_checked_commit": "295a5726dc6139f383acfc0dbef6b88d4ec94dfa",
       "last_checked_at": "2026-04-10T02:44:33.178Z",
-      "behind_count": 22,
-      "refresh_status": "behind",
+      "behind_count": 0,
+      "refresh_status": "up_to_date",
       "last_refresh_candidate_at": null,
-      "last_absorption_decision": null,
+      "last_absorption_decision": "defer",
       "active_absorbed_capabilities": [
         "gsd-plan",
         "gsd-closeout"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. No maintainer absorption decision recorded yet."
+      "notes": "Refresh candidate reviewed and deferred because the staged GSD delta did not map to active Nexus-owned source-map, stage-content, or stage-pack boundaries. Imported GSD source material remains non-authoritative."
     },
     {
       "name": "superpowers",
