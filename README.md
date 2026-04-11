@@ -218,6 +218,12 @@ git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git .agent
 cd .agents/skills/nexus && ./setup --host codex
 ```
 
+If you want Codex to do the install for you, open Codex and paste this:
+
+> Install Nexus for Codex. If **`/nexus-upgrade`** is already available, run it. Otherwise, if **`.agents/skills/nexus`** exists in this repo, run **`cd .agents/skills/nexus && ./setup --host codex`**. If it does not exist and **`~/nexus`** does not exist yet, run **`git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/nexus`**, then **`cd ~/nexus && ./setup --host codex`**. After setup finishes, tell the user where the installed **`nexus-*`** skills live, which execution mode and local topology are selected, and remind them that Codex does not use a Nexus-managed global instruction file equivalent to **`~/.claude/CLAUDE.md`**.
+
+Codex does not use a Nexus-managed global instruction file equivalent to **`~/.claude/CLAUDE.md`**.
+
 Let setup auto-detect installed hosts:
 
 ```bash

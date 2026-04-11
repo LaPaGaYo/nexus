@@ -859,6 +859,8 @@ if [ "$INSTALL_CODEX" -eq 1 ]; then
   echo "Nexus ready (codex)."
   echo "  browse: $BROWSE_BIN"
   echo "  codex skills: $CODEX_SKILLS"
+  echo "  next: use the installed nexus-* skills directly from Codex"
+  echo "  note: Codex does not use a Nexus-managed global instruction file equivalent to ~/.claude/CLAUDE.md"
   announce_execution_mode
 fi
 

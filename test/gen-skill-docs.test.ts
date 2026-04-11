@@ -2287,6 +2287,8 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('Codex role-specific local passes for build, review, and QA.');
     expect(setupContent).toContain('selected local_provider (codex, subagents)');
     expect(setupContent).toContain('selected local_provider (codex, multi_session)');
+    expect(setupContent).toContain('use the installed nexus-* skills directly from Codex');
+    expect(setupContent).toContain('Codex does not use a Nexus-managed global instruction file equivalent to ~/.claude/CLAUDE.md');
   });
 
   test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {

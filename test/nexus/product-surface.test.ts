@@ -51,6 +51,8 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`codex + subagents` is an active local topology');
     expect(readme).toContain('`codex + multi_session` is an active local topology');
     expect(readme).toContain('`gemini + subagents` is an active local topology');
+    expect(readme).toContain('If you want Codex to do the install for you, open Codex and paste this:');
+    expect(readme).toContain('Codex does not use a Nexus-managed global instruction file equivalent to **`~/.claude/CLAUDE.md`**.');
     expect(readme).toContain('git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus');
     expect(readme).toContain('Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.');
     expect(installSection).toContain('/nexus-upgrade');
