@@ -1,6 +1,6 @@
 {
   "name": "nexus",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Nexus — single-package AI engineering operating system for governed discovery, planning, build, review, QA, ship, and closeout.",
   "license": "MIT",
   "type": "module",
