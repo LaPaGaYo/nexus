@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawn } from 'child_process';
+import { createQaStagePack } from '../stage-packs';
 import type { ActualRouteRecord, ConflictRecord, PrimaryProvider, ProviderTopology } from '../types';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
@@ -543,6 +544,8 @@ async function runProviderCommand(
 }
 
 export function createDefaultLocalAdapter(): LocalAdapter {
+  const qaPack = createQaStagePack();
+
   return {
     resolve_route: async (ctx) => {
       const topology = activeLocalTopology(
@@ -704,7 +707,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
 
       return successResult<LocalExecuteQaRaw>(
         {
-          report_markdown: '# QA Report\n\nResult: pass\n',
+          report_markdown: qaPack.buildQaReport(ctx, true, []),
           ready: true,
           findings: [],
           receipt: `local-qa-${ctx.ledger.execution.primary_provider}`,

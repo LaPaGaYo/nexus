@@ -76,6 +76,26 @@ describe('nexus qa', () => {
     });
   });
 
+  test('default qa report carries Nexus-owned absorbed qa guidance', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+
+      expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain(
+        'Nexus-owned QA guidance for governed validation scope beyond code review.',
+      );
+      expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain(
+        'define governed validation scope after completed review',
+      );
+      expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain(
+        'QA content starts only after completed review.',
+      );
+    });
+  });
+
   test('records qa as not ready when validation finds defects', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

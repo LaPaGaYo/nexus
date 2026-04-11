@@ -602,7 +602,7 @@ export function createDefaultCcbAdapter(): CcbAdapter {
     execute_qa: async (ctx) =>
       successResult<CcbExecuteQaRaw>(
         {
-          report_markdown: '# QA Report\n\nResult: pass\n',
+          report_markdown: qaPack.buildQaReport(ctx, true, []),
           ready: true,
           findings: [],
           receipt: 'ccb-qa',
