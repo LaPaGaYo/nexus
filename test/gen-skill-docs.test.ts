@@ -2297,6 +2297,12 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('Add Nexus-first guidance to ~/.claude/CLAUDE.md');
   });
 
+  test('setup cleans legacy GSD Claude hooks during Claude installs', () => {
+    expect(setupContent).toContain('nexus-clean-claude-hooks');
+    expect(setupContent).toContain('maybe_clean_legacy_claude_hooks');
+    expect(setupContent).toContain('removed legacy GSD hook entries from');
+  });
+
   test('interactive prompt shows when no config', () => {
     expect(setupContent).toContain('Short names');
     expect(setupContent).toContain('Namespaced');

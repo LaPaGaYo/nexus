@@ -52,6 +52,7 @@ esac
 # Priority: CLI flag > saved config > interactive prompt (or flat default for non-TTY)
 NEXUS_CONFIG="$SOURCE_NEXUS_DIR/bin/nexus-config"
 GLOBAL_CLAUDE_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-global-claude"
+LEGACY_CLAUDE_HOOKS_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-clean-claude-hooks"
 export NEXUS_SETUP_RUNNING=1  # Prevent nexus-config post-set hook from triggering relink mid-setup
 if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
   _saved_prefix="$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || true)"
@@ -123,6 +124,21 @@ maybe_offer_global_claude_guidance() {
       echo "  skipped global CLAUDE.md update"
       ;;
   esac
+}
+
+maybe_clean_legacy_claude_hooks() {
+  [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
+  [ -x "$LEGACY_CLAUDE_HOOKS_HELPER" ] || return 0
+
+  _cleanup_output="$("$LEGACY_CLAUDE_HOOKS_HELPER" apply 2>/dev/null || true)"
+  [ -z "$_cleanup_output" ] && return 0
+  [ "$_cleanup_output" = "clean" ] && return 0
+
+  echo ""
+  echo "Legacy Claude hook cleanup:"
+  printf '%s\n' "$_cleanup_output" | while IFS= read -r _cleaned_path; do
+    [ -n "$_cleaned_path" ] && echo "  removed legacy GSD hook entries from: $_cleaned_path"
+  done
 }
 
 maybe_offer_execution_mode_choice() {
@@ -824,6 +840,7 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     else
       echo "Nexus ready (claude)."
     fi
+    maybe_clean_legacy_claude_hooks
     maybe_offer_execution_mode_choice
     maybe_offer_local_topology_choice
     maybe_offer_global_claude_guidance
@@ -831,6 +848,7 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     announce_execution_mode
   else
     echo "Nexus ready (claude)."
+    maybe_clean_legacy_claude_hooks
     maybe_offer_execution_mode_choice
     maybe_offer_local_topology_choice
     maybe_offer_global_claude_guidance

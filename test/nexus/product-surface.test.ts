@@ -145,12 +145,13 @@ describe('nexus product surface contract', () => {
     expect(setup).toContain('selected local_provider (codex, subagents)');
     expect(setup).toContain('selected local_provider (codex, multi_session)');
     expect(setup).toContain('provider_topology subagents');
+    expect(setup).toContain('removed legacy GSD hook entries from');
     expect(setup).not.toContain('.claude/skills/gstack');
     expect(setup).not.toContain('.gstack-worktrees');
   });
 
   test('only nexus helper entrypoints exist in the active bin surface', () => {
-    for (const helper of ['nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
+    for (const helper of ['nexus-clean-claude-hooks', 'nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
       expect(existsSync(join(ROOT, 'bin', helper))).toBe(true);
     }
 
@@ -160,7 +161,7 @@ describe('nexus product surface contract', () => {
   });
 
   test('active nexus helper entrypoints are executable', () => {
-    for (const helper of ['nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
+    for (const helper of ['nexus-clean-claude-hooks', 'nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
       const mode = statSync(join(ROOT, 'bin', helper)).mode;
       expect(mode & 0o111).not.toBe(0);
     }

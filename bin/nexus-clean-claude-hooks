@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# nexus-clean-claude-hooks — remove legacy GSD Claude hooks from global Claude settings.
+#
+# Usage:
+#   nexus-clean-claude-hooks status [claude-config-dir]
+#   nexus-clean-claude-hooks apply [claude-config-dir]
+#
+# Env override:
+#   NEXUS_CLAUDE_CONFIG_DIR — override the target Claude config dir
+set -euo pipefail
+
+CLAUDE_CONFIG_DIR="${NEXUS_CLAUDE_CONFIG_DIR:-${2:-$HOME/.claude}}"
+
+CORE_JS="$(cat <<'EOF'
+const fs = await import('fs');
+const path = await import('path');
+
+const command = process.env.NEXUS_CLEAN_CLAUDE_HOOKS_COMMAND;
+const configDir = process.env.NEXUS_CLAUDE_CONFIG_DIR;
+const targetFiles = ['settings.json', 'settings.local.json'].map((name) => path.join(configDir, name));
+const legacyFragments = ['gsd-check-update.js', 'gsd-context-monitor.js', 'gsd-statusline.js'];
+
+function readIfPresent(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function hasLegacyCommand(value) {
+  return typeof value === 'string' && legacyFragments.some((fragment) => value.includes(fragment));
+}
+
+function cleanHookEntries(entries) {
+  if (!Array.isArray(entries)) {
+    return entries;
+  }
+
+  const cleaned = entries
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        return entry;
+      }
+
+      const next = { ...entry };
+      if (Array.isArray(next.hooks)) {
+        next.hooks = next.hooks.filter((hook) => !hasLegacyCommand(hook?.command));
+      }
+      return next;
+    })
+    .filter((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry) || !Array.isArray(entry.hooks) || entry.hooks.length > 0);
+
+  return cleaned;
+}
+
+function cleanSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    return settings;
+  }
+
+  const next = JSON.parse(JSON.stringify(settings));
+
+  if (next.hooks && typeof next.hooks === 'object' && !Array.isArray(next.hooks)) {
+    for (const [eventName, entries] of Object.entries(next.hooks)) {
+      const cleanedEntries = cleanHookEntries(entries);
+      if (Array.isArray(cleanedEntries) && cleanedEntries.length > 0) {
+        next.hooks[eventName] = cleanedEntries;
+      } else {
+        delete next.hooks[eventName];
+      }
+    }
+
+    if (Object.keys(next.hooks).length === 0) {
+      delete next.hooks;
+    }
+  }
+
+  if (next.statusLine && typeof next.statusLine === 'object' && !Array.isArray(next.statusLine)) {
+    if (hasLegacyCommand(next.statusLine.command)) {
+      delete next.statusLine;
+    }
+  }
+
+  return next;
+}
+
+function fileHasLegacyHooks(filePath) {
+  const raw = readIfPresent(filePath);
+  if (raw === null) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return legacyFragments.some((fragment) => JSON.stringify(parsed).includes(fragment));
+  } catch {
+    return false;
+  }
+}
+
+if (command === 'status') {
+  const legacyPresent = targetFiles.some((filePath) => fileHasLegacyHooks(filePath));
+  console.log(legacyPresent ? 'legacy_present' : 'clean');
+  process.exit(legacyPresent ? 1 : 0);
+}
+
+if (command === 'apply') {
+  const changed = [];
+
+  for (const filePath of targetFiles) {
+    const raw = readIfPresent(filePath);
+    if (raw === null) {
+      continue;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      console.error(`warning: skipped unreadable Claude settings file: ${filePath}`);
+      continue;
+    }
+
+    const cleaned = cleanSettings(parsed);
+    const nextText = `${JSON.stringify(cleaned, null, 2)}\n`;
+    if (nextText !== raw) {
+      fs.writeFileSync(filePath, nextText);
+      changed.push(filePath);
+    }
+  }
+
+  if (changed.length === 0) {
+    console.log('clean');
+  } else {
+    for (const filePath of changed) {
+      console.log(filePath);
+    }
+  }
+  process.exit(0);
+}
+
+console.error('Usage: nexus-clean-claude-hooks {status|apply} [claude-config-dir]');
+process.exit(1);
+EOF
+)"
+
+NEXUS_CLEAN_CLAUDE_HOOKS_COMMAND="${1:-}" \
+NEXUS_CLAUDE_CONFIG_DIR="$CLAUDE_CONFIG_DIR" \
+bun -e "$CORE_JS"
