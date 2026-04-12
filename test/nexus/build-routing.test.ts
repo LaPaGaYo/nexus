@@ -1,3 +1,5 @@
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { createBuildStagePack } from '../../lib/nexus/stage-packs/build';
 import { createHandoffStagePack } from '../../lib/nexus/stage-packs/handoff';
@@ -262,6 +264,56 @@ describe('nexus build routing', () => {
         stage: 'build',
         adapter: 'ccb',
         kind: 'route_mismatch',
+      });
+    });
+  });
+
+  test('blocks build locally when governed handoff is missing per-provider verification', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      let dispatched = false;
+      const adapters = makeFakeAdapters({
+        ccb: {
+          execute_generator: async () => {
+            dispatched = true;
+            throw new Error('build dispatch should not run when handoff contract is stale');
+          },
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+
+      const handoffStatusPath = join(cwd, '.planning/current/handoff/status.json');
+      const legacyHandoffStatus = await run.readJson('.planning/current/handoff/status.json');
+      writeFileSync(
+        handoffStatusPath,
+        JSON.stringify(
+          {
+            ...legacyHandoffStatus,
+            route_validation: {
+              transport: 'ccb',
+              available: true,
+              approved: true,
+              reason: 'Legacy flat route validation',
+            },
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      await expect(run('build', adapters)).rejects.toThrow(
+        'Governed handoff contract does not record verification for required provider(s): codex, gemini. Rerun /handoff with the current Nexus version before /build.',
+      );
+
+      expect(dispatched).toBe(false);
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'blocked',
+        ready: false,
+        errors: [
+          'Governed handoff contract does not record verification for required provider(s): codex, gemini. Rerun /handoff with the current Nexus version before /build.',
+        ],
       });
     });
   });

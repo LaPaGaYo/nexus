@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { stageStatusPath } from '../artifacts';
+import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withActualExecutionPath } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
@@ -8,6 +8,7 @@ import {
   buildBuildResultMarkdown,
   requestedAndActualRouteMatch,
   requestedBuildRouteFromLedger,
+  validateGovernedHandoffRouteValidation,
 } from '../normalizers/ccb';
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
@@ -75,6 +76,103 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       2,
     ) + '\n',
   };
+  const governedHandoffValidation = validateGovernedHandoffRouteValidation(
+    requestedRoute,
+    handoffStatus.route_validation ?? null,
+  );
+  if (!governedHandoffValidation.ok) {
+    const message = governedHandoffValidation.reason;
+    const tracePaths = [
+      stageAdapterRequestPath('build'),
+      stageAdapterOutputPath('build'),
+      stageNormalizationPath('build'),
+    ];
+    const status: StageStatus = {
+      run_id: ledger.run_id,
+      stage: 'build',
+      ...executionFieldsFromLedger(ledger),
+      state: 'blocked',
+      decision: 'build_recorded',
+      ready: false,
+      inputs: predecessorArtifacts,
+      outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
+      started_at: startedAt,
+      completed_at: startedAt,
+      errors: [message],
+      requested_route: requestedRoute,
+      actual_route: null,
+    };
+    const next = nextLedger(ledger, 'blocked', startedAt, ctx.via);
+    next.artifact_index = {
+      ...next.artifact_index,
+      [buildRequestPath]: artifactPointerFor(buildRequestPath),
+      [statusPath]: artifactPointerFor(statusPath),
+    };
+    const conflict: ConflictRecord = {
+      stage: 'build',
+      adapter: 'ccb',
+      kind: 'backend_conflict',
+      message,
+      canonical_paths: [buildRequestPath, statusPath],
+      trace_paths: tracePaths,
+    };
+
+    await applyNormalizationPlan({
+      cwd: ctx.cwd,
+      stage: 'build',
+      statusPath,
+      canonicalWrites: [buildRequestWrite],
+      traceWrites: [
+        {
+          path: tracePaths[0],
+          content: JSON.stringify(
+            {
+              run_id: ledger.run_id,
+              inputs: [handoffStatusPath],
+              adapter_chain: ['superpowers', requestedRoute.transport],
+              requested_route: requestedRoute,
+              gate: 'handoff_route_validation',
+            },
+            null,
+            2,
+          ) + '\n',
+        },
+        {
+          path: tracePaths[1],
+          content: JSON.stringify(
+            {
+              discipline: null,
+              transport: null,
+              gate_result: {
+                outcome: 'blocked',
+                reason: message,
+                handoff_route_validation: handoffStatus.route_validation ?? null,
+              },
+            },
+            null,
+            2,
+          ) + '\n',
+        },
+        {
+          path: tracePaths[2],
+          content: JSON.stringify(
+            {
+              outcome: 'blocked',
+              error: message,
+              status: { state: status.state, decision: status.decision, ready: status.ready },
+            },
+            null,
+            2,
+          ) + '\n',
+        },
+      ],
+      status,
+      ledger: next,
+      conflicts: [conflict],
+    });
+
+    throw new Error(message);
+  }
   const disciplineResult = await ctx.adapters.superpowers.build_discipline({
     cwd: ctx.cwd,
     run_id: ledger.run_id,

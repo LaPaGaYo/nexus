@@ -54,7 +54,7 @@ function expectedProviderFor(requestedRoute: RequestedRouteRecord): string | nul
   return null;
 }
 
-function expectedProvidersForRequestedRoute(requestedRoute: RequestedRouteRecord): string[] {
+export function expectedProvidersForRequestedRoute(requestedRoute: RequestedRouteRecord): string[] {
   return [...new Set([
     requestedRoute.generator,
     requestedRoute.evaluator_a,
@@ -63,6 +63,55 @@ function expectedProvidersForRequestedRoute(requestedRoute: RequestedRouteRecord
     .filter((route): route is string => typeof route === 'string')
     .map((route) => route.startsWith('codex') ? 'codex' : route.startsWith('gemini') ? 'gemini' : null)
     .filter((provider): provider is string => provider !== null))];
+}
+
+export function validateGovernedHandoffRouteValidation(
+  requestedRoute: RequestedRouteRecord,
+  routeValidation: RouteValidationRecord | null | undefined,
+): { ok: true } | { ok: false; reason: string } {
+  if (requestedRoute.transport !== 'ccb') {
+    return { ok: true };
+  }
+
+  if (!routeValidation || routeValidation.transport !== 'ccb') {
+    return {
+      ok: false,
+      reason: 'Governed handoff contract is missing CCB route validation. Rerun /handoff with the current Nexus version before /build.',
+    };
+  }
+
+  const expectedProviders = expectedProvidersForRequestedRoute(requestedRoute);
+  if (expectedProviders.length === 0) {
+    return { ok: true };
+  }
+
+  const checks = new Map(
+    (routeValidation.provider_checks ?? []).map((check) => [check.provider, check] as const),
+  );
+  const missingChecks = expectedProviders.filter((provider) => !checks.has(provider));
+  if (missingChecks.length > 0) {
+    return {
+      ok: false,
+      reason: `Governed handoff contract does not record verification for required provider(s): ${missingChecks.join(', ')}. Rerun /handoff with the current Nexus version before /build.`,
+    };
+  }
+
+  const unavailableProviders = expectedProviders.filter((provider) => checks.get(provider)?.available !== true);
+  if (unavailableProviders.length > 0) {
+    return {
+      ok: false,
+      reason: `Governed handoff contract records unavailable provider(s): ${unavailableProviders.join(', ')}. Mount the missing providers and rerun /handoff before /build.`,
+    };
+  }
+
+  if (routeValidation.available !== true || routeValidation.approved !== true) {
+    return {
+      ok: false,
+      reason: 'Governed handoff contract is not fully approved for build execution. Rerun /handoff before /build.',
+    };
+  }
+
+  return { ok: true };
 }
 
 function buildCcbProviderChecks(
