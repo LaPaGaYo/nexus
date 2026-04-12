@@ -391,7 +391,7 @@ The intended usage pattern is:
 | [Architecture](ARCHITECTURE.md) | System structure and implementation notes |
 | [Contributing](CONTRIBUTING.md) | Dev setup, testing, and contributor workflows |
 | [Changelog](CHANGELOG.md) | Version history |
-| [Release Notes](docs/releases/2026-04-10-nexus-v1.0.2.md) | Nexus v1.0.2 release notes |
+| [Release Notes](docs/releases/2026-04-12-nexus-v1.0.9.md) | Nexus v1.0.9 release notes |
 
 ## Troubleshooting
 

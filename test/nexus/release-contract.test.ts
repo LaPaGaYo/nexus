@@ -42,11 +42,11 @@ describe('nexus release contract', () => {
   test('keeps the current release version tag and release notes aligned', () => {
     const manifest = JSON.parse(readFileSync('release.json', 'utf8')) as ReleaseManifest;
 
-    expect(VERSION).toBe('1.0.8');
+    expect(VERSION).toBe('1.0.9');
     expect(manifest.version).toBe(VERSION);
     expect(manifest.tag).toBe(`v${VERSION}`);
-    expect(manifest.release_notes_path).toBe('docs/releases/2026-04-11-nexus-v1.0.8.md');
-    expect(manifest.release_notes_path).toBe(getReleaseNotesPath('2026-04-11', VERSION));
+    expect(manifest.release_notes_path).toBe('docs/releases/2026-04-12-nexus-v1.0.9.md');
+    expect(manifest.release_notes_path).toBe(getReleaseNotesPath('2026-04-12', VERSION));
   });
 
   test('accepts only documented update-state statuses', () => {
