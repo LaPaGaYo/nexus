@@ -55,9 +55,10 @@ describe('nexus runtime ccb adapter', () => {
       runCommand: async (spec) => {
         calls.push(spec);
         if (spec.argv[0] === '/opt/ccb/bin/ccb-ping') {
+          const provider = spec.argv[1];
           return {
             exit_code: 0,
-            stdout: '✅ Codex connection OK (Session healthy)\n',
+            stdout: `✅ ${provider} connection OK (Session healthy)\n`,
             stderr: '',
           };
         }
@@ -72,26 +73,34 @@ describe('nexus runtime ccb adapter', () => {
 
     const result = await adapter.resolve_route(buildContext('handoff', 'handoff'));
 
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(3);
     expect(calls[0]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-ping', 'codex'],
       cwd: '/repo/root/.nexus-worktrees/feature',
       env: {},
     });
     expect(calls[1]).toMatchObject({
+      argv: ['/opt/ccb/bin/ccb-ping', 'gemini'],
+      cwd: '/repo/root/.nexus-worktrees/feature',
+      env: {},
+    });
+    expect(calls[2]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-mounted', '--autostart'],
       cwd: '/repo/root/.nexus-worktrees/feature',
       env: {},
     });
     expect(calls[0]?.stdin_text).toBeUndefined();
     expect(calls[1]?.stdin_text).toBeUndefined();
+    expect(calls[2]?.stdin_text).toBeUndefined();
     expect(result.outcome).toBe('success');
     expect(result.raw_output).toMatchObject({
       available: true,
       provider: 'codex',
+      providers: ['codex', 'gemini'],
       mounted: ['codex', 'gemini'],
       verification_commands: [
         '/opt/ccb/bin/ccb-ping codex',
+        '/opt/ccb/bin/ccb-ping gemini',
         '/opt/ccb/bin/ccb-mounted --autostart',
       ],
     });
@@ -213,7 +222,7 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
-  test('blocks handoff when mounted providers do not include the requested governed provider', async () => {
+  test('blocks handoff when mounted providers do not include every governed provider required by the route', async () => {
     const adapter = createRuntimeCcbAdapter({
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
@@ -225,14 +234,14 @@ describe('nexus runtime ccb adapter', () => {
         if (spec.argv[0] === '/opt/ccb/bin/ccb-ping') {
           return {
             exit_code: 0,
-            stdout: '✅ Codex connection OK (Session healthy)\n',
+            stdout: `✅ ${spec.argv[1]} connection OK (Session healthy)\n`,
             stderr: '',
           };
         }
 
         return {
           exit_code: 0,
-          stdout: '{"cwd":"/repo/root/.nexus-worktrees/feature","mounted":["gemini"]}\n',
+          stdout: '{"cwd":"/repo/root/.nexus-worktrees/feature","mounted":["codex"]}\n',
           stderr: '',
         };
       },
@@ -243,11 +252,12 @@ describe('nexus runtime ccb adapter', () => {
 
     expect(result.outcome).toBe('blocked');
     expect(result.actual_route).toBeNull();
-    expect(result.notices[0]).toContain('mounted providers do not include codex');
+    expect(result.notices[0]).toContain('mounted providers do not include gemini');
     expect(result.raw_output).toMatchObject({
       available: false,
       provider: 'codex',
-      mounted: ['gemini'],
+      providers: ['codex', 'gemini'],
+      mounted: ['codex'],
     });
   });
 
