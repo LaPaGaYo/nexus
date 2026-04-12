@@ -271,7 +271,7 @@ maybe_offer_execution_mode_choice() {
   echo "     Recommended if you want to keep working in this Claude window right now."
   echo ""
   echo "  2) Use tmux + CCB for governed multi-model runs (governed_ccb)"
-  echo "     Requires restarting Claude inside: tmux && ccb codex gemini claude"
+  echo "     Standard path: if CCB providers are not already mounted for this repo, start them with: tmux && ccb codex gemini claude"
   echo ""
   printf "Choice [1/2] (required): "
   read -r _execution_choice </dev/tty 2>/dev/null || _execution_choice=""
@@ -280,7 +280,8 @@ maybe_offer_execution_mode_choice() {
     2)
       "$NEXUS_CONFIG" set execution_mode governed_ccb 2>/dev/null || true
       echo "  selected governed_ccb"
-      echo "  next: finish setup, then relaunch Claude inside tmux with: ccb codex gemini claude"
+      echo "  next: finish setup, then make sure CCB providers are mounted for this repo"
+      echo "  standard start: tmux && ccb codex gemini claude"
       ;;
     1)
       "$NEXUS_CONFIG" set execution_mode local_provider 2>/dev/null || true

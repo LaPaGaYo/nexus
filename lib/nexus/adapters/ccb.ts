@@ -19,6 +19,11 @@ export interface CcbResolveRouteRaw {
   mounted: string[];
   verification_command?: string;
   verification_output?: string;
+  verification_commands?: string[];
+  ping_command?: string;
+  ping_output?: string;
+  mounted_command?: string;
+  mounted_output?: string;
 }
 
 export interface CcbExecuteGeneratorRaw {
@@ -43,6 +48,7 @@ export interface CcbExecuteQaRaw {
 
 export interface CcbToolPaths {
   ask_path: string;
+  ping_path: string;
   mounted_path: string;
 }
 
@@ -156,10 +162,12 @@ function sanitizeReceiptTimestamp(value: string): string {
 function defaultResolveToolPaths(): CcbToolPaths {
   const installBin = join(homedir(), '.local', 'share', 'codex-dual', 'bin');
   const askPath = join(installBin, 'ask');
+  const pingPath = join(installBin, 'ccb-ping');
   const mountedPath = join(installBin, 'ccb-mounted');
 
   return {
     ask_path: existsSync(askPath) ? askPath : 'ask',
+    ping_path: existsSync(pingPath) ? pingPath : 'ccb-ping',
     mounted_path: existsSync(mountedPath) ? mountedPath : 'ccb-mounted',
   };
 }
@@ -373,12 +381,23 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
   };
 }
 
-function buildRouteCheckPrompt(ctx: NexusAdapterContext, provider: 'codex' | 'gemini'): string {
-  return [
-    buildPromptContextPreamble(ctx, 'Nexus governed stage'),
-    `Run a Nexus governed route availability check for provider ${provider}.`,
-    'Reply exactly with: Nexus route check ok',
-  ].join('\n');
+function summarizeCommandOutput(stdout: string, stderr: string): string {
+  return [stdout.trim(), stderr.trim()].filter(Boolean).join('\n').trim();
+}
+
+function parseMountedProviders(stdout: string): string[] {
+  let parsed: { mounted?: unknown };
+  try {
+    parsed = JSON.parse(stdout) as { mounted?: unknown };
+  } catch (error) {
+    throw new Error(`Malformed ccb-mounted output: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  if (!Array.isArray(parsed.mounted) || !parsed.mounted.every((entry) => typeof entry === 'string')) {
+    throw new Error('Malformed ccb-mounted output: expected a JSON object with a string[] mounted field');
+  }
+
+  return parsed.mounted;
 }
 
 async function runRouteVerification(
@@ -401,33 +420,153 @@ async function runRouteVerification(
     );
   }
 
-  const dispatch = await runAskDispatch(
-    ctx,
-    provider,
-    'handoff',
-    buildRouteCheckPrompt(ctx, provider),
-    traceability,
-    options,
-  );
+  const toolPaths = options.resolveToolPaths();
+  const pingArgv = [toolPaths.ping_path, provider];
+  const mountedArgv = [toolPaths.mounted_path, '--autostart'];
 
-  if ('adapter_id' in dispatch) {
-    return dispatch;
+  let pingExecution: CcbCommandResult;
+  try {
+    pingExecution = await options.runCommand({
+      argv: pingArgv,
+      cwd: ctx.cwd,
+      env: {},
+      timeout_ms: 40_000,
+    });
+  } catch (error) {
+    return blockedResult(
+      ctx.stage,
+      error instanceof Error ? error.message : String(error),
+      {
+        available: false,
+        provider,
+        mounted: [],
+        verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+        ping_command: describeCommand(pingArgv),
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  const pingOutput = summarizeCommandOutput(pingExecution.stdout, pingExecution.stderr);
+  if (pingExecution.exit_code !== 0) {
+    return blockedResult(
+      ctx.stage,
+      pingOutput || `CCB ${provider} route check failed`,
+      {
+        available: false,
+        provider,
+        mounted: [],
+        verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+        ping_command: describeCommand(pingArgv),
+        ping_output: pingOutput,
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  let mountedExecution: CcbCommandResult;
+  try {
+    mountedExecution = await options.runCommand({
+      argv: mountedArgv,
+      cwd: ctx.cwd,
+      env: {},
+      timeout_ms: 40_000,
+    });
+  } catch (error) {
+    return blockedResult(
+      ctx.stage,
+      error instanceof Error ? error.message : String(error),
+      {
+        available: false,
+        provider,
+        mounted: [],
+        verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+        ping_command: describeCommand(pingArgv),
+        ping_output: pingOutput,
+        mounted_command: describeCommand(mountedArgv),
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  const mountedOutput = summarizeCommandOutput(mountedExecution.stdout, mountedExecution.stderr);
+  if (mountedExecution.exit_code !== 0) {
+    return blockedResult(
+      ctx.stage,
+      mountedOutput || 'CCB mounted provider discovery failed',
+      {
+        available: false,
+        provider,
+        mounted: [],
+        verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+        ping_command: describeCommand(pingArgv),
+        ping_output: pingOutput,
+        mounted_command: describeCommand(mountedArgv),
+        mounted_output: mountedOutput,
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  let mountedProviders: string[];
+  try {
+    mountedProviders = parseMountedProviders(mountedExecution.stdout);
+  } catch (error) {
+    return blockedResult(
+      ctx.stage,
+      error instanceof Error ? error.message : String(error),
+      {
+        available: false,
+        provider,
+        mounted: [],
+        verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+        ping_command: describeCommand(pingArgv),
+        ping_output: pingOutput,
+        mounted_command: describeCommand(mountedArgv),
+        mounted_output: mountedOutput,
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  if (!mountedProviders.includes(provider)) {
+    return blockedResult(
+      ctx.stage,
+      `CCB mounted providers do not include ${provider}`,
+      {
+        available: false,
+        provider,
+        mounted: mountedProviders,
+        verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+        ping_command: describeCommand(pingArgv),
+        ping_output: pingOutput,
+        mounted_command: describeCommand(mountedArgv),
+        mounted_output: mountedOutput,
+        verification_command: describeCommand(mountedArgv),
+        verification_output: mountedOutput,
+      },
+      ctx.requested_route,
+      traceability,
+    );
   }
 
   return successResult<CcbResolveRouteRaw>(
     {
       available: true,
       provider,
-      mounted: [provider],
-      verification_command: describeCommand([
-        options.resolveToolPaths().ask_path,
-        provider,
-        '--foreground',
-        '--no-wrap',
-        '--timeout',
-        '30',
-      ]),
-      verification_output: dispatch.stdout.trim(),
+      mounted: mountedProviders,
+      verification_command: describeCommand(mountedArgv),
+      verification_output: [pingOutput, mountedOutput].filter(Boolean).join('\n'),
+      verification_commands: [describeCommand(pingArgv), describeCommand(mountedArgv)],
+      ping_command: describeCommand(pingArgv),
+      ping_output: pingOutput,
+      mounted_command: describeCommand(mountedArgv),
+      mounted_output: mountedOutput,
     },
     buildActualRoute(provider, ctx.requested_route.generator, ctx.requested_route.substrate, 'handoff'),
     ctx.requested_route,

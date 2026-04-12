@@ -140,7 +140,7 @@ ${ctx.host === 'claude'
 >
 > RECOMMENDATION: Choose B if you want the standard governed Nexus path, because CCB is already installed. Completeness: 9/10.
 > A) Stay in the current Claude session with local_provider (human: ~0m / CC: ~0m) — Completeness: 8/10
-> B) Persist governed_ccb and relaunch Claude inside tmux (human: ~1m / CC: ~0m) — Completeness: 9/10
+> B) Persist governed_ccb and use mounted CCB providers (human: ~1m / CC: ~0m) — Completeness: 9/10
 
 If A:
 \`\`\`bash
@@ -153,7 +153,7 @@ If B:
 \`\`\`bash
 ${ctx.paths.binDir}/nexus-config set execution_mode governed_ccb
 \`\`\`
-Then explain that \`governed_ccb\` requires leaving the current Claude session and relaunching inside tmux with \`ccb codex gemini claude\`.
+Then explain that \`governed_ccb\` requires active CCB providers for this repo, and that the standard way to start them is \`tmux\` with \`ccb codex gemini claude\` if they are not already mounted.
 
 If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\` and \`CCB_AVAILABLE\` is \`no\`, tell the user Nexus is defaulting to \`local_provider\` because CCB is not detected, state the effective provider/topology, and tell them they can run \`./setup\` later if they want Nexus to help install CCB before switching to \`governed_ccb\`.`
     : `If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\`, tell the user Nexus has not saved an execution-mode preference on this host yet, state the current default execution path explicitly, and tell them to prefer \`${ctx.paths.binDir}/nexus-config effective-execution\` if they need the effective route. Only suggest \`${ctx.paths.binDir}/nexus-config set primary_provider ...\` and \`${ctx.paths.binDir}/nexus-config set provider_topology ...\` when the host is using \`local_provider\`.`}`;

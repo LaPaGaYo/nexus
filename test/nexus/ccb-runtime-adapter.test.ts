@@ -49,13 +49,21 @@ describe('nexus runtime ccb adapter', () => {
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
         ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
       }),
       runCommand: async (spec) => {
         calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/ccb-ping') {
+          return {
+            exit_code: 0,
+            stdout: '✅ Codex connection OK (Session healthy)\n',
+            stderr: '',
+          };
+        }
         return {
           exit_code: 0,
-          stdout: 'Nexus route check ok\n',
+          stdout: '{"cwd":"/repo/root/.nexus-worktrees/feature","mounted":["codex","gemini"]}\n',
           stderr: '',
         };
       },
@@ -64,21 +72,28 @@ describe('nexus runtime ccb adapter', () => {
 
     const result = await adapter.resolve_route(buildContext('handoff', 'handoff'));
 
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
     expect(calls[0]).toMatchObject({
-      argv: ['/opt/ccb/bin/ask', 'codex', '--foreground', '--no-wrap', '--timeout', '30'],
+      argv: ['/opt/ccb/bin/ccb-ping', 'codex'],
       cwd: '/repo/root/.nexus-worktrees/feature',
-      env: {
-        CCB_CALLER: 'claude',
-        CCB_ASKD_AUTOSTART: '1',
-        CCB_SESSION_FILE: '/repo/root/.ccb/.codex-session',
-      },
+      env: {},
     });
-    expect(calls[0]?.stdin_text).toContain('route availability check');
+    expect(calls[1]).toMatchObject({
+      argv: ['/opt/ccb/bin/ccb-mounted', '--autostart'],
+      cwd: '/repo/root/.nexus-worktrees/feature',
+      env: {},
+    });
+    expect(calls[0]?.stdin_text).toBeUndefined();
+    expect(calls[1]?.stdin_text).toBeUndefined();
     expect(result.outcome).toBe('success');
     expect(result.raw_output).toMatchObject({
       available: true,
       provider: 'codex',
+      mounted: ['codex', 'gemini'],
+      verification_commands: [
+        '/opt/ccb/bin/ccb-ping codex',
+        '/opt/ccb/bin/ccb-mounted --autostart',
+      ],
     });
     expect(result.actual_route).toMatchObject({
       provider: 'codex',
@@ -94,6 +109,7 @@ describe('nexus runtime ccb adapter', () => {
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
         ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
       }),
       runCommand: async (spec) => {
@@ -143,6 +159,7 @@ describe('nexus runtime ccb adapter', () => {
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
         ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
       }),
       runCommand: async (spec) => {
@@ -170,15 +187,16 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
-  test('blocks gracefully when the ask binary is missing instead of throwing', async () => {
+  test('blocks gracefully when the ccb-ping binary is missing instead of throwing', async () => {
     const adapter = createRuntimeCcbAdapter({
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
         ask_path: '/missing/ask',
+        ping_path: '/missing/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
       }),
       runCommand: async () => {
-        throw new Error('spawn /missing/ask ENOENT');
+        throw new Error('spawn /missing/ccb-ping ENOENT');
       },
       now: () => '2026-04-08T00:00:00.000Z',
     });
@@ -195,11 +213,50 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('blocks handoff when mounted providers do not include the requested governed provider', async () => {
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+      }),
+      runCommand: async (spec) => {
+        if (spec.argv[0] === '/opt/ccb/bin/ccb-ping') {
+          return {
+            exit_code: 0,
+            stdout: '✅ Codex connection OK (Session healthy)\n',
+            stderr: '',
+          };
+        }
+
+        return {
+          exit_code: 0,
+          stdout: '{"cwd":"/repo/root/.nexus-worktrees/feature","mounted":["gemini"]}\n',
+          stderr: '',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.resolve_route(buildContext('handoff', 'handoff'));
+
+    expect(result.outcome).toBe('blocked');
+    expect(result.actual_route).toBeNull();
+    expect(result.notices[0]).toContain('mounted providers do not include codex');
+    expect(result.raw_output).toMatchObject({
+      available: false,
+      provider: 'codex',
+      mounted: ['gemini'],
+    });
+  });
+
   test('blocks qa when CCB returns malformed structured validation output', async () => {
     const adapter = createRuntimeCcbAdapter({
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
         ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
       }),
       runCommand: async () => ({
@@ -236,6 +293,7 @@ describe('nexus runtime ccb adapter', () => {
       resolveSessionRoot: () => '/repo/root',
       resolveToolPaths: () => ({
         ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
       }),
       runCommand: async () => ({

@@ -1471,7 +1471,7 @@ describe('preamble execution mode guidance', () => {
   test('claude post-upgrade guidance persists execution mode when CCB is already installed', () => {
     expect(shipContent).toContain('Nexus just upgraded, but this machine still has no saved execution-mode preference.');
     expect(shipContent).toContain('Stay in the current Claude session with local_provider');
-    expect(shipContent).toContain('Persist governed_ccb and relaunch Claude inside tmux');
+    expect(shipContent).toContain('Persist governed_ccb and use mounted CCB providers');
     expect(shipContent).toContain('nexus-config set execution_mode governed_ccb');
     expect(shipContent).toContain('nexus-config set execution_mode local_provider');
     expect(shipContent).toContain('ccb codex gemini claude');
@@ -2313,9 +2313,10 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('CCB install complete');
   });
 
-  test('setup explains that governed_ccb requires relaunching Claude inside tmux', () => {
+  test('setup explains that governed_ccb needs mounted CCB providers and gives the standard tmux start path', () => {
     expect(setupContent).toContain("session: use tmux + 'ccb codex gemini claude' for governed runs");
-    expect(setupContent).toContain('relaunch Claude inside tmux with: ccb codex gemini claude');
+    expect(setupContent).toContain('Standard path: if CCB providers are not already mounted for this repo');
+    expect(setupContent).toContain('standard start: tmux && ccb codex gemini claude');
   });
 
   test('setup warns when local_provider is selected but the provider CLI is unavailable', () => {

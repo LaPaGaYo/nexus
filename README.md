@@ -53,10 +53,9 @@ Nexus supports two explicit execution modes.
 
 Use this when you want the full governed cross-provider path.
 
-1. Start `tmux`
-2. Inside tmux, run `ccb codex gemini claude`
-3. Enter the Claude session
-4. Then operate through Nexus from Claude
+1. Make sure CCB providers are mounted for this repo
+2. The standard way to start them is `tmux` → `ccb codex gemini claude`
+3. Operate through Nexus from Claude once Codex/Gemini are mounted
 
 **Human → Claude → Nexus → CCB → Codex/Gemini**
 
@@ -128,7 +127,7 @@ If `ask` / CCB is already installed and setup is interactive in Claude, Nexus th
 which path you want:
 
 - continue in the current Claude session with `local_provider`
-- switch to `governed_ccb` and relaunch Claude inside `tmux` with `ccb codex gemini claude`
+- switch to `governed_ccb` and make sure CCB providers are mounted, typically via `tmux` + `ccb codex gemini claude`
 
 That choice is now explicit. Interactive Claude setup does not silently time out into
 `local_provider` when CCB is present.

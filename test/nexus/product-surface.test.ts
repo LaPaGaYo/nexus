@@ -54,6 +54,8 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('repo mode and execution mode separately');
     expect(readme).toContain('asks whether to persist');
     expect(readme).toContain('the current Claude session with `local_provider`');
+    expect(readme).toContain('make sure CCB providers are mounted');
+    expect(readme).toContain('typically via `tmux` + `ccb codex gemini claude`');
     expect(readme).toContain('nexus-config effective-execution');
     expect(readme).toContain('`governed_ccb`: normally only persist `execution_mode`');
     expect(readme).toContain('`primary_provider` and `provider_topology` are local-provider-only host preferences');
