@@ -1405,9 +1405,10 @@ describe('parameterized resolver support', () => {
 describe('preamble routing injection', () => {
   const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 
-  test('preamble bash checks for routing section in CLAUDE.md', () => {
+  test('preamble bash checks for routing section or equivalent guidance in CLAUDE.md', () => {
     expect(shipContent).toContain('Nexus Skill Routing');
     expect(shipContent).toContain('HAS_ROUTING');
+    expect(shipContent).toContain('route lifecycle work through');
   });
 
   test('preamble bash reads routing_declined config', () => {
@@ -1418,6 +1419,11 @@ describe('preamble routing injection', () => {
   test('preamble includes routing injection AskUserQuestion', () => {
     expect(shipContent).toContain('Add Nexus invocation guidance to CLAUDE.md');
     expect(shipContent).toContain("I'll invoke Nexus commands manually");
+  });
+
+  test('routing injection does not auto-commit project CLAUDE.md changes', () => {
+    expect(shipContent).toContain('Do not auto-commit the file');
+    expect(shipContent).not.toContain('git add CLAUDE.md && git commit');
   });
 
   test('routing injection respects prior decline', () => {
@@ -1443,6 +1449,11 @@ describe('preamble routing injection', () => {
     expect(shipContent).toContain('invoke qa');
     expect(shipContent).toContain('invoke closeout');
     expect(shipContent).not.toContain('invoke investigate');
+  });
+
+  test('routing injection skips when equivalent lifecycle guidance already exists', () => {
+    expect(shipContent).toContain('existing instruction that routes lifecycle work through');
+    expect(shipContent).toContain('as equivalent Nexus routing guidance');
   });
 });
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## Nexus Patch Release Index
+
+The initial Nexus baseline is recorded below as `v1.0.0`. Incremental Nexus
+patch releases ship as standalone release notes under `docs/releases/`; this
+index gives the quick user-facing delta without forcing users to hunt through
+tags.
+
+- **[v1.0.1](docs/releases/2026-04-10-nexus-v1.0.1.md)** — release-based upgrade flow, published bundle installs, and maintainer-grade release preflight/smoke checks.
+- **[v1.0.2](docs/releases/2026-04-10-nexus-v1.0.2.md)** — Nexus-owned maintainer status/reporting plus stable upstream refresh contract syncing.
+- **[v1.0.3](docs/releases/2026-04-11-nexus-v1.0.3.md)** — explicit `governed_ccb` vs `local_provider` execution modes and a clearer Claude install path.
+- **[v1.0.4](docs/releases/2026-04-11-nexus-v1.0.4.md)** — active local topologies for Claude/Codex/Gemini plus Codex conversational install guidance.
+- **[v1.0.5](docs/releases/2026-04-11-nexus-v1.0.5.md)** — automatic cleanup of legacy GSD Claude hooks during Nexus setup.
+- **[v1.0.6](docs/releases/2026-04-11-nexus-v1.0.6.md)** — first-run stability and install-surface cleanup fixes.
+- **[v1.0.7](docs/releases/2026-04-11-nexus-v1.0.7.md)** — explicit setup choices when CCB is present or missing, instead of silent fallback.
+- **[v1.0.8](docs/releases/2026-04-11-nexus-v1.0.8.md)** — post-upgrade summaries now separate repo mode from execution mode and persist the right execution choice.
+- **[v1.0.9](docs/releases/2026-04-12-nexus-v1.0.9.md)** — clearer governed execution guidance plus conservative cleanup of stale Claude session transcripts.
+
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 
 Nexus is now the single product surface, runtime, and governed workflow for this

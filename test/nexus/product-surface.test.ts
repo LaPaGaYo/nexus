@@ -38,6 +38,7 @@ describe('nexus product surface contract', () => {
   test('readme and skills docs describe a Nexus-only active surface', () => {
     const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
     const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
+    const changelog = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8');
     const installSection = readme.split('### Step 1: Install Nexus on your machine')[1]?.split('### Step 2: Add Nexus to your repo so teammates get it')[0] ?? '';
 
     expect(readme).toContain('# Nexus');
@@ -86,6 +87,10 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('Upgrade Nexus itself through the supported release-based update flow.');
     expect(skills).not.toContain('Manage what gstack learned');
     expect(skills).not.toContain('controlled by gstack');
+
+    expect(changelog).toContain('## Nexus Patch Release Index');
+    expect(changelog).toContain('docs/releases/2026-04-10-nexus-v1.0.1.md');
+    expect(changelog).toContain('docs/releases/2026-04-12-nexus-v1.0.9.md');
   });
 
   test('agent-facing docs keep canonical Nexus lifecycle commands primary', () => {

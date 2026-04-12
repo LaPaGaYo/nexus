@@ -100,10 +100,16 @@ if [ -f "$_LEARN_FILE" ]; then
 else
   echo "LEARNINGS: 0"
 fi
-# Check if CLAUDE.md has Nexus routing guidance
+# Check if CLAUDE.md already has Nexus routing guidance or an equivalent routing rule
 _HAS_ROUTING="no"
-if [ -f CLAUDE.md ] && grep -q "## Nexus Skill Routing" CLAUDE.md 2>/dev/null; then
-  _HAS_ROUTING="yes"
+if [ -f CLAUDE.md ]; then
+  if grep -q "## Nexus Skill Routing" CLAUDE.md 2>/dev/null; then
+    _HAS_ROUTING="yes"
+  elif grep -Eiq 'route lifecycle work through .*?/discover.*?/closeout' CLAUDE.md 2>/dev/null; then
+    _HAS_ROUTING="yes"
+  elif grep -Fq "When the user's request matches a canonical Nexus command, invoke that command first." CLAUDE.md 2>/dev/null; then
+    _HAS_ROUTING="yes"
+  fi
 fi
 _ROUTING_DECLINED=$(~/.claude/skills/nexus/bin/nexus-config get routing_declined 2>/dev/null || echo "false")
 echo "HAS_ROUTING: $_HAS_ROUTING"
@@ -192,6 +198,9 @@ This only happens once. If `PROACTIVE_PROMPTED` is `yes`, skip this entirely.
 
 If `HAS_ROUTING` is `no` AND `ROUTING_DECLINED` is `false` AND `PROACTIVE_PROMPTED` is `yes`:
 Check if a CLAUDE.md file exists in the project root. If it does not exist, create it.
+Before prompting, treat either the standard `## Nexus Skill Routing` section or any
+existing instruction that routes lifecycle work through `/discover` to `/closeout`
+as equivalent Nexus routing guidance. If equivalent guidance already exists, skip this entirely.
 
 Use AskUserQuestion:
 
@@ -203,7 +212,8 @@ Options:
 - A) Add Nexus invocation guidance to CLAUDE.md (recommended)
 - B) No thanks, I'll invoke Nexus commands manually
 
-If A: Append this section to the end of CLAUDE.md:
+If A: Append this section to the end of CLAUDE.md only when the file does not already
+contain equivalent Nexus routing guidance:
 
 ```markdown
 
@@ -226,7 +236,8 @@ Key routing rules:
 - Final governed verification and closure → invoke closeout
 ```
 
-Then commit the change: `git add CLAUDE.md && git commit -m "chore: add nexus skill routing guidance to CLAUDE.md"`
+Do not auto-commit the file. After updating `CLAUDE.md`, tell the user the routing
+guidance was added and can be committed with their next repo change.
 
 If B: run `~/.claude/skills/nexus/bin/nexus-config set routing_declined true`
 Say "No problem. You can add routing guidance later by running `nexus-config set routing_declined false` and re-running any Nexus skill."
