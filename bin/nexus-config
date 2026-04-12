@@ -67,9 +67,38 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+csv_contains() {
+  local csv="$1"
+  local needle="$2"
+  case ",$csv," in
+    *",$needle,"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+read_mounted_providers_csv() {
+  command_exists ccb-mounted || return 0
+
+  local mounted_json mounted_inner mounted_csv
+  mounted_json="$(ccb-mounted --autostart 2>/dev/null || true)"
+  [ -n "$mounted_json" ] || return 0
+
+  mounted_inner="$(
+    printf '%s' "$mounted_json" |
+      tr -d '\n' |
+      sed -n 's/.*"mounted"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p'
+  )"
+  [ -n "$mounted_inner" ] || return 0
+
+  mounted_csv="$(printf '%s' "$mounted_inner" | tr -d '"' | tr -d '[:space:]')"
+  printf '%s' "$mounted_csv"
+}
+
 print_effective_execution() {
   local configured_mode configured_provider configured_topology ccb_available
   local mode primary_provider provider_topology requested_execution_path mode_configured
+  local mounted_providers_csv missing_providers_csv required_governed_providers governed_ready
+  local provider_cli_available current_session_ready
 
   configured_mode="$(get_value execution_mode)"
   configured_provider="$(get_value primary_provider)"
@@ -97,6 +126,31 @@ print_effective_execution() {
     primary_provider="codex"
     provider_topology="multi_session"
     requested_execution_path="codex-via-ccb"
+    required_governed_providers="codex,gemini"
+    mounted_providers_csv=""
+    missing_providers_csv=""
+    governed_ready="no"
+
+    if [ "$ccb_available" = "yes" ]; then
+      mounted_providers_csv="$(read_mounted_providers_csv)"
+      if [ -n "$mounted_providers_csv" ]; then
+        for provider in codex gemini; do
+          if ! csv_contains "$mounted_providers_csv" "$provider"; then
+            missing_providers_csv="${missing_providers_csv:+$missing_providers_csv,}$provider"
+          fi
+        done
+      else
+        missing_providers_csv="$required_governed_providers"
+      fi
+      if [ -z "$missing_providers_csv" ]; then
+        governed_ready="yes"
+      fi
+    else
+      missing_providers_csv="$required_governed_providers"
+    fi
+
+    current_session_ready="$governed_ready"
+
     cat <<EOF
 execution_mode: $mode
 execution_mode_configured: $mode_configured
@@ -104,6 +158,11 @@ ccb_available: $ccb_available
 effective_primary_provider: $primary_provider
 effective_provider_topology: $provider_topology
 effective_requested_execution_path: $requested_execution_path
+current_session_ready: $current_session_ready
+required_governed_providers: $required_governed_providers
+mounted_providers: ${mounted_providers_csv:-none}
+missing_providers: ${missing_providers_csv:-none}
+governed_ready: $governed_ready
 note: primary_provider and provider_topology are local_provider-only config keys and may be unset when execution_mode=governed_ccb
 EOF
     return 0
@@ -128,6 +187,14 @@ EOF
   fi
 
   requested_execution_path="${primary_provider}-local-${provider_topology}"
+  if command_exists "$primary_provider"; then
+    provider_cli_available="yes"
+    current_session_ready="yes"
+  else
+    provider_cli_available="no"
+    current_session_ready="no"
+  fi
+
   cat <<EOF
 execution_mode: $mode
 execution_mode_configured: $mode_configured
@@ -135,6 +202,8 @@ ccb_available: $ccb_available
 effective_primary_provider: $primary_provider
 effective_provider_topology: $provider_topology
 effective_requested_execution_path: $requested_execution_path
+provider_cli_available: $provider_cli_available
+current_session_ready: $current_session_ready
 EOF
 }
 

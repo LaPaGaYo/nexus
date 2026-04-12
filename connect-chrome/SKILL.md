@@ -74,11 +74,39 @@ else
     _PROVIDER_TOPOLOGY="single_agent"
   fi
 fi
+_EFFECTIVE_EXECUTION=$(~/.claude/skills/nexus/bin/nexus-config effective-execution 2>/dev/null || true)
+if [ -n "$_EFFECTIVE_EXECUTION" ]; then
+  _PRIMARY_PROVIDER=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_primary_provider:/{print $2; exit}')
+  _PROVIDER_TOPOLOGY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_provider_topology:/{print $2; exit}')
+  _EXECUTION_PATH=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_requested_execution_path:/{print $2; exit}')
+  _CURRENT_SESSION_READY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^current_session_ready:/{print $2; exit}')
+  _GOVERNED_READY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^governed_ready:/{print $2; exit}')
+  _MOUNTED_PROVIDERS=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^mounted_providers:/{print $2; exit}')
+  _MISSING_PROVIDERS=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^missing_providers:/{print $2; exit}')
+else
+  _EXECUTION_PATH=""
+  _CURRENT_SESSION_READY="unknown"
+  _GOVERNED_READY=""
+  _MOUNTED_PROVIDERS=""
+  _MISSING_PROVIDERS=""
+fi
 echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
 echo "EXECUTION_MODE: $_EXECUTION_MODE"
 echo "EXECUTION_MODE_CONFIGURED: $_EXECUTION_MODE_CONFIGURED"
 echo "PRIMARY_PROVIDER: $_PRIMARY_PROVIDER"
 echo "PROVIDER_TOPOLOGY: $_PROVIDER_TOPOLOGY"
+echo "EXECUTION_PATH: $_EXECUTION_PATH"
+echo "CURRENT_SESSION_READY: $_CURRENT_SESSION_READY"
+echo "GOVERNED_READY: $_GOVERNED_READY"
+echo "MOUNTED_PROVIDERS: $_MOUNTED_PROVIDERS"
+echo "MISSING_PROVIDERS: $_MISSING_PROVIDERS"
 source <(~/.claude/skills/nexus/bin/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -122,11 +150,29 @@ of `/qa`, `/nexus-ship` instead of `/ship`). Disk paths are unaffected — alway
 
 If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/nexus/nexus-upgrade/SKILL.md` and follow the release-based "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). `/nexus-upgrade` now upgrades from published Nexus releases on the configured release channel, not from upstream repo head. If `JUST_UPGRADED <from> <to>`: tell user "Running Nexus v{to} (just updated!)" and continue.
 
+If `JUST_UPGRADED <from> <to>` is present, always include the standardized runtime summary before moving on to work, even when `EXECUTION_MODE_CONFIGURED` is `yes`.
+
 When summarizing setup or upgrade state, always keep `REPO_MODE` and `EXECUTION_MODE` separate:
 - `REPO_MODE` is repo ownership only, for example `solo` or `collaborative`
 - `EXECUTION_MODE` is runtime routing only, either `governed_ccb` or `local_provider`
 - Never describe `solo` or `collaborative` as an execution mode
 - If `EXECUTION_MODE_CONFIGURED` is `no`, say it is the current default derived from machine state, not a saved preference
+- `EXECUTION_PATH` is the current effective route, for example `codex-via-ccb`
+- `CURRENT_SESSION_READY` tells you whether the chosen route is runnable right now in this host/session
+- when `EXECUTION_MODE=governed_ccb`, also surface `GOVERNED_READY`, `MOUNTED_PROVIDERS`, and `MISSING_PROVIDERS`
+
+Whenever you summarize setup, upgrade, or first-run state, present runtime status in this order:
+- Repo mode: `REPO_MODE`
+- Execution mode: `EXECUTION_MODE` plus whether it is a saved preference or a machine-state default
+- Execution path: `EXECUTION_PATH`
+- Current session ready: `CURRENT_SESSION_READY`
+- If `EXECUTION_MODE=governed_ccb`: governed ready, mounted providers, missing providers
+- Branch: `_BRANCH`
+- Proactive: `PROACTIVE`
+
+When `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY` is `no`, explicitly tell the user whether the gap is:
+- CCB not installed (`CCB_AVAILABLE=no`), or
+- CCB installed but required providers are not mounted (`MISSING_PROVIDERS` is non-empty)
 
 If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE` and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
 When `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`. Those are local-provider host preferences, not governed CCB config keys.
@@ -318,7 +364,12 @@ Include `Completeness: X/10` for each option (10=all edge cases, 7=happy path, 3
 - `EXECUTION_MODE`: runtime routing, either `governed_ccb` or `local_provider`
 - `PRIMARY_PROVIDER`: the active local provider when `EXECUTION_MODE=local_provider`
 - `PROVIDER_TOPOLOGY`: the active local topology when `EXECUTION_MODE=local_provider`
+- `EXECUTION_PATH`: the current effective route, for example `codex-via-ccb`
+- `CURRENT_SESSION_READY`: whether this host/session is ready to run the chosen route right now
 - `CCB_AVAILABLE`: whether `ask` is installed on this machine
+- `GOVERNED_READY`: whether the governed route is runnable right now
+- `MOUNTED_PROVIDERS`: which governed CCB providers are currently mounted
+- `MISSING_PROVIDERS`: which governed providers are still missing for the current route
 - when `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`
 - `primary_provider` and `provider_topology` are local-provider host preferences, not governed CCB config
 - governed route intent and reviewed provenance belong to canonical `.planning/` route artifacts, not host config keys
@@ -327,6 +378,9 @@ Include `Completeness: X/10` for each option (10=all edge cases, 7=happy path, 3
 Whenever you summarize the current state, show both:
 - Repo mode: `REPO_MODE`
 - Execution mode: `EXECUTION_MODE`
+- Execution path: `EXECUTION_PATH`
+- Current session ready: `CURRENT_SESSION_READY`
+- If governed: governed ready, mounted providers, missing providers
 
 If `EXECUTION_MODE_CONFIGURED` is `no`, explicitly say the execution mode is a default derived from machine state, not a persisted preference.
 

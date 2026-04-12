@@ -1466,17 +1466,29 @@ describe('preamble execution mode guidance', () => {
     expect(shipContent).toContain('EXECUTION_MODE_CONFIGURED:');
     expect(shipContent).toContain('PRIMARY_PROVIDER:');
     expect(shipContent).toContain('PROVIDER_TOPOLOGY:');
+    expect(shipContent).toContain('EXECUTION_PATH:');
+    expect(shipContent).toContain('CURRENT_SESSION_READY:');
+    expect(shipContent).toContain('GOVERNED_READY:');
+    expect(shipContent).toContain('MOUNTED_PROVIDERS:');
+    expect(shipContent).toContain('MISSING_PROVIDERS:');
     expect(shipContent).toContain('REPO_MODE:');
   });
 
   test('upgrade guidance forbids treating repo mode as execution mode', () => {
     expect(shipContent).toContain('REPO_MODE');
     expect(shipContent).toContain('EXECUTION_MODE');
+    expect(shipContent).toContain('always include the standardized runtime summary');
+    expect(shipContent).toContain('EXECUTION_PATH');
+    expect(shipContent).toContain('CURRENT_SESSION_READY');
+    expect(shipContent).toContain('MOUNTED_PROVIDERS');
+    expect(shipContent).toContain('MISSING_PROVIDERS');
     expect(shipContent).toContain('Never describe `solo` or `collaborative` as an execution mode');
     expect(shipContent).toContain('default derived from machine state, not a saved preference');
     expect(shipContent).toContain('nexus-config effective-execution');
     expect(shipContent).toContain('do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`');
     expect(shipContent).toContain('Those are local-provider host preferences, not governed CCB config keys');
+    expect(shipContent).toContain('Current session ready: `CURRENT_SESSION_READY`');
+    expect(shipContent).toContain('If `EXECUTION_MODE=governed_ccb`: governed ready, mounted providers, missing providers');
   });
 
   test('claude post-upgrade guidance persists execution mode when CCB is already installed', () => {
@@ -2325,13 +2337,17 @@ describe('setup script validation', () => {
   });
 
   test('setup explains that governed_ccb needs mounted CCB providers and gives the standard tmux start path', () => {
-    expect(setupContent).toContain("session: use tmux + 'ccb codex gemini claude' for governed runs");
+    expect(setupContent).toContain('governed ready:');
+    expect(setupContent).toContain('mounted providers:');
+    expect(setupContent).toContain('missing providers:');
     expect(setupContent).toContain('Standard path: if CCB providers are not already mounted for this repo');
     expect(setupContent).toContain('standard start: tmux && ccb codex gemini claude');
+    expect(setupContent).toContain("next: mount the missing providers, usually via tmux + 'ccb codex gemini claude'");
   });
 
   test('setup warns when local_provider is selected but the provider CLI is unavailable', () => {
-    expect(setupContent).toContain('provider CLI missing');
+    expect(setupContent).toContain('provider CLI available:');
+    expect(setupContent).not.toContain('provider CLI missing');
     expect(setupContent).toContain('/handoff will block until');
     expect(setupContent).toContain('execution_mode is switched to governed_ccb');
   });

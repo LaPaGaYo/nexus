@@ -53,6 +53,12 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('does not silently time out into');
     expect(readme).toContain('the first post-upgrade');
     expect(readme).toContain('repo mode and execution mode separately');
+    expect(readme).toContain('execution path');
+    expect(readme).toContain('current session ready');
+    expect(readme).toContain('mounted providers');
+    expect(readme).toContain('missing providers');
+    expect(readme).toContain('CCB installed');
+    expect(readme).toContain('providers mounted for this repo right now');
     expect(readme).toContain('asks whether to persist');
     expect(readme).toContain('the current Claude session with `local_provider`');
     expect(readme).toContain('make sure CCB providers are mounted');
@@ -173,6 +179,11 @@ describe('nexus product surface contract', () => {
     expect(setup).toContain('provider_topology subagents');
     expect(setup).toContain('removed legacy GSD hook entries from');
     expect(setup).toContain('removed stale Nexus session transcript');
+    expect(setup).toContain('execution path:');
+    expect(setup).toContain('current session ready:');
+    expect(setup).toContain('governed ready:');
+    expect(setup).toContain('mounted providers:');
+    expect(setup).toContain('missing providers:');
     expect(setup).not.toContain('.claude/skills/gstack');
     expect(setup).not.toContain('.gstack-worktrees');
   });

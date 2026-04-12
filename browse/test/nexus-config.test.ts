@@ -104,7 +104,7 @@ describe('nexus-config', () => {
     chmodSync(join(binDir, 'ask'), 0o755);
 
     const { exitCode, stdout } = run(['effective-execution'], {
-      PATH: `${binDir}:${process.env.PATH ?? ''}`,
+      PATH: `${binDir}:/bin:/usr/bin`,
     });
 
     expect(exitCode).toBe(0);
@@ -114,7 +114,35 @@ describe('nexus-config', () => {
     expect(stdout).toContain('effective_primary_provider: codex');
     expect(stdout).toContain('effective_provider_topology: multi_session');
     expect(stdout).toContain('effective_requested_execution_path: codex-via-ccb');
+    expect(stdout).toContain('current_session_ready: no');
+    expect(stdout).toContain('required_governed_providers: codex,gemini');
+    expect(stdout).toContain('mounted_providers: none');
+    expect(stdout).toContain('missing_providers: codex,gemini');
+    expect(stdout).toContain('governed_ready: no');
     expect(stdout).toContain('local_provider-only config keys');
+  });
+
+  test('effective-execution reports governed readiness when required providers are mounted', () => {
+    writeFileSync(join(stateDir, 'config.yaml'), 'execution_mode: governed_ccb\n');
+    const binDir = join(stateDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, 'ask'), '#!/usr/bin/env bash\nexit 0\n');
+    writeFileSync(
+      join(binDir, 'ccb-mounted'),
+      '#!/usr/bin/env bash\nprintf \'{"cwd":"/tmp/test","mounted":["codex","gemini"]}\\n\'\n',
+    );
+    chmodSync(join(binDir, 'ask'), 0o755);
+    chmodSync(join(binDir, 'ccb-mounted'), 0o755);
+
+    const { exitCode, stdout } = run(['effective-execution'], {
+      PATH: `${binDir}:/bin:/usr/bin`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('current_session_ready: yes');
+    expect(stdout).toContain('mounted_providers: codex,gemini');
+    expect(stdout).toContain('missing_providers: none');
+    expect(stdout).toContain('governed_ready: yes');
   });
 
   test('effective-execution resolves default local_provider route when CCB is missing', () => {
@@ -134,6 +162,8 @@ describe('nexus-config', () => {
     expect(stdout).toContain('effective_primary_provider: claude');
     expect(stdout).toContain('effective_provider_topology: single_agent');
     expect(stdout).toContain('effective_requested_execution_path: claude-local-single_agent');
+    expect(stdout).toContain('provider_cli_available: yes');
+    expect(stdout).toContain('current_session_ready: yes');
   });
 
   test('no args shows usage and exits 1', () => {

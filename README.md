@@ -141,6 +141,12 @@ Claude session now treats repo mode and execution mode separately:
 If no explicit `execution_mode` is saved yet, Nexus states the effective default
 execution path and, when CCB is already installed, asks whether to persist
 `governed_ccb` or stay in the current Claude session with `local_provider`.
+That summary should now also make the runtime gap explicit:
+
+- `execution path` shows the effective route, for example `codex-via-ccb`
+- `current session ready` tells you whether the chosen route is runnable right now
+- governed summaries call out `mounted providers` and `missing providers`
+- `CCB installed` and `providers mounted for this repo right now` are treated as separate states
 
 If you choose `local_provider` in interactive Claude setup, Nexus then asks
 which local Claude topology to use:
@@ -202,6 +208,14 @@ Use this to inspect the effective execution route without guessing from partial 
 ```bash
 nexus-config effective-execution
 ```
+
+For governed runs, this now reports:
+
+- the effective execution path
+- whether the current session is ready right now
+- whether governed CCB is ready
+- which providers are mounted
+- which providers are still missing
 
 Mode-specific rule:
 

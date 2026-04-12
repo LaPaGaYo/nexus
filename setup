@@ -419,47 +419,54 @@ maybe_offer_local_topology_choice() {
 announce_execution_mode() {
   [ -x "$NEXUS_CONFIG" ] || return 0
 
-  _mode="$("$NEXUS_CONFIG" get execution_mode 2>/dev/null || true)"
-  _provider="$("$NEXUS_CONFIG" get primary_provider 2>/dev/null || true)"
-  _topology="$("$NEXUS_CONFIG" get provider_topology 2>/dev/null || true)"
+  _effective="$("$NEXUS_CONFIG" effective-execution 2>/dev/null || true)"
+  [ -n "$_effective" ] || return 0
 
-  if [ -z "$_mode" ]; then
-    if [ "$HOST" = "codex" ] || { [ "$INSTALL_CODEX" -eq 1 ] && [ "$INSTALL_CLAUDE" -eq 0 ]; }; then
-      _mode="local_provider"
-    elif ask_available; then
-      _mode="governed_ccb"
-    else
-      _mode="local_provider"
-    fi
+  _field() {
+    printf '%s\n' "$_effective" | sed -n "s/^$1: //p" | head -1
+  }
+
+  _mode="$(_field execution_mode)"
+  _mode_configured="$(_field execution_mode_configured)"
+  _provider="$(_field effective_primary_provider)"
+  _topology="$(_field effective_provider_topology)"
+  _path="$(_field effective_requested_execution_path)"
+  _session_ready="$(_field current_session_ready)"
+
+  if [ "$_mode_configured" = "yes" ]; then
+    echo "  execution mode: ${_mode} (saved preference)"
+  else
+    echo "  execution mode: ${_mode} (default from machine state)"
   fi
+  echo "  execution path: ${_path}"
+  echo "  current session ready: ${_session_ready}"
 
   if [ "$_mode" = "governed_ccb" ]; then
-    echo "  execution: governed_ccb (CCB transport)"
-    echo "  session: use tmux + 'ccb codex gemini claude' for governed runs"
-    return 0
-  fi
+    _ccb_available="$(_field ccb_available)"
+    _governed_ready="$(_field governed_ready)"
+    _mounted="$(_field mounted_providers)"
+    _missing="$(_field missing_providers)"
 
-  if [ -z "$_provider" ]; then
-    if [ "$HOST" = "codex" ] || { [ "$INSTALL_CODEX" -eq 1 ] && [ "$INSTALL_CLAUDE" -eq 0 ]; }; then
-      _provider="codex"
-    elif command -v claude >/dev/null 2>&1; then
-      _provider="claude"
-    elif command -v codex >/dev/null 2>&1; then
-      _provider="codex"
-    elif command -v gemini >/dev/null 2>&1; then
-      _provider="gemini"
+    echo "  ccb available: ${_ccb_available}"
+    echo "  governed ready: ${_governed_ready}"
+    echo "  mounted providers: ${_mounted}"
+    echo "  missing providers: ${_missing}"
+
+    if [ "$_governed_ready" = "yes" ]; then
+      echo "  next: continue from a CCB-managed Claude session in this repo"
     else
-      _provider="claude"
+      echo "  next: mount the missing providers, usually via tmux + 'ccb codex gemini claude'"
     fi
-  fi
-
-  [ -n "$_topology" ] || _topology="single_agent"
-  if ! command -v "$_provider" >/dev/null 2>&1; then
-    echo "  execution: local_provider (${_provider}, ${_topology}) [provider CLI missing]"
-    echo "  note: /handoff will block until ${_provider} is installed or execution_mode is switched to governed_ccb"
     return 0
   fi
-  echo "  execution: local_provider (${_provider}, ${_topology})"
+
+  _provider_cli="$(_field provider_cli_available)"
+  echo "  provider CLI available: ${_provider_cli}"
+  if [ "$_provider_cli" = "yes" ]; then
+    echo "  next: continue in the current ${_provider} session with ${_topology}"
+  else
+    echo "  note: /handoff will block until ${_provider} is installed or execution_mode is switched to governed_ccb"
+  fi
 }
 
 # --local: install to .claude/skills/ in the current working directory
