@@ -198,6 +198,18 @@ nexus-config set provider_topology subagents
 nexus-config set provider_topology multi_session
 ```
 
+Use this to inspect the effective execution route without guessing from partial config:
+
+```bash
+nexus-config effective-execution
+```
+
+Mode-specific rule:
+
+- `governed_ccb`: normally only persist `execution_mode`; `primary_provider` and `provider_topology` are local-provider-only host preferences and may stay unset
+- `local_provider`: persist `primary_provider` and `provider_topology` when you want a non-default local provider or topology
+- governed requested/actual route truth lives in canonical `.planning/` artifacts, not in `~/.nexus/config.yaml`
+
 Practical defaults:
 
 - interactive Claude setup requires an explicit mode choice when `ask` is installed and no explicit mode is saved

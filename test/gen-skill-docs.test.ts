@@ -1463,6 +1463,9 @@ describe('preamble execution mode guidance', () => {
     expect(shipContent).toContain('EXECUTION_MODE');
     expect(shipContent).toContain('Never describe `solo` or `collaborative` as an execution mode');
     expect(shipContent).toContain('default derived from machine state, not a saved preference');
+    expect(shipContent).toContain('nexus-config effective-execution');
+    expect(shipContent).toContain('do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`');
+    expect(shipContent).toContain('Those are local-provider host preferences, not governed CCB config keys');
   });
 
   test('claude post-upgrade guidance persists execution mode when CCB is already installed', () => {

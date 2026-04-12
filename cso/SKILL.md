@@ -128,7 +128,8 @@ When summarizing setup or upgrade state, always keep `REPO_MODE` and `EXECUTION_
 - Never describe `solo` or `collaborative` as an execution mode
 - If `EXECUTION_MODE_CONFIGURED` is `no`, say it is the current default derived from machine state, not a saved preference
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE`, `PRIMARY_PROVIDER`, `PROVIDER_TOPOLOGY`, and `CCB_AVAILABLE`.
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE` and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
+When `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`. Those are local-provider host preferences, not governed CCB config keys.
 
 If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `yes`, use AskUserQuestion to persist the execution preference:
 
@@ -313,6 +314,10 @@ Include `Completeness: X/10` for each option (10=all edge cases, 7=happy path, 3
 - `PRIMARY_PROVIDER`: the active local provider when `EXECUTION_MODE=local_provider`
 - `PROVIDER_TOPOLOGY`: the active local topology when `EXECUTION_MODE=local_provider`
 - `CCB_AVAILABLE`: whether `ask` is installed on this machine
+- when `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`
+- `primary_provider` and `provider_topology` are local-provider host preferences, not governed CCB config
+- governed route intent and reviewed provenance belong to canonical `.planning/` route artifacts, not host config keys
+- if the user needs the effective provider, topology, or requested execution path, prefer `~/.claude/skills/nexus/bin/nexus-config effective-execution`
 
 Whenever you summarize the current state, show both:
 - Repo mode: `REPO_MODE`

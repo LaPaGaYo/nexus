@@ -128,7 +128,8 @@ When summarizing setup or upgrade state, always keep \`REPO_MODE\` and \`EXECUTI
 - Never describe \`solo\` or \`collaborative\` as an execution mode
 - If \`EXECUTION_MODE_CONFIGURED\` is \`no\`, say it is the current default derived from machine state, not a saved preference
 
-If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\`, state the effective execution mode explicitly using \`EXECUTION_MODE\`, \`PRIMARY_PROVIDER\`, \`PROVIDER_TOPOLOGY\`, and \`CCB_AVAILABLE\`.
+If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\`, state the effective execution mode explicitly using \`EXECUTION_MODE\` and \`CCB_AVAILABLE\`. Use \`${ctx.paths.binDir}/nexus-config effective-execution\` when you need the effective provider, topology, or requested execution path.
+When \`EXECUTION_MODE=governed_ccb\`, do not ask the user to configure \`PRIMARY_PROVIDER\` or \`PROVIDER_TOPOLOGY\`. Those are local-provider host preferences, not governed CCB config keys.
 
 ${ctx.host === 'claude'
     ? `If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\` and \`CCB_AVAILABLE\` is \`yes\`, use AskUserQuestion to persist the execution preference:
@@ -155,7 +156,7 @@ ${ctx.paths.binDir}/nexus-config set execution_mode governed_ccb
 Then explain that \`governed_ccb\` requires leaving the current Claude session and relaunching inside tmux with \`ccb codex gemini claude\`.
 
 If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\` and \`CCB_AVAILABLE\` is \`no\`, tell the user Nexus is defaulting to \`local_provider\` because CCB is not detected, state the effective provider/topology, and tell them they can run \`./setup\` later if they want Nexus to help install CCB before switching to \`governed_ccb\`.`
-    : `If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\`, tell the user Nexus has not saved an execution-mode preference on this host yet, state the current default execution path explicitly, and tell them they can persist it with \`${ctx.paths.binDir}/nexus-config set execution_mode ...\`, \`${ctx.paths.binDir}/nexus-config set primary_provider ...\`, and \`${ctx.paths.binDir}/nexus-config set provider_topology ...\` before continuing.`}`;
+    : `If \`JUST_UPGRADED <from> <to>\` is present and \`EXECUTION_MODE_CONFIGURED\` is \`no\`, tell the user Nexus has not saved an execution-mode preference on this host yet, state the current default execution path explicitly, and tell them to prefer \`${ctx.paths.binDir}/nexus-config effective-execution\` if they need the effective route. Only suggest \`${ctx.paths.binDir}/nexus-config set primary_provider ...\` and \`${ctx.paths.binDir}/nexus-config set provider_topology ...\` when the host is using \`local_provider\`.`}`;
 }
 
 function generateExecutionModeSection(ctx: TemplateContext): string {
@@ -168,6 +169,10 @@ function generateExecutionModeSection(ctx: TemplateContext): string {
 - \`PRIMARY_PROVIDER\`: the active local provider when \`EXECUTION_MODE=local_provider\`
 - \`PROVIDER_TOPOLOGY\`: the active local topology when \`EXECUTION_MODE=local_provider\`
 - \`CCB_AVAILABLE\`: whether \`ask\` is installed on this machine
+- when \`EXECUTION_MODE=governed_ccb\`, do not ask the user to configure \`PRIMARY_PROVIDER\` or \`PROVIDER_TOPOLOGY\`
+- \`primary_provider\` and \`provider_topology\` are local-provider host preferences, not governed CCB config
+- governed route intent and reviewed provenance belong to canonical \`.planning/\` route artifacts, not host config keys
+- if the user needs the effective provider, topology, or requested execution path, prefer \`${ctx.paths.binDir}/nexus-config effective-execution\`
 
 Whenever you summarize the current state, show both:
 - Repo mode: \`REPO_MODE\`

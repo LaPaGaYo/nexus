@@ -54,6 +54,10 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('repo mode and execution mode separately');
     expect(readme).toContain('asks whether to persist');
     expect(readme).toContain('the current Claude session with `local_provider`');
+    expect(readme).toContain('nexus-config effective-execution');
+    expect(readme).toContain('`governed_ccb`: normally only persist `execution_mode`');
+    expect(readme).toContain('`primary_provider` and `provider_topology` are local-provider-only host preferences');
+    expect(readme).toContain('governed requested/actual route truth lives in canonical `.planning/` artifacts');
     expect(readme).toContain('nexus-config set provider_topology subagents');
     expect(readme).toContain('`codex + subagents` is an active local topology');
     expect(readme).toContain('`codex + multi_session` is an active local topology');

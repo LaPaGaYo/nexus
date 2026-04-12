@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync, chmodSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -94,6 +94,46 @@ describe('nexus-config', () => {
     const { exitCode, stderr } = run(['set', '.*', 'value']);
     expect(exitCode).toBe(1);
     expect(stderr).toContain('alphanumeric');
+  });
+
+  test('effective-execution explains governed_ccb with local-only config keys unset', () => {
+    writeFileSync(join(stateDir, 'config.yaml'), 'execution_mode: governed_ccb\n');
+    const binDir = join(stateDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, 'ask'), '#!/usr/bin/env bash\nexit 0\n');
+    chmodSync(join(binDir, 'ask'), 0o755);
+
+    const { exitCode, stdout } = run(['effective-execution'], {
+      PATH: `${binDir}:${process.env.PATH ?? ''}`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('execution_mode: governed_ccb');
+    expect(stdout).toContain('execution_mode_configured: yes');
+    expect(stdout).toContain('ccb_available: yes');
+    expect(stdout).toContain('effective_primary_provider: codex');
+    expect(stdout).toContain('effective_provider_topology: multi_session');
+    expect(stdout).toContain('effective_requested_execution_path: codex-via-ccb');
+    expect(stdout).toContain('local_provider-only config keys');
+  });
+
+  test('effective-execution resolves default local_provider route when CCB is missing', () => {
+    const binDir = join(stateDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, 'claude'), '#!/usr/bin/env bash\nexit 0\n');
+    chmodSync(join(binDir, 'claude'), 0o755);
+
+    const { exitCode, stdout } = run(['effective-execution'], {
+      PATH: `${binDir}:/bin:/usr/bin`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('execution_mode: local_provider');
+    expect(stdout).toContain('execution_mode_configured: no');
+    expect(stdout).toContain('ccb_available: no');
+    expect(stdout).toContain('effective_primary_provider: claude');
+    expect(stdout).toContain('effective_provider_topology: single_agent');
+    expect(stdout).toContain('effective_requested_execution_path: claude-local-single_agent');
   });
 
   test('no args shows usage and exits 1', () => {

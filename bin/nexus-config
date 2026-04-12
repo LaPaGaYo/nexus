@@ -4,6 +4,7 @@
 # Usage:
 #   nexus-config get <key>          — read a config value
 #   nexus-config set <key> <value>  — write a config value
+#   nexus-config effective-execution — show the effective execution route
 #   nexus-config list               — show all config
 #
 # Env override:
@@ -39,8 +40,9 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 #                           # local_provider = Nexus uses a local Claude/Codex/Gemini CLI
 #                           # interactive Claude setup asks which mode to prefer
 #                           # when CCB is detected and no explicit mode is saved yet
-# primary_provider: claude  # used by local_provider mode
+# primary_provider: claude  # local_provider only, ignored by governed_ccb
 # provider_topology: single_agent
+#                           # local_provider only, ignored by governed_ccb
 #                           # active local topologies:
 #                           # subagents = claude, codex, or gemini
 #                           # multi_session = codex only
@@ -55,6 +57,86 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 # skip_eng_review: false    # true = skip eng review gate in /ship (not recommended)
 #
 '
+
+get_value() {
+  local key="$1"
+  grep -E "^${key}:" "$CONFIG_FILE" 2>/dev/null | tail -1 | awk '{print $2}' | tr -d '[:space:]' || true
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+print_effective_execution() {
+  local configured_mode configured_provider configured_topology ccb_available
+  local mode primary_provider provider_topology requested_execution_path mode_configured
+
+  configured_mode="$(get_value execution_mode)"
+  configured_provider="$(get_value primary_provider)"
+  configured_topology="$(get_value provider_topology)"
+
+  if command_exists ask; then
+    ccb_available="yes"
+  else
+    ccb_available="no"
+  fi
+
+  if [ -n "$configured_mode" ]; then
+    mode="$configured_mode"
+    mode_configured="yes"
+  else
+    mode_configured="no"
+    if [ "$ccb_available" = "yes" ]; then
+      mode="governed_ccb"
+    else
+      mode="local_provider"
+    fi
+  fi
+
+  if [ "$mode" = "governed_ccb" ]; then
+    primary_provider="codex"
+    provider_topology="multi_session"
+    requested_execution_path="codex-via-ccb"
+    cat <<EOF
+execution_mode: $mode
+execution_mode_configured: $mode_configured
+ccb_available: $ccb_available
+effective_primary_provider: $primary_provider
+effective_provider_topology: $provider_topology
+effective_requested_execution_path: $requested_execution_path
+note: primary_provider and provider_topology are local_provider-only config keys and may be unset when execution_mode=governed_ccb
+EOF
+    return 0
+  fi
+
+  if [ -n "$configured_provider" ]; then
+    primary_provider="$configured_provider"
+  elif command_exists claude; then
+    primary_provider="claude"
+  elif command_exists codex; then
+    primary_provider="codex"
+  elif command_exists gemini; then
+    primary_provider="gemini"
+  else
+    primary_provider="claude"
+  fi
+
+  if [ -n "$configured_topology" ]; then
+    provider_topology="$configured_topology"
+  else
+    provider_topology="single_agent"
+  fi
+
+  requested_execution_path="${primary_provider}-local-${provider_topology}"
+  cat <<EOF
+execution_mode: $mode
+execution_mode_configured: $mode_configured
+ccb_available: $ccb_available
+effective_primary_provider: $primary_provider
+effective_provider_topology: $provider_topology
+effective_requested_execution_path: $requested_execution_path
+EOF
+}
 
 case "${1:-}" in
   -h|--help)
@@ -72,7 +154,7 @@ case "${1:-}" in
       echo "Error: key must contain only alphanumeric characters and underscores" >&2
       exit 1
     fi
-    VALUE="$(grep -E "^${KEY}:" "$CONFIG_FILE" 2>/dev/null | tail -1 | awk '{print $2}' | tr -d '[:space:]' || true)"
+    VALUE="$(get_value "$KEY")"
     printf '%s' "$VALUE"
     ;;
   set)
@@ -101,8 +183,11 @@ case "${1:-}" in
   list)
     cat "$CONFIG_FILE" 2>/dev/null || true
     ;;
+  effective-execution)
+    print_effective_execution
+    ;;
   *)
-    echo "Usage: nexus-config {get|set|list} [key] [value]"
+    echo "Usage: nexus-config {get|set|list|effective-execution} [key] [value]"
     exit 1
     ;;
 esac
