@@ -20,7 +20,17 @@ export interface NexusHandoffStagePack {
   absorbed_capability: 'ccb-routing';
   source_binding: ReturnType<typeof getStagePackSourceBinding>;
   buildResolvedRoute(ctx: NexusAdapterContext): {
-    raw_output: { available: boolean; provider: string | null };
+    raw_output: {
+      available: boolean;
+      provider: string | null;
+      providers: string[];
+      mounted: string[];
+      provider_checks: Array<{
+        provider: 'codex' | 'gemini';
+        ping_command: string;
+        ping_output: string;
+      }>;
+    };
     actual_route: {
       provider: string | null;
       route: string;
@@ -42,11 +52,24 @@ export function createHandoffStagePack(): NexusHandoffStagePack {
     source_binding,
     buildResolvedRoute: (ctx) => {
       const provider = expectedProvider(ctx.requested_route?.generator ?? null);
+      const providers = [...new Set(
+        [ctx.requested_route?.generator, ctx.requested_route?.evaluator_a, ctx.requested_route?.evaluator_b]
+          .filter((route): route is string => typeof route === 'string')
+          .map((route) => route.startsWith('codex') ? 'codex' : route.startsWith('gemini') ? 'gemini' : null)
+          .filter((candidate): candidate is 'codex' | 'gemini' => candidate !== null),
+      )];
 
       return {
         raw_output: {
           available: true,
           provider,
+          providers,
+          mounted: providers,
+          provider_checks: providers.map((candidate) => ({
+            provider: candidate,
+            ping_command: `ccb-ping ${candidate}`,
+            ping_output: `✅ ${candidate} connection OK (Session healthy)`,
+          })),
         },
         actual_route: {
           provider,

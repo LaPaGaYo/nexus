@@ -82,6 +82,21 @@ describe('nexus types', () => {
       available: true,
       approved: false,
       reason: 'availability alone does not approve the route',
+      mounted_providers: ['codex', 'gemini'],
+      provider_checks: [
+        {
+          provider: 'codex',
+          available: true,
+          mounted: true,
+          reason: 'CCB codex route check passed',
+        },
+        {
+          provider: 'gemini',
+          available: true,
+          mounted: true,
+          reason: 'CCB gemini route check passed',
+        },
+      ],
     };
     const provenance: ImplementationProvenanceRecord = {
       path: '.planning/current/build/build-result.md',
@@ -100,6 +115,7 @@ describe('nexus types', () => {
     };
 
     expect(validation.approved).toBe(false);
+    expect(validation.provider_checks?.[1]?.provider).toBe('gemini');
     expect(provenance.path).toContain('build-result.md');
     expect(ROUTE_VALIDATION_TRANSPORTS).toEqual(['ccb', 'local', 'none']);
   });

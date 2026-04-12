@@ -54,6 +54,46 @@ function expectedProviderFor(requestedRoute: RequestedRouteRecord): string | nul
   return null;
 }
 
+function expectedProvidersForRequestedRoute(requestedRoute: RequestedRouteRecord): string[] {
+  return [...new Set([
+    requestedRoute.generator,
+    requestedRoute.evaluator_a,
+    requestedRoute.evaluator_b,
+  ]
+    .filter((route): route is string => typeof route === 'string')
+    .map((route) => route.startsWith('codex') ? 'codex' : route.startsWith('gemini') ? 'gemini' : null)
+    .filter((provider): provider is string => provider !== null))];
+}
+
+function buildCcbProviderChecks(
+  requestedRoute: RequestedRouteRecord,
+  raw: Partial<CcbResolveRouteRaw> | null,
+): NonNullable<RouteValidationRecord['provider_checks']> {
+  const expectedProviders = expectedProvidersForRequestedRoute(requestedRoute);
+  const mountedProviders = new Set(raw?.mounted ?? (raw?.available ? expectedProviders : []));
+  const pingedProviders = new Set(
+    raw?.provider_checks?.map((check) => check.provider)
+      ?? (raw?.available ? expectedProviders : raw?.provider ? [raw.provider] : []),
+  );
+
+  return expectedProviders.map((provider) => {
+    const pinged = pingedProviders.has(provider);
+    const mounted = mountedProviders.has(provider);
+    const available = pinged && mounted;
+
+    return {
+      provider,
+      available,
+      mounted,
+      reason: !pinged
+        ? `CCB ${provider} route check failed`
+        : !mounted
+          ? `CCB mounted providers do not include ${provider}`
+          : `CCB ${provider} route check passed`,
+    };
+  });
+}
+
 export function requestedBuildRouteFromLedger(ledger: RunLedger): RequestedRouteRecord {
   if (ledger.execution.mode === 'local_provider') {
     return {
@@ -115,23 +155,30 @@ export function normalizeHandoffRouteValidation(
     };
   }
 
+  const raw = (result.raw_output ?? null) as Partial<CcbResolveRouteRaw> | null;
+  const providerChecks = buildCcbProviderChecks(requestedRoute, raw);
+  const available = providerChecks.length > 0
+    ? providerChecks.every((check) => check.available)
+    : Boolean(raw?.available);
   const expectedProvider = expectedProviderFor(requestedRoute);
-  const approved = result.raw_output.available
+  const approved = available
     && requestedRoute.generator === 'codex-via-ccb'
     && requestedRoute.substrate === 'superpowers-core'
     && requestedRoute.fallback_policy === 'disabled'
-    && (expectedProvider === null || result.raw_output.provider === expectedProvider);
+    && (expectedProvider === null || raw?.provider === expectedProvider);
 
   return {
     route_validation: {
       transport: 'ccb',
-      available: result.raw_output.available,
+      available,
       approved,
-      reason: !result.raw_output.available
-        ? 'CCB reported the requested route unavailable'
+      reason: !available
+        ? result.notices[0] ?? 'CCB reported the requested route unavailable'
         : approved
           ? 'Nexus approved the requested governed route'
           : 'Nexus rejected the requested governed route',
+      mounted_providers: raw?.mounted ?? [],
+      provider_checks: providerChecks,
     },
     approved,
   };
@@ -154,7 +201,7 @@ export function buildGovernedExecutionRoutingMarkdown(
   requestedRoute: RequestedRouteRecord,
   routeValidation: RouteValidationRecord,
 ): string {
-  return [
+  const lines = [
     '# Governed Execution Routing',
     '',
     `Command: ${requestedRoute.command}`,
@@ -165,23 +212,48 @@ export function buildGovernedExecutionRoutingMarkdown(
     `Fallback: ${requestedRoute.fallback_policy}`,
     `Transport availability: ${routeValidation.available ? 'available' : 'unavailable'}`,
     `Nexus approval: ${routeValidation.approved ? 'approved' : 'blocked'}`,
-    '',
-  ].join('\n');
+  ];
+
+  if (routeValidation.mounted_providers && routeValidation.mounted_providers.length > 0) {
+    lines.push(`Mounted providers: ${routeValidation.mounted_providers.join(', ')}`);
+  }
+
+  if (routeValidation.provider_checks && routeValidation.provider_checks.length > 0) {
+    lines.push('');
+    lines.push('Provider checks:');
+    for (const check of routeValidation.provider_checks) {
+      lines.push(`- ${check.provider}: ${check.available ? 'available' : 'unavailable'} (mounted: ${check.mounted ? 'yes' : 'no'})`);
+    }
+  }
+
+  lines.push('');
+  return lines.join('\n');
 }
 
 export function buildGovernedHandoffMarkdown(
   requestedRoute: RequestedRouteRecord,
   routeValidation: RouteValidationRecord,
 ): string {
-  return [
+  const lines = [
     '# Governed Handoff',
     '',
     `Planner: ${requestedRoute.planner ?? 'unset'}`,
     `Generator route: ${requestedRoute.generator ?? 'unset'}`,
     `Execution substrate: ${requestedRoute.substrate ?? 'unset'}`,
     `Route validation: ${routeValidation.reason}`,
-    '',
-  ].join('\n');
+  ];
+
+  if (routeValidation.provider_checks && routeValidation.provider_checks.length > 0) {
+    lines.push('');
+    lines.push('## Provider Verification');
+    lines.push('');
+    for (const check of routeValidation.provider_checks) {
+      lines.push(`- ${check.provider}: ${check.reason}`);
+    }
+  }
+
+  lines.push('');
+  return lines.join('\n');
 }
 
 export function buildBuildResultMarkdown(

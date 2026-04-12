@@ -114,6 +114,13 @@ export interface RouteValidationRecord {
   available: boolean;
   approved: boolean;
   reason: string;
+  mounted_providers?: string[];
+  provider_checks?: Array<{
+    provider: string;
+    available: boolean;
+    mounted: boolean;
+    reason: string;
+  }>;
 }
 
 export interface ImplementationProvenanceRecord {

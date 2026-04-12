@@ -26,7 +26,24 @@ describe('nexus build routing', () => {
           resolve_route: async () => ({
             adapter_id: 'ccb',
             outcome: 'success',
-            raw_output: { available: true, provider: 'codex' },
+            raw_output: {
+              available: true,
+              provider: 'codex',
+              providers: ['codex', 'gemini'],
+              mounted: ['codex', 'gemini'],
+              provider_checks: [
+                {
+                  provider: 'codex',
+                  ping_command: 'ccb-ping codex',
+                  ping_output: '✅ codex connection OK (Session healthy)',
+                },
+                {
+                  provider: 'gemini',
+                  ping_command: 'ccb-ping gemini',
+                  ping_output: '✅ gemini connection OK (Session healthy)',
+                },
+              ],
+            },
             requested_route: null,
             actual_route: {
               provider: 'codex',
@@ -63,6 +80,21 @@ describe('nexus build routing', () => {
           available: true,
           approved: true,
           reason: 'Nexus approved the requested governed route',
+          mounted_providers: ['codex', 'gemini'],
+          provider_checks: [
+            {
+              provider: 'codex',
+              available: true,
+              mounted: true,
+              reason: 'CCB codex route check passed',
+            },
+            {
+              provider: 'gemini',
+              available: true,
+              mounted: true,
+              reason: 'CCB gemini route check passed',
+            },
+          ],
         },
       });
       expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
@@ -82,7 +114,24 @@ describe('nexus build routing', () => {
           resolve_route: async () => ({
             adapter_id: 'ccb',
             outcome: 'success',
-            raw_output: { available: false, provider: 'codex' },
+            raw_output: {
+              available: false,
+              provider: 'codex',
+              providers: ['codex', 'gemini'],
+              mounted: ['codex'],
+              provider_checks: [
+                {
+                  provider: 'codex',
+                  ping_command: 'ccb-ping codex',
+                  ping_output: '✅ codex connection OK (Session healthy)',
+                },
+                {
+                  provider: 'gemini',
+                  ping_command: 'ccb-ping gemini',
+                  ping_output: '✅ gemini connection OK (Session healthy)',
+                },
+              ],
+            },
             requested_route: null,
             actual_route: null,
             notices: [],
@@ -103,6 +152,21 @@ describe('nexus build routing', () => {
           available: false,
           approved: false,
           reason: 'CCB reported the requested route unavailable',
+          mounted_providers: ['codex'],
+          provider_checks: [
+            {
+              provider: 'codex',
+              available: true,
+              mounted: true,
+              reason: 'CCB codex route check passed',
+            },
+            {
+              provider: 'gemini',
+              available: false,
+              mounted: false,
+              reason: 'CCB mounted providers do not include gemini',
+            },
+          ],
         },
       });
       expect(await run.readJson('.planning/current/conflicts/handoff-ccb.json')).toMatchObject({
