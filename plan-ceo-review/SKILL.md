@@ -390,7 +390,10 @@ Use `/frame` as the canonical lifecycle entrypoint.
 Run:
 
 ```bash
-bun run bin/nexus.ts plan-ceo-review
+_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+_NEXUS_ROOT="~/.claude/skills/nexus"
+[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts plan-ceo-review
 ```
 
 Then read:

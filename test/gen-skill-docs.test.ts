@@ -396,7 +396,7 @@ describe('gen-skill-docs', () => {
     const qaTmpl = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md.tmpl'), 'utf-8');
     if (isNexusWrapperSkill('qa')) {
       expect(qaTmpl).not.toContain('{{QA_METHODOLOGY}}');
-      expect(qaTmpl).toContain('bun run bin/nexus.ts qa');
+      expect(qaTmpl).toContain('{{NEXUS_RUN_COMMAND:qa}}');
       expect(qaTmpl).toContain('# /qa — Nexus Governed QA');
     } else {
       expect(qaTmpl).toContain('{{QA_METHODOLOGY}}');
@@ -411,7 +411,8 @@ describe('gen-skill-docs', () => {
     const qaOnlyContent = fs.readFileSync(path.join(ROOT, 'qa-only', 'SKILL.md'), 'utf-8');
 
     if (isNexusWrapperSkill('qa')) {
-      expect(qaContent).toContain('bun run bin/nexus.ts qa');
+      expect(qaContent).toContain('_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"');
+      expect(qaContent).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts qa');
       expect(qaContent).toContain('.planning/current/qa/status.json');
       expect(qaContent).toContain('Nexus-owned QA guidance for governed validation scope beyond code review.');
       expect(qaContent).toContain('CCB validation transport does not bypass Nexus-owned readiness decisions');
@@ -444,7 +445,7 @@ describe('gen-skill-docs', () => {
   test('qa has fix-loop tools and phases', () => {
     const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('qa')) {
-      expect(qaContent).toContain('bun run bin/nexus.ts qa');
+      expect(qaContent).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts qa');
       expect(qaContent).not.toContain('Edit');
       expect(qaContent).not.toContain('Glob');
       expect(qaContent).not.toContain('Grep');
@@ -466,7 +467,8 @@ describe('nexus wrapper generation', () => {
   test('canonical wrappers invoke the Nexus runtime', () => {
     for (const dir of NEXUS_CANONICAL_SKILLS) {
       const content = readSkill(dir);
-      expect(content).toContain(`bun run bin/nexus.ts ${dir}`);
+      expect(content).toContain('_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"');
+      expect(content).toContain(`NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${dir}`);
     }
   });
 
@@ -480,7 +482,8 @@ describe('nexus wrapper generation', () => {
 
     for (const [alias, target] of Object.entries(aliases)) {
       const content = readSkill(alias);
-      expect(content).toContain(`bun run bin/nexus.ts ${alias}`);
+      expect(content).toContain('_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"');
+      expect(content).toContain(`NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${alias}`);
       expect(content).toContain(`This alias routes to \`/${target}\`.`);
     }
   });
@@ -1827,7 +1830,7 @@ describe('Codex generation (--host codex)', () => {
     const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('review')) {
       expect(content).not.toContain('checklist.md');
-      expect(content).toContain('bun run bin/nexus.ts review');
+      expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts review');
       return;
     }
 
@@ -1839,7 +1842,7 @@ describe('Codex generation (--host codex)', () => {
     const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-ship', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('ship')) {
       expect(content).not.toContain('checklist.md');
-      expect(content).toContain('bun run bin/nexus.ts ship');
+      expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ship');
       return;
     }
 
@@ -1902,7 +1905,7 @@ describe('Codex generation (--host codex)', () => {
   test('Claude output unchanged: review skill still uses .claude/skills/ paths', () => {
     const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('review')) {
-      expect(content).toContain('bun run bin/nexus.ts review');
+      expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts review');
       expect(content).not.toContain('.claude/skills/review/checklist.md');
     } else {
       expect(content).toContain('.claude/skills/review/checklist.md');
@@ -1915,7 +1918,7 @@ describe('Codex generation (--host codex)', () => {
   test('Claude output unchanged: ship skill still uses .claude/skills/ paths', () => {
     const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('ship')) {
-      expect(content).toContain('bun run bin/nexus.ts ship');
+      expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ship');
     } else {
       expect(content).toContain('~/.claude/skills/nexus');
     }
@@ -2563,7 +2566,7 @@ describe('community fixes wave', () => {
   test('plan-eng-review/SKILL.md contains "Do not preemptively warn"', () => {
     const content = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
     if (isNexusWrapperSkill('plan-eng-review')) {
-      expect(content).toContain('bun run bin/nexus.ts plan-eng-review');
+      expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts plan-eng-review');
       expect(content).toContain('This alias routes to `/frame`.');
     } else {
       expect(content).toContain('Do not preemptively warn');

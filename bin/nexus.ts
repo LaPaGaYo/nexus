@@ -2,6 +2,7 @@
 import { getRuntimeNexusAdapters } from '../lib/nexus/adapters/registry';
 import { resolveInvocation } from '../lib/nexus/commands/index';
 import { defaultExecutionSelection } from '../lib/nexus/execution-topology';
+import { resolveRuntimeCwd } from '../lib/nexus/runtime-cwd';
 
 const [, , rawCommand] = process.argv;
 
@@ -13,7 +14,7 @@ if (!rawCommand) {
 try {
   const invocation = resolveInvocation(rawCommand);
   const result = await invocation.handler({
-    cwd: process.cwd(),
+    cwd: resolveRuntimeCwd(),
     clock: () => new Date().toISOString(),
     via: invocation.via,
     adapters: getRuntimeNexusAdapters(),

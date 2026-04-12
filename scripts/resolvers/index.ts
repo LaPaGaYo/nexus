@@ -17,6 +17,7 @@ import { generateLearningsSearch, generateLearningsLog } from './learnings';
 import { generateConfidenceCalibration } from './confidence';
 import { generateInvokeSkill } from './composition';
 import { generateReviewArmy } from './review-army';
+import { generateNexusRunCommand } from './nexus-run-command';
 import {
   generateNexusStageOverview,
   generateNexusStageChecklist,
@@ -69,4 +70,5 @@ export const RESOLVERS: Record<string, ResolverFn> = {
   NEXUS_STAGE_CHECKLIST: generateNexusStageChecklist,
   NEXUS_STAGE_ARTIFACT_CONTRACT: generateNexusStageArtifactContract,
   NEXUS_STAGE_ROUTING: generateNexusStageRouting,
+  NEXUS_RUN_COMMAND: generateNexusRunCommand,
 };

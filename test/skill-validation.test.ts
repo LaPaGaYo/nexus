@@ -381,7 +381,8 @@ describe('Nexus wrapper skill validation', () => {
   test('wrapper skills route through the Nexus runtime', () => {
     for (const skill of NEXUS_WRAPPER_SKILLS) {
       const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
-      expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
+      expect(content).toContain('_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"');
+      expect(content).toContain(`NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${skill}`);
     }
   });
 
@@ -407,7 +408,7 @@ describe('Nexus wrapper skill validation', () => {
       expect(content).not.toContain('blocked, not-implemented QA state');
       expect(content).not.toContain('release-gate intent as blocked and not implemented');
       expect(content).toContain(phrase);
-      expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
+      expect(content).toContain(`NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${skill}`);
     }
   });
 
@@ -422,7 +423,7 @@ describe('Nexus wrapper skill validation', () => {
       expect(content).not.toContain('Nexus Discovery Placeholder');
       expect(content).not.toContain('Nexus Framing Placeholder');
       expect(content).toContain(phrase);
-      expect(content).toContain(`bun run bin/nexus.ts ${skill}`);
+      expect(content).toContain(`NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${skill}`);
     }
   });
 

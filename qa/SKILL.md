@@ -402,5 +402,8 @@ QA content starts only after completed review. CCB validation transport does not
 Run:
 
 ```bash
-bun run bin/nexus.ts qa
+_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+_NEXUS_ROOT="~/.claude/skills/nexus"
+[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts qa
 ```
