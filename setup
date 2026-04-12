@@ -53,6 +53,7 @@ esac
 NEXUS_CONFIG="$SOURCE_NEXUS_DIR/bin/nexus-config"
 GLOBAL_CLAUDE_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-global-claude"
 LEGACY_CLAUDE_HOOKS_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-clean-claude-hooks"
+LEGACY_CLAUDE_SESSIONS_HELPER="$SOURCE_NEXUS_DIR/bin/nexus-clean-claude-sessions"
 CCB_REPO_URL="${NEXUS_CCB_REPO_URL:-https://github.com/bfly123/claude_code_bridge.git}"
 export NEXUS_SETUP_RUNNING=1  # Prevent nexus-config post-set hook from triggering relink mid-setup
 if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
@@ -139,6 +140,21 @@ maybe_clean_legacy_claude_hooks() {
   echo "Legacy Claude hook cleanup:"
   printf '%s\n' "$_cleanup_output" | while IFS= read -r _cleaned_path; do
     [ -n "$_cleaned_path" ] && echo "  removed legacy GSD hook entries from: $_cleaned_path"
+  done
+}
+
+maybe_clean_stale_claude_sessions() {
+  [ "$INSTALL_CLAUDE" -eq 1 ] || return 0
+  [ -x "$LEGACY_CLAUDE_SESSIONS_HELPER" ] || return 0
+
+  _cleanup_output="$("$LEGACY_CLAUDE_SESSIONS_HELPER" apply 2>/dev/null || true)"
+  [ -z "$_cleanup_output" ] && return 0
+  [ "$_cleanup_output" = "clean" ] && return 0
+
+  echo ""
+  echo "Stale Claude session cleanup:"
+  printf '%s\n' "$_cleanup_output" | while IFS= read -r _cleaned_path; do
+    [ -n "$_cleaned_path" ] && echo "  removed stale Nexus session transcript: $_cleaned_path"
   done
 }
 
@@ -944,6 +960,7 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
       echo "Nexus ready (claude)."
     fi
     maybe_clean_legacy_claude_hooks
+    maybe_clean_stale_claude_sessions
     maybe_offer_ccb_install_choice
     maybe_offer_execution_mode_choice
     maybe_offer_local_topology_choice
@@ -953,6 +970,7 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
   else
     echo "Nexus ready (claude)."
     maybe_clean_legacy_claude_hooks
+    maybe_clean_stale_claude_sessions
     maybe_offer_ccb_install_choice
     maybe_offer_execution_mode_choice
     maybe_offer_local_topology_choice

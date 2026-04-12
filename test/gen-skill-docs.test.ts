@@ -2286,6 +2286,12 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('global_claude_declined');
   });
 
+  test('setup cleans stale Claude session transcripts that contain obsolete Nexus prompts', () => {
+    expect(setupContent).toContain('nexus-clean-claude-sessions');
+    expect(setupContent).toContain('maybe_clean_stale_claude_sessions');
+    expect(setupContent).toContain('removed stale Nexus session transcript');
+  });
+
   test('setup offers an execution-mode chooser when CCB is detected for Claude installs', () => {
     expect(setupContent).toContain('maybe_offer_execution_mode_choice');
     expect(setupContent).toContain('ask_available || return 0');

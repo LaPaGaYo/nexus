@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# nexus-clean-claude-sessions — remove stale Claude project transcripts that contain obsolete Nexus prompts.
+#
+# Usage:
+#   nexus-clean-claude-sessions status [claude-projects-dir]
+#   nexus-clean-claude-sessions apply [claude-projects-dir]
+#
+# Env overrides:
+#   NEXUS_CLAUDE_PROJECTS_DIR — override the target Claude projects dir
+#   NEXUS_CLEAN_CLAUDE_SESSIONS_MIN_AGE_SECONDS — minimum age before a transcript can be removed (default: 3600)
+set -euo pipefail
+
+CLAUDE_PROJECTS_DIR="${NEXUS_CLAUDE_PROJECTS_DIR:-${2:-$HOME/.claude/projects}}"
+MIN_AGE_SECONDS="${NEXUS_CLEAN_CLAUDE_SESSIONS_MIN_AGE_SECONDS:-3600}"
+
+CORE_JS="$(cat <<'EOF'
+const fs = await import('fs');
+const path = await import('path');
+
+const command = process.env.NEXUS_CLEAN_CLAUDE_SESSIONS_COMMAND;
+const projectsDir = process.env.NEXUS_CLAUDE_PROJECTS_DIR;
+const minAgeSeconds = Number.parseInt(process.env.NEXUS_CLEAN_CLAUDE_SESSIONS_MIN_AGE_SECONDS ?? '3600', 10);
+const stalePatterns = [
+  /Help Nexus get better!/i,
+  /Which telemetry level would you like/i,
+  /Nexus is ready on .* solo mode/i,
+];
+
+function listProjectRoots(root) {
+  try {
+    return fs.readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(root, entry.name));
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+}
+
+function listDirectTranscripts(projectRoot) {
+  try {
+    return fs.readdirSync(projectRoot, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+      .map((entry) => path.join(projectRoot, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+function readIfPresent(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function transcriptMatchesStalePrompt(filePath) {
+  const contents = readIfPresent(filePath);
+  if (contents === null) {
+    return false;
+  }
+
+  return stalePatterns.some((pattern) => pattern.test(contents));
+}
+
+function findCandidates(root) {
+  const now = Date.now();
+  const candidates = [];
+
+  for (const projectRoot of listProjectRoots(root)) {
+    const transcripts = listDirectTranscripts(projectRoot);
+    if (transcripts.length === 0) {
+      continue;
+    }
+
+    const withStats = transcripts
+      .map((filePath) => {
+        try {
+          const stats = fs.statSync(filePath);
+          return { filePath, mtimeMs: stats.mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    if (withStats.length === 0) {
+      continue;
+    }
+
+    const newestMtime = Math.max(...withStats.map((entry) => entry.mtimeMs));
+    for (const entry of withStats) {
+      if (entry.mtimeMs === newestMtime) {
+        continue;
+      }
+      if ((now - entry.mtimeMs) / 1000 < minAgeSeconds) {
+        continue;
+      }
+      if (!transcriptMatchesStalePrompt(entry.filePath)) {
+        continue;
+      }
+      candidates.push(entry.filePath);
+    }
+  }
+
+  return candidates.sort();
+}
+
+const candidates = findCandidates(projectsDir);
+
+if (command === 'status') {
+  if (candidates.length === 0) {
+    console.log('clean');
+    process.exit(0);
+  }
+  console.log('stale_present');
+  for (const filePath of candidates) {
+    console.log(filePath);
+  }
+  process.exit(1);
+}
+
+if (command === 'apply') {
+  if (candidates.length === 0) {
+    console.log('clean');
+    process.exit(0);
+  }
+
+  for (const filePath of candidates) {
+    fs.rmSync(filePath, { force: true });
+    console.log(filePath);
+  }
+  process.exit(0);
+}
+
+console.error('Usage: nexus-clean-claude-sessions {status|apply} [claude-projects-dir]');
+process.exit(1);
+EOF
+)"
+
+NEXUS_CLEAN_CLAUDE_SESSIONS_COMMAND="${1:-}" \
+NEXUS_CLAUDE_PROJECTS_DIR="$CLAUDE_PROJECTS_DIR" \
+NEXUS_CLEAN_CLAUDE_SESSIONS_MIN_AGE_SECONDS="$MIN_AGE_SECONDS" \
+bun -e "$CORE_JS"
