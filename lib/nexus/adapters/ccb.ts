@@ -455,64 +455,10 @@ async function runRouteVerification(
   const executionCwd = executionWorkspacePath(ctx);
   const mountedArgv = [toolPaths.mounted_path, '--autostart'];
   const verificationCommands = [
-    ...providers.map((candidate) => describeCommand([toolPaths.ping_path, candidate])),
     describeCommand(mountedArgv),
+    ...providers.map((candidate) => describeCommand([toolPaths.ping_path, candidate])),
   ];
-
   const providerChecks: NonNullable<CcbResolveRouteRaw['provider_checks']> = [];
-  for (const candidate of providers) {
-    const pingArgv = [toolPaths.ping_path, candidate];
-    let pingExecution: CcbCommandResult;
-    try {
-      pingExecution = await options.runCommand({
-        argv: pingArgv,
-        cwd: executionCwd,
-        env: {},
-        timeout_ms: 40_000,
-      });
-    } catch (error) {
-      return blockedResult(
-        ctx.stage,
-        error instanceof Error ? error.message : String(error),
-        {
-          available: false,
-          provider,
-          providers,
-          mounted: [],
-          verification_commands: verificationCommands,
-          ping_command: describeCommand(pingArgv),
-        },
-        ctx.requested_route,
-        traceability,
-      );
-    }
-
-    const pingOutput = summarizeCommandOutput(pingExecution.stdout, pingExecution.stderr);
-    if (pingExecution.exit_code !== 0) {
-      return blockedResult(
-        ctx.stage,
-        pingOutput || `CCB ${candidate} route check failed`,
-        {
-          available: false,
-          provider,
-          providers,
-          mounted: [],
-          verification_commands: verificationCommands,
-          provider_checks,
-          ping_command: describeCommand(pingArgv),
-          ping_output: pingOutput,
-        },
-        ctx.requested_route,
-        traceability,
-      );
-    }
-
-    providerChecks.push({
-      provider: candidate,
-      ping_command: describeCommand(pingArgv),
-      ping_output: pingOutput,
-    });
-  }
 
   let mountedExecution: CcbCommandResult;
   try {
@@ -573,13 +519,70 @@ async function runRouteVerification(
         providers,
         mounted: [],
         verification_commands: verificationCommands,
-        provider_checks: providerChecks,
         mounted_command: describeCommand(mountedArgv),
         mounted_output: mountedOutput,
       },
       ctx.requested_route,
       traceability,
     );
+  }
+
+  for (const candidate of providers) {
+    const pingArgv = [toolPaths.ping_path, candidate];
+    let pingExecution: CcbCommandResult;
+    try {
+      pingExecution = await options.runCommand({
+        argv: pingArgv,
+        cwd: executionCwd,
+        env: {},
+        timeout_ms: 40_000,
+      });
+    } catch (error) {
+      return blockedResult(
+        ctx.stage,
+        error instanceof Error ? error.message : String(error),
+        {
+          available: false,
+          provider,
+          providers,
+          mounted: mountedProviders,
+          verification_commands: verificationCommands,
+          ping_command: describeCommand(pingArgv),
+          mounted_command: describeCommand(mountedArgv),
+          mounted_output: mountedOutput,
+        },
+        ctx.requested_route,
+        traceability,
+      );
+    }
+
+    const pingOutput = summarizeCommandOutput(pingExecution.stdout, pingExecution.stderr);
+    if (pingExecution.exit_code !== 0) {
+      return blockedResult(
+        ctx.stage,
+        pingOutput || `CCB ${candidate} route check failed`,
+        {
+          available: false,
+          provider,
+          providers,
+          mounted: mountedProviders,
+          verification_commands: verificationCommands,
+          provider_checks,
+          ping_command: describeCommand(pingArgv),
+          ping_output: pingOutput,
+          mounted_command: describeCommand(mountedArgv),
+          mounted_output: mountedOutput,
+        },
+        ctx.requested_route,
+        traceability,
+      );
+    }
+
+    providerChecks.push({
+      provider: candidate,
+      ping_command: describeCommand(pingArgv),
+      ping_output: pingOutput,
+    });
   }
 
   const missingProviders = providers.filter((candidate) => !mountedProviders.includes(candidate));
@@ -611,7 +614,7 @@ async function runRouteVerification(
       providers,
       mounted: mountedProviders,
       verification_command: describeCommand(mountedArgv),
-      verification_output: [...providerChecks.map((check) => check.ping_output), mountedOutput].filter(Boolean).join('\n'),
+      verification_output: [mountedOutput, ...providerChecks.map((check) => check.ping_output)].filter(Boolean).join('\n'),
       verification_commands: verificationCommands,
       provider_checks: providerChecks,
       ping_command: providerChecks[0]?.ping_command,

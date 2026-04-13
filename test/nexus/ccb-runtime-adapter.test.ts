@@ -84,17 +84,17 @@ describe('nexus runtime ccb adapter', () => {
 
     expect(calls).toHaveLength(3);
     expect(calls[0]).toMatchObject({
-      argv: ['/opt/ccb/bin/ccb-ping', 'codex'],
+      argv: ['/opt/ccb/bin/ccb-mounted', '--autostart'],
       cwd: '/repo/root/.nexus-worktrees/feature',
       env: {},
     });
     expect(calls[1]).toMatchObject({
-      argv: ['/opt/ccb/bin/ccb-ping', 'gemini'],
+      argv: ['/opt/ccb/bin/ccb-ping', 'codex'],
       cwd: '/repo/root/.nexus-worktrees/feature',
       env: {},
     });
     expect(calls[2]).toMatchObject({
-      argv: ['/opt/ccb/bin/ccb-mounted', '--autostart'],
+      argv: ['/opt/ccb/bin/ccb-ping', 'gemini'],
       cwd: '/repo/root/.nexus-worktrees/feature',
       env: {},
     });
@@ -108,9 +108,9 @@ describe('nexus runtime ccb adapter', () => {
       providers: ['codex', 'gemini'],
       mounted: ['codex', 'gemini'],
       verification_commands: [
+        '/opt/ccb/bin/ccb-mounted --autostart',
         '/opt/ccb/bin/ccb-ping codex',
         '/opt/ccb/bin/ccb-ping gemini',
-        '/opt/ccb/bin/ccb-mounted --autostart',
       ],
     });
     expect(result.actual_route).toMatchObject({
@@ -119,6 +119,47 @@ describe('nexus runtime ccb adapter', () => {
       substrate: 'superpowers-core',
       transport: 'ccb',
     });
+  });
+
+  test('autostarts mounted providers before pinging required routes', async () => {
+    const calls: RecordedCommand[] = [];
+    let mountedReady = false;
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/ccb-mounted') {
+          mountedReady = true;
+          return {
+            exit_code: 0,
+            stdout: '{"cwd":"/repo/root/.nexus-worktrees/feature","mounted":["codex","gemini"]}\n',
+            stderr: '',
+          };
+        }
+
+        return {
+          exit_code: mountedReady ? 0 : 1,
+          stdout: mountedReady ? `✅ ${spec.argv[1]} connection OK (Session healthy)\n` : '',
+          stderr: mountedReady ? '' : `[ERROR] ${spec.argv[1]} is not mounted\n`,
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.resolve_route(buildContext('handoff', 'handoff'));
+
+    expect(calls.map((call) => call.argv)).toEqual([
+      ['/opt/ccb/bin/ccb-mounted', '--autostart'],
+      ['/opt/ccb/bin/ccb-ping', 'codex'],
+      ['/opt/ccb/bin/ccb-ping', 'gemini'],
+    ]);
+    expect(result.outcome).toBe('success');
   });
 
   test('dispatches build execution through ask with claude caller semantics', async () => {
