@@ -86,17 +86,23 @@ describe('nexus runtime ccb adapter', () => {
     expect(calls[0]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-mounted', '--autostart'],
       cwd: '/repo/root/.nexus-worktrees/feature',
-      env: {},
+      env: {
+        PWD: '/repo/root/.nexus-worktrees/feature',
+      },
     });
     expect(calls[1]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-ping', 'codex'],
       cwd: '/repo/root/.nexus-worktrees/feature',
-      env: {},
+      env: {
+        PWD: '/repo/root/.nexus-worktrees/feature',
+      },
     });
     expect(calls[2]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-ping', 'gemini'],
       cwd: '/repo/root/.nexus-worktrees/feature',
-      env: {},
+      env: {
+        PWD: '/repo/root/.nexus-worktrees/feature',
+      },
     });
     expect(calls[0]?.stdin_text).toBeUndefined();
     expect(calls[1]?.stdin_text).toBeUndefined();
@@ -197,6 +203,7 @@ describe('nexus runtime ccb adapter', () => {
     expect(calls[0]?.env).toMatchObject({
       CCB_CALLER: 'claude',
       CCB_ASKD_AUTOSTART: '1',
+      PWD: '/repo/root/.nexus-worktrees/feature',
     });
     expect(calls[0]?.stdin_text).toContain('.planning/current/build/status.json');
     expect(calls[0]?.stdin_text).toContain('codex-via-ccb');
@@ -301,6 +308,7 @@ describe('nexus runtime ccb adapter', () => {
       env: {
         CCB_CALLER: 'claude',
         CCB_SESSION_FILE: '/repo/root/.ccb/.gemini-session',
+        PWD: '/repo/root/.nexus-worktrees/feature',
       },
     });
     expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);

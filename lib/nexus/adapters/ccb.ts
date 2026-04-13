@@ -235,6 +235,7 @@ function defaultRunCommand(spec: CcbCommandSpec): Promise<CcbCommandResult> {
       env: {
         ...process.env,
         ...spec.env,
+        PWD: spec.cwd,
       },
       stdio: 'pipe',
     });
@@ -296,6 +297,13 @@ function defaultRunCommand(spec: CcbCommandSpec): Promise<CcbCommandResult> {
     }
     child.stdin.end();
   });
+}
+
+function envForCwd(cwd: string, env: Record<string, string> = {}): Record<string, string> {
+  return {
+    ...env,
+    PWD: cwd,
+  };
 }
 
 function describeCommand(argv: string[]): string {
@@ -465,7 +473,7 @@ async function runRouteVerification(
     mountedExecution = await options.runCommand({
       argv: mountedArgv,
       cwd: executionCwd,
-      env: {},
+      env: envForCwd(executionCwd),
       timeout_ms: 40_000,
     });
   } catch (error) {
@@ -534,7 +542,7 @@ async function runRouteVerification(
       pingExecution = await options.runCommand({
         argv: pingArgv,
         cwd: executionCwd,
-        env: {},
+        env: envForCwd(executionCwd),
         timeout_ms: 40_000,
       });
     } catch (error) {
@@ -655,12 +663,12 @@ async function runAskDispatch(
     execution = await options.runCommand({
       argv,
       cwd: executionCwd,
-      env: {
+      env: envForCwd(executionCwd, {
         CCB_CALLER: 'claude',
         CCB_ASKD_AUTOSTART: '1',
         CCB_ALLOW_FOREGROUND: '1',
         CCB_SESSION_FILE: sessionFile,
-      },
+      }),
       stdin_text: prompt,
       timeout_ms: Number(stage === 'handoff' ? '30' : DEFAULT_TIMEOUTS_SECONDS[stage]) * 1000 + 10_000,
     });
@@ -710,10 +718,10 @@ async function resetProviderSession(
     execution = await options.runCommand({
       argv,
       cwd: executionCwd,
-      env: {
+      env: envForCwd(executionCwd, {
         CCB_CALLER: 'claude',
         CCB_SESSION_FILE: sessionFile,
-      },
+      }),
       timeout_ms: 15_000,
     });
   } catch (error) {

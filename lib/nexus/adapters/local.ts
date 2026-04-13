@@ -160,7 +160,10 @@ function defaultRunCommand(spec: LocalCommandSpec): Promise<LocalCommandResult> 
   return new Promise((resolvePromise, reject) => {
     const child = spawn(spec.argv[0], spec.argv.slice(1), {
       cwd: spec.cwd,
-      env: process.env,
+      env: {
+        ...process.env,
+        PWD: spec.cwd,
+      },
       stdio: 'pipe',
     });
 
