@@ -4,7 +4,7 @@ export function buildPromptContextPreamble(
   ctx: NexusAdapterContext,
   stageLabel: string,
 ): string {
-  return [
+  const preamble = [
     `${stageLabel}: ${ctx.stage}`,
     `Run ID: ${ctx.run_id}`,
     `Command: ${ctx.command}`,
@@ -20,13 +20,33 @@ export function buildPromptContextPreamble(
     JSON.stringify(ctx.requested_route, null, 2),
     '',
   ].join('\n');
+
+  if (!ctx.review_scope) {
+    return preamble;
+  }
+
+  return [
+    preamble,
+    'Review scope:',
+    JSON.stringify(ctx.review_scope, null, 2),
+    '',
+  ].join('\n');
 }
 
 export function buildBuildExecutionPrompt(ctx: NexusAdapterContext, stageLabel: string): string {
+  const scopeLines = ctx.review_scope?.mode === 'bounded_fix_cycle'
+    ? [
+        'This is a bounded fix-cycle build.',
+        'Implement only the blocking items listed in Review scope.',
+        'Do not reopen unrelated phase-scope concerns during this build.',
+      ]
+    : [];
+
   return [
     buildPromptContextPreamble(ctx, stageLabel),
     'Execute the bounded Nexus /build contract for this repository.',
     'Apply repository changes only if the repo-visible governed artifacts require them.',
+    ...scopeLines,
     'Do not treat existing `.planning/current/build/*` files or `.planning/nexus/current-run.json` as proof that `/build` is already complete.',
     'Those are outputs of this stage and may be stale from an earlier run; use predecessor artifacts and current repository implementation state instead.',
     'After execution, reply with markdown only in this form:',
@@ -47,10 +67,20 @@ export function buildReviewAuditPrompt(
   introLine: string,
   header: string,
 ): string {
+  const boundedScope = ctx.review_scope?.mode === 'bounded_fix_cycle';
+
   return [
     buildPromptContextPreamble(ctx, stageLabel),
     introLine,
-    'Review the current repo state and relevant changed files independently.',
+    boundedScope
+      ? 'This is a bounded fix-cycle review.'
+      : 'Review the current repo state and relevant changed files independently.',
+    ...(boundedScope
+      ? [
+          'Decide pass/fail only against the blocking items listed in Review scope.',
+          'Additional out-of-scope concerns may be noted as advisories only, and must not by themselves cause Result: fail.',
+        ]
+      : []),
     'Reply with markdown only in this exact shape:',
     header,
     '',
@@ -60,6 +90,15 @@ export function buildReviewAuditPrompt(
     '- ...',
     '',
     'If there are no material findings, say "- none".',
+    ...(boundedScope
+      ? [
+          '',
+          'Advisories:',
+          '- ...',
+          '',
+          'If there are no advisories, say "- none".',
+        ]
+      : []),
   ].join('\n');
 }
 

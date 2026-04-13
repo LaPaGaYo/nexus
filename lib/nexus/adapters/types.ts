@@ -4,6 +4,7 @@ import type {
   CanonicalCommandId,
   ConflictRecord,
   RequestedRouteRecord,
+  ReviewScopeRecord,
   RunLedger,
 } from '../types';
 import type { CommandContract } from '../command-manifest';
@@ -20,6 +21,7 @@ export interface NexusAdapterContext {
   manifest: CommandContract;
   predecessor_artifacts: ArtifactPointer[];
   requested_route: RequestedRouteRecord | null;
+  review_scope?: ReviewScopeRecord | null;
 }
 
 export interface AdapterTraceability extends StagePackTraceability {

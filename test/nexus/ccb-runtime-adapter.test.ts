@@ -3,7 +3,7 @@ import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { createRuntimeCcbAdapter } from '../../lib/nexus/adapters/ccb';
 import { startLedger } from '../../lib/nexus/ledger';
 import type { NexusAdapterContext } from '../../lib/nexus/adapters/types';
-import type { RequestedRouteRecord } from '../../lib/nexus/types';
+import type { RequestedRouteRecord, ReviewScopeRecord } from '../../lib/nexus/types';
 
 interface RecordedCommand {
   argv: string[];
@@ -29,6 +29,7 @@ function buildContext(
   stage: 'handoff' | 'build' | 'review' | 'qa',
   command: 'handoff' | 'build' | 'review' | 'qa',
   requestedRoute: RequestedRouteRecord = REQUESTED_ROUTE,
+  reviewScope: ReviewScopeRecord | null = null,
 ): NexusAdapterContext {
   return {
     cwd: '/repo/root/.nexus-worktrees/feature',
@@ -39,6 +40,7 @@ function buildContext(
     manifest: CANONICAL_MANIFEST[command],
     predecessor_artifacts: [{ kind: 'json', path: `.planning/current/${stage}/status.json` }],
     requested_route: requestedRoute,
+    review_scope: reviewScope,
   };
 }
 
@@ -162,6 +164,55 @@ describe('nexus runtime ccb adapter', () => {
       substrate: 'superpowers-core',
       transport: 'ccb',
     });
+  });
+
+  test('includes bounded fix-cycle review scope in governed build and review prompts', async () => {
+    const calls: RecordedCommand[] = [];
+    const reviewScope: ReviewScopeRecord = {
+      mode: 'bounded_fix_cycle',
+      source_stage: 'review',
+      blocking_items: [
+        'Generate and commit the initial Drizzle migration.',
+        'Remove the legacy Vue root app files.',
+      ],
+      advisory_policy: 'out_of_scope_advisory',
+    };
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+          return { exit_code: 0, stdout: '', stderr: '' };
+        }
+
+        return {
+          exit_code: 0,
+          stdout: spec.argv[1] === 'codex'
+            ? '# Build Execution Summary\n\n- Status: completed\n- Actions: applied the bounded fix cycle\n- Files touched: packages/db/drizzle/\n- Verification: verified the bounded fix cycle\n'
+            : '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+          stderr: '',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    await adapter.execute_generator(buildContext('build', 'build', REQUESTED_ROUTE, reviewScope));
+    await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, reviewScope));
+
+    expect(calls[0]?.stdin_text).toContain('"mode": "bounded_fix_cycle"');
+    expect(calls[0]?.stdin_text).toContain('This is a bounded fix-cycle build.');
+    expect(calls[0]?.stdin_text).toContain('Generate and commit the initial Drizzle migration.');
+    expect(calls[1]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+    expect(calls[2]?.stdin_text).toContain('"mode": "bounded_fix_cycle"');
+    expect(calls[2]?.stdin_text).toContain('This is a bounded fix-cycle review.');
+    expect(calls[2]?.stdin_text).toContain('Additional out-of-scope concerns may be noted as advisories only');
+    expect(calls[2]?.stdin_text).toContain('Remove the legacy Vue root app files.');
   });
 
   test('resets the provider session before governed review audit dispatch', async () => {

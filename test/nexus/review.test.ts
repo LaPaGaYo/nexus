@@ -309,9 +309,23 @@ describe('nexus review', () => {
         audit_set_complete: true,
         provenance_consistent: true,
         errors: ['Review gate failed; fix cycle required before QA, ship, or closeout'],
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: ['Generate and commit the missing Drizzle migration.'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
       });
       expect(await run.readFile('.planning/audits/current/gate-decision.md')).toContain('Gate: fail');
       expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain('Result: fix cycle required');
+      expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: ['Generate and commit the missing Drizzle migration.'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      });
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         status: 'blocked',
         current_stage: 'review',

@@ -11,6 +11,7 @@ import {
   normalizeHandoffRouteValidation,
   requestedBuildRouteFromLedger,
 } from '../normalizers/ccb';
+import { fullAcceptanceReviewScope, resolveFixCycleReviewScope } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
@@ -77,6 +78,9 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.handoff;
+  const reviewScope = ledger.current_stage === 'review'
+    ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
+    : priorHandoffStatus?.review_scope ?? fullAcceptanceReviewScope();
   const requestedRoute = (
     ledger.current_stage === 'review'
       ? reviewStatus?.requested_route
@@ -114,6 +118,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         ? [artifactPointerFor(planStatusPath), artifactPointerFor(priorHandoffStatusPath)]
         : [artifactPointerFor(planStatusPath)],
     requested_route: requestedRoute,
+    review_scope: reviewScope,
   }) as Awaited<ReturnType<typeof routeAdapter.resolve_route>> & { raw_output: CcbResolveRouteRaw | LocalResolveRouteRaw };
   const routeValidation = result.outcome === 'success'
     ? normalizeHandoffRouteValidation(requestedRoute, result)
@@ -137,7 +142,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     },
     {
       path: handoffPath,
-      content: buildGovernedHandoffMarkdown(requestedRoute, routeValidation.route_validation),
+      content: buildGovernedHandoffMarkdown(requestedRoute, routeValidation.route_validation, reviewScope),
     },
   ];
   const outputs = [
@@ -163,6 +168,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     errors: routeValidation.approved ? [] : [routeValidation.route_validation.reason],
     requested_route: requestedRoute,
     route_validation: routeValidation.route_validation,
+    review_scope: reviewScope,
   };
   const next = nextLedger(
     {

@@ -529,6 +529,12 @@ describe('nexus build routing', () => {
         stage: 'build',
         state: 'completed',
         ready: true,
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: ['Remove the old Vue files before Phase 2.'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
         actual_route: {
           provider: 'codex',
           route: 'codex-via-ccb',
@@ -539,6 +545,12 @@ describe('nexus build routing', () => {
           command: 'build',
           generator: 'codex-via-ccb',
           evaluator_b: 'gemini-via-ccb',
+        },
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: ['Remove the old Vue files before Phase 2.'],
+          advisory_policy: 'out_of_scope_advisory',
         },
       });
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
@@ -702,6 +714,12 @@ describe('nexus build routing', () => {
       expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
         stage: 'handoff',
         ready: true,
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: ['Fix cycle is still outstanding.'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
         route_validation: {
           transport: 'ccb',
           provider_checks: [

@@ -80,6 +80,9 @@ export type RouteValidationTransport = (typeof ROUTE_VALIDATION_TRANSPORTS)[numb
 export const ACTUAL_ROUTE_TRANSPORTS = ['ccb', 'local', null] as const;
 export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
 
+export const REVIEW_SCOPE_MODES = ['full_acceptance', 'bounded_fix_cycle'] as const;
+export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
+
 export interface ArtifactPointer {
   kind: 'markdown' | 'json';
   path: string;
@@ -143,6 +146,13 @@ export interface ReviewAuditProvenanceRecord {
   actual_route: ActualRouteRecord | null;
 }
 
+export interface ReviewScopeRecord {
+  mode: ReviewScopeMode;
+  source_stage: 'plan' | 'review';
+  blocking_items: string[];
+  advisory_policy: 'out_of_scope_advisory';
+}
+
 export interface ReviewMetaRecord {
   run_id: string;
   execution_mode?: ExecutionMode;
@@ -178,6 +188,7 @@ export interface ReviewMetaRecord {
   lifecycle_stage: 'review';
   handoff_from: string;
   handoff_to: string;
+  review_scope?: ReviewScopeRecord;
 }
 
 export interface ConflictRecord {
@@ -213,6 +224,7 @@ export interface StageStatus {
   requested_route?: RequestedRouteRecord | null;
   actual_route?: ActualRouteRecord | null;
   route_validation?: RouteValidationRecord | null;
+  review_scope?: ReviewScopeRecord | null;
   review_complete?: boolean;
   audit_set_complete?: boolean;
   provenance_consistent?: boolean;

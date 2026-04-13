@@ -11,6 +11,7 @@ import type {
   ActualRouteRecord,
   ReviewRequestedRouteRecord,
   RequestedRouteRecord,
+  ReviewScopeRecord,
   RouteValidationRecord,
   RunLedger,
 } from '../types';
@@ -282,6 +283,7 @@ export function buildGovernedExecutionRoutingMarkdown(
 export function buildGovernedHandoffMarkdown(
   requestedRoute: RequestedRouteRecord,
   routeValidation: RouteValidationRecord,
+  reviewScope?: ReviewScopeRecord | null,
 ): string {
   const lines = [
     '# Governed Handoff',
@@ -301,6 +303,21 @@ export function buildGovernedHandoffMarkdown(
     }
   }
 
+  if (reviewScope) {
+    lines.push('');
+    lines.push('## Review Scope');
+    lines.push('');
+    lines.push(`Mode: ${reviewScope.mode}`);
+    if (reviewScope.blocking_items.length > 0) {
+      lines.push('Blocking items:');
+      for (const item of reviewScope.blocking_items) {
+        lines.push(`- ${item}`);
+      }
+    } else {
+      lines.push('Blocking items: full phase acceptance');
+    }
+  }
+
   lines.push('');
   return lines.join('\n');
 }
@@ -310,6 +327,7 @@ export function buildBuildResultMarkdown(
   actualRoute: ActualRouteRecord,
   receipt: string,
   verificationSummary: string | null = null,
+  reviewScope?: ReviewScopeRecord | null,
 ): string {
   const lines = [
     '# Build Result',
@@ -328,6 +346,16 @@ export function buildBuildResultMarkdown(
     `Receipt: ${receipt}`,
     '',
   );
+
+  if (reviewScope) {
+    lines.push(`Review scope: ${reviewScope.mode}`);
+    if (reviewScope.blocking_items.length > 0) {
+      for (const item of reviewScope.blocking_items) {
+        lines.push(`- ${item}`);
+      }
+      lines.push('');
+    }
+  }
 
   return lines.join('\n');
 }

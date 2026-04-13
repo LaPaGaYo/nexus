@@ -10,6 +10,7 @@ import {
   requestedBuildRouteFromLedger,
   validateGovernedHandoffRouteValidation,
 } from '../normalizers/ccb';
+import { fullAcceptanceReviewScope, resolveFixCycleReviewScope } from '../review-scope';
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
@@ -134,6 +135,9 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const buildRequestPath = '.planning/current/build/build-request.json';
   const buildResultPath = '.planning/current/build/build-result.md';
   const statusPath = stageStatusPath('build');
+  const reviewScope = fixCycle
+    ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
+    : handoffStatus.review_scope ?? fullAcceptanceReviewScope();
   const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledger);
   const predecessorArtifacts = fixCycle
     ? [artifactPointerFor(handoffStatusPath), artifactPointerFor(reviewStatusPath)]
@@ -147,6 +151,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         primary_provider: ledger.execution.primary_provider,
         provider_topology: ledger.execution.provider_topology,
         requested_route: requestedRoute,
+        review_scope: reviewScope,
       },
       null,
       2,
@@ -177,6 +182,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       errors: [message],
       requested_route: requestedRoute,
       actual_route: null,
+      review_scope: reviewScope,
     };
     const next = blockedPreflightLedger(ledger, 'handoff');
     next.artifact_index = {
@@ -207,6 +213,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
               inputs: predecessorArtifacts.map((artifact) => artifact.path),
               adapter_chain: ['superpowers', requestedRoute.transport],
               requested_route: requestedRoute,
+              review_scope: reviewScope,
               gate: 'handoff_route_validation',
             },
             null,
@@ -258,6 +265,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
+    review_scope: reviewScope,
   }) as Awaited<ReturnType<typeof ctx.adapters.superpowers.build_discipline>> & {
     raw_output: SuperpowersBuildDisciplineRaw;
   };
@@ -280,6 +288,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       errors: [message],
       requested_route: requestedRoute,
       actual_route: null,
+      review_scope: reviewScope,
     };
     const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via);
     next.artifact_index = {
@@ -344,6 +353,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       errors: [message],
       requested_route: requestedRoute,
       actual_route: null,
+      review_scope: reviewScope,
     };
     const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via);
     next.artifact_index = {
@@ -400,6 +410,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
+    review_scope: reviewScope,
   }) as Awaited<ReturnType<typeof executionAdapter.execute_generator>> & { raw_output: CcbExecuteGeneratorRaw | LocalExecuteGeneratorRaw };
 
   if (result.outcome !== 'success') {
@@ -421,6 +432,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ],
       requested_route: requestedRoute,
       actual_route: result.actual_route,
+      review_scope: reviewScope,
     };
     const next = withActualExecutionPath(
       nextLedger(ledger, fixCycle ? 'review' : 'handoff', result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
@@ -495,6 +507,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       errors: [message],
       requested_route: requestedRoute,
       actual_route: actualRoute,
+      review_scope: reviewScope,
     };
     const next = withActualExecutionPath(nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via), actualRoute?.route ?? null);
     next.artifact_index = {
@@ -567,6 +580,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       result.actual_route!,
       result.raw_output.receipt,
       normalizedDiscipline.verification_summary,
+      reviewScope,
     ),
   };
   const status: StageStatus = {
@@ -587,6 +601,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     errors: [],
     requested_route: requestedRoute,
     actual_route: result.actual_route,
+    review_scope: reviewScope,
   };
   const next = withActualExecutionPath(nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'active', startedAt, ctx.via), result.actual_route?.route ?? null);
   next.artifact_index = {

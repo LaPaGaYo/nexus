@@ -22,6 +22,7 @@ tags.
 - **[v1.0.13](docs/releases/2026-04-12-nexus-v1.0.13.md)** — governed build no longer self-certifies from prior build artifacts, and failing dual review now routes into a canonical fix-cycle `/build`.
 - **[v1.0.14](docs/releases/2026-04-13-nexus-v1.0.14.md)** — stale governed handoff packets no longer consume the fix-cycle transition, and failing review can refresh handoff canonically before retrying `/build`.
 - **[v1.0.15](docs/releases/2026-04-13-nexus-v1.0.15.md)** — governed review and QA now reset provider sessions before dispatch, and failing or blocked review can rerun `/review` canonically without a fake rebuild.
+- **[v1.0.16](docs/releases/2026-04-13-nexus-v1.0.16.md)** — failing review now records a bounded fix-cycle scope, and governed fix-cycle build/review use that scope so auditors cannot reopen unrelated phase-wide gaps as fresh blocking failures.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 

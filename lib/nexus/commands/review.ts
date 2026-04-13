@@ -11,6 +11,7 @@ import {
   requestedAndActualAuditRouteMatch,
   requestedAuditRouteFromBuild,
 } from '../normalizers/ccb';
+import { boundedFixCycleReviewScopeFromAudits, fullAcceptanceReviewScope } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
@@ -68,6 +69,7 @@ function blockedReviewStatus(
   outputs: ArtifactPointer[],
   requestedRoute: StageStatus['requested_route'],
   actualRoute: StageStatus['actual_route'],
+  reviewScope: StageStatus['review_scope'],
   error: string,
   state: 'blocked' | 'refused' = 'blocked',
 ): StageStatus {
@@ -85,6 +87,7 @@ function blockedReviewStatus(
     errors: [error],
     requested_route: requestedRoute,
     actual_route: actualRoute,
+    review_scope: reviewScope,
     review_complete: false,
     audit_set_complete: false,
     provenance_consistent: false,
@@ -144,6 +147,7 @@ export async function runReviewWithWriteAtomicFile(
   const predecessorArtifacts = [artifactPointerFor(buildStatusPath)];
   const requestedRoute = buildStatus.requested_route;
   const actualRoute = buildStatus.actual_route;
+  const inheritedReviewScope = buildStatus.review_scope ?? fullAcceptanceReviewScope();
   const codexPath = '.planning/audits/current/codex.md';
   const geminiPath = '.planning/audits/current/gemini.md';
   const synthesisPath = '.planning/audits/current/synthesis.md';
@@ -159,6 +163,7 @@ export async function runReviewWithWriteAtomicFile(
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
+    review_scope: inheritedReviewScope,
   }) as Awaited<ReturnType<typeof ctx.adapters.superpowers.review_discipline>> & {
     raw_output: SuperpowersReviewDisciplineRaw;
   };
@@ -174,6 +179,7 @@ export async function runReviewWithWriteAtomicFile(
       [artifactPointerFor(reviewStatusPath)],
       requestedRoute,
       actualRoute,
+      inheritedReviewScope,
       message,
       disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
     );
@@ -226,6 +232,7 @@ export async function runReviewWithWriteAtomicFile(
       [artifactPointerFor(reviewStatusPath)],
       requestedRoute,
       actualRoute,
+      inheritedReviewScope,
       message,
     );
     const conflict: ConflictRecord = {
@@ -278,6 +285,7 @@ export async function runReviewWithWriteAtomicFile(
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
+    review_scope: inheritedReviewScope,
   }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
   const auditBResult = await auditAdapter.execute_audit_b({
     cwd: ctx.cwd,
@@ -288,6 +296,7 @@ export async function runReviewWithWriteAtomicFile(
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
+    review_scope: inheritedReviewScope,
   }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_b>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
 
   for (const [label, result] of [
@@ -305,6 +314,7 @@ export async function runReviewWithWriteAtomicFile(
         [artifactPointerFor(reviewStatusPath)],
         requestedRoute,
         actualRoute,
+        inheritedReviewScope,
         message,
         result.outcome === 'refused' ? 'refused' : 'blocked',
       );
@@ -363,6 +373,7 @@ export async function runReviewWithWriteAtomicFile(
       [artifactPointerFor(reviewStatusPath)],
       requestedRoute,
       actualRoute,
+      inheritedReviewScope,
       message,
     );
     const conflict: ConflictRecord = {
@@ -413,6 +424,9 @@ export async function runReviewWithWriteAtomicFile(
   const codexVerdict = parseAuditVerdict(codexMarkdown, 'Codex');
   const geminiVerdict = parseAuditVerdict(geminiMarkdown, 'Gemini');
   const gateDecision = codexVerdict === 'pass' && geminiVerdict === 'pass' ? 'pass' : 'fail';
+  const reviewScope = gateDecision === 'fail'
+    ? boundedFixCycleReviewScopeFromAudits(codexMarkdown, geminiMarkdown)
+    : inheritedReviewScope;
   const synthesisMarkdown = buildReviewSynthesisMarkdown(disciplineSummary, codexMarkdown, geminiMarkdown, gateDecision);
   const gateDecisionMarkdown = buildReviewGateDecisionMarkdown(gateDecision);
   const meta: ReviewMetaRecord = {
@@ -464,6 +478,7 @@ export async function runReviewWithWriteAtomicFile(
     lifecycle_stage: 'review',
     handoff_from: '.planning/current/handoff/governed-handoff.md',
     handoff_to: '.planning/audits/current/',
+    review_scope: reviewScope,
   };
 
   const outputs = [
@@ -488,6 +503,7 @@ export async function runReviewWithWriteAtomicFile(
     errors: gateDecision === 'pass' ? [] : ['Review gate failed; fix cycle required before QA, ship, or closeout'],
     requested_route: requestedRoute,
     actual_route: actualRoute,
+    review_scope: reviewScope,
     review_complete: true,
     audit_set_complete: true,
     provenance_consistent: true,
