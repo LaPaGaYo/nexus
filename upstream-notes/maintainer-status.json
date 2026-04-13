@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-12T21:38:44.752Z",
+  "generated_at": "2026-04-13T05:58:08.068Z",
   "status": "ready",
   "next_action": "none",
   "summary": "No maintainer action is currently required.",
@@ -11,8 +11,8 @@
     "behind_upstreams": []
   },
   "release": {
-    "current_version": "1.0.12",
-    "current_tag": "v1.0.12",
+    "current_version": "1.0.13",
+    "current_tag": "v1.0.13",
     "preflight_status": "blocked",
     "remote_smoke_status": "ready"
   }
