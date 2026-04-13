@@ -11,7 +11,11 @@ import {
   requestedAndActualAuditRouteMatch,
   requestedAuditRouteFromBuild,
 } from '../normalizers/ccb';
-import { boundedFixCycleReviewScopeFromAudits, fullAcceptanceReviewScope } from '../review-scope';
+import {
+  boundedFixCycleReviewScopeFromAudits,
+  fullAcceptanceReviewScope,
+  resolveFixCycleReviewScope,
+} from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
@@ -147,7 +151,10 @@ export async function runReviewWithWriteAtomicFile(
   const predecessorArtifacts = [artifactPointerFor(buildStatusPath)];
   const requestedRoute = buildStatus.requested_route;
   const actualRoute = buildStatus.actual_route;
-  const inheritedReviewScope = buildStatus.review_scope ?? fullAcceptanceReviewScope();
+  const inheritedReviewScope = buildStatus.review_scope
+    ?? (buildStatus.inputs.some((artifact) => artifact.path === reviewStatusPath)
+      ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
+      : fullAcceptanceReviewScope());
   const codexPath = '.planning/audits/current/codex.md';
   const geminiPath = '.planning/audits/current/gemini.md';
   const synthesisPath = '.planning/audits/current/synthesis.md';
@@ -205,6 +212,7 @@ export async function runReviewWithWriteAtomicFile(
         ledger.run_id,
         [buildStatusPath],
         requestedRoute,
+        inheritedReviewScope,
         disciplineResult,
         null,
         null,
@@ -257,6 +265,7 @@ export async function runReviewWithWriteAtomicFile(
         ledger.run_id,
         [buildStatusPath],
         requestedRoute,
+        inheritedReviewScope,
         disciplineResult,
         null,
         null,
@@ -340,6 +349,7 @@ export async function runReviewWithWriteAtomicFile(
           ledger.run_id,
           [buildStatusPath],
           requestedRoute,
+          inheritedReviewScope,
           disciplineResult,
           auditAResult,
           auditBResult,
@@ -398,6 +408,7 @@ export async function runReviewWithWriteAtomicFile(
         ledger.run_id,
         [buildStatusPath],
         requestedRoute,
+        inheritedReviewScope,
         disciplineResult,
         auditAResult,
         auditBResult,
@@ -543,6 +554,7 @@ export async function runReviewWithWriteAtomicFile(
       ledger.run_id,
       [buildStatusPath],
       requestedRoute,
+      inheritedReviewScope,
       disciplineResult,
       auditAResult,
       auditBResult,

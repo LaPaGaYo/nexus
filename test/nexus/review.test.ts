@@ -633,4 +633,196 @@ describe('nexus review', () => {
       });
     });
   });
+
+  test('recovers bounded fix-cycle scope for review when a stale build contract omits review_scope', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const failingReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Generate and commit the missing Drizzle migration.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-fix-cycle',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: completed',
+                '- Actions: Applied the bounded fix items from the failing review gate.',
+                '- Files touched: packages/db/drizzle/',
+                '- Verification: Verified the fix cycle changed repository implementation state.',
+              ].join('\n'),
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.generator ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', failingReviewAdapters);
+      await run('build', failingReviewAdapters);
+
+      const staleBuildStatusPath = join(cwd, '.planning/current/build/status.json');
+      const staleBuildStatus = await run.readJson('.planning/current/build/status.json');
+      delete staleBuildStatus.review_scope;
+      writeFileSync(staleBuildStatusPath, JSON.stringify(staleBuildStatus, null, 2) + '\n');
+
+      const recoveredScopeCalls: Array<{ provider: 'codex' | 'gemini'; reviewScope: unknown }> = [];
+      const recoveredReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => {
+            recoveredScopeCalls.push({ provider: 'codex', reviewScope: ctx.review_scope });
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
+                receipt: 'codex-review-pass',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/review/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+          execute_audit_b: async (ctx) => {
+            recoveredScopeCalls.push({ provider: 'gemini', reviewScope: ctx.review_scope });
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+                receipt: 'gemini-review-pass',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'gemini',
+                route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/review/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('review', recoveredReviewAdapters);
+
+      expect(recoveredScopeCalls).toEqual([
+        {
+          provider: 'codex',
+          reviewScope: {
+            mode: 'bounded_fix_cycle',
+            source_stage: 'review',
+            blocking_items: ['Generate and commit the missing Drizzle migration.'],
+            advisory_policy: 'out_of_scope_advisory',
+          },
+        },
+        {
+          provider: 'gemini',
+          reviewScope: {
+            mode: 'bounded_fix_cycle',
+            source_stage: 'review',
+            blocking_items: ['Generate and commit the missing Drizzle migration.'],
+            advisory_policy: 'out_of_scope_advisory',
+          },
+        },
+      ]);
+      expect(await run.readJson('.planning/current/review/adapter-request.json')).toMatchObject({
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: ['Generate and commit the missing Drizzle migration.'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      });
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        ready: true,
+        gate_decision: 'pass',
+      });
+    });
+  });
 });

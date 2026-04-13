@@ -440,6 +440,7 @@ export function buildReviewTraceabilityPayloads(
   runId: string,
   inputs: string[],
   requestedRoute: RequestedRouteRecord,
+  reviewScope: ReviewScopeRecord | null,
   disciplineResult: AdapterResult<unknown> | null,
   auditAResult: AdapterResult<CcbExecuteAuditRaw | LocalExecuteAuditRaw> | null,
   auditBResult: AdapterResult<CcbExecuteAuditRaw | LocalExecuteAuditRaw> | null,
@@ -454,6 +455,7 @@ export function buildReviewTraceabilityPayloads(
           inputs,
           adapter_chain: ['superpowers', requestedRoute.transport, requestedRoute.transport],
           requested_route: requestedRoute,
+          review_scope: reviewScope,
           requested_audit_routes: {
             codex: requestedAuditRouteFromBuild(requestedRoute, 'codex'),
             gemini: requestedAuditRouteFromBuild(requestedRoute, 'gemini'),
