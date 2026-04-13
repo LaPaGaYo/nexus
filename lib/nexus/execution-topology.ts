@@ -7,6 +7,7 @@ import type {
   ProviderTopology,
   RunLedger,
   StageStatus,
+  WorkspaceRecord,
 } from './types';
 
 export interface ExecutionSelection {
@@ -86,12 +87,13 @@ export function executionFieldsFromLedger(
   actualPath: string | null = ledger.execution.actual_path,
 ): Pick<
   StageStatus,
-  'execution_mode' | 'primary_provider' | 'provider_topology' | 'requested_execution_path' | 'actual_execution_path'
+  'execution_mode' | 'primary_provider' | 'provider_topology' | 'workspace' | 'requested_execution_path' | 'actual_execution_path'
 > {
   return {
     execution_mode: ledger.execution.mode,
     primary_provider: ledger.execution.primary_provider,
     provider_topology: ledger.execution.provider_topology,
+    workspace: ledger.execution.workspace,
     requested_execution_path: ledger.execution.requested_path,
     actual_execution_path: actualPath,
   };
@@ -103,6 +105,16 @@ export function withActualExecutionPath(ledger: RunLedger, actualPath: string | 
     execution: {
       ...ledger.execution,
       actual_path: actualPath,
+    },
+  };
+}
+
+export function withExecutionWorkspace(ledger: RunLedger, workspace: WorkspaceRecord): RunLedger {
+  return {
+    ...ledger,
+    execution: {
+      ...ledger.execution,
+      workspace,
     },
   };
 }

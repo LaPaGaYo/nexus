@@ -317,6 +317,10 @@ function buildActualRoute(
   };
 }
 
+function executionWorkspacePath(ctx: NexusAdapterContext): string {
+  return ctx.workspace?.path ?? ctx.cwd;
+}
+
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
   return buildBuildExecutionPrompt(ctx, 'Nexus governed stage');
 }
@@ -448,6 +452,7 @@ async function runRouteVerification(
   }
 
   const toolPaths = options.resolveToolPaths();
+  const executionCwd = executionWorkspacePath(ctx);
   const mountedArgv = [toolPaths.mounted_path, '--autostart'];
   const verificationCommands = [
     ...providers.map((candidate) => describeCommand([toolPaths.ping_path, candidate])),
@@ -461,7 +466,7 @@ async function runRouteVerification(
     try {
       pingExecution = await options.runCommand({
         argv: pingArgv,
-        cwd: ctx.cwd,
+        cwd: executionCwd,
         env: {},
         timeout_ms: 40_000,
       });
@@ -513,7 +518,7 @@ async function runRouteVerification(
   try {
     mountedExecution = await options.runCommand({
       argv: mountedArgv,
-      cwd: ctx.cwd,
+      cwd: executionCwd,
       env: {},
       timeout_ms: 40_000,
     });
@@ -629,7 +634,8 @@ async function runAskDispatch(
   options: Required<CreateRuntimeCcbAdapterOptions>,
 ): Promise<CcbCommandResult | AdapterResult<any>> {
   const toolPaths = options.resolveToolPaths();
-  const sessionRoot = options.resolveSessionRoot(ctx.cwd);
+  const executionCwd = executionWorkspacePath(ctx);
+  const sessionRoot = options.resolveSessionRoot(executionCwd);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
 
   const argv = [
@@ -645,7 +651,7 @@ async function runAskDispatch(
   try {
     execution = await options.runCommand({
       argv,
-      cwd: ctx.cwd,
+      cwd: executionCwd,
       env: {
         CCB_CALLER: 'claude',
         CCB_ASKD_AUTOSTART: '1',
@@ -691,7 +697,8 @@ async function resetProviderSession(
   options: Required<CreateRuntimeCcbAdapterOptions>,
 ): Promise<AdapterResult<any> | null> {
   const toolPaths = options.resolveToolPaths();
-  const sessionRoot = options.resolveSessionRoot(ctx.cwd);
+  const executionCwd = executionWorkspacePath(ctx);
+  const sessionRoot = options.resolveSessionRoot(executionCwd);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
   const argv = [toolPaths.autonew_path, provider];
 
@@ -699,7 +706,7 @@ async function resetProviderSession(
   try {
     execution = await options.runCommand({
       argv,
-      cwd: ctx.cwd,
+      cwd: executionCwd,
       env: {
         CCB_CALLER: 'claude',
         CCB_SESSION_FILE: sessionFile,

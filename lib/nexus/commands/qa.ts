@@ -1,7 +1,7 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { qaReportPath, stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger } from '../execution-topology';
-import { assertReviewReadyForCloseout, assertSameRunId } from '../governance';
+import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
+import { assertCanonicalTailLedger, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../normalizers/ccb';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+import { resolveExecutionWorkspace } from '../workspace-substrate';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
@@ -63,7 +64,9 @@ function blockedQaStatus(
     errors: [error],
     requested_route: requestedRoute,
     actual_route: actualRoute,
-    findings_count: 0,
+    verification_count: 0,
+    defect_count: 0,
+    workspace: ledger.execution.workspace,
   };
 }
 
@@ -77,6 +80,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   }
 
   assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
+  assertCanonicalTailLedger(ledger, 'QA');
   assertLegalTransition(ledger.current_stage, 'qa');
   try {
     assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
@@ -86,6 +90,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.qa;
+  const workspace = resolveExecutionWorkspace(
+    ctx.cwd,
+    ledger.execution.workspace ?? reviewStatus.workspace ?? null,
+  );
+  const ledgerWithWorkspace = withExecutionWorkspace(ledger, workspace);
   const statusPath = stageStatusPath('qa');
   const reportPath = qaReportPath();
   const predecessorArtifacts = [artifactPointerFor(reviewStatusPath)];
@@ -93,10 +102,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const qaAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
   const result = await qaAdapter.execute_qa({
     cwd: ctx.cwd,
+    workspace,
     run_id: ledger.run_id,
     command: 'qa',
     stage: 'qa',
-    ledger,
+    ledger: ledgerWithWorkspace,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
@@ -107,7 +117,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} QA validation refused`
       : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} QA validation blocked`;
     const status = blockedQaStatus(
-      ledger,
+      ledgerWithWorkspace,
       startedAt,
       predecessorArtifacts,
       requestedRoute,
@@ -137,6 +147,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         [reviewStatusPath],
         requestedRoute,
+        workspace,
         result,
         {
           outcome: result.outcome,
@@ -144,7 +155,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+      ledger: nextLedger(ledgerWithWorkspace, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -154,7 +165,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   if (!requestedAndActualRouteMatch(requestedRoute, result.actual_route)) {
     const message = 'Requested and actual QA route diverged';
     const status = blockedQaStatus(
-      ledger,
+      ledgerWithWorkspace,
       startedAt,
       predecessorArtifacts,
       requestedRoute,
@@ -183,6 +194,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         [reviewStatusPath],
         requestedRoute,
+        workspace,
         result,
         {
           outcome: 'blocked',
@@ -191,7 +203,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via),
+      ledger: nextLedger(ledgerWithWorkspace, 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -202,7 +214,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   if (!reportMarkdown) {
     const message = 'QA report markdown is empty';
     const status = blockedQaStatus(
-      ledger,
+      ledgerWithWorkspace,
       startedAt,
       predecessorArtifacts,
       requestedRoute,
@@ -231,6 +243,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         [reviewStatusPath],
         requestedRoute,
+        workspace,
         result,
         {
           outcome: 'blocked',
@@ -239,7 +252,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via),
+      ledger: nextLedger(ledgerWithWorkspace, 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -248,10 +261,12 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
 
   const ready = result.raw_output.ready;
   const findings = result.raw_output.findings ?? [];
+  const verificationCount = ready ? findings.length : 0;
+  const defectCount = ready ? 0 : findings.length;
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'qa',
-    ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
+    ...executionFieldsFromLedger(ledgerWithWorkspace, result.actual_route?.route ?? null),
     state: 'completed',
     decision: 'qa_recorded',
     ready,
@@ -262,9 +277,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     errors: ready ? [] : findings,
     requested_route: requestedRoute,
     actual_route: result.actual_route,
-    findings_count: findings.length,
+    verification_count: verificationCount,
+    defect_count: defectCount,
+    workspace,
   };
-  const next = nextLedger(ledger, ready ? 'active' : 'blocked', startedAt, ctx.via);
+  const next = nextLedger(ledgerWithWorkspace, ready ? 'active' : 'blocked', startedAt, ctx.via);
   next.artifact_index = {
     ...next.artifact_index,
     [reportPath]: artifactPointerFor(reportPath),
@@ -282,11 +299,13 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       ledger.run_id,
       [reviewStatusPath],
       requestedRoute,
+      workspace,
       result,
       {
         outcome: 'success',
         canonical_paths: [reportPath],
-        findings_count: findings.length,
+        verification_count: verificationCount,
+        defect_count: defectCount,
         status: { state: status.state, decision: status.decision, ready: status.ready },
       },
     ),

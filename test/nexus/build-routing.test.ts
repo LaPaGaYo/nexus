@@ -99,6 +99,41 @@ describe('nexus build routing', () => {
           ],
         },
       });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'handoff',
+        route_check: {
+          checked_at: expect.any(String),
+          requested_route: {
+            command: 'build',
+            governed: true,
+            generator: 'codex-via-ccb',
+            evaluator_b: 'gemini-via-ccb',
+            substrate: 'superpowers-core',
+            fallback_policy: 'disabled',
+          },
+          route_validation: {
+            transport: 'ccb',
+            available: true,
+            approved: true,
+            reason: 'Nexus approved the requested governed route',
+            mounted_providers: ['codex', 'gemini'],
+            provider_checks: [
+              {
+                provider: 'codex',
+                available: true,
+                mounted: true,
+                reason: 'CCB codex route check passed',
+              },
+              {
+                provider: 'gemini',
+                available: true,
+                mounted: true,
+                reason: 'CCB gemini route check passed',
+              },
+            ],
+          },
+        },
+      });
       expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
         adapter_id: 'ccb',
         traceability: {
@@ -169,6 +204,42 @@ describe('nexus build routing', () => {
               reason: 'CCB mounted providers do not include gemini',
             },
           ],
+        },
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'handoff',
+        route_check: {
+          checked_at: expect.any(String),
+          requested_route: {
+            command: 'build',
+            governed: true,
+            generator: 'codex-via-ccb',
+            evaluator_b: 'gemini-via-ccb',
+            substrate: 'superpowers-core',
+            fallback_policy: 'disabled',
+          },
+          route_validation: {
+            transport: 'ccb',
+            available: false,
+            approved: false,
+            reason: 'CCB reported the requested route unavailable',
+            mounted_providers: ['codex'],
+            provider_checks: [
+              {
+                provider: 'codex',
+                available: true,
+                mounted: true,
+                reason: 'CCB codex route check passed',
+              },
+              {
+                provider: 'gemini',
+                available: false,
+                mounted: false,
+                reason: 'CCB mounted providers do not include gemini',
+              },
+            ],
+          },
         },
       });
       expect(await run.readJson('.planning/current/conflicts/handoff-ccb.json')).toMatchObject({
@@ -556,6 +627,17 @@ describe('nexus build routing', () => {
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         current_stage: 'build',
         previous_stage: 'review',
+        command_history: [
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          {
+            command: 'build',
+            at: expect.any(String),
+            via: 'fix-cycle',
+          },
+        ],
       });
     });
   });
@@ -735,6 +817,55 @@ describe('nexus build routing', () => {
             },
           ],
         },
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        route_check: {
+          checked_at: expect.any(String),
+          requested_route: {
+            command: 'build',
+            generator: 'codex-via-ccb',
+            evaluator_b: 'gemini-via-ccb',
+            substrate: 'superpowers-core',
+            fallback_policy: 'disabled',
+          },
+          route_validation: {
+            transport: 'ccb',
+            available: true,
+            approved: true,
+            reason: 'Nexus approved the requested governed route',
+            mounted_providers: ['codex', 'gemini'],
+            provider_checks: [
+              {
+                provider: 'codex',
+                available: true,
+                mounted: true,
+                reason: 'CCB codex route check passed',
+              },
+              {
+                provider: 'gemini',
+                available: true,
+                mounted: true,
+                reason: 'CCB gemini route check passed',
+              },
+            ],
+          },
+        },
+        command_history: [
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          {
+            command: 'handoff',
+            at: expect.any(String),
+            via: 'refresh',
+          },
+          {
+            command: 'build',
+            at: expect.any(String),
+            via: 'fix-cycle',
+          },
+        ],
       });
       expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
         stage: 'build',

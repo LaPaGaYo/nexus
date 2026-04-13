@@ -1,6 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath, stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger, withActualExecutionPath } from '../execution-topology';
+import { executionFieldsFromLedger, withActualExecutionPath, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -10,14 +10,15 @@ import {
   requestedBuildRouteFromLedger,
   validateGovernedHandoffRouteValidation,
 } from '../normalizers/ccb';
-import { fullAcceptanceReviewScope, resolveFixCycleReviewScope } from '../review-scope';
+import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+import { resolveExecutionWorkspace } from '../workspace-substrate';
 import type { CcbExecuteGeneratorRaw } from '../adapters/ccb';
 import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -32,7 +33,7 @@ function nextLedger(
   previousStage: 'handoff' | 'review',
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
 ): RunLedger {
   return {
     ...ledger,
@@ -43,6 +44,17 @@ function nextLedger(
     allowed_next_stages: status === 'active' ? getAllowedNextStages('build') : [],
     command_history: [...ledger.command_history, { command: 'build', at, via }],
   };
+}
+
+function buildCommandHistoryVia(
+  reviewScope: StageStatus['review_scope'],
+  via: string | null,
+): CommandHistoryVia {
+  if (reviewScope?.mode === 'bounded_fix_cycle') {
+    return 'fix-cycle';
+  }
+
+  return via as CommandHistoryVia;
 }
 
 function blockedPreflightLedger(
@@ -132,13 +144,19 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.build;
+  const workspace = resolveExecutionWorkspace(
+    ctx.cwd,
+    ledger.execution.workspace ?? handoffStatus.workspace ?? reviewStatus?.workspace ?? null,
+  );
+  const ledgerWithWorkspace = withExecutionWorkspace(ledger, workspace);
   const buildRequestPath = '.planning/current/build/build-request.json';
   const buildResultPath = '.planning/current/build/build-result.md';
   const statusPath = stageStatusPath('build');
   const reviewScope = fixCycle
     ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
-    : handoffStatus.review_scope ?? fullAcceptanceReviewScope();
+    : normalizeReviewScopeRecord(handoffStatus.review_scope ?? fullAcceptanceReviewScope());
   const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledger);
+  const commandHistoryVia = buildCommandHistoryVia(reviewScope, ctx.via);
   const predecessorArtifacts = fixCycle
     ? [artifactPointerFor(handoffStatusPath), artifactPointerFor(reviewStatusPath)]
     : [artifactPointerFor(handoffStatusPath)];
@@ -150,6 +168,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         execution_mode: ledger.execution.mode,
         primary_provider: ledger.execution.primary_provider,
         provider_topology: ledger.execution.provider_topology,
+        workspace,
         requested_route: requestedRoute,
         review_scope: reviewScope,
       },
@@ -171,7 +190,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
-      ...executionFieldsFromLedger(ledger),
+      ...executionFieldsFromLedger(ledgerWithWorkspace),
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -183,8 +202,9 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
       review_scope: reviewScope,
+      workspace,
     };
-    const next = blockedPreflightLedger(ledger, 'handoff');
+    const next = blockedPreflightLedger(ledgerWithWorkspace, 'handoff');
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -214,6 +234,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
               adapter_chain: ['superpowers', requestedRoute.transport],
               requested_route: requestedRoute,
               review_scope: reviewScope,
+              workspace,
               gate: 'handoff_route_validation',
             },
             null,
@@ -258,10 +279,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   }
   const disciplineResult = await ctx.adapters.superpowers.build_discipline({
     cwd: ctx.cwd,
+    workspace,
     run_id: ledger.run_id,
     command: 'build',
     stage: 'build',
-    ledger,
+    ledger: ledgerWithWorkspace,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
@@ -277,7 +299,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
-      ...executionFieldsFromLedger(ledger),
+      ...executionFieldsFromLedger(ledgerWithWorkspace),
       state: disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
       decision: disciplineResult.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
@@ -289,8 +311,15 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
       review_scope: reviewScope,
+      workspace,
     };
-    const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via);
+    const next = nextLedger(
+      ledgerWithWorkspace,
+      fixCycle ? 'review' : 'handoff',
+      disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
+      startedAt,
+      commandHistoryVia,
+    );
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -318,6 +347,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
+        workspace,
         disciplineResult,
         null,
         {
@@ -342,7 +372,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
-      ...executionFieldsFromLedger(ledger),
+      ...executionFieldsFromLedger(ledgerWithWorkspace),
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -354,8 +384,9 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
       review_scope: reviewScope,
+      workspace,
     };
-    const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via);
+    const next = nextLedger(ledgerWithWorkspace, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, commandHistoryVia);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -383,6 +414,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
+        workspace,
         disciplineResult,
         null,
         {
@@ -403,10 +435,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const executionAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
   const result = await executionAdapter.execute_generator({
     cwd: ctx.cwd,
+    workspace,
     run_id: ledger.run_id,
     command: 'build',
     stage: 'build',
-    ledger,
+    ledger: ledgerWithWorkspace,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
@@ -417,7 +450,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
-      ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
+      ...executionFieldsFromLedger(ledgerWithWorkspace, result.actual_route?.route ?? null),
       state: result.outcome === 'refused' ? 'refused' : 'blocked',
       decision: result.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
@@ -433,9 +466,16 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: result.actual_route,
       review_scope: reviewScope,
+      workspace,
     };
     const next = withActualExecutionPath(
-      nextLedger(ledger, fixCycle ? 'review' : 'handoff', result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+      nextLedger(
+        ledgerWithWorkspace,
+        fixCycle ? 'review' : 'handoff',
+        result.outcome === 'refused' ? 'refused' : 'blocked',
+        startedAt,
+        commandHistoryVia,
+      ),
       result.actual_route?.route ?? null,
     );
     next.artifact_index = {
@@ -468,6 +508,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
+        workspace,
         disciplineResult,
         result,
         {
@@ -496,7 +537,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
-      ...executionFieldsFromLedger(ledger, actualRoute?.route ?? null),
+      ...executionFieldsFromLedger(ledgerWithWorkspace, actualRoute?.route ?? null),
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -508,8 +549,12 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: actualRoute,
       review_scope: reviewScope,
+      workspace,
     };
-    const next = withActualExecutionPath(nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via), actualRoute?.route ?? null);
+    const next = withActualExecutionPath(
+      nextLedger(ledgerWithWorkspace, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, commandHistoryVia),
+      actualRoute?.route ?? null,
+    );
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -537,6 +582,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
+        workspace,
         disciplineResult,
         result,
         {
@@ -581,12 +627,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       result.raw_output.receipt,
       normalizedDiscipline.verification_summary,
       reviewScope,
+      workspace,
     ),
   };
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'build',
-    ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
+    ...executionFieldsFromLedger(ledgerWithWorkspace, result.actual_route?.route ?? null),
     state: 'completed',
     decision: 'build_recorded',
     ready: true,
@@ -602,8 +649,12 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     requested_route: requestedRoute,
     actual_route: result.actual_route,
     review_scope: reviewScope,
+    workspace,
   };
-  const next = withActualExecutionPath(nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'active', startedAt, ctx.via), result.actual_route?.route ?? null);
+  const next = withActualExecutionPath(
+    nextLedger(ledgerWithWorkspace, fixCycle ? 'review' : 'handoff', 'active', startedAt, commandHistoryVia),
+    result.actual_route?.route ?? null,
+  );
   next.artifact_index = {
     ...next.artifact_index,
     [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -620,6 +671,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ledger.run_id,
       predecessorArtifacts.map((artifact) => artifact.path),
       requestedRoute,
+      workspace,
       disciplineResult,
       result,
       {

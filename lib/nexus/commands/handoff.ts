@@ -1,22 +1,24 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger } from '../execution-topology';
+import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
+  buildRunLevelRouteCheck,
   buildCcbTraceabilityPayloads,
   buildGovernedExecutionRoutingMarkdown,
   buildGovernedHandoffMarkdown,
   normalizeHandoffRouteValidation,
   requestedBuildRouteFromLedger,
 } from '../normalizers/ccb';
-import { fullAcceptanceReviewScope, resolveFixCycleReviewScope } from '../review-scope';
+import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+import { resolveExecutionWorkspace } from '../workspace-substrate';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalResolveRouteRaw } from '../adapters/local';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -31,7 +33,7 @@ function nextLedger(
   previousStage: 'plan' | 'handoff' | 'review',
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
 ): RunLedger {
   return {
     ...ledger,
@@ -42,6 +44,17 @@ function nextLedger(
     allowed_next_stages: status === 'active' ? getAllowedNextStages('handoff') : [],
     command_history: [...ledger.command_history, { command: 'handoff', at, via }],
   };
+}
+
+function handoffCommandHistoryVia(
+  ledger: RunLedger,
+  via: string | null,
+): CommandHistoryVia {
+  if (ledger.current_stage === 'review' || ledger.current_stage === 'handoff') {
+    return 'refresh';
+  }
+
+  return via as CommandHistoryVia;
 }
 
 export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
@@ -78,9 +91,14 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.handoff;
+  const workspace = resolveExecutionWorkspace(
+    ctx.cwd,
+    ledger.execution.workspace ?? priorHandoffStatus?.workspace ?? reviewStatus?.workspace ?? null,
+  );
   const reviewScope = ledger.current_stage === 'review'
     ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
-    : priorHandoffStatus?.review_scope ?? fullAcceptanceReviewScope();
+    : normalizeReviewScopeRecord(priorHandoffStatus?.review_scope ?? fullAcceptanceReviewScope());
+  const commandHistoryVia = handoffCommandHistoryVia(ledger, ctx.via);
   const requestedRoute = (
     ledger.current_stage === 'review'
       ? reviewStatus?.requested_route
@@ -110,7 +128,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     run_id: ledger.run_id,
     command: 'handoff',
     stage: 'handoff',
-    ledger,
+    ledger: withExecutionWorkspace(ledger, workspace),
     manifest,
     predecessor_artifacts: ledger.current_stage === 'review'
       ? [artifactPointerFor(planStatusPath), artifactPointerFor(reviewStatusPath)]
@@ -119,6 +137,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         : [artifactPointerFor(planStatusPath)],
     requested_route: requestedRoute,
     review_scope: reviewScope,
+    workspace,
   }) as Awaited<ReturnType<typeof routeAdapter.resolve_route>> & { raw_output: CcbResolveRouteRaw | LocalResolveRouteRaw };
   const routeValidation = result.outcome === 'success'
     ? normalizeHandoffRouteValidation(requestedRoute, result)
@@ -138,11 +157,11 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const canonicalWrites = [
     {
       path: routingPath,
-      content: buildGovernedExecutionRoutingMarkdown(requestedRoute, routeValidation.route_validation),
+      content: buildGovernedExecutionRoutingMarkdown(requestedRoute, routeValidation.route_validation, workspace),
     },
     {
       path: handoffPath,
-      content: buildGovernedHandoffMarkdown(requestedRoute, routeValidation.route_validation, reviewScope),
+      content: buildGovernedHandoffMarkdown(requestedRoute, routeValidation.route_validation, reviewScope, workspace),
     },
   ];
   const outputs = [
@@ -153,7 +172,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'handoff',
-    ...executionFieldsFromLedger(ledger),
+    ...executionFieldsFromLedger(withExecutionWorkspace(ledger, workspace)),
     state: result.outcome === 'refused'
       ? 'refused'
       : routeValidation.approved
@@ -169,9 +188,10 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     requested_route: requestedRoute,
     route_validation: routeValidation.route_validation,
     review_scope: reviewScope,
+    workspace,
   };
   const next = nextLedger(
-    {
+    withExecutionWorkspace({
       ...ledger,
       execution: {
         ...ledger.execution,
@@ -186,11 +206,12 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         substrate: requestedRoute.substrate,
         fallback_policy: requestedRoute.fallback_policy,
       },
-    },
+      route_check: buildRunLevelRouteCheck(startedAt, requestedRoute, routeValidation.route_validation),
+    }, workspace),
     ledger.current_stage === 'review' ? 'review' : ledger.current_stage === 'handoff' ? 'handoff' : 'plan',
     routeValidation.approved ? 'active' : result.outcome === 'refused' ? 'refused' : 'blocked',
     startedAt,
-    ctx.via,
+    commandHistoryVia,
   );
   next.artifact_index = {
     ...next.artifact_index,
@@ -226,6 +247,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
           adapter: requestedRoute.transport === 'local' ? 'local' : 'ccb',
           stage: 'handoff',
           requested_route: requestedRoute,
+          workspace,
         },
         result,
         {
@@ -259,6 +281,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         adapter: requestedRoute.transport === 'local' ? 'local' : 'ccb',
         stage: 'handoff',
         requested_route: requestedRoute,
+        workspace,
       },
       result,
       {

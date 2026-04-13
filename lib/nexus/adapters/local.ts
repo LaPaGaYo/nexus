@@ -847,11 +847,13 @@ export function createRuntimeLocalAdapter(
 ): LocalAdapter {
   const runCommand = providedOptions.runCommand ?? defaultRunCommand;
   const now = providedOptions.now ?? (() => new Date().toISOString());
+  const executionWorkspacePath = (ctx: NexusAdapterContext): string => ctx.workspace?.path ?? ctx.cwd;
 
   return {
     resolve_route: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
       const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      const executionCwd = executionWorkspacePath(ctx);
       if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
@@ -869,7 +871,7 @@ export function createRuntimeLocalAdapter(
       try {
         const result = await runCommand({
           argv: ['which', providerCommand(provider)],
-          cwd: ctx.cwd,
+          cwd: executionCwd,
           timeout_ms: DEFAULT_TIMEOUTS_MS.handoff,
         });
         if (result.exit_code !== 0) {
@@ -889,7 +891,7 @@ export function createRuntimeLocalAdapter(
         }
 
         if (topology.mode === 'claude_subagents') {
-          const subagentSupport = await verifyClaudeSubagentSupport(ctx.cwd, runCommand);
+          const subagentSupport = await verifyClaudeSubagentSupport(executionCwd, runCommand);
           if (!subagentSupport.ok) {
             return blockedResult(
               ctx.stage,
@@ -923,7 +925,7 @@ export function createRuntimeLocalAdapter(
         }
 
         if (topology.mode === 'codex_multi_session') {
-          const multiSessionSupport = await verifyCodexMultiSessionSupport(ctx.cwd, runCommand);
+          const multiSessionSupport = await verifyCodexMultiSessionSupport(executionCwd, runCommand);
           if (!multiSessionSupport.ok) {
             return blockedResult(
               ctx.stage,
@@ -985,6 +987,7 @@ export function createRuntimeLocalAdapter(
     execute_generator: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
       const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      const executionCwd = executionWorkspacePath(ctx);
       if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
@@ -1008,14 +1011,14 @@ export function createRuntimeLocalAdapter(
           const builderExecution = await runLocalSubagent(
             builderAgent,
             buildGeneratorPrompt(ctx),
-            ctx.cwd,
+            executionCwd,
             DEFAULT_TIMEOUTS_MS.build,
             runCommand,
           );
           const verifierExecution = await runLocalSubagent(
             verifierAgent,
             buildBuildVerifierPrompt(ctx, builderExecution.stdout),
-            ctx.cwd,
+            executionCwd,
             DEFAULT_TIMEOUTS_MS.build,
             runCommand,
           );
@@ -1040,7 +1043,7 @@ export function createRuntimeLocalAdapter(
         const execution = await runProviderCommand(
           provider,
           buildGeneratorPrompt(ctx),
-          ctx.cwd,
+          executionCwd,
           DEFAULT_TIMEOUTS_MS.build,
           runCommand,
         );
@@ -1070,6 +1073,7 @@ export function createRuntimeLocalAdapter(
     execute_audit_a: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
       const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      const executionCwd = executionWorkspacePath(ctx);
       if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
@@ -1093,7 +1097,7 @@ export function createRuntimeLocalAdapter(
           const execution = await runLocalSubagent(
             agent,
             buildAuditPrompt(ctx, 'a'),
-            ctx.cwd,
+            executionCwd,
             DEFAULT_TIMEOUTS_MS.review,
             runCommand,
           );
@@ -1115,7 +1119,7 @@ export function createRuntimeLocalAdapter(
         const execution = await runProviderCommand(
           provider,
           buildAuditPrompt(ctx, 'a'),
-          ctx.cwd,
+          executionCwd,
           DEFAULT_TIMEOUTS_MS.review,
           runCommand,
         );
@@ -1146,6 +1150,7 @@ export function createRuntimeLocalAdapter(
     execute_audit_b: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
       const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      const executionCwd = executionWorkspacePath(ctx);
       if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
@@ -1169,7 +1174,7 @@ export function createRuntimeLocalAdapter(
           const execution = await runLocalSubagent(
             agent,
             buildAuditPrompt(ctx, 'b'),
-            ctx.cwd,
+            executionCwd,
             DEFAULT_TIMEOUTS_MS.review,
             runCommand,
           );
@@ -1191,7 +1196,7 @@ export function createRuntimeLocalAdapter(
         const execution = await runProviderCommand(
           provider,
           buildAuditPrompt(ctx, 'b'),
-          ctx.cwd,
+          executionCwd,
           DEFAULT_TIMEOUTS_MS.review,
           runCommand,
         );
@@ -1222,6 +1227,7 @@ export function createRuntimeLocalAdapter(
     execute_qa: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
       const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      const executionCwd = executionWorkspacePath(ctx);
       if (typeof topology === 'string') {
         return blockedResult(
           ctx.stage,
@@ -1247,7 +1253,7 @@ export function createRuntimeLocalAdapter(
           const execution = await runLocalSubagent(
             agent,
             buildQaPrompt(ctx),
-            ctx.cwd,
+            executionCwd,
             DEFAULT_TIMEOUTS_MS.qa,
             runCommand,
           );
@@ -1270,7 +1276,7 @@ export function createRuntimeLocalAdapter(
         const execution = await runProviderCommand(
           provider,
           buildQaPrompt(ctx),
-          ctx.cwd,
+          executionCwd,
           DEFAULT_TIMEOUTS_MS.qa,
           runCommand,
         );

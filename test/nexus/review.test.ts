@@ -554,6 +554,17 @@ describe('nexus review', () => {
         status: 'active',
         current_stage: 'review',
         previous_stage: 'build',
+        command_history: [
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          {
+            command: 'review',
+            at: expect.any(String),
+            via: 'retry',
+          },
+        ],
       });
       expect(await run.readFile('.planning/audits/current/gemini.md')).toContain('Result: pass');
     });
@@ -630,6 +641,19 @@ describe('nexus review', () => {
         decision: 'audit_recorded',
         ready: true,
         gate_decision: 'pass',
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        command_history: [
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+          {
+            command: 'review',
+            at: expect.any(String),
+            via: 'retry',
+          },
+        ],
       });
     });
   });
@@ -822,6 +846,58 @@ describe('nexus review', () => {
         stage: 'review',
         ready: true,
         gate_decision: 'pass',
+      });
+    });
+  });
+
+  test('normalizes duplicated inherited fix-cycle scope before persisting a passing review', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const buildStatusPath = join(cwd, '.planning/current/build/status.json');
+      const buildStatus = await run.readJson('.planning/current/build/status.json');
+      buildStatus.review_scope = {
+        mode: 'bounded_fix_cycle',
+        source_stage: 'review',
+        blocking_items: [
+          'Phase 1 task `1.2` remains incomplete. `.planning/current/plan/execution-readiness-packet.md:50-55` requires a seed script for development data, but the repo-visible database scripts still stop at generate/migrate.',
+          'Phase 1 task `1.2` is incomplete: Verified that there is no seed script for development data in the repository.',
+          'Phase 1 task `1.5` remains incomplete. `.planning/current/plan/execution-readiness-packet.md:67-70` requires a separate worker deployment pipeline, but the only GitHub workflow is CI.',
+          'Phase 1 task `1.5` is incomplete: No separate worker deployment pipeline exists.',
+          'The Phase 1 exit criterion for the web shell is still not met. `.planning/current/plan/execution-readiness-packet.md:77-82` requires `npm run dev` to show a blank page at localhost, but `apps/web/src/app/page.tsx` renders a styled foundation landing page instead.',
+          'Exit criterion missed: `apps/web/src/app/page.tsx` renders a fully designed foundation landing page, failing the Phase 1 exit criterion which explicitly requires `npm run dev` to show a blank page at localhost.',
+        ],
+        advisory_policy: 'out_of_scope_advisory',
+      };
+      writeFileSync(buildStatusPath, JSON.stringify(buildStatus, null, 2) + '\n');
+
+      await run('review');
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        ready: true,
+        gate_decision: 'pass',
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: [
+            'Phase 1 task `1.2` remains incomplete. `.planning/current/plan/execution-readiness-packet.md:50-55` requires a seed script for development data, but the repo-visible database scripts still stop at generate/migrate.',
+            'Phase 1 task `1.5` remains incomplete. `.planning/current/plan/execution-readiness-packet.md:67-70` requires a separate worker deployment pipeline, but the only GitHub workflow is CI.',
+            'The Phase 1 exit criterion for the web shell is still not met. `.planning/current/plan/execution-readiness-packet.md:77-82` requires `npm run dev` to show a blank page at localhost, but `apps/web/src/app/page.tsx` renders a styled foundation landing page instead.',
+          ],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      });
+      expect(await run.readJson('.planning/current/review/adapter-request.json')).toMatchObject({
+        review_scope: {
+          blocking_items: [
+            'Phase 1 task `1.2` remains incomplete. `.planning/current/plan/execution-readiness-packet.md:50-55` requires a seed script for development data, but the repo-visible database scripts still stop at generate/migrate.',
+            'Phase 1 task `1.5` remains incomplete. `.planning/current/plan/execution-readiness-packet.md:67-70` requires a separate worker deployment pipeline, but the only GitHub workflow is CI.',
+            'The Phase 1 exit criterion for the web shell is still not met. `.planning/current/plan/execution-readiness-packet.md:77-82` requires `npm run dev` to show a blank page at localhost, but `apps/web/src/app/page.tsx` renders a styled foundation landing page instead.',
+          ],
+        },
       });
     });
   });

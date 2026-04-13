@@ -56,6 +56,9 @@ export type PrimaryProvider = (typeof PRIMARY_PROVIDERS)[number];
 export const PROVIDER_TOPOLOGIES = ['single_agent', 'subagents', 'multi_session'] as const;
 export type ProviderTopology = (typeof PROVIDER_TOPOLOGIES)[number];
 
+export const WORKSPACE_KINDS = ['root', 'worktree'] as const;
+export type WorkspaceKind = (typeof WORKSPACE_KINDS)[number];
+
 export const STAGE_STATES = ['not_started', 'in_progress', 'completed', 'blocked', 'refused'] as const;
 export type StageState = (typeof STAGE_STATES)[number];
 
@@ -82,6 +85,21 @@ export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
 
 export const REVIEW_SCOPE_MODES = ['full_acceptance', 'bounded_fix_cycle'] as const;
 export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
+
+export const COMMAND_HISTORY_VIAS = [
+  'office-hours',
+  'plan-ceo-review',
+  'plan-eng-review',
+  'autoplan',
+  'start-work',
+  'execute-wave',
+  'governed-execute',
+  'verify-close',
+  'fix-cycle',
+  'retry',
+  'refresh',
+] as const;
+export type CommandHistoryVia = (typeof COMMAND_HISTORY_VIAS)[number] | null;
 
 export interface ArtifactPointer {
   kind: 'markdown' | 'json';
@@ -126,6 +144,18 @@ export interface RouteValidationRecord {
   }>;
 }
 
+export interface RouteCheckRecord {
+  checked_at: string;
+  requested_route: RequestedRouteRecord;
+  route_validation: RouteValidationRecord;
+}
+
+export interface CommandHistoryEntry {
+  command: CanonicalCommandId;
+  at: string;
+  via: CommandHistoryVia;
+}
+
 export interface ImplementationProvenanceRecord {
   path: string;
   requested_route: RequestedRouteRecord;
@@ -153,11 +183,19 @@ export interface ReviewScopeRecord {
   advisory_policy: 'out_of_scope_advisory';
 }
 
+export interface WorkspaceRecord {
+  path: string;
+  kind: WorkspaceKind;
+  branch: string | null;
+  source: 'repo_root' | 'existing:nexus_worktree' | 'existing:legacy_worktree';
+}
+
 export interface ReviewMetaRecord {
   run_id: string;
   execution_mode?: ExecutionMode;
   primary_provider?: PrimaryProvider;
   provider_topology?: ProviderTopology;
+  workspace?: WorkspaceRecord;
   implementation_provider: string;
   implementation_path: string;
   implementation_route: string | null;
@@ -211,6 +249,7 @@ export interface StageStatus {
   execution_mode?: ExecutionMode;
   primary_provider?: PrimaryProvider;
   provider_topology?: ProviderTopology;
+  workspace?: WorkspaceRecord;
   requested_execution_path?: string;
   actual_execution_path?: string | null;
   state: StageState;
@@ -231,7 +270,8 @@ export interface StageStatus {
   gate_decision?: 'pass' | 'fail' | 'blocked' | null;
   archive_required?: boolean;
   archive_state?: 'pending' | 'archived' | 'not_required' | 'failed';
-  findings_count?: number;
+  verification_count?: number;
+  defect_count?: number;
 }
 
 export interface RunLedger {
@@ -241,12 +281,13 @@ export interface RunLedger {
   current_stage: CanonicalCommandId;
   previous_stage: CanonicalCommandId | null;
   allowed_next_stages: CanonicalCommandId[];
-  command_history: Array<{ command: CanonicalCommandId; at: string; via: string | null }>;
+  command_history: CommandHistoryEntry[];
   artifact_index: Record<string, ArtifactPointer>;
   execution: {
     mode: ExecutionMode;
     primary_provider: PrimaryProvider;
     provider_topology: ProviderTopology;
+    workspace?: WorkspaceRecord;
     requested_path: string;
     actual_path: string | null;
   };
@@ -259,6 +300,7 @@ export interface RunLedger {
     substrate: string | null;
     fallback_policy: 'disabled';
   };
+  route_check?: RouteCheckRecord | null;
 }
 
 export const PLACEHOLDER_OUTCOME = {

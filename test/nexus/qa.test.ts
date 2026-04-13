@@ -1,3 +1,5 @@
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
@@ -21,7 +23,7 @@ describe('nexus qa', () => {
               raw_output: {
                 report_markdown: '# QA Report\n\nResult: pass\n',
                 ready: true,
-                findings: [],
+                findings: ['Homepage loads with HTTP 200'],
                 receipt: 'qa-pass',
               },
               requested_route: ctx.requested_route,
@@ -53,6 +55,8 @@ describe('nexus qa', () => {
         state: 'completed',
         decision: 'qa_recorded',
         ready: true,
+        verification_count: 1,
+        defect_count: 0,
         requested_route: {
           command: 'qa',
           generator: 'gemini-via-ccb',
@@ -140,6 +144,8 @@ describe('nexus qa', () => {
         state: 'completed',
         decision: 'qa_recorded',
         ready: false,
+        verification_count: 0,
+        defect_count: 1,
       });
       expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('Login form is broken');
     });
@@ -195,6 +201,25 @@ describe('nexus qa', () => {
         kind: 'route_mismatch',
         message: 'Requested and actual QA route diverged',
       });
+    });
+  });
+
+  test('blocks qa when the run ledger is noncanonical', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      ledger.command_history[ledger.command_history.length - 1] = {
+        ...ledger.command_history[ledger.command_history.length - 1],
+        gate_decision: 'fail',
+      };
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      await expect(run('qa')).rejects.toThrow('Run ledger is not canonical before QA');
     });
   });
 });

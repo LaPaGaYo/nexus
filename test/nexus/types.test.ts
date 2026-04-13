@@ -9,7 +9,9 @@ import {
   type ActualRouteRecord,
   type ImplementationProvenanceRecord,
   type RequestedRouteRecord,
+  type RouteCheckRecord,
   type RouteValidationRecord,
+  type RunLedger,
   type RunStatus,
 } from '../../lib/nexus/types';
 
@@ -118,6 +120,75 @@ describe('nexus types', () => {
     expect(validation.provider_checks?.[1]?.provider).toBe('gemini');
     expect(provenance.path).toContain('build-result.md');
     expect(ROUTE_VALIDATION_TRANSPORTS).toEqual(['ccb', 'local', 'none']);
+  });
+
+  test('locks the run-level route check shape to the per-provider governed truth', () => {
+    const routeCheck: RouteCheckRecord = {
+      checked_at: '2026-04-13T00:00:00.000Z',
+      requested_route: {
+        command: 'build',
+        governed: true,
+        planner: 'claude+pm-gsd',
+        generator: 'codex-via-ccb',
+        evaluator_a: 'codex-via-ccb',
+        evaluator_b: 'gemini-via-ccb',
+        synthesizer: 'claude',
+        substrate: 'superpowers-core',
+        fallback_policy: 'disabled',
+      },
+      route_validation: {
+        transport: 'ccb',
+        available: true,
+        approved: true,
+        reason: 'Nexus approved the requested governed route',
+        mounted_providers: ['codex', 'gemini'],
+        provider_checks: [
+          {
+            provider: 'codex',
+            available: true,
+            mounted: true,
+            reason: 'CCB codex route check passed',
+          },
+          {
+            provider: 'gemini',
+            available: true,
+            mounted: true,
+            reason: 'CCB gemini route check passed',
+          },
+        ],
+      },
+    };
+
+    const ledger: RunLedger = {
+      run_id: 'run-1',
+      status: 'active',
+      current_command: 'handoff',
+      current_stage: 'handoff',
+      previous_stage: 'plan',
+      allowed_next_stages: ['build'],
+      command_history: [],
+      artifact_index: {},
+      execution: {
+        mode: 'governed_ccb',
+        primary_provider: 'codex',
+        provider_topology: 'multi_session',
+        requested_path: 'codex-via-ccb',
+        actual_path: null,
+      },
+      route_intent: {
+        planner: 'claude+pm-gsd',
+        generator: 'codex-via-ccb',
+        evaluator_a: 'codex-via-ccb',
+        evaluator_b: 'gemini-via-ccb',
+        synthesizer: 'claude',
+        substrate: 'superpowers-core',
+        fallback_policy: 'disabled',
+      },
+      route_check: routeCheck,
+    };
+
+    expect(ledger.route_check?.route_validation.provider_checks?.[1]?.provider).toBe('gemini');
+    expect(ledger.route_check?.requested_route.generator).toBe('codex-via-ccb');
   });
 
   test('freezes the governed tail lifecycle decisions', () => {

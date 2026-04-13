@@ -4,11 +4,13 @@ export function buildPromptContextPreamble(
   ctx: NexusAdapterContext,
   stageLabel: string,
 ): string {
+  const executionWorkspace = ctx.workspace?.path ?? ctx.cwd;
   const preamble = [
     `${stageLabel}: ${ctx.stage}`,
     `Run ID: ${ctx.run_id}`,
     `Command: ${ctx.command}`,
     `Repository cwd: ${ctx.cwd}`,
+    `Execution workspace cwd: ${executionWorkspace}`,
     '',
     'Use only repo-visible artifacts as the source of truth.',
     'Do not rely on hidden session memory or unstated prior context.',

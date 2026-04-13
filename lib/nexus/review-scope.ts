@@ -17,6 +17,79 @@ function normalizeLine(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeSignature(text: string): string {
+  return normalizeLine(text)
+    .replace(/`/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractTaskSignature(text: string): string | null {
+  const taskMatch = text.match(/\b(?:phase\s+\d+\s+)?task\s+`?(\d+(?:\.\d+)*)`?/i);
+  if (taskMatch) {
+    return `task:${taskMatch[1]}`;
+  }
+
+  const conditionMatch = text.match(/\bcondition\s+`?(\d+(?:\.\d+)*)`?/i);
+  if (conditionMatch) {
+    return `condition:${conditionMatch[1]}`;
+  }
+
+  return null;
+}
+
+function extractRequirementSignature(text: string): string | null {
+  const requirementMatch = text.match(/\brequires?\s+(.+?)(?:(?:,|\.)\s*|$)/i);
+  if (requirementMatch) {
+    return normalizeSignature(requirementMatch[1]!.replace(/^that\s+/i, ''));
+  }
+
+  if (/\bblank page at localhost\b/i.test(text)) {
+    return 'blank page at localhost';
+  }
+
+  return null;
+}
+
+function canonicalBlockingItemKey(text: string): string {
+  const normalized = normalizeLine(text);
+  const taskSignature = extractTaskSignature(normalized);
+  if (taskSignature) {
+    return taskSignature;
+  }
+
+  const requirementSignature = extractRequirementSignature(normalized);
+  if (/\bexit criterion\b/i.test(normalized) && requirementSignature) {
+    return `exit:${requirementSignature}`;
+  }
+
+  if (requirementSignature) {
+    return `requires:${requirementSignature}`;
+  }
+
+  return `line:${normalizeSignature(normalized)}`;
+}
+
+function dedupeBlockingItems(items: string[]): string[] {
+  const deduped = new Map<string, string>();
+
+  for (const item of items) {
+    const normalized = normalizeLine(item);
+    if (!normalized || normalized.toLowerCase() === 'none') {
+      continue;
+    }
+
+    const key = canonicalBlockingItemKey(normalized);
+    if (!deduped.has(key)) {
+      deduped.set(key, normalized);
+    }
+  }
+
+  return [...deduped.values()];
+}
+
 function extractFindingsSection(markdown: string): string[] {
   const normalized = markdown.replace(/\r\n/g, '\n');
   const sectionMatch = normalized.match(/(?:^|\n)Findings:\s*\n([\s\S]*?)(?:\n[A-Z][A-Za-z ]+:\s*\n|$)/);
@@ -33,22 +106,33 @@ function extractFindingsSection(markdown: string): string[] {
 }
 
 export function boundedFixCycleReviewScopeFromAudits(codexMarkdown: string, geminiMarkdown: string): ReviewScopeRecord {
-  const blockingItems = [...new Set([
+  const blockingItems = dedupeBlockingItems([
     ...extractFindingsSection(codexMarkdown),
     ...extractFindingsSection(geminiMarkdown),
-  ])];
+  ]);
 
-  return {
+  return normalizeReviewScopeRecord({
     mode: 'bounded_fix_cycle',
     source_stage: 'review',
     blocking_items: blockingItems.length > 0 ? blockingItems : [GENERIC_FIX_CYCLE_ITEM],
     advisory_policy: 'out_of_scope_advisory',
+  });
+}
+
+export function normalizeReviewScopeRecord(reviewScope: ReviewScopeRecord): ReviewScopeRecord {
+  const blockingItems = dedupeBlockingItems(reviewScope.blocking_items);
+
+  return {
+    ...reviewScope,
+    blocking_items: blockingItems.length > 0 || reviewScope.mode !== 'bounded_fix_cycle'
+      ? blockingItems
+      : [GENERIC_FIX_CYCLE_ITEM],
   };
 }
 
 export function resolveFixCycleReviewScope(cwd: string, reviewStatus: StageStatus | null | undefined): ReviewScopeRecord {
   if (reviewStatus?.review_scope?.mode === 'bounded_fix_cycle') {
-    return reviewStatus.review_scope;
+    return normalizeReviewScopeRecord(reviewStatus.review_scope);
   }
 
   const codexPath = join(cwd, '.planning/audits/current/codex.md');

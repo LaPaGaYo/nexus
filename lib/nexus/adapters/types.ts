@@ -6,6 +6,7 @@ import type {
   RequestedRouteRecord,
   ReviewScopeRecord,
   RunLedger,
+  WorkspaceRecord,
 } from '../types';
 import type { CommandContract } from '../command-manifest';
 import type { StagePackTraceability } from '../stage-packs/types';
@@ -14,6 +15,7 @@ export type AdapterActivationState = 'inactive' | 'reserved_future' | 'active';
 
 export interface NexusAdapterContext {
   cwd: string;
+  workspace?: WorkspaceRecord | null;
   run_id: string;
   command: CanonicalCommandId;
   stage: CanonicalCommandId;

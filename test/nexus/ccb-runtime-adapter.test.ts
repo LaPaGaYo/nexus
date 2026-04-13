@@ -32,7 +32,13 @@ function buildContext(
   reviewScope: ReviewScopeRecord | null = null,
 ): NexusAdapterContext {
   return {
-    cwd: '/repo/root/.nexus-worktrees/feature',
+    cwd: '/repo/root',
+    workspace: {
+      path: '/repo/root/.nexus-worktrees/feature',
+      kind: 'worktree',
+      branch: 'feature',
+      source: 'existing:nexus_worktree',
+    },
     run_id: 'run-123',
     command,
     stage,
@@ -153,6 +159,8 @@ describe('nexus runtime ccb adapter', () => {
     });
     expect(calls[0]?.stdin_text).toContain('.planning/current/build/status.json');
     expect(calls[0]?.stdin_text).toContain('codex-via-ccb');
+    expect(calls[0]?.stdin_text).toContain('Repository cwd: /repo/root');
+    expect(calls[0]?.stdin_text).toContain('Execution workspace cwd: /repo/root/.nexus-worktrees/feature');
     expect(result.outcome).toBe('success');
     expect(result.raw_output).toMatchObject({
       receipt: 'ccb-build-codex-2026-04-08T00-00-00.000Z',

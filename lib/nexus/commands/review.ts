@@ -1,6 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { currentAuditPointer, stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger } from '../execution-topology';
+import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -14,15 +14,18 @@ import {
 import {
   boundedFixCycleReviewScopeFromAudits,
   fullAcceptanceReviewScope,
+  normalizeReviewScopeRecord,
   resolveFixCycleReviewScope,
 } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+import { resolveExecutionWorkspace } from '../workspace-substrate';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
 import type { LocalExecuteAuditRaw } from '../adapters/local';
 import type { SuperpowersReviewDisciplineRaw } from '../adapters/superpowers';
 import type {
   ArtifactPointer,
+  CommandHistoryVia,
   ConflictRecord,
   ReviewMetaRecord,
   RunLedger,
@@ -43,7 +46,7 @@ function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
   allowedNextStages: RunLedger['allowed_next_stages'] = status === 'active' ? getAllowedNextStages('review') : [],
 ): RunLedger {
   return {
@@ -55,6 +58,17 @@ function nextLedger(
     allowed_next_stages: allowedNextStages,
     command_history: [...ledger.command_history, { command: 'review', at, via }],
   };
+}
+
+function reviewCommandHistoryVia(
+  ledger: RunLedger,
+  via: string | null,
+): CommandHistoryVia {
+  if (ledger.current_stage === 'review') {
+    return 'retry';
+  }
+
+  return via as CommandHistoryVia;
 }
 
 function parseAuditVerdict(markdown: string, label: string): 'pass' | 'fail' {
@@ -149,10 +163,17 @@ export async function runReviewWithWriteAtomicFile(
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.review;
   const predecessorArtifacts = [artifactPointerFor(buildStatusPath)];
+  const workspace = resolveExecutionWorkspace(
+    ctx.cwd,
+    ledger.execution.workspace ?? buildStatus.workspace ?? reviewStatus?.workspace ?? null,
+  );
+  const ledgerWithWorkspace = withExecutionWorkspace(ledger, workspace);
+  const commandHistoryVia = reviewCommandHistoryVia(ledger, ctx.via);
   const requestedRoute = buildStatus.requested_route;
   const actualRoute = buildStatus.actual_route;
   const inheritedReviewScope = buildStatus.review_scope
-    ?? (buildStatus.inputs.some((artifact) => artifact.path === reviewStatusPath)
+    ? normalizeReviewScopeRecord(buildStatus.review_scope)
+    : (buildStatus.inputs.some((artifact) => artifact.path === reviewStatusPath)
       ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
       : fullAcceptanceReviewScope());
   const codexPath = '.planning/audits/current/codex.md';
@@ -163,10 +184,11 @@ export async function runReviewWithWriteAtomicFile(
 
   const disciplineResult = await ctx.adapters.superpowers.review_discipline({
     cwd: ctx.cwd,
+    workspace,
     run_id: ledger.run_id,
     command: 'review',
     stage: 'review',
-    ledger,
+    ledger: ledgerWithWorkspace,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
@@ -180,7 +202,7 @@ export async function runReviewWithWriteAtomicFile(
       ? 'Superpowers review discipline refused review'
       : 'Superpowers review discipline blocked review';
     const status = blockedReviewStatus(
-      ledger,
+      ledgerWithWorkspace,
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
@@ -213,6 +235,7 @@ export async function runReviewWithWriteAtomicFile(
         [buildStatusPath],
         requestedRoute,
         inheritedReviewScope,
+        workspace,
         disciplineResult,
         null,
         null,
@@ -222,7 +245,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-      ledger: nextLedger(ledger, disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via, disciplineResult.outcome === 'refused' ? [] : ['review']),
+      ledger: nextLedger(ledgerWithWorkspace, disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, commandHistoryVia, disciplineResult.outcome === 'refused' ? [] : ['review']),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -234,7 +257,7 @@ export async function runReviewWithWriteAtomicFile(
   if (!disciplineSummary) {
     const message = 'Review discipline summary is missing';
     const status = blockedReviewStatus(
-      ledger,
+      ledgerWithWorkspace,
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
@@ -266,6 +289,7 @@ export async function runReviewWithWriteAtomicFile(
         [buildStatusPath],
         requestedRoute,
         inheritedReviewScope,
+        workspace,
         disciplineResult,
         null,
         null,
@@ -276,7 +300,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via, ['review']),
+        ledger: nextLedger(ledgerWithWorkspace, 'blocked', startedAt, commandHistoryVia, ['review']),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -287,10 +311,11 @@ export async function runReviewWithWriteAtomicFile(
   const auditAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
   const auditAResult = await auditAdapter.execute_audit_a({
     cwd: ctx.cwd,
+    workspace,
     run_id: ledger.run_id,
     command: 'review',
     stage: 'review',
-    ledger,
+    ledger: ledgerWithWorkspace,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
@@ -298,10 +323,11 @@ export async function runReviewWithWriteAtomicFile(
   }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
   const auditBResult = await auditAdapter.execute_audit_b({
     cwd: ctx.cwd,
+    workspace,
     run_id: ledger.run_id,
     command: 'review',
     stage: 'review',
-    ledger,
+    ledger: ledgerWithWorkspace,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
@@ -317,7 +343,7 @@ export async function runReviewWithWriteAtomicFile(
         ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} ${label} audit refused review`
         : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} ${label} audit blocked review`;
       const status = blockedReviewStatus(
-        ledger,
+        ledgerWithWorkspace,
         startedAt,
         predecessorArtifacts,
         [artifactPointerFor(reviewStatusPath)],
@@ -350,6 +376,7 @@ export async function runReviewWithWriteAtomicFile(
           [buildStatusPath],
           requestedRoute,
           inheritedReviewScope,
+          workspace,
           disciplineResult,
           auditAResult,
           auditBResult,
@@ -359,7 +386,7 @@ export async function runReviewWithWriteAtomicFile(
           },
         ),
         status,
-        ledger: nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via, result.outcome === 'refused' ? [] : ['review']),
+        ledger: nextLedger(ledgerWithWorkspace, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, commandHistoryVia, result.outcome === 'refused' ? [] : ['review']),
         conflicts: [conflict, ...result.conflict_candidates],
         writeAtomicFile,
       });
@@ -377,7 +404,7 @@ export async function runReviewWithWriteAtomicFile(
   ) {
     const message = 'Requested and actual audit route diverged';
     const status = blockedReviewStatus(
-      ledger,
+      ledgerWithWorkspace,
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
@@ -409,6 +436,7 @@ export async function runReviewWithWriteAtomicFile(
         [buildStatusPath],
         requestedRoute,
         inheritedReviewScope,
+        workspace,
         disciplineResult,
         auditAResult,
         auditBResult,
@@ -419,7 +447,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via, ['review']),
+      ledger: nextLedger(ledgerWithWorkspace, 'blocked', startedAt, commandHistoryVia, ['review']),
       conflicts: [conflict, ...auditAResult.conflict_candidates, ...auditBResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -445,6 +473,7 @@ export async function runReviewWithWriteAtomicFile(
     execution_mode: ledger.execution.mode,
     primary_provider: ledger.execution.primary_provider,
     provider_topology: ledger.execution.provider_topology,
+    workspace,
     implementation_provider: actualRoute.provider ?? ledger.execution.primary_provider,
     implementation_path: '.planning/current/build/build-result.md',
     implementation_route: requestedRoute.generator,
@@ -503,7 +532,7 @@ export async function runReviewWithWriteAtomicFile(
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'review',
-    ...executionFieldsFromLedger(ledger, actualRoute.route),
+    ...executionFieldsFromLedger(ledgerWithWorkspace, actualRoute.route),
     state: 'completed',
     decision: 'audit_recorded',
     ready: gateDecision === 'pass',
@@ -515,6 +544,7 @@ export async function runReviewWithWriteAtomicFile(
     requested_route: requestedRoute,
     actual_route: actualRoute,
     review_scope: reviewScope,
+    workspace,
     review_complete: true,
     audit_set_complete: true,
     provenance_consistent: true,
@@ -523,10 +553,10 @@ export async function runReviewWithWriteAtomicFile(
     archive_state: gateRequiresArchive(gateDecisionMarkdown) ? 'pending' : 'not_required',
   };
   const next = nextLedger(
-    ledger,
+    ledgerWithWorkspace,
     gateDecision === 'pass' ? 'active' : 'blocked',
     startedAt,
-    ctx.via,
+    commandHistoryVia,
     gateDecision === 'pass' ? getAllowedNextStages('review') : ['build', 'review'],
   );
   next.artifact_index = {
@@ -555,6 +585,7 @@ export async function runReviewWithWriteAtomicFile(
       [buildStatusPath],
       requestedRoute,
       inheritedReviewScope,
+      workspace,
       disciplineResult,
       auditAResult,
       auditBResult,

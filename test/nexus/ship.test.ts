@@ -1,3 +1,5 @@
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
@@ -185,6 +187,41 @@ describe('nexus ship', () => {
       expect(await run.readJson('.planning/current/ship/checklist.json')).toMatchObject({
         merge_ready: false,
       });
+    });
+  });
+
+  test('blocks ship when the run ledger is noncanonical', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      ledger.command_history[ledger.command_history.length - 1] = {
+        ...ledger.command_history[ledger.command_history.length - 1],
+        gate_decision: 'pass',
+      };
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      await expect(run('ship')).rejects.toThrow('Run ledger is not canonical before ship');
+    });
+  });
+
+  test('blocks ship when governed tail-stage ledger is missing run-level route check', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      delete ledger.route_check;
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      await expect(run('ship')).rejects.toThrow('Run ledger is not canonical before ship');
     });
   });
 });

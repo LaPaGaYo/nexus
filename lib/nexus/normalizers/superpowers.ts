@@ -5,7 +5,7 @@ import {
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
-import type { RequestedRouteRecord } from '../types';
+import type { RequestedRouteRecord, WorkspaceRecord } from '../types';
 
 interface ArtifactWrite {
   path: string;
@@ -36,6 +36,7 @@ export function buildBuildStageTraceabilityPayloads(
   runId: string,
   inputs: string[],
   requestedRoute: RequestedRouteRecord,
+  workspace: WorkspaceRecord | null,
   disciplineResult: AdapterResult<unknown>,
   transportResult: AdapterResult<unknown> | null,
   normalizationPayload: Record<string, unknown>,
@@ -49,6 +50,7 @@ export function buildBuildStageTraceabilityPayloads(
           inputs,
           adapter_chain: ['superpowers', requestedRoute.transport],
           requested_route: requestedRoute,
+          workspace,
           discipline_required: true,
         },
         null,
@@ -76,6 +78,7 @@ export function buildBuildStageTraceabilityPayloads(
 export function buildShipStageTraceabilityPayloads(
   runId: string,
   inputs: string[],
+  workspace: WorkspaceRecord | null,
   result: AdapterResult<unknown>,
   normalizationPayload: Record<string, unknown>,
 ): ArtifactWrite[] {
@@ -87,6 +90,7 @@ export function buildShipStageTraceabilityPayloads(
           run_id: runId,
           inputs,
           adapter_chain: ['superpowers'],
+          workspace,
         },
         null,
         2,

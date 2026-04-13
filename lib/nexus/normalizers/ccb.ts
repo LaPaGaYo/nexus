@@ -12,8 +12,10 @@ import type {
   ReviewRequestedRouteRecord,
   RequestedRouteRecord,
   ReviewScopeRecord,
+  RouteCheckRecord,
   RouteValidationRecord,
   RunLedger,
+  WorkspaceRecord,
 } from '../types';
 
 interface ArtifactWrite {
@@ -234,6 +236,18 @@ export function normalizeHandoffRouteValidation(
   };
 }
 
+export function buildRunLevelRouteCheck(
+  checkedAt: string,
+  requestedRoute: RequestedRouteRecord,
+  routeValidation: RouteValidationRecord,
+): RouteCheckRecord {
+  return {
+    checked_at: checkedAt,
+    requested_route: requestedRoute,
+    route_validation: routeValidation,
+  };
+}
+
 export function requestedAndActualRouteMatch(
   requestedRoute: RequestedRouteRecord,
   actualRoute: ActualRouteRecord | null,
@@ -250,6 +264,7 @@ export function requestedAndActualRouteMatch(
 export function buildGovernedExecutionRoutingMarkdown(
   requestedRoute: RequestedRouteRecord,
   routeValidation: RouteValidationRecord,
+  workspace?: WorkspaceRecord | null,
 ): string {
   const lines = [
     '# Governed Execution Routing',
@@ -263,6 +278,12 @@ export function buildGovernedExecutionRoutingMarkdown(
     `Transport availability: ${routeValidation.available ? 'available' : 'unavailable'}`,
     `Nexus approval: ${routeValidation.approved ? 'approved' : 'blocked'}`,
   ];
+
+  if (workspace) {
+    lines.push(`Execution workspace: ${workspace.path}`);
+    lines.push(`Workspace kind: ${workspace.kind}`);
+    lines.push(`Workspace branch: ${workspace.branch ?? 'detached'}`);
+  }
 
   if (routeValidation.mounted_providers && routeValidation.mounted_providers.length > 0) {
     lines.push(`Mounted providers: ${routeValidation.mounted_providers.join(', ')}`);
@@ -284,6 +305,7 @@ export function buildGovernedHandoffMarkdown(
   requestedRoute: RequestedRouteRecord,
   routeValidation: RouteValidationRecord,
   reviewScope?: ReviewScopeRecord | null,
+  workspace?: WorkspaceRecord | null,
 ): string {
   const lines = [
     '# Governed Handoff',
@@ -293,6 +315,12 @@ export function buildGovernedHandoffMarkdown(
     `Execution substrate: ${requestedRoute.substrate ?? 'unset'}`,
     `Route validation: ${routeValidation.reason}`,
   ];
+
+  if (workspace) {
+    lines.push(`Execution workspace: ${workspace.path}`);
+    lines.push(`Workspace kind: ${workspace.kind}`);
+    lines.push(`Workspace branch: ${workspace.branch ?? 'detached'}`);
+  }
 
   if (routeValidation.provider_checks && routeValidation.provider_checks.length > 0) {
     lines.push('');
@@ -328,6 +356,7 @@ export function buildBuildResultMarkdown(
   receipt: string,
   verificationSummary: string | null = null,
   reviewScope?: ReviewScopeRecord | null,
+  workspace?: WorkspaceRecord | null,
 ): string {
   const lines = [
     '# Build Result',
@@ -346,6 +375,13 @@ export function buildBuildResultMarkdown(
     `Receipt: ${receipt}`,
     '',
   );
+
+  if (workspace) {
+    lines.push(`Execution workspace: ${workspace.path}`);
+    lines.push(`Workspace kind: ${workspace.kind}`);
+    lines.push(`Workspace branch: ${workspace.branch ?? 'detached'}`);
+    lines.push('');
+  }
 
   if (reviewScope) {
     lines.push(`Review scope: ${reviewScope.mode}`);
@@ -441,6 +477,7 @@ export function buildReviewTraceabilityPayloads(
   inputs: string[],
   requestedRoute: RequestedRouteRecord,
   reviewScope: ReviewScopeRecord | null,
+  workspace: WorkspaceRecord | null,
   disciplineResult: AdapterResult<unknown> | null,
   auditAResult: AdapterResult<CcbExecuteAuditRaw | LocalExecuteAuditRaw> | null,
   auditBResult: AdapterResult<CcbExecuteAuditRaw | LocalExecuteAuditRaw> | null,
@@ -456,6 +493,7 @@ export function buildReviewTraceabilityPayloads(
           adapter_chain: ['superpowers', requestedRoute.transport, requestedRoute.transport],
           requested_route: requestedRoute,
           review_scope: reviewScope,
+          workspace,
           requested_audit_routes: {
             codex: requestedAuditRouteFromBuild(requestedRoute, 'codex'),
             gemini: requestedAuditRouteFromBuild(requestedRoute, 'gemini'),
@@ -524,6 +562,7 @@ export function buildQaTraceabilityPayloads(
   runId: string,
   inputs: string[],
   requestedRoute: RequestedRouteRecord,
+  workspace: WorkspaceRecord | null,
   result: AdapterResult<CcbExecuteQaRaw | LocalExecuteQaRaw>,
   normalizationPayload: Record<string, unknown>,
 ): ArtifactWrite[] {
@@ -534,6 +573,7 @@ export function buildQaTraceabilityPayloads(
       inputs,
       adapter_chain: [requestedRoute.transport],
       requested_route: requestedRoute,
+      workspace,
     },
     result,
     normalizationPayload,

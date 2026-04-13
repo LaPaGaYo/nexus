@@ -1,6 +1,7 @@
 import { cpSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { archiveRootFor } from './artifacts';
+import { CANONICAL_COMMANDS, COMMAND_HISTORY_VIAS } from './types';
 import type { RunLedger, StageStatus } from './types';
 
 export function archiveRequired(reviewStatus: StageStatus): boolean {
@@ -10,6 +11,101 @@ export function archiveRequired(reviewStatus: StageStatus): boolean {
 export function assertSameRunId(expected: string, actual: string, label: string): void {
   if (expected !== actual) {
     throw new Error(`Run ID mismatch for ${label}: expected ${expected}, got ${actual}`);
+  }
+}
+
+function assertCanonicalCommandHistoryEntry(entry: unknown): void {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  const keys = Object.keys(entry).sort();
+  if (keys.length !== 3 || keys[0] !== 'at' || keys[1] !== 'command' || keys[2] !== 'via') {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  const record = entry as Record<string, unknown>;
+  if (!CANONICAL_COMMANDS.includes(record.command as typeof CANONICAL_COMMANDS[number])) {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  if (typeof record.at !== 'string' || record.at.trim().length === 0) {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  if (record.via !== null && !COMMAND_HISTORY_VIAS.includes(record.via as typeof COMMAND_HISTORY_VIAS[number])) {
+    throw new Error('Run ledger is not canonical');
+  }
+}
+
+function assertCanonicalRunLevelRouteCheck(ledger: RunLedger): void {
+  if (ledger.execution.mode !== 'governed_ccb') {
+    return;
+  }
+
+  if (!ledger.route_check || typeof ledger.route_check !== 'object') {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  if (typeof ledger.route_check.checked_at !== 'string' || ledger.route_check.checked_at.trim().length === 0) {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  if (!ledger.route_check.requested_route || typeof ledger.route_check.requested_route !== 'object') {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  const routeValidation = ledger.route_check.route_validation;
+  if (!routeValidation || typeof routeValidation !== 'object') {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  if (
+    typeof routeValidation.transport !== 'string'
+    || typeof routeValidation.available !== 'boolean'
+    || typeof routeValidation.approved !== 'boolean'
+    || typeof routeValidation.reason !== 'string'
+  ) {
+    throw new Error('Run ledger is not canonical');
+  }
+
+  if (routeValidation.transport === 'ccb') {
+    if (!Array.isArray(routeValidation.provider_checks) || routeValidation.provider_checks.length === 0) {
+      throw new Error('Run ledger is not canonical');
+    }
+
+    for (const check of routeValidation.provider_checks) {
+      if (
+        !check
+        || typeof check !== 'object'
+        || typeof check.provider !== 'string'
+        || typeof check.available !== 'boolean'
+        || typeof check.mounted !== 'boolean'
+        || typeof check.reason !== 'string'
+      ) {
+        throw new Error('Run ledger is not canonical');
+      }
+    }
+  }
+}
+
+export function assertCanonicalTailLedger(ledger: RunLedger, label: 'QA' | 'ship'): void {
+  if (!Array.isArray(ledger.command_history)) {
+    throw new Error(`Run ledger is not canonical before ${label}`);
+  }
+
+  for (const entry of ledger.command_history) {
+    try {
+      assertCanonicalCommandHistoryEntry(entry);
+    } catch {
+      throw new Error(`Run ledger is not canonical before ${label}`);
+    }
+  }
+
+  try {
+    assertCanonicalRunLevelRouteCheck(ledger);
+  } catch {
+    throw new Error(`Run ledger is not canonical before ${label}`);
   }
 }
 
