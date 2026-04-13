@@ -315,6 +315,12 @@ describe('nexus build routing', () => {
           'Governed handoff contract does not record verification for required provider(s): codex, gemini. Rerun /handoff with the current Nexus version before /build.',
         ],
       });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'handoff',
+        current_command: 'handoff',
+        allowed_next_stages: ['handoff'],
+      });
     });
   });
 
@@ -538,6 +544,184 @@ describe('nexus build routing', () => {
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         current_stage: 'build',
         previous_stage: 'review',
+      });
+    });
+  });
+
+  test('keeps the review stage active when a fix-cycle build finds a stale governed handoff contract, and allows handoff refresh', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Fix cycle is still outstanding.\n',
+              receipt: 'codex-review-fail',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: fail\n\nFindings:\n- Fix cycle is still outstanding.\n',
+              receipt: 'gemini-review-fail',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          resolve_route: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              available: true,
+              provider: 'codex',
+              providers: ['codex', 'gemini'],
+              mounted: ['codex', 'gemini'],
+              provider_checks: [
+                {
+                  provider: 'codex',
+                  ping_command: 'ccb-ping codex',
+                  ping_output: '✅ codex connection OK (Session healthy)',
+                },
+                {
+                  provider: 'gemini',
+                  ping_command: 'ccb-ping gemini',
+                  ping_output: '✅ gemini connection OK (Session healthy)',
+                },
+              ],
+            },
+            requested_route: null,
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/handoff/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-after-refresh',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: completed',
+                '- Actions: Applied the fix cycle after refreshing the governed handoff contract.',
+                '- Files touched: packages/db/drizzle/, src/',
+                '- Verification: Verified provider checks were refreshed before dispatch.',
+              ].join('\n'),
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.generator ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', reviewAdapters);
+
+      const handoffStatusPath = join(cwd, '.planning/current/handoff/status.json');
+      const legacyHandoffStatus = await run.readJson('.planning/current/handoff/status.json');
+      writeFileSync(
+        handoffStatusPath,
+        JSON.stringify(
+          {
+            ...legacyHandoffStatus,
+            route_validation: {
+              transport: 'ccb',
+              available: true,
+              approved: true,
+              reason: 'Legacy flat route validation',
+            },
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      await expect(run('build', reviewAdapters)).rejects.toThrow(
+        'Governed handoff contract does not record verification for required provider(s): codex, gemini. Rerun /handoff with the current Nexus version before /build.',
+      );
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'review',
+        current_command: 'review',
+        allowed_next_stages: ['handoff'],
+      });
+
+      await run('handoff', reviewAdapters);
+      await run('build', reviewAdapters);
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        ready: true,
+        route_validation: {
+          transport: 'ccb',
+          provider_checks: [
+            {
+              provider: 'codex',
+              available: true,
+              mounted: true,
+            },
+            {
+              provider: 'gemini',
+              available: true,
+              mounted: true,
+            },
+          ],
+        },
+      });
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'completed',
+        ready: true,
       });
     });
   });

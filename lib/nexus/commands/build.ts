@@ -44,6 +44,17 @@ function nextLedger(
   };
 }
 
+function blockedPreflightLedger(
+  ledger: RunLedger,
+  recoveryStage: 'handoff',
+): RunLedger {
+  return {
+    ...ledger,
+    status: 'blocked',
+    allowed_next_stages: [recoveryStage],
+  };
+}
+
 interface ParsedBuildExecutionSummary {
   status: 'completed' | 'blocked';
   markdown: string;
@@ -167,7 +178,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
     };
-    const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via);
+    const next = blockedPreflightLedger(ledger, 'handoff');
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),

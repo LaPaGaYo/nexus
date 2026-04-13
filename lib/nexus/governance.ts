@@ -53,8 +53,8 @@ function matchesFixCycleHistory(
   actual: RunLedger['command_history'][number]['command'][],
   options: { qaRecorded: boolean; shipRecorded: boolean },
 ): boolean {
-  const expectedPrefix: RunLedger['command_history'][number]['command'][] = ['plan', 'handoff', 'build', 'review'];
-  if (actual.length < expectedPrefix.length) {
+  const expectedPrefix: RunLedger['command_history'][number]['command'][] = ['plan', 'handoff'];
+  if (actual.length < expectedPrefix.length + 2) {
     return false;
   }
 
@@ -65,12 +65,28 @@ function matchesFixCycleHistory(
   }
 
   let cursor = expectedPrefix.length;
+  while (actual[cursor] === 'handoff') {
+    cursor += 1;
+  }
+
+  if (actual[cursor] !== 'build' || actual[cursor + 1] !== 'review') {
+    return false;
+  }
+  cursor += 2;
+
   while (
-    cursor + 1 < actual.length
-    && actual[cursor] === 'build'
-    && actual[cursor + 1] === 'review'
+    cursor < actual.length
   ) {
-    cursor += 2;
+    while (actual[cursor] === 'handoff') {
+      cursor += 1;
+    }
+
+    if (cursor + 1 < actual.length && actual[cursor] === 'build' && actual[cursor + 1] === 'review') {
+      cursor += 2;
+      continue;
+    }
+
+    break;
   }
 
   if (options.qaRecorded) {

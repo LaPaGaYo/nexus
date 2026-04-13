@@ -73,7 +73,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
       '.planning/current/handoff/status.json',
     ],
     exit_condition: 'Governed handoff is explicit or refused.',
-    legal_predecessors: ['plan'],
+    legal_predecessors: ['plan', 'handoff', 'review'],
   },
   build: {
     id: 'build',

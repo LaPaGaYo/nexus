@@ -27,6 +27,7 @@ function artifactPointerFor(path: string): ArtifactPointer {
 
 function nextLedger(
   ledger: RunLedger,
+  previousStage: 'plan' | 'handoff' | 'review',
   status: RunLedger['status'],
   at: string,
   via: string | null,
@@ -34,7 +35,7 @@ function nextLedger(
   return {
     ...ledger,
     status,
-    previous_stage: 'plan',
+    previous_stage: previousStage,
     current_command: 'handoff',
     current_stage: 'handoff',
     allowed_next_stages: status === 'active' ? getAllowedNextStages('handoff') : [],
@@ -45,7 +46,11 @@ function nextLedger(
 export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const planStatusPath = stageStatusPath('plan');
+  const priorHandoffStatusPath = stageStatusPath('handoff');
+  const reviewStatusPath = stageStatusPath('review');
   const planStatus = readStageStatus(planStatusPath, ctx.cwd);
+  const priorHandoffStatus = readStageStatus(priorHandoffStatusPath, ctx.cwd);
+  const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
 
   if (!ledger || !planStatus?.ready) {
     throw new Error('Plan must be completed and ready before handoff');
@@ -54,9 +59,31 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   assertSameRunId(ledger.run_id, planStatus.run_id, 'plan status');
   assertLegalTransition(ledger.current_stage, 'handoff');
 
+  if (ledger.current_stage === 'review') {
+    if (!reviewStatus) {
+      throw new Error('Review status must exist before refreshing governed handoff from review');
+    }
+
+    assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
+
+    if (reviewStatus.gate_decision !== 'fail') {
+      throw new Error('Handoff refresh from review is only valid after a failing review gate');
+    }
+  }
+
+  if (ledger.current_stage === 'handoff' && priorHandoffStatus) {
+    assertSameRunId(ledger.run_id, priorHandoffStatus.run_id, 'handoff status');
+  }
+
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.handoff;
-  const requestedRoute = requestedBuildRouteFromLedger({
+  const requestedRoute = (
+    ledger.current_stage === 'review'
+      ? reviewStatus?.requested_route
+      : ledger.current_stage === 'handoff'
+        ? priorHandoffStatus?.requested_route
+        : null
+  ) ?? requestedBuildRouteFromLedger({
     ...ledger,
     route_intent: {
       planner: ledger.route_intent.planner ?? 'claude+pm-gsd',
@@ -81,7 +108,11 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     stage: 'handoff',
     ledger,
     manifest,
-    predecessor_artifacts: [artifactPointerFor(planStatusPath)],
+    predecessor_artifacts: ledger.current_stage === 'review'
+      ? [artifactPointerFor(planStatusPath), artifactPointerFor(reviewStatusPath)]
+      : ledger.current_stage === 'handoff' && priorHandoffStatus
+        ? [artifactPointerFor(planStatusPath), artifactPointerFor(priorHandoffStatusPath)]
+        : [artifactPointerFor(planStatusPath)],
     requested_route: requestedRoute,
   }) as Awaited<ReturnType<typeof routeAdapter.resolve_route>> & { raw_output: CcbResolveRouteRaw | LocalResolveRouteRaw };
   const routeValidation = result.outcome === 'success'
@@ -150,6 +181,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         fallback_policy: requestedRoute.fallback_policy,
       },
     },
+    ledger.current_stage === 'review' ? 'review' : ledger.current_stage === 'handoff' ? 'handoff' : 'plan',
     routeValidation.approved ? 'active' : result.outcome === 'refused' ? 'refused' : 'blocked',
     startedAt,
     ctx.via,
