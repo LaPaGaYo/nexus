@@ -25,6 +25,7 @@ tags.
 - **[v1.0.16](docs/releases/2026-04-13-nexus-v1.0.16.md)** — failing review now records a bounded fix-cycle scope, and governed fix-cycle build/review use that scope so auditors cannot reopen unrelated phase-wide gaps as fresh blocking failures.
 - **[v1.0.17](docs/releases/2026-04-13-nexus-v1.0.17.md)** — stale fix-cycle builds that predate `review_scope` now recover bounded review scope from the prior failing review, and governed review trace artifacts explicitly persist that scope in the dispatched adapter request.
 - **[v1.0.18](docs/releases/2026-04-13-nexus-v1.0.18.md)** — governed runs now persist workspace provenance, canonicalize route/ledger history more strictly, deduplicate bounded fix scopes, and split QA verification counts from defect counts.
+- **[v1.0.19](docs/releases/2026-04-13-nexus-v1.0.19.md)** — `/closeout` now accepts the real full lifecycle history with `discover` and `frame` before plan, instead of falsely rejecting a valid discover-to-ship governed run.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 

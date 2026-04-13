@@ -360,6 +360,26 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('allows closeout after the full discover-to-ship governed lifecycle', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        provenance_consistent: true,
+      });
+    });
+  });
+
   test('blocks closeout when ship exists and is not ready', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

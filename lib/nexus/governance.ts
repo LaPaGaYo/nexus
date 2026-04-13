@@ -149,18 +149,28 @@ function matchesFixCycleHistory(
   actual: RunLedger['command_history'][number]['command'][],
   options: { qaRecorded: boolean; shipRecorded: boolean },
 ): boolean {
+  let cursor = 0;
+
+  if (actual[cursor] === 'discover') {
+    cursor += 1;
+  }
+
+  if (actual[cursor] === 'frame') {
+    cursor += 1;
+  }
+
   const expectedPrefix: RunLedger['command_history'][number]['command'][] = ['plan', 'handoff'];
-  if (actual.length < expectedPrefix.length + 2) {
+  if (actual.length < cursor + expectedPrefix.length + 2) {
     return false;
   }
 
   for (const [index, command] of expectedPrefix.entries()) {
-    if (actual[index] !== command) {
+    if (actual[cursor + index] !== command) {
       return false;
     }
   }
 
-  let cursor = expectedPrefix.length;
+  cursor += expectedPrefix.length;
   while (actual[cursor] === 'handoff') {
     cursor += 1;
   }
