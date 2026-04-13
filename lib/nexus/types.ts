@@ -59,6 +59,14 @@ export type ProviderTopology = (typeof PROVIDER_TOPOLOGIES)[number];
 export const WORKSPACE_KINDS = ['root', 'worktree'] as const;
 export type WorkspaceKind = (typeof WORKSPACE_KINDS)[number];
 
+export const WORKSPACE_RETIREMENT_STATES = [
+  'active',
+  'retired_pending_cleanup',
+  'retained',
+  'removed',
+] as const;
+export type WorkspaceRetirementState = (typeof WORKSPACE_RETIREMENT_STATES)[number];
+
 export const STAGE_STATES = ['not_started', 'in_progress', 'completed', 'blocked', 'refused'] as const;
 export type StageState = (typeof STAGE_STATES)[number];
 
@@ -183,11 +191,19 @@ export interface ReviewScopeRecord {
   advisory_policy: 'out_of_scope_advisory';
 }
 
+export interface SessionRootRecord {
+  path: string;
+  kind: 'repo_root';
+  source: 'ccb_root';
+}
+
 export interface WorkspaceRecord {
   path: string;
   kind: WorkspaceKind;
   branch: string | null;
-  source: 'repo_root' | 'existing:nexus_worktree' | 'existing:legacy_worktree';
+  source: 'repo_root' | 'existing:nexus_worktree' | 'existing:legacy_worktree' | 'allocated:fresh_run';
+  run_id?: string;
+  retirement_state?: WorkspaceRetirementState;
 }
 
 export interface ReviewMetaRecord {
@@ -250,6 +266,7 @@ export interface StageStatus {
   primary_provider?: PrimaryProvider;
   provider_topology?: ProviderTopology;
   workspace?: WorkspaceRecord;
+  session_root?: SessionRootRecord;
   requested_execution_path?: string;
   actual_execution_path?: string | null;
   state: StageState;
@@ -288,6 +305,7 @@ export interface RunLedger {
     primary_provider: PrimaryProvider;
     provider_topology: ProviderTopology;
     workspace?: WorkspaceRecord;
+    session_root?: SessionRootRecord;
     requested_path: string;
     actual_path: string | null;
   };

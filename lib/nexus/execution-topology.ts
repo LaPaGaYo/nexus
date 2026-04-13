@@ -6,9 +6,11 @@ import type {
   PrimaryProvider,
   ProviderTopology,
   RunLedger,
+  SessionRootRecord,
   StageStatus,
   WorkspaceRecord,
 } from './types';
+import { EXECUTION_MODES, PRIMARY_PROVIDERS, PROVIDER_TOPOLOGIES } from './types';
 
 export interface ExecutionSelection {
   mode: ExecutionMode;
@@ -30,8 +32,53 @@ function readConfigValue(key: string): string | null {
     return null;
   }
 
-  const match = readFileSync(configPath, 'utf8').match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
-  return match?.[1]?.trim() ?? null;
+  for (const line of readFileSync(configPath, 'utf8').split(/\r?\n/)) {
+    const trimmedLine = line.trimStart();
+    if (!trimmedLine.startsWith(`${key}:`)) {
+      continue;
+    }
+
+    return parseConfigScalar(trimmedLine.slice(key.length + 1));
+  }
+
+  return null;
+}
+
+function parseConfigScalar(rawValue: string): string | null {
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
+    const quote = trimmed[0];
+    let end = 1;
+
+    while (end < trimmed.length) {
+      const char = trimmed[end];
+      if (char === quote && trimmed[end - 1] !== '\\') {
+        return trimmed.slice(1, end);
+      }
+      end += 1;
+    }
+
+    return trimmed.slice(1);
+  }
+
+  const commentIndex = trimmed.search(/\s#/);
+  return (commentIndex >= 0 ? trimmed.slice(0, commentIndex) : trimmed).trim();
+}
+
+function parseEnumValue<T extends string>(
+  value: string | null | undefined,
+  allowed: readonly T[],
+): T | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return allowed.includes(normalized as T) ? normalized as T : null;
 }
 
 function commandExists(command: string): boolean {
@@ -52,9 +99,12 @@ export function localExecutionPath(
 }
 
 export function defaultExecutionSelection(): ExecutionSelection {
-  const configuredMode = (process.env.NEXUS_EXECUTION_MODE ?? readConfigValue('execution_mode')) as ExecutionMode | undefined;
-  const configuredProvider = (process.env.NEXUS_PRIMARY_PROVIDER ?? readConfigValue('primary_provider')) as PrimaryProvider | undefined;
-  const configuredTopology = (process.env.NEXUS_PROVIDER_TOPOLOGY ?? readConfigValue('provider_topology')) as ProviderTopology | undefined;
+  const configuredMode = parseEnumValue(process.env.NEXUS_EXECUTION_MODE, EXECUTION_MODES)
+    ?? parseEnumValue(readConfigValue('execution_mode'), EXECUTION_MODES);
+  const configuredProvider = parseEnumValue(process.env.NEXUS_PRIMARY_PROVIDER, PRIMARY_PROVIDERS)
+    ?? parseEnumValue(readConfigValue('primary_provider'), PRIMARY_PROVIDERS);
+  const configuredTopology = parseEnumValue(process.env.NEXUS_PROVIDER_TOPOLOGY, PROVIDER_TOPOLOGIES)
+    ?? parseEnumValue(readConfigValue('provider_topology'), PROVIDER_TOPOLOGIES);
   const ccbAvailable = commandExists('ask');
 
   const mode: ExecutionMode = configuredMode
@@ -87,13 +137,14 @@ export function executionFieldsFromLedger(
   actualPath: string | null = ledger.execution.actual_path,
 ): Pick<
   StageStatus,
-  'execution_mode' | 'primary_provider' | 'provider_topology' | 'workspace' | 'requested_execution_path' | 'actual_execution_path'
+  'execution_mode' | 'primary_provider' | 'provider_topology' | 'workspace' | 'session_root' | 'requested_execution_path' | 'actual_execution_path'
 > {
   return {
     execution_mode: ledger.execution.mode,
     primary_provider: ledger.execution.primary_provider,
     provider_topology: ledger.execution.provider_topology,
     workspace: ledger.execution.workspace,
+    session_root: ledger.execution.session_root,
     requested_execution_path: ledger.execution.requested_path,
     actual_execution_path: actualPath,
   };
@@ -115,6 +166,16 @@ export function withExecutionWorkspace(ledger: RunLedger, workspace: WorkspaceRe
     execution: {
       ...ledger.execution,
       workspace,
+    },
+  };
+}
+
+export function withExecutionSessionRoot(ledger: RunLedger, sessionRoot: SessionRootRecord): RunLedger {
+  return {
+    ...ledger,
+    execution: {
+      ...ledger.execution,
+      session_root: sessionRoot,
     },
   };
 }
