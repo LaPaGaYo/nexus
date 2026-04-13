@@ -329,6 +329,13 @@ function executionWorkspacePath(ctx: NexusAdapterContext): string {
   return ctx.workspace?.path ?? ctx.cwd;
 }
 
+function sessionRootPath(
+  ctx: NexusAdapterContext,
+  options: Required<CreateRuntimeCcbAdapterOptions>,
+): string {
+  return options.resolveSessionRoot(executionWorkspacePath(ctx));
+}
+
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
   return buildBuildExecutionPrompt(ctx, 'Nexus governed stage');
 }
@@ -460,7 +467,7 @@ async function runRouteVerification(
   }
 
   const toolPaths = options.resolveToolPaths();
-  const executionCwd = executionWorkspacePath(ctx);
+  const verificationCwd = sessionRootPath(ctx, options);
   const mountedArgv = [toolPaths.mounted_path, '--autostart'];
   const verificationCommands = [
     describeCommand(mountedArgv),
@@ -472,8 +479,8 @@ async function runRouteVerification(
   try {
     mountedExecution = await options.runCommand({
       argv: mountedArgv,
-      cwd: executionCwd,
-      env: envForCwd(executionCwd),
+      cwd: verificationCwd,
+      env: envForCwd(verificationCwd),
       timeout_ms: 40_000,
     });
   } catch (error) {
@@ -541,8 +548,8 @@ async function runRouteVerification(
     try {
       pingExecution = await options.runCommand({
         argv: pingArgv,
-        cwd: executionCwd,
-        env: envForCwd(executionCwd),
+        cwd: verificationCwd,
+        env: envForCwd(verificationCwd),
         timeout_ms: 40_000,
       });
     } catch (error) {

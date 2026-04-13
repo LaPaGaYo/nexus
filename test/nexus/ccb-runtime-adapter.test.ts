@@ -85,23 +85,23 @@ describe('nexus runtime ccb adapter', () => {
     expect(calls).toHaveLength(3);
     expect(calls[0]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-mounted', '--autostart'],
-      cwd: '/repo/root/.nexus-worktrees/feature',
+      cwd: '/repo/root',
       env: {
-        PWD: '/repo/root/.nexus-worktrees/feature',
+        PWD: '/repo/root',
       },
     });
     expect(calls[1]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-ping', 'codex'],
-      cwd: '/repo/root/.nexus-worktrees/feature',
+      cwd: '/repo/root',
       env: {
-        PWD: '/repo/root/.nexus-worktrees/feature',
+        PWD: '/repo/root',
       },
     });
     expect(calls[2]).toMatchObject({
       argv: ['/opt/ccb/bin/ccb-ping', 'gemini'],
-      cwd: '/repo/root/.nexus-worktrees/feature',
+      cwd: '/repo/root',
       env: {
-        PWD: '/repo/root/.nexus-worktrees/feature',
+        PWD: '/repo/root',
       },
     });
     expect(calls[0]?.stdin_text).toBeUndefined();
@@ -165,6 +165,9 @@ describe('nexus runtime ccb adapter', () => {
       ['/opt/ccb/bin/ccb-ping', 'codex'],
       ['/opt/ccb/bin/ccb-ping', 'gemini'],
     ]);
+    expect(calls[0]?.cwd).toBe('/repo/root');
+    expect(calls[1]?.cwd).toBe('/repo/root');
+    expect(calls[2]?.cwd).toBe('/repo/root');
     expect(result.outcome).toBe('success');
   });
 

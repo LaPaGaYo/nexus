@@ -31,6 +31,7 @@ tags.
 - **[v1.0.22](docs/releases/2026-04-13-nexus-v1.0.22.md)** — governed handoff now runs `ccb-mounted --autostart` before provider pings, so provider sessions can come up before Nexus decides the route is unavailable.
 - **[v1.0.23](docs/releases/2026-04-13-nexus-v1.0.23.md)** — stable patch releases now preserve direct patch-line upgrades, and release preflight blocks manifests that accidentally require sequential patch hops.
 - **[v1.0.24](docs/releases/2026-04-13-nexus-v1.0.24.md)** — CCB and local runtime dispatch now align `PWD` with the execution workspace, so project-scoped provider/session tools stop resolving against the Nexus install directory.
+- **[v1.0.25](docs/releases/2026-04-13-nexus-v1.0.25.md)** — governed handoff now discovers CCB sessions from the repo session root even when execution happens in a linked worktree, so mounted providers are found without abandoning worktree execution.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 
