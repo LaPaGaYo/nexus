@@ -43,6 +43,53 @@ function nextLedger(
   };
 }
 
+interface ParsedBuildExecutionSummary {
+  status: 'completed' | 'blocked';
+  markdown: string;
+  actions: string | null;
+  filesTouched: string | null;
+  verification: string | null;
+}
+
+function parseBuildExecutionSummary(summaryMarkdown: string | null | undefined): ParsedBuildExecutionSummary | null {
+  if (!summaryMarkdown) {
+    return null;
+  }
+
+  const normalized = summaryMarkdown.replace(/\r\n/g, '\n');
+  const headerIndex = normalized.lastIndexOf('# Build Execution Summary');
+  if (headerIndex === -1) {
+    return null;
+  }
+
+  const markdown = normalized.slice(headerIndex).trim();
+  const statusMatch = markdown.match(/^- Status:\s*(completed|blocked)\s*$/mi);
+  if (!statusMatch) {
+    return null;
+  }
+
+  const extractLine = (label: string): string | null => {
+    const match = markdown.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'mi'));
+    return match?.[1]?.trim() ?? null;
+  };
+
+  return {
+    status: statusMatch[1] as 'completed' | 'blocked',
+    markdown,
+    actions: extractLine('Actions'),
+    filesTouched: extractLine('Files touched'),
+    verification: extractLine('Verification'),
+  };
+}
+
+function buildSummaryReliesOnStageOutputs(summary: ParsedBuildExecutionSummary): boolean {
+  return [
+    '.planning/current/build/',
+    '.planning/nexus/current-run.json',
+    'build_recorded',
+  ].some((needle) => summary.markdown.includes(needle));
+}
+
 export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const handoffStatusPath = stageStatusPath('handoff');
@@ -400,24 +447,15 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     );
   }
 
-  const routesMatch = requestedAndActualRouteMatch(requestedRoute, result.actual_route);
-  if (!routesMatch) {
-    const conflict: ConflictRecord = {
-      stage: 'build',
-      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
-      kind: 'route_mismatch',
-      message: 'Requested and actual route diverged',
-      canonical_paths: [buildRequestPath, statusPath],
-      trace_paths: [
-        '.planning/current/build/adapter-request.json',
-        '.planning/current/build/adapter-output.json',
-        '.planning/current/build/normalization.json',
-      ],
-    };
+  const recordBlockedBuild = async (
+    message: string,
+    actualRoute: StageStatus['actual_route'],
+    kind: ConflictRecord['kind'] = 'backend_conflict',
+  ) => {
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'build',
-      ...executionFieldsFromLedger(ledger, result.actual_route?.route ?? null),
+      ...executionFieldsFromLedger(ledger, actualRoute?.route ?? null),
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -425,15 +463,27 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
       started_at: startedAt,
       completed_at: startedAt,
-      errors: ['Requested and actual route diverged'],
+      errors: [message],
       requested_route: requestedRoute,
-      actual_route: result.actual_route,
+      actual_route: actualRoute,
     };
-    const next = withActualExecutionPath(nextLedger(ledger, 'blocked', startedAt, ctx.via), result.actual_route?.route ?? null);
+    const next = withActualExecutionPath(nextLedger(ledger, 'blocked', startedAt, ctx.via), actualRoute?.route ?? null);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
       [statusPath]: artifactPointerFor(statusPath),
+    };
+    const conflict: ConflictRecord = {
+      stage: 'build',
+      adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
+      kind,
+      message,
+      canonical_paths: [buildRequestPath, statusPath],
+      trace_paths: [
+        '.planning/current/build/adapter-request.json',
+        '.planning/current/build/adapter-output.json',
+        '.planning/current/build/normalization.json',
+      ],
     };
 
     await applyNormalizationPlan({
@@ -449,7 +499,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         result,
         {
           outcome: 'blocked',
-          error: 'Requested and actual route diverged',
+          error: message,
           discipline_summary: normalizedDiscipline.verification_summary,
           status: { state: status.state, decision: status.decision, ready: status.ready },
         },
@@ -458,8 +508,27 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ledger: next,
       conflicts: [conflict, ...result.conflict_candidates],
     });
+  };
 
+  const routesMatch = requestedAndActualRouteMatch(requestedRoute, result.actual_route);
+  if (!routesMatch) {
+    await recordBlockedBuild('Requested and actual route diverged', result.actual_route, 'route_mismatch');
     throw new Error('Requested and actual route diverged');
+  }
+
+  const parsedSummary = parseBuildExecutionSummary(result.raw_output.summary_markdown);
+  if (parsedSummary?.status === 'blocked') {
+    const message = parsedSummary.actions
+      ? `Generator reported blocked build contract: ${parsedSummary.actions}`
+      : 'Generator reported blocked build contract';
+    await recordBlockedBuild(message, result.actual_route);
+    throw new Error(message);
+  }
+
+  if (parsedSummary && buildSummaryReliesOnStageOutputs(parsedSummary)) {
+    const message = 'Generator build summary relied on existing build-stage artifacts instead of predecessor artifacts or repository implementation state';
+    await recordBlockedBuild(message, result.actual_route);
+    throw new Error(message);
   }
 
   const buildResultWrite = {

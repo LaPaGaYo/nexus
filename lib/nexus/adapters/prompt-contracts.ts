@@ -27,6 +27,8 @@ export function buildBuildExecutionPrompt(ctx: NexusAdapterContext, stageLabel: 
     buildPromptContextPreamble(ctx, stageLabel),
     'Execute the bounded Nexus /build contract for this repository.',
     'Apply repository changes only if the repo-visible governed artifacts require them.',
+    'Do not treat existing `.planning/current/build/*` files or `.planning/nexus/current-run.json` as proof that `/build` is already complete.',
+    'Those are outputs of this stage and may be stale from an earlier run; use predecessor artifacts and current repository implementation state instead.',
     'After execution, reply with markdown only in this form:',
     '# Build Execution Summary',
     '',

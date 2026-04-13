@@ -317,4 +317,118 @@ describe('nexus build routing', () => {
       });
     });
   });
+
+  test('blocks build when generator reports a blocked build summary', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const adapters = makeFakeAdapters({
+        ccb: {
+          execute_generator: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-codex-1',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: blocked',
+                '- Actions: The governed contract is inconsistent with the current checkout.',
+                '- Files touched: none',
+                '- Verification: Fresh reads of the handoff packet show the build cannot proceed as-is.',
+              ].join('\n'),
+            },
+            requested_route: {
+              command: 'build',
+              governed: true,
+              planner: 'claude+pm-gsd',
+              generator: 'codex-via-ccb',
+              evaluator_a: 'codex-via-ccb',
+              evaluator_b: 'gemini-via-ccb',
+              synthesizer: 'claude',
+              substrate: 'superpowers-core',
+              fallback_policy: 'disabled',
+            },
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await expect(run('build', adapters)).rejects.toThrow(
+        'Generator reported blocked build contract: The governed contract is inconsistent with the current checkout.',
+      );
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'blocked',
+        ready: false,
+        errors: ['Generator reported blocked build contract: The governed contract is inconsistent with the current checkout.'],
+      });
+    });
+  });
+
+  test('blocks build when generator treats existing build-stage artifacts as completion evidence', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const adapters = makeFakeAdapters({
+        ccb: {
+          execute_generator: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-codex-2',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: completed',
+                '- Actions: `.planning/current/build/status.json` already marks the stage `build_recorded`, so no repository changes are required.',
+                '- Files touched: none',
+                '- Verification: Confirmed `.planning/current/build/build-result.md` and `.planning/nexus/current-run.json` already show a recorded build outcome.',
+              ].join('\n'),
+            },
+            requested_route: {
+              command: 'build',
+              governed: true,
+              planner: 'claude+pm-gsd',
+              generator: 'codex-via-ccb',
+              evaluator_a: 'codex-via-ccb',
+              evaluator_b: 'gemini-via-ccb',
+              synthesizer: 'claude',
+              substrate: 'superpowers-core',
+              fallback_policy: 'disabled',
+            },
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await expect(run('build', adapters)).rejects.toThrow(
+        'Generator build summary relied on existing build-stage artifacts instead of predecessor artifacts or repository implementation state',
+      );
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'blocked',
+        ready: false,
+        errors: ['Generator build summary relied on existing build-stage artifacts instead of predecessor artifacts or repository implementation state'],
+      });
+    });
+  });
 });
