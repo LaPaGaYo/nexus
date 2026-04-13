@@ -27,6 +27,7 @@ tags.
 - **[v1.0.18](docs/releases/2026-04-13-nexus-v1.0.18.md)** — governed runs now persist workspace provenance, canonicalize route/ledger history more strictly, deduplicate bounded fix scopes, and split QA verification counts from defect counts.
 - **[v1.0.19](docs/releases/2026-04-13-nexus-v1.0.19.md)** — `/closeout` now accepts the real full lifecycle history with `discover` and `frame` before plan, instead of falsely rejecting a valid discover-to-ship governed run.
 - **[v1.0.20](docs/releases/2026-04-13-nexus-v1.0.20.md)** — `/discover` now rolls a completed closeout into a fresh run automatically, archiving the prior run ledger and closeout snapshot instead of forcing manual cleanup.
+- **[v1.0.21](docs/releases/2026-04-13-nexus-v1.0.21.md)** — blocked `/handoff` attempts now preserve a canonical retry path, and release smoke no longer misread stale GitHub raw manifests after publish.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 

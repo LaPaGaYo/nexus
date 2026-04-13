@@ -75,8 +75,9 @@ async function loadRemoteReleaseJson() {
     return process.env.NEXUS_REMOTE_RELEASE_JSON;
   }
 
-  const releaseJsonUrl = `https://raw.githubusercontent.com/${releaseRepo}/${expectedTag}/release.json`;
+  const releaseJsonUrl = `https://raw.githubusercontent.com/${releaseRepo}/${expectedTag}/release.json?cache_bust=${Date.now()}`;
   const response = await fetch(releaseJsonUrl, {
+    cache: 'no-store',
     headers: {
       accept: 'application/json',
       'user-agent': 'nexus-release-smoke',

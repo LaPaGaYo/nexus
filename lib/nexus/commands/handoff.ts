@@ -35,13 +35,15 @@ function nextLedger(
   at: string,
   via: CommandHistoryVia,
 ): RunLedger {
+  const allowedNextStages = status === 'active' ? getAllowedNextStages('handoff') : ['handoff'];
+
   return {
     ...ledger,
     status,
     previous_stage: previousStage,
     current_command: 'handoff',
     current_stage: 'handoff',
-    allowed_next_stages: status === 'active' ? getAllowedNextStages('handoff') : [],
+    allowed_next_stages: allowedNextStages,
     command_history: [...ledger.command_history, { command: 'handoff', at, via }],
   };
 }

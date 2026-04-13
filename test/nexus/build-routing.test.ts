@@ -209,6 +209,7 @@ describe('nexus build routing', () => {
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         status: 'blocked',
         current_stage: 'handoff',
+        allowed_next_stages: ['handoff'],
         route_check: {
           checked_at: expect.any(String),
           requested_route: {
@@ -246,6 +247,111 @@ describe('nexus build routing', () => {
         stage: 'handoff',
         adapter: 'ccb',
         kind: 'backend_conflict',
+      });
+    });
+  });
+
+  test('allows retrying handoff directly after a blocked governed route check', async () => {
+    await runInTempRepo(async ({ run }) => {
+      let attempts = 0;
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async () => {
+            attempts += 1;
+
+            if (attempts === 1) {
+              return {
+                adapter_id: 'ccb',
+                outcome: 'success',
+                raw_output: {
+                  available: false,
+                  provider: 'codex',
+                  providers: ['codex', 'gemini'],
+                  mounted: ['codex'],
+                  provider_checks: [
+                    {
+                      provider: 'codex',
+                      ping_command: 'ccb-ping codex',
+                      ping_output: '✅ codex connection OK (Session healthy)',
+                    },
+                    {
+                      provider: 'gemini',
+                      ping_command: 'ccb-ping gemini',
+                      ping_output: '❌ gemini unavailable',
+                    },
+                  ],
+                },
+                requested_route: null,
+                actual_route: null,
+                notices: [],
+                conflict_candidates: [],
+              };
+            }
+
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                available: true,
+                provider: 'codex',
+                providers: ['codex', 'gemini'],
+                mounted: ['codex', 'gemini'],
+                provider_checks: [
+                  {
+                    provider: 'codex',
+                    ping_command: 'ccb-ping codex',
+                    ping_output: '✅ codex connection OK (Session healthy)',
+                  },
+                  {
+                    provider: 'gemini',
+                    ping_command: 'ccb-ping gemini',
+                    ping_output: '✅ gemini connection OK (Session healthy)',
+                  },
+                ],
+              },
+              requested_route: null,
+              actual_route: null,
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('plan');
+      await expect(run('handoff', adapters)).rejects.toThrow('Governed route is not approved by Nexus');
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'handoff',
+        current_command: 'handoff',
+        allowed_next_stages: ['handoff'],
+      });
+
+      await run('handoff', adapters);
+
+      expect(attempts).toBe(2);
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        state: 'completed',
+        ready: true,
+        route_validation: {
+          transport: 'ccb',
+          available: true,
+          approved: true,
+          mounted_providers: ['codex', 'gemini'],
+        },
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'active',
+        current_stage: 'handoff',
+        current_command: 'handoff',
+        allowed_next_stages: ['handoff', 'build'],
+        command_history: [
+          expect.objectContaining({ command: 'plan' }),
+          expect.objectContaining({ command: 'handoff', via: null }),
+          expect.objectContaining({ command: 'handoff', via: 'refresh' }),
+        ],
       });
     });
   });
