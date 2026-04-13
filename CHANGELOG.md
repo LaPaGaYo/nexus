@@ -19,6 +19,7 @@ tags.
 - **[v1.0.10](docs/releases/2026-04-12-nexus-v1.0.10.md)** — smarter routing injection and governed handoff validation that checks every required CCB provider.
 - **[v1.0.11](docs/releases/2026-04-12-nexus-v1.0.11.md)** — canonical wrappers now preserve the active project cwd so governed build/review/qa run against the right repo.
 - **[v1.0.12](docs/releases/2026-04-12-nexus-v1.0.12.md)** — `/build` now locally rejects stale governed handoff packets before dispatching to Codex.
+- **[v1.0.13](docs/releases/2026-04-12-nexus-v1.0.13.md)** — governed build no longer self-certifies from prior build artifacts, and failing dual review now routes into a canonical fix-cycle `/build`.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 
