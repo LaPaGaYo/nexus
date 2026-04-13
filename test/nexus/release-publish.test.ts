@@ -123,6 +123,47 @@ describe('nexus release publish contract', () => {
     }
   });
 
+  test('blocks patch releases that require sequential upgrades within the same patch line', () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-release-preflight-'));
+
+    try {
+      mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
+      writeFileSync(join(root, 'VERSION'), '1.0.22\n');
+      writeJson(join(root, 'package.json'), { version: '1.0.22' });
+      writeJson(join(root, 'release.json'), {
+        schema_version: 1,
+        product: 'nexus',
+        version: '1.0.22',
+        tag: 'v1.0.22',
+        channel: 'stable',
+        published_at: '2026-04-13T00:00:00Z',
+        release_notes_path: 'docs/releases/2026-04-13-nexus-v1.0.22.md',
+        bundle: {
+          type: 'tar.gz',
+          url: 'https://github.com/LaPaGaYo/nexus/archive/refs/tags/v1.0.22.tar.gz',
+        },
+        compatibility: {
+          upgrade_from_min_version: '1.0.21',
+          requires_setup: true,
+        },
+      });
+      writeFileSync(join(root, 'docs', 'releases', '2026-04-13-nexus-v1.0.22.md'), '# Nexus v1.0.22\n');
+
+      const report = buildReleasePreflightReport({
+        rootDir: root,
+        gitStatusLines: [],
+        existingTags: ['v1.0.21'],
+      });
+
+      expect(report.status).toBe('blocked');
+      expect(report.issues).toContain(
+        'release.json compatibility.upgrade_from_min_version 1.0.21 exceeds the patch-line direct-upgrade floor 1.0.0',
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('nexus-release-preflight prints READY for aligned release artifacts', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-release-preflight-cli-'));
 

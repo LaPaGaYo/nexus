@@ -95,7 +95,7 @@ describe('nexus-maintainer-check', () => {
           url: 'https://github.com/LaPaGaYo/nexus/archive/refs/tags/v1.0.2.tar.gz',
         },
         compatibility: {
-          upgrade_from_min_version: '1.0.1',
+          upgrade_from_min_version: '1.0.0',
           requires_setup: true,
         },
       });
@@ -148,7 +148,7 @@ describe('nexus-maintainer-check', () => {
           url: 'https://github.com/LaPaGaYo/nexus/archive/refs/tags/v1.0.2.tar.gz',
         },
         compatibility: {
-          upgrade_from_min_version: '1.0.1',
+          upgrade_from_min_version: '1.0.0',
           requires_setup: true,
         },
       });

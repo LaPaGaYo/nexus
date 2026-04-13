@@ -32,6 +32,12 @@ export interface ReleaseManifest {
   compatibility: ReleaseCompatibility;
 }
 
+export interface ParsedReleaseVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -46,6 +52,51 @@ function assertBoolean(value: unknown, label: string): asserts value is boolean 
   if (typeof value !== 'boolean') {
     throw new Error(`${label} must be a boolean`);
   }
+}
+
+export function parseReleaseVersion(version: string): ParsedReleaseVersion | null {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (match === null) {
+    return null;
+  }
+
+  return {
+    major: Number.parseInt(match[1]!, 10),
+    minor: Number.parseInt(match[2]!, 10),
+    patch: Number.parseInt(match[3]!, 10),
+  };
+}
+
+export function compareReleaseVersions(left: string, right: string): number {
+  const leftParts = parseReleaseVersion(left);
+  const rightParts = parseReleaseVersion(right);
+
+  if (leftParts === null || rightParts === null) {
+    throw new Error(`release versions must be strict semver: ${left} vs ${right}`);
+  }
+
+  if (leftParts.major !== rightParts.major) {
+    return leftParts.major > rightParts.major ? 1 : -1;
+  }
+
+  if (leftParts.minor !== rightParts.minor) {
+    return leftParts.minor > rightParts.minor ? 1 : -1;
+  }
+
+  if (leftParts.patch !== rightParts.patch) {
+    return leftParts.patch > rightParts.patch ? 1 : -1;
+  }
+
+  return 0;
+}
+
+export function getPatchLineDirectUpgradeFloor(version: string): string | null {
+  const parsed = parseReleaseVersion(version);
+  if (parsed === null || parsed.patch === 0) {
+    return null;
+  }
+
+  return `${parsed.major}.${parsed.minor}.0`;
 }
 
 export function assertSupportedReleaseChannel(value: unknown, label = 'channel'): asserts value is SupportedReleaseChannel {

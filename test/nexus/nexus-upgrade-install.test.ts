@@ -268,6 +268,41 @@ describe('nexus-upgrade-install', () => {
     expect(existsSync(join(stateDir, 'just-upgraded-from'))).toBe(false);
   });
 
+  test('upgrades directly across multiple patch releases within the same patch line', () => {
+    setupCurrentInstall('1.0.19');
+    makeReleaseFixture({
+      version: '1.0.23',
+      tag: 'v1.0.23',
+      setupScript: '#!/usr/bin/env bash\nexit 0\n',
+      manifestOverrides: {
+        compatibility: {
+          upgrade_from_min_version: '1.0.0',
+          requires_setup: true,
+        },
+      },
+    });
+
+    const result = run({
+      NEXUS_UPGRADE_TO_VERSION: '1.0.23',
+      NEXUS_UPGRADE_TO_TAG: 'v1.0.23',
+      NEXUS_RELEASE_MANIFEST_URL: `file://${join(fixtureDir, 'v1.0.23.release.json')}`,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(readFileSync(join(installDir, 'VERSION'), 'utf8').trim()).toBe('1.0.23');
+    expect(readInstallMetadata(installDir)).toMatchObject({
+      installed_version: '1.0.23',
+      installed_tag: 'v1.0.23',
+    });
+    expect(JSON.parse(readFileSync(join(stateDir, 'update-state', 'just-upgraded.json'), 'utf8'))).toMatchObject({
+      from_version: '1.0.19',
+      from_tag: 'v1.0.19',
+      to_version: '1.0.23',
+      to_tag: 'v1.0.23',
+    });
+  });
+
   test('restores the previous install when setup fails', () => {
     setupCurrentInstall('1.0.0');
     makeReleaseFixture({

@@ -6,6 +6,8 @@ import {
   RELEASE_CHANNELS,
   RESERVED_RELEASE_CHANNELS,
   assertReleaseManifest,
+  compareReleaseVersions,
+  getPatchLineDirectUpgradeFloor,
   getReleaseNotesPath,
 } from '../../lib/nexus/release-contract';
 import type { ReleaseManifest } from '../../lib/nexus/release-contract';
@@ -42,11 +44,19 @@ describe('nexus release contract', () => {
   test('keeps the current release version tag and release notes aligned', () => {
     const manifest = JSON.parse(readFileSync('release.json', 'utf8')) as ReleaseManifest;
 
-    expect(VERSION).toBe('1.0.22');
+    expect(VERSION).toBe('1.0.23');
     expect(manifest.version).toBe(VERSION);
     expect(manifest.tag).toBe(`v${VERSION}`);
-    expect(manifest.release_notes_path).toBe('docs/releases/2026-04-13-nexus-v1.0.22.md');
+    expect(manifest.release_notes_path).toBe('docs/releases/2026-04-13-nexus-v1.0.23.md');
     expect(manifest.release_notes_path).toBe(getReleaseNotesPath('2026-04-13', VERSION));
+  });
+
+  test('keeps the current patch release directly upgradeable from the start of its patch line', () => {
+    const manifest = JSON.parse(readFileSync('release.json', 'utf8')) as ReleaseManifest;
+    const patchLineFloor = getPatchLineDirectUpgradeFloor(VERSION);
+
+    expect(patchLineFloor).toBe('1.0.0');
+    expect(compareReleaseVersions(manifest.compatibility.upgrade_from_min_version, patchLineFloor!)).toBeLessThanOrEqual(0);
   });
 
   test('accepts only documented update-state statuses', () => {

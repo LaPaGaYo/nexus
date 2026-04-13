@@ -1,6 +1,13 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { assertReleaseManifest, getReleaseNotesPath, getReleaseTag, type ReleaseManifest } from './release-contract';
+import {
+  assertReleaseManifest,
+  compareReleaseVersions,
+  getPatchLineDirectUpgradeFloor,
+  getReleaseNotesPath,
+  getReleaseTag,
+  type ReleaseManifest,
+} from './release-contract';
 
 export const RELEASE_PREFLIGHT_STATUSES = ['ready', 'blocked'] as const;
 export type ReleasePreflightStatus = (typeof RELEASE_PREFLIGHT_STATUSES)[number];
@@ -110,6 +117,16 @@ export function buildReleasePreflightReport(input: {
 
   if (manifest.bundle.url !== expectedBundleUrl) {
     issues.push(`release.json bundle.url ${manifest.bundle.url} does not match expected ${expectedBundleUrl}`);
+  }
+
+  const expectedPatchLineUpgradeFloor = getPatchLineDirectUpgradeFloor(version);
+  if (
+    expectedPatchLineUpgradeFloor !== null
+    && compareReleaseVersions(manifest.compatibility.upgrade_from_min_version, expectedPatchLineUpgradeFloor) > 0
+  ) {
+    issues.push(
+      `release.json compatibility.upgrade_from_min_version ${manifest.compatibility.upgrade_from_min_version} exceeds the patch-line direct-upgrade floor ${expectedPatchLineUpgradeFloor}`,
+    );
   }
 
   if (input.gitStatusLines.length > 0) {

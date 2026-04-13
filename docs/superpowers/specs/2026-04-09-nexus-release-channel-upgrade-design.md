@@ -154,6 +154,9 @@ Field rules:
 - `bundle.url` must resolve to the exact installable release bundle
 - `compatibility.upgrade_from_min_version` defines the minimum supported
   in-place upgrade source
+- stable patch releases must preserve direct upgrades across the patch line;
+  e.g. `1.0.23` must not require sequential upgrades from `1.0.22`, and should
+  accept at least `1.0.0`
 
 If release metadata from GitHub and `release.json` disagree, the release is not
 upgrade-valid.
