@@ -1,8 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { archivedCloseoutRootFor, archivedRunLedgerPath, stageStatusPath } from './artifacts';
 import { defaultExecutionSelection, type ExecutionSelection } from './execution-topology';
+import { readStageStatus } from './status';
 import { getAllowedNextStages } from './transitions';
-import type { CanonicalCommandId, RunLedger } from './types';
+import type { CanonicalCommandId, RunLedger, StageStatus } from './types';
 
 const LEDGER_PATH = '.planning/nexus/current-run.json';
 
@@ -22,6 +24,39 @@ export function readLedger(cwd = process.cwd()): RunLedger | null {
 export function writeLedger(ledger: RunLedger, cwd = process.cwd()): void {
   mkdirSync(join(cwd, '.planning', 'nexus'), { recursive: true });
   writeFileSync(ledgerPath(cwd), JSON.stringify(ledger, null, 2) + '\n');
+}
+
+function closeoutReadyForRollover(status: StageStatus | null, runId: string): boolean {
+  return Boolean(
+    status
+      && status.run_id === runId
+      && status.stage === 'closeout'
+      && status.state === 'completed'
+      && status.ready === true,
+  );
+}
+
+export function isCompletedCloseoutLedger(ledger: RunLedger, cwd = process.cwd()): boolean {
+  if (ledger.current_stage !== 'closeout' || ledger.status !== 'completed') {
+    return false;
+  }
+
+  const closeoutStatus = readStageStatus(stageStatusPath('closeout'), cwd);
+  return closeoutReadyForRollover(closeoutStatus, ledger.run_id);
+}
+
+export function archiveCompletedRunLedger(ledger: RunLedger, cwd = process.cwd()): void {
+  const archivedLedger = join(cwd, archivedRunLedgerPath(ledger.run_id));
+  mkdirSync(dirname(archivedLedger), { recursive: true });
+  writeFileSync(archivedLedger, JSON.stringify(ledger, null, 2) + '\n');
+
+  const closeoutRoot = join(cwd, '.planning', 'current', 'closeout');
+  if (existsSync(closeoutRoot)) {
+    cpSync(closeoutRoot, join(cwd, archivedCloseoutRootFor(ledger.run_id)), {
+      recursive: true,
+      force: true,
+    });
+  }
 }
 
 export function makeRunId(clock: () => string): string {

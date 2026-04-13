@@ -3,6 +3,7 @@ import type { ArtifactPointer, CanonicalCommandId } from './types';
 export const CURRENT_ROOT = '.planning/current';
 export const AUDIT_ROOT = '.planning/audits/current';
 export const ARCHIVE_ROOT = '.planning/audits/archive';
+export const RUN_ARCHIVE_ROOT = '.planning/archive/runs';
 
 export function stageStatusPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/status.json`;
@@ -53,4 +54,16 @@ export function currentAuditPointer(
 
 export function archiveRootFor(runId: string): string {
   return `${ARCHIVE_ROOT}/${runId}`;
+}
+
+export function runArchiveRootFor(runId: string): string {
+  return `${RUN_ARCHIVE_ROOT}/${runId}`;
+}
+
+export function archivedRunLedgerPath(runId: string): string {
+  return `${runArchiveRootFor(runId)}/current-run.json`;
+}
+
+export function archivedCloseoutRootFor(runId: string): string {
+  return `${runArchiveRootFor(runId)}/closeout`;
 }

@@ -167,6 +167,51 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('rolls over to a fresh discover run after a completed closeout', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      const completedLedger = await run.readJson('.planning/nexus/current-run.json');
+
+      await run('discover');
+
+      const nextLedger = await run.readJson('.planning/nexus/current-run.json');
+      expect(nextLedger.run_id).not.toBe(completedLedger.run_id);
+      expect(nextLedger).toMatchObject({
+        status: 'active',
+        current_command: 'discover',
+        current_stage: 'discover',
+        previous_stage: null,
+        allowed_next_stages: ['frame'],
+      });
+      expect(nextLedger.command_history).toHaveLength(1);
+      expect(nextLedger.command_history[0]).toMatchObject({
+        command: 'discover',
+        via: null,
+      });
+
+      expect(await run.readJson(`.planning/archive/runs/${completedLedger.run_id}/current-run.json`)).toMatchObject({
+        run_id: completedLedger.run_id,
+        current_stage: 'closeout',
+        status: 'completed',
+      });
+      expect(await run.readJson(`.planning/archive/runs/${completedLedger.run_id}/closeout/status.json`)).toMatchObject({
+        run_id: completedLedger.run_id,
+        stage: 'closeout',
+        state: 'completed',
+        ready: true,
+      });
+    });
+  });
+
   test('records refused framing without advancing the lifecycle', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('discover');

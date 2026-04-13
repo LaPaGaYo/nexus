@@ -1,5 +1,4 @@
-import { writeLedger, readLedger, startLedger, makeRunId } from '../ledger';
-import { writeStageStatus } from '../status';
+import { archiveCompletedRunLedger, isCompletedCloseoutLedger, readLedger, startLedger, makeRunId } from '../ledger';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
@@ -63,11 +62,17 @@ function buildStatus(
 
 export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   const existingLedger = readLedger(ctx.cwd);
-  if (existingLedger && existingLedger.current_stage !== 'discover') {
+  if (existingLedger && existingLedger.current_stage !== 'discover' && !isCompletedCloseoutLedger(existingLedger, ctx.cwd)) {
     throw new Error(`Illegal Nexus transition: ${existingLedger.current_stage} -> discover`);
   }
 
-  const ledger = existingLedger ?? startLedger(makeRunId(ctx.clock), 'discover', ctx.execution);
+  if (existingLedger && existingLedger.current_stage === 'closeout') {
+    archiveCompletedRunLedger(existingLedger, ctx.cwd);
+  }
+
+  const ledger = existingLedger && existingLedger.current_stage === 'discover'
+    ? existingLedger
+    : startLedger(makeRunId(ctx.clock), 'discover', ctx.execution);
   const at = ctx.clock();
   const manifest = CANONICAL_MANIFEST.discover;
   const requestPayload = {
