@@ -78,7 +78,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
 
   assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
   assertLegalTransition(ledger.current_stage, 'qa');
-  assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
+  try {
+    assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
+  } catch {
+    throw new Error('Review must be completed before QA');
+  }
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.qa;

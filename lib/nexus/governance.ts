@@ -49,26 +49,55 @@ export function assertExpectedHistoryOneOf(
   throw new Error('Illegal Nexus transition history');
 }
 
+function matchesFixCycleHistory(
+  actual: RunLedger['command_history'][number]['command'][],
+  options: { qaRecorded: boolean; shipRecorded: boolean },
+): boolean {
+  const expectedPrefix: RunLedger['command_history'][number]['command'][] = ['plan', 'handoff', 'build', 'review'];
+  if (actual.length < expectedPrefix.length) {
+    return false;
+  }
+
+  for (const [index, command] of expectedPrefix.entries()) {
+    if (actual[index] !== command) {
+      return false;
+    }
+  }
+
+  let cursor = expectedPrefix.length;
+  while (
+    cursor + 1 < actual.length
+    && actual[cursor] === 'build'
+    && actual[cursor + 1] === 'review'
+  ) {
+    cursor += 2;
+  }
+
+  if (options.qaRecorded) {
+    if (actual[cursor] !== 'qa') {
+      return false;
+    }
+    cursor += 1;
+  }
+
+  if (options.shipRecorded) {
+    if (actual[cursor] !== 'ship') {
+      return false;
+    }
+    cursor += 1;
+  }
+
+  return cursor === actual.length;
+}
+
 export function assertCloseoutHistory(
   ledger: RunLedger,
   options: { qaRecorded: boolean; shipRecorded: boolean },
 ): void {
-  if (options.shipRecorded) {
-    assertExpectedHistory(
-      ledger,
-      options.qaRecorded
-        ? ['plan', 'handoff', 'build', 'review', 'qa', 'ship']
-        : ['plan', 'handoff', 'build', 'review', 'ship'],
-    );
-    return;
+  const actual = ledger.command_history.map((entry) => entry.command);
+  if (!matchesFixCycleHistory(actual, options)) {
+    throw new Error('Illegal Nexus transition history');
   }
-
-  if (options.qaRecorded) {
-    assertExpectedHistory(ledger, ['plan', 'handoff', 'build', 'review', 'qa']);
-    return;
-  }
-
-  assertExpectedHistory(ledger, ['plan', 'handoff', 'build', 'review']);
 }
 
 export function archiveAuditWorkspace(runId: string, cwd = process.cwd()): string {
@@ -105,8 +134,10 @@ export function assertReviewReadyForCloseout(reviewStatus: StageStatus, cwd = pr
   if (
     reviewStatus.state !== 'completed'
     || reviewStatus.decision !== 'audit_recorded'
+    || reviewStatus.ready !== true
     || reviewStatus.audit_set_complete !== true
     || reviewStatus.provenance_consistent !== true
+    || reviewStatus.gate_decision !== 'pass'
   ) {
     throw new Error('Review must be completed before closeout');
   }

@@ -431,4 +431,114 @@ describe('nexus build routing', () => {
       });
     });
   });
+
+  test('allows a failing review gate to route back into build for a governed fix cycle', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Remove the old Vue files before Phase 2.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-fix-cycle',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: completed',
+                '- Actions: Applied the bounded fix items from the failing review gate.',
+                '- Files touched: src/, packages/db/drizzle/',
+                '- Verification: Verified the fix cycle changed repository implementation state instead of reusing prior build artifacts.',
+              ].join('\n'),
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.generator ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', reviewAdapters);
+      await run('build', reviewAdapters);
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'completed',
+        ready: true,
+        actual_route: {
+          provider: 'codex',
+          route: 'codex-via-ccb',
+        },
+      });
+      expect(await run.readJson('.planning/current/build/build-request.json')).toMatchObject({
+        requested_route: {
+          command: 'build',
+          generator: 'codex-via-ccb',
+          evaluator_b: 'gemini-via-ccb',
+        },
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'build',
+        previous_stage: 'review',
+      });
+    });
+  });
 });

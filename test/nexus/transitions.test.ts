@@ -9,7 +9,7 @@ describe('nexus transitions', () => {
     expect(getAllowedNextStages('plan')).toEqual(['handoff']);
     expect(getAllowedNextStages('handoff')).toEqual(['build']);
     expect(getAllowedNextStages('build')).toEqual(['review']);
-    expect(getAllowedNextStages('review')).toEqual(['qa', 'ship', 'closeout']);
+    expect(getAllowedNextStages('review')).toEqual(['build', 'qa', 'ship', 'closeout']);
     expect(getAllowedNextStages('qa')).toEqual(['ship', 'closeout']);
     expect(getAllowedNextStages('ship')).toEqual(['closeout']);
   });
@@ -19,6 +19,7 @@ describe('nexus transitions', () => {
   });
 
   test('allows governed tail transitions through qa and ship', () => {
+    expect(() => assertLegalTransition('review', 'build')).not.toThrow();
     expect(() => assertLegalTransition('review', 'qa')).not.toThrow();
     expect(() => assertLegalTransition('review', 'ship')).not.toThrow();
     expect(() => assertLegalTransition('qa', 'ship')).not.toThrow();

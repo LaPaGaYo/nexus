@@ -39,6 +39,7 @@ function nextLedger(
   status: RunLedger['status'],
   at: string,
   via: string | null,
+  allowedNextStages: RunLedger['allowed_next_stages'] = status === 'active' ? getAllowedNextStages('review') : [],
 ): RunLedger {
   return {
     ...ledger,
@@ -46,9 +47,18 @@ function nextLedger(
     previous_stage: 'build',
     current_command: 'review',
     current_stage: 'review',
-    allowed_next_stages: status === 'active' ? getAllowedNextStages('review') : [],
+    allowed_next_stages: allowedNextStages,
     command_history: [...ledger.command_history, { command: 'review', at, via }],
   };
+}
+
+function parseAuditVerdict(markdown: string, label: string): 'pass' | 'fail' {
+  const match = markdown.match(/Result:\s*(pass|fail)/i);
+  if (!match) {
+    throw new Error(`${label} audit is missing a canonical Result: pass|fail line`);
+  }
+
+  return match[1].toLowerCase() as 'pass' | 'fail';
 }
 
 function blockedReviewStatus(
@@ -392,8 +402,11 @@ export async function runReviewWithWriteAtomicFile(
   assertNonEmptyMarkdown(codexMarkdown, 'Codex audit');
   assertNonEmptyMarkdown(geminiMarkdown, 'Gemini audit');
 
-  const synthesisMarkdown = buildReviewSynthesisMarkdown(disciplineSummary, codexMarkdown, geminiMarkdown);
-  const gateDecisionMarkdown = buildReviewGateDecisionMarkdown('pass');
+  const codexVerdict = parseAuditVerdict(codexMarkdown, 'Codex');
+  const geminiVerdict = parseAuditVerdict(geminiMarkdown, 'Gemini');
+  const gateDecision = codexVerdict === 'pass' && geminiVerdict === 'pass' ? 'pass' : 'fail';
+  const synthesisMarkdown = buildReviewSynthesisMarkdown(disciplineSummary, codexMarkdown, geminiMarkdown, gateDecision);
+  const gateDecisionMarkdown = buildReviewGateDecisionMarkdown(gateDecision);
   const meta: ReviewMetaRecord = {
     run_id: ledger.run_id,
     execution_mode: ledger.execution.mode,
@@ -459,22 +472,28 @@ export async function runReviewWithWriteAtomicFile(
     ...executionFieldsFromLedger(ledger, actualRoute.route),
     state: 'completed',
     decision: 'audit_recorded',
-    ready: true,
+    ready: gateDecision === 'pass',
     inputs: predecessorArtifacts,
     outputs,
     started_at: startedAt,
     completed_at: startedAt,
-    errors: [],
+    errors: gateDecision === 'pass' ? [] : ['Review gate failed; fix cycle required before QA, ship, or closeout'],
     requested_route: requestedRoute,
     actual_route: actualRoute,
     review_complete: true,
     audit_set_complete: true,
     provenance_consistent: true,
-    gate_decision: 'pass',
+    gate_decision: gateDecision,
     archive_required: gateRequiresArchive(gateDecisionMarkdown),
     archive_state: gateRequiresArchive(gateDecisionMarkdown) ? 'pending' : 'not_required',
   };
-  const next = nextLedger(ledger, 'active', startedAt, ctx.via);
+  const next = nextLedger(
+    ledger,
+    gateDecision === 'pass' ? 'active' : 'blocked',
+    startedAt,
+    ctx.via,
+    gateDecision === 'pass' ? getAllowedNextStages('review') : ['build'],
+  );
   next.artifact_index = {
     ...next.artifact_index,
     [codexPath]: currentAuditPointer('codex'),

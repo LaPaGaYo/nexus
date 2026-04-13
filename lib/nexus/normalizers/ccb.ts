@@ -379,16 +379,20 @@ export function buildReviewSynthesisMarkdown(
   disciplineSummary: string,
   codexMarkdown: string,
   geminiMarkdown: string,
+  gateDecision: 'pass' | 'fail',
 ): string {
+  const codexResult = codexMarkdown.match(/Result:\s*(pass|fail)/i)?.[1]?.toLowerCase() ?? 'unknown';
+  const geminiResult = geminiMarkdown.match(/Result:\s*(pass|fail)/i)?.[1]?.toLowerCase() ?? 'unknown';
+
   return [
     '# Synthesis',
     '',
     `Discipline: ${disciplineSummary}`,
     '',
-    `Codex audit recorded: ${codexMarkdown.includes('Result: pass') ? 'yes' : 'no'}`,
-    `Gemini audit recorded: ${geminiMarkdown.includes('Result: pass') ? 'yes' : 'no'}`,
+    `Codex audit result: ${codexResult}`,
+    `Gemini audit result: ${geminiResult}`,
     '',
-    'Result: review complete',
+    `Result: ${gateDecision === 'pass' ? 'review complete' : 'fix cycle required'}`,
     '',
   ].join('\n');
 }

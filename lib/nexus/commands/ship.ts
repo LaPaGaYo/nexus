@@ -74,7 +74,11 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     assertSameRunId(ledger.run_id, qaStatus.run_id, 'qa status');
   }
   assertLegalTransition(ledger.current_stage, 'ship');
-  assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
+  try {
+    assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
+  } catch {
+    throw new Error('Review must be completed before ship');
+  }
 
   if (qaStatus) {
     try {

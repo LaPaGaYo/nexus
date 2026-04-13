@@ -222,6 +222,107 @@ describe('nexus review', () => {
     });
   });
 
+  test('records a failing review gate and leaves the work unit in fix-cycle state', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'superpowers-review-discipline',
+              source_map: ['upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+            },
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Generate and commit the missing Drizzle migration.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'ccb-review-codex',
+              source_map: ['upstream/claude-code-bridge/lib/codex_comm.py'],
+            },
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'ccb-review-gemini',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'completed',
+        decision: 'audit_recorded',
+        ready: false,
+        gate_decision: 'fail',
+        review_complete: true,
+        audit_set_complete: true,
+        provenance_consistent: true,
+        errors: ['Review gate failed; fix cycle required before QA, ship, or closeout'],
+      });
+      expect(await run.readFile('.planning/audits/current/gate-decision.md')).toContain('Gate: fail');
+      expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain('Result: fix cycle required');
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'review',
+        allowed_next_stages: ['build'],
+      });
+
+      await expect(run('qa')).rejects.toThrow('Review must be completed before QA');
+      expect(await run.readFile('.planning/current/review/status.json')).toContain('"gate_decision": "fail"');
+    });
+  });
+
   test('blocks review when an audit route diverges from the requested governed route', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

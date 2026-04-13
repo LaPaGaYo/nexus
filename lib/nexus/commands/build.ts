@@ -28,6 +28,7 @@ function artifactPointerFor(path: string): ArtifactPointer {
 
 function nextLedger(
   ledger: RunLedger,
+  previousStage: 'handoff' | 'review',
   status: RunLedger['status'],
   at: string,
   via: string | null,
@@ -35,7 +36,7 @@ function nextLedger(
   return {
     ...ledger,
     status,
-    previous_stage: 'handoff',
+    previous_stage: previousStage,
     current_command: 'build',
     current_stage: 'build',
     allowed_next_stages: status === 'active' ? getAllowedNextStages('build') : [],
@@ -93,7 +94,9 @@ function buildSummaryReliesOnStageOutputs(summary: ParsedBuildExecutionSummary):
 export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const handoffStatusPath = stageStatusPath('handoff');
+  const reviewStatusPath = stageStatusPath('review');
   const handoffStatus = readStageStatus(handoffStatusPath, ctx.cwd);
+  const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
 
   if (!ledger || !handoffStatus?.ready) {
     throw new Error('Handoff must be completed before build');
@@ -102,13 +105,28 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   assertSameRunId(ledger.run_id, handoffStatus.run_id, 'handoff status');
   assertLegalTransition(ledger.current_stage, 'build');
 
+  const fixCycle = ledger.current_stage === 'review';
+  if (fixCycle) {
+    if (!reviewStatus) {
+      throw new Error('Review status must exist before running a governed fix-cycle build');
+    }
+
+    assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
+
+    if (reviewStatus.gate_decision !== 'fail') {
+      throw new Error('Fix-cycle /build is only valid after a failing review gate');
+    }
+  }
+
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.build;
   const buildRequestPath = '.planning/current/build/build-request.json';
   const buildResultPath = '.planning/current/build/build-result.md';
   const statusPath = stageStatusPath('build');
-  const requestedRoute = handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledger);
-  const predecessorArtifacts = [artifactPointerFor(handoffStatusPath)];
+  const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledger);
+  const predecessorArtifacts = fixCycle
+    ? [artifactPointerFor(handoffStatusPath), artifactPointerFor(reviewStatusPath)]
+    : [artifactPointerFor(handoffStatusPath)];
   const buildRequestWrite = {
     path: buildRequestPath,
     content: JSON.stringify(
@@ -149,7 +167,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
     };
-    const next = nextLedger(ledger, 'blocked', startedAt, ctx.via);
+    const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -175,7 +193,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
           content: JSON.stringify(
             {
               run_id: ledger.run_id,
-              inputs: [handoffStatusPath],
+              inputs: predecessorArtifacts.map((artifact) => artifact.path),
               adapter_chain: ['superpowers', requestedRoute.transport],
               requested_route: requestedRoute,
               gate: 'handoff_route_validation',
@@ -252,7 +270,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
     };
-    const next = nextLedger(ledger, disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via);
+    const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -278,7 +296,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [buildRequestWrite],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
-        [handoffStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         disciplineResult,
         null,
@@ -316,7 +334,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: null,
     };
-    const next = nextLedger(ledger, 'blocked', startedAt, ctx.via);
+    const next = nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -342,7 +360,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [buildRequestWrite],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
-        [handoffStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         disciplineResult,
         null,
@@ -394,7 +412,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       actual_route: result.actual_route,
     };
     const next = withActualExecutionPath(
-      nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+      nextLedger(ledger, fixCycle ? 'review' : 'handoff', result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
       result.actual_route?.route ?? null,
     );
     next.artifact_index = {
@@ -425,7 +443,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [buildRequestWrite],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
-        [handoffStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         disciplineResult,
         result,
@@ -467,7 +485,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       requested_route: requestedRoute,
       actual_route: actualRoute,
     };
-    const next = withActualExecutionPath(nextLedger(ledger, 'blocked', startedAt, ctx.via), actualRoute?.route ?? null);
+    const next = withActualExecutionPath(nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, ctx.via), actualRoute?.route ?? null);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -493,7 +511,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [buildRequestWrite],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
-        [handoffStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         disciplineResult,
         result,
@@ -559,7 +577,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     requested_route: requestedRoute,
     actual_route: result.actual_route,
   };
-  const next = withActualExecutionPath(nextLedger(ledger, 'active', startedAt, ctx.via), result.actual_route?.route ?? null);
+  const next = withActualExecutionPath(nextLedger(ledger, fixCycle ? 'review' : 'handoff', 'active', startedAt, ctx.via), result.actual_route?.route ?? null);
   next.artifact_index = {
     ...next.artifact_index,
     [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -574,7 +592,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     canonicalWrites: [buildRequestWrite, buildResultWrite],
     traceWrites: buildBuildStageTraceabilityPayloads(
       ledger.run_id,
-      [handoffStatusPath],
+      predecessorArtifacts.map((artifact) => artifact.path),
       requestedRoute,
       disciplineResult,
       result,
