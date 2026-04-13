@@ -315,7 +315,7 @@ describe('nexus review', () => {
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         status: 'blocked',
         current_stage: 'review',
-        allowed_next_stages: ['build'],
+        allowed_next_stages: ['build', 'review'],
       });
 
       await expect(run('qa')).rejects.toThrow('Review must be completed before QA');
@@ -454,6 +454,168 @@ describe('nexus review', () => {
         stage: 'review',
         adapter: 'normalizer',
         kind: 'partial_write_failure',
+      });
+    });
+  });
+
+  test('allows a failing review gate to rerun review directly', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const failingReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: fail\n\nFindings:\n- stale audit\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', failingReviewAdapters);
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'review',
+        previous_stage: 'build',
+        allowed_next_stages: ['build', 'review'],
+      });
+
+      await run('review');
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'completed',
+        decision: 'audit_recorded',
+        ready: true,
+        gate_decision: 'pass',
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'active',
+        current_stage: 'review',
+        previous_stage: 'build',
+      });
+      expect(await run.readFile('.planning/audits/current/gemini.md')).toContain('Result: pass');
+    });
+  });
+
+  test('allows a blocked review to retry review directly', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const blockedReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'blocked',
+            raw_output: {
+              markdown: '',
+              receipt: '',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['Gemini review session reset failed'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('review', blockedReviewAdapters)).rejects.toThrow('CCB gemini audit blocked review');
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'review',
+        previous_stage: 'build',
+        allowed_next_stages: ['review'],
+      });
+
+      await run('review');
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'completed',
+        decision: 'audit_recorded',
+        ready: true,
+        gate_decision: 'pass',
       });
     });
   });

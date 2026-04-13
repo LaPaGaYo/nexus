@@ -104,7 +104,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
       '.planning/current/review/status.json',
     ],
     exit_condition: 'Audit set is complete and gate state is explicit.',
-    legal_predecessors: ['build'],
+    legal_predecessors: ['build', 'review'],
   },
   qa: {
     id: 'qa',

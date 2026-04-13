@@ -51,6 +51,7 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/opt/ccb/bin/ask',
         ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async (spec) => {
         calls.push(spec);
@@ -120,6 +121,7 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/opt/ccb/bin/ask',
         ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async (spec) => {
         calls.push(spec);
@@ -162,6 +164,54 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('resets the provider session before governed review audit dispatch', async () => {
+    const calls: RecordedCommand[] = [];
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        }
+        return {
+          exit_code: 0,
+          stdout: '# Gemini Audit\n\nResult: pass\n',
+          stderr: '',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.execute_audit_b(buildContext('review', 'review'));
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toMatchObject({
+      argv: ['/opt/ccb/bin/autonew', 'gemini'],
+      cwd: '/repo/root/.nexus-worktrees/feature',
+      env: {
+        CCB_CALLER: 'claude',
+        CCB_SESSION_FILE: '/repo/root/.ccb/.gemini-session',
+      },
+    });
+    expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
+    expect(result.outcome).toBe('success');
+    expect(result.actual_route).toMatchObject({
+      provider: 'gemini',
+      route: 'gemini-via-ccb',
+      transport: 'ccb',
+    });
+  });
+
   test('blocks review audit dispatch when the provider command fails', async () => {
     const calls: RecordedCommand[] = [];
     const adapter = createRuntimeCcbAdapter({
@@ -170,9 +220,18 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/opt/ccb/bin/ask',
         ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async (spec) => {
         calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        }
+
         return {
           exit_code: 1,
           stdout: '',
@@ -184,8 +243,9 @@ describe('nexus runtime ccb adapter', () => {
 
     const result = await adapter.execute_audit_b(buildContext('review', 'review'));
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+    expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
     expect(result.outcome).toBe('blocked');
     expect(result.actual_route).toBeNull();
     expect(result.notices[0]).toContain('Unified askd daemon not running');
@@ -196,6 +256,36 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('blocks review retry when the provider session reset fails', async () => {
+    const calls: RecordedCommand[] = [];
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        return {
+          exit_code: 1,
+          stdout: '',
+          stderr: '[ERROR] could not reset gemini session',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.execute_audit_b(buildContext('review', 'review'));
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+    expect(result.outcome).toBe('blocked');
+    expect(result.actual_route).toBeNull();
+    expect(result.notices[0]).toContain('could not reset gemini session');
+  });
+
   test('blocks gracefully when the ccb-ping binary is missing instead of throwing', async () => {
     const adapter = createRuntimeCcbAdapter({
       resolveSessionRoot: () => '/repo/root',
@@ -203,6 +293,7 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/missing/ask',
         ping_path: '/missing/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async () => {
         throw new Error('spawn /missing/ccb-ping ENOENT');
@@ -229,6 +320,7 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/opt/ccb/bin/ask',
         ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async (spec) => {
         if (spec.argv[0] === '/opt/ccb/bin/ccb-ping') {
@@ -268,6 +360,7 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/opt/ccb/bin/ask',
         ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async () => ({
         exit_code: 0,
@@ -305,6 +398,7 @@ describe('nexus runtime ccb adapter', () => {
         ask_path: '/opt/ccb/bin/ask',
         ping_path: '/opt/ccb/bin/ccb-ping',
         mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
       }),
       runCommand: async () => ({
         exit_code: 0,

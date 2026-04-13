@@ -213,6 +213,77 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('allows closeout after a review retry without an intervening rebuild', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const failingReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: fail\n\nFindings:\n- stale audit\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', failingReviewAdapters);
+      await run('review');
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        provenance_consistent: true,
+      });
+    });
+  });
+
   test('allows closeout after a ready QA stage', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

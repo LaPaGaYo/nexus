@@ -56,6 +56,7 @@ export interface CcbToolPaths {
   ask_path: string;
   ping_path: string;
   mounted_path: string;
+  autonew_path: string;
 }
 
 export interface CcbCommandSpec {
@@ -186,11 +187,13 @@ function defaultResolveToolPaths(): CcbToolPaths {
   const askPath = join(installBin, 'ask');
   const pingPath = join(installBin, 'ccb-ping');
   const mountedPath = join(installBin, 'ccb-mounted');
+  const autonewPath = join(installBin, 'autonew');
 
   return {
     ask_path: existsSync(askPath) ? askPath : 'ask',
     ping_path: existsSync(pingPath) ? pingPath : 'ccb-ping',
     mounted_path: existsSync(mountedPath) ? mountedPath : 'ccb-mounted',
+    autonew_path: existsSync(autonewPath) ? autonewPath : 'autonew',
   };
 }
 
@@ -681,6 +684,57 @@ async function runAskDispatch(
   return execution;
 }
 
+async function resetProviderSession(
+  ctx: NexusAdapterContext,
+  provider: 'codex' | 'gemini',
+  traceability: AdapterTraceability,
+  options: Required<CreateRuntimeCcbAdapterOptions>,
+): Promise<AdapterResult<any> | null> {
+  const toolPaths = options.resolveToolPaths();
+  const sessionRoot = options.resolveSessionRoot(ctx.cwd);
+  const sessionFile = sessionFileForProvider(sessionRoot, provider);
+  const argv = [toolPaths.autonew_path, provider];
+
+  let execution: CcbCommandResult;
+  try {
+    execution = await options.runCommand({
+      argv,
+      cwd: ctx.cwd,
+      env: {
+        CCB_CALLER: 'claude',
+        CCB_SESSION_FILE: sessionFile,
+      },
+      timeout_ms: 15_000,
+    });
+  } catch (error) {
+    return blockedResult(
+      ctx.stage,
+      error instanceof Error ? error.message : String(error),
+      {
+        receipt: '',
+        dispatch_command: describeCommand(argv),
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  if (execution.exit_code !== 0) {
+    return blockedResult(
+      ctx.stage,
+      execution.stderr.trim() || execution.stdout.trim() || `CCB ${provider} session reset failed`,
+      {
+        receipt: '',
+        dispatch_command: describeCommand(argv),
+      },
+      ctx.requested_route,
+      traceability,
+    );
+  }
+
+  return null;
+}
+
 export function createDefaultCcbAdapter(): CcbAdapter {
   const handoffPack = createHandoffStagePack();
   const buildPack = createBuildStagePack();
@@ -815,6 +869,10 @@ export function createRuntimeCcbAdapter(
     },
     execute_audit_a: async (ctx) => {
       const traceability = reviewPack.auditTraceability('codex');
+      const resetResult = await resetProviderSession(ctx, 'codex', traceability, options);
+      if (resetResult) {
+        return resetResult;
+      }
       const execution = await runAskDispatch(
         ctx,
         'codex',
@@ -848,6 +906,10 @@ export function createRuntimeCcbAdapter(
     },
     execute_audit_b: async (ctx) => {
       const traceability = reviewPack.auditTraceability('gemini');
+      const resetResult = await resetProviderSession(ctx, 'gemini', traceability, options);
+      if (resetResult) {
+        return resetResult;
+      }
       const execution = await runAskDispatch(
         ctx,
         'gemini',
@@ -881,6 +943,10 @@ export function createRuntimeCcbAdapter(
     },
     execute_qa: async (ctx) => {
       const traceability = qaPack.validationTraceability();
+      const resetResult = await resetProviderSession(ctx, 'gemini', traceability, options);
+      if (resetResult) {
+        return resetResult;
+      }
       const execution = await runAskDispatch(
         ctx,
         'gemini',

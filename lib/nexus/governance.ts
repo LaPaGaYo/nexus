@@ -73,6 +73,9 @@ function matchesFixCycleHistory(
     return false;
   }
   cursor += 2;
+  while (actual[cursor] === 'review') {
+    cursor += 1;
+  }
 
   while (
     cursor < actual.length
@@ -83,6 +86,9 @@ function matchesFixCycleHistory(
 
     if (cursor + 1 < actual.length && actual[cursor] === 'build' && actual[cursor + 1] === 'review') {
       cursor += 2;
+      while (actual[cursor] === 'review') {
+        cursor += 1;
+      }
       continue;
     }
 

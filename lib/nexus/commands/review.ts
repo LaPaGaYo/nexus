@@ -44,7 +44,7 @@ function nextLedger(
   return {
     ...ledger,
     status,
-    previous_stage: 'build',
+    previous_stage: ledger.current_stage === 'review' ? (ledger.previous_stage ?? 'build') : 'build',
     current_command: 'review',
     current_stage: 'review',
     allowed_next_stages: allowedNextStages,
@@ -106,7 +106,9 @@ export async function runReviewWithWriteAtomicFile(
 ): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const buildStatusPath = stageStatusPath('build');
+  const reviewStatusPath = stageStatusPath('review');
   const buildStatus = readStageStatus(buildStatusPath, ctx.cwd);
+  const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
 
   if (!ledger || !buildStatus?.ready) {
     throw new Error('Build must be completed before review');
@@ -114,6 +116,18 @@ export async function runReviewWithWriteAtomicFile(
 
   assertSameRunId(ledger.run_id, buildStatus.run_id, 'build status');
   assertLegalTransition(ledger.current_stage, 'review');
+
+  if (ledger.current_stage === 'review') {
+    if (!reviewStatus) {
+      throw new Error('Review status must exist before rerunning review');
+    }
+
+    assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
+
+    if (reviewStatus.gate_decision === 'pass' && reviewStatus.ready) {
+      throw new Error('Review retry is only valid after a failing or blocked review');
+    }
+  }
 
   if (!buildStatus.requested_route || !buildStatus.actual_route) {
     throw new Error('Build must record requested and actual route before review');
@@ -130,7 +144,6 @@ export async function runReviewWithWriteAtomicFile(
   const predecessorArtifacts = [artifactPointerFor(buildStatusPath)];
   const requestedRoute = buildStatus.requested_route;
   const actualRoute = buildStatus.actual_route;
-  const reviewStatusPath = stageStatusPath('review');
   const codexPath = '.planning/audits/current/codex.md';
   const geminiPath = '.planning/audits/current/gemini.md';
   const synthesisPath = '.planning/audits/current/synthesis.md';
@@ -195,12 +208,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-      ledger: nextLedger(
-        ledger,
-        disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
-        startedAt,
-        ctx.via,
-      ),
+      ledger: nextLedger(ledger, disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via, disciplineResult.outcome === 'refused' ? [] : ['review']),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -252,7 +260,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via),
+      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via, ['review']),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -331,7 +339,7 @@ export async function runReviewWithWriteAtomicFile(
           },
         ),
         status,
-        ledger: nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+        ledger: nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via, result.outcome === 'refused' ? [] : ['review']),
         conflicts: [conflict, ...result.conflict_candidates],
         writeAtomicFile,
       });
@@ -389,7 +397,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via),
+      ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via, ['review']),
       conflicts: [conflict, ...auditAResult.conflict_candidates, ...auditBResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -492,7 +500,7 @@ export async function runReviewWithWriteAtomicFile(
     gateDecision === 'pass' ? 'active' : 'blocked',
     startedAt,
     ctx.via,
-    gateDecision === 'pass' ? getAllowedNextStages('review') : ['build'],
+    gateDecision === 'pass' ? getAllowedNextStages('review') : ['build', 'review'],
   );
   next.artifact_index = {
     ...next.artifact_index,
