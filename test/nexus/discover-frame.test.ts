@@ -366,6 +366,79 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('next fresh discover removes the retired run worktree when cleanup is safe', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('closeout');
+
+      const completedLedger = readJson('.planning/nexus/current-run.json');
+      const retiredPath = realpathSync.native(join(cwd, '.nexus-worktrees', completedLedger.run_id));
+
+      await run('discover');
+
+      expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/current-run.json`)).toMatchObject({
+        run_id: completedLedger.run_id,
+        execution: {
+          workspace: {
+            path: retiredPath,
+            retirement_state: 'removed',
+          },
+        },
+      });
+      expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/closeout/status.json`)).toMatchObject({
+        run_id: completedLedger.run_id,
+        stage: 'closeout',
+        workspace: {
+          path: retiredPath,
+          retirement_state: 'removed',
+        },
+      });
+      expect(() => realpathSync.native(retiredPath)).toThrow();
+    });
+  });
+
+  test('next fresh discover retains the retired run worktree when cleanup is not safe', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('closeout');
+
+      const completedLedger = readJson('.planning/nexus/current-run.json');
+      const retiredPath = realpathSync.native(join(cwd, '.nexus-worktrees', completedLedger.run_id));
+      writeFileSync(join(retiredPath, 'DIRTY.txt'), 'preserve me\n');
+
+      await run('discover');
+
+      expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/current-run.json`)).toMatchObject({
+        run_id: completedLedger.run_id,
+        execution: {
+          workspace: {
+            path: retiredPath,
+            retirement_state: 'retained',
+          },
+        },
+      });
+      expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/closeout/status.json`)).toMatchObject({
+        run_id: completedLedger.run_id,
+        stage: 'closeout',
+        workspace: {
+          path: retiredPath,
+          retirement_state: 'retained',
+        },
+      });
+      expect(realpathSync.native(retiredPath)).toBe(retiredPath);
+    });
+  });
+
   test('continues from fresh discover to frame when invoked inside the newly allocated worktree', async () => {
     await runInTempGitRepo(async ({ cwd, run, runFrom, readJson }) => {
       await run('discover');

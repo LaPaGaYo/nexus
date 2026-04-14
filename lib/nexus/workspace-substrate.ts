@@ -32,6 +32,10 @@ function gitExitCode(cwd: string, args: string[]): number {
   return result.status ?? 1;
 }
 
+function gitSucceeds(cwd: string, args: string[]): boolean {
+  return gitExitCode(cwd, args) === 0;
+}
+
 function normalizeBranch(value: string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -161,6 +165,22 @@ function isWorkspaceUsable(repoRoot: string, workspacePath: string): boolean {
     && canonicalPath(repoCommonDir) === canonicalPath(workspaceCommonDir);
 }
 
+function isRegisteredWorktree(repoRoot: string, workspacePath: string): boolean {
+  const worktreeList = gitStdout(repoRoot, ['worktree', 'list', '--porcelain']);
+  if (!worktreeList) {
+    return false;
+  }
+
+  const normalizedWorkspacePath = canonicalPath(workspacePath);
+  return parseWorktreeList(worktreeList)
+    .some((entry) => canonicalPath(entry.path) === normalizedWorkspacePath);
+}
+
+function isCleanWorktree(workspacePath: string): boolean {
+  const porcelain = gitStdout(workspacePath, ['status', '--porcelain']);
+  return porcelain !== null && porcelain.trim() === '';
+}
+
 function candidateRank(repoRoot: string, candidate: GitWorktreeEntry): [number, number, number, string] {
   const source = preferredWorktreeSource(repoRoot, candidate.path);
   const sourceRank = source === 'existing:nexus_worktree' ? 0 : 1;
@@ -281,6 +301,116 @@ export function allocateFreshRunWorkspace(repoRoot: string, runId: string): Work
   }
 
   return allocatedWorkspace(resolvedRepoRoot, worktreePath, runId);
+}
+
+export function retireRunWorkspace(workspace?: WorkspaceRecord | null): WorkspaceRecord | null {
+  if (!workspace) {
+    return null;
+  }
+
+  const normalizedWorkspace = {
+    ...workspace,
+    path: canonicalPath(workspace.path),
+  };
+  if (workspace.kind !== 'worktree') {
+    return normalizedWorkspace;
+  }
+
+  if (workspace.source !== 'allocated:fresh_run') {
+    return normalizedWorkspace;
+  }
+
+  return {
+    ...normalizedWorkspace,
+    retirement_state: 'retired_pending_cleanup',
+  };
+}
+
+export function cleanupRetiredRunWorkspace(
+  repoRoot: string,
+  workspace?: WorkspaceRecord | null,
+): WorkspaceRecord | null {
+  if (!workspace) {
+    return null;
+  }
+
+  const normalizedWorkspace = {
+    ...workspace,
+    path: canonicalPath(workspace.path),
+  };
+  if (normalizedWorkspace.kind !== 'worktree') {
+    return normalizedWorkspace;
+  }
+
+  const resolvedRepoRoot = resolveRepositoryRoot(repoRoot);
+  if (normalizedWorkspace.path === resolvedRepoRoot) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'retained',
+    };
+  }
+
+  if (normalizedWorkspace.source !== 'allocated:fresh_run') {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'retained',
+    };
+  }
+
+  if (normalizedWorkspace.retirement_state !== 'retired_pending_cleanup') {
+    return normalizedWorkspace;
+  }
+
+  const primaryWorktreeRoot = canonicalPath(getPrimaryWorktreeRoot(resolvedRepoRoot));
+  if (
+    normalizedWorkspace.path !== primaryWorktreeRoot
+    && !normalizedWorkspace.path.startsWith(`${primaryWorktreeRoot}/`)
+  ) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'retained',
+    };
+  }
+
+  if (!existsSync(normalizedWorkspace.path)) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'removed',
+    };
+  }
+
+  if (!isWorkspaceUsable(resolvedRepoRoot, normalizedWorkspace.path)) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'retained',
+    };
+  }
+
+  if (!isRegisteredWorktree(resolvedRepoRoot, normalizedWorkspace.path)) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'retained',
+    };
+  }
+
+  if (!isCleanWorktree(normalizedWorkspace.path)) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'retained',
+    };
+  }
+
+  if (gitSucceeds(resolvedRepoRoot, ['worktree', 'remove', normalizedWorkspace.path]) || !existsSync(normalizedWorkspace.path)) {
+    return {
+      ...normalizedWorkspace,
+      retirement_state: 'removed',
+    };
+  }
+
+  return {
+    ...normalizedWorkspace,
+    retirement_state: 'retained',
+  };
 }
 
 export function resolveExecutionWorkspace(

@@ -1,10 +1,103 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
+import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
+import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
+import type { NexusAdapters } from '../../lib/nexus/adapters/types';
+import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
+import { resolveInvocation } from '../../lib/nexus/commands/index';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
+type TempGitRepoRun = {
+  run: (command: string, adapters?: NexusAdapters, execution?: ExecutionSelection) => Promise<void>;
+  readJson: (path: string) => any;
+  cwd: string;
+};
+
+function createTempGitRepo(): string {
+  const cwd = mkdtempSync(join(tmpdir(), 'nexus-closeout-'));
+  mkdirSync(join(cwd, '.planning'), { recursive: true });
+  mkdirSync(join(cwd, '.ccb'), { recursive: true });
+  writeFileSync(join(cwd, 'README.md'), '# temp repo\n');
+  spawnSync('git', ['init', '-b', 'main'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.email', 'test@example.com'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['add', 'README.md'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd, stdio: 'pipe' });
+  return cwd;
+}
+
+async function runInTempGitRepo(
+  fn: (ctx: TempGitRepoRun) => Promise<void>,
+): Promise<void> {
+  const cwd = createTempGitRepo();
+  let tick = 0;
+
+  const run = async (
+    command: string,
+    adapters = getDefaultNexusAdapters(),
+    execution: ExecutionSelection = {
+      mode: 'governed_ccb',
+      primary_provider: 'codex',
+      provider_topology: 'multi_session',
+      requested_execution_path: 'codex-via-ccb',
+    },
+  ) => {
+    const invocation = resolveInvocation(command);
+    const at = new Date(Date.UTC(2026, 3, 13, 12, 0, 0, tick)).toISOString();
+    tick += 1;
+    await invocation.handler({
+      cwd,
+      clock: () => at,
+      via: invocation.via,
+      adapters,
+      execution,
+    });
+  };
+
+  try {
+    await fn({
+      cwd,
+      run,
+      readJson: (path: string) => JSON.parse(readFileSync(join(cwd, path), 'utf8')),
+    });
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+}
+
 describe('nexus closeout', () => {
+  test('closeout marks the run workspace retired_pending_cleanup', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('closeout');
+
+      const ledger = readJson('.planning/nexus/current-run.json');
+      expect(ledger.execution.workspace).toMatchObject({
+        path: realpathSync.native(join(cwd, '.nexus-worktrees', ledger.run_id)),
+        kind: 'worktree',
+        source: 'allocated:fresh_run',
+        retirement_state: 'retired_pending_cleanup',
+      });
+      expect(readJson('.planning/current/closeout/status.json')).toMatchObject({
+        run_id: ledger.run_id,
+        stage: 'closeout',
+        state: 'completed',
+        workspace: {
+          path: realpathSync.native(join(cwd, '.nexus-worktrees', ledger.run_id)),
+          retirement_state: 'retired_pending_cleanup',
+        },
+      });
+    });
+  });
+
   test('archives the current audit set and records closeout status', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');

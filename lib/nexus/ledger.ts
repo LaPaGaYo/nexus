@@ -52,10 +52,27 @@ export function archiveCompletedRunLedger(ledger: RunLedger, cwd = process.cwd()
 
   const closeoutRoot = join(cwd, '.planning', 'current', 'closeout');
   if (existsSync(closeoutRoot)) {
-    cpSync(closeoutRoot, join(cwd, archivedCloseoutRootFor(ledger.run_id)), {
+    const archivedCloseoutRoot = join(cwd, archivedCloseoutRootFor(ledger.run_id));
+    cpSync(closeoutRoot, archivedCloseoutRoot, {
       recursive: true,
       force: true,
     });
+    const archivedCloseoutStatus = join(archivedCloseoutRoot, 'status.json');
+    if (existsSync(archivedCloseoutStatus)) {
+      const status = JSON.parse(readFileSync(archivedCloseoutStatus, 'utf8')) as StageStatus;
+      writeFileSync(
+        archivedCloseoutStatus,
+        JSON.stringify(
+          {
+            ...status,
+            workspace: ledger.execution.workspace,
+            session_root: ledger.execution.session_root,
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+    }
   }
 }
 

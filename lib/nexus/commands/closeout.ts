@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger } from '../execution-topology';
+import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
 import {
   archiveAuditWorkspace,
   archiveExists,
@@ -19,6 +19,7 @@ import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalize
 import { applyNormalizationPlan } from '../normalizers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition } from '../transitions';
+import { retireRunWorkspace } from '../workspace-substrate';
 import type { GsdCloseoutRaw } from '../adapters/gsd';
 import type { ArtifactPointer, ConflictRecord, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
@@ -194,10 +195,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdCloseout(result);
+    const retiredWorkspace = retireRunWorkspace(ledger.execution.workspace);
+    const ledgerWithRetiredWorkspace = retiredWorkspace ? withExecutionWorkspace(ledger, retiredWorkspace) : ledger;
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'closeout',
-      ...executionFieldsFromLedger(ledger),
+      ...executionFieldsFromLedger(ledgerWithRetiredWorkspace),
       state: result.raw_output.merge_ready ? 'completed' : 'blocked',
       decision: 'closeout_recorded',
       ready: result.raw_output.merge_ready,
@@ -219,7 +222,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       provenance_consistent: true,
     };
     const nextLedger = {
-      ...ledger,
+      ...ledgerWithRetiredWorkspace,
       status: result.raw_output.merge_ready ? 'completed' : 'blocked',
       previous_stage: (shipStatus ? 'ship' : qaStatus ? 'qa' : 'review') as 'review' | 'qa' | 'ship',
       current_command: 'closeout' as const,

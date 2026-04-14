@@ -1,10 +1,23 @@
-import { archiveCompletedRunLedger, isCompletedCloseoutLedger, readLedger, startLedger, makeRunId } from '../ledger';
+import {
+  archiveCompletedRunLedger,
+  isCompletedCloseoutLedger,
+  makeRunId,
+  readLedger,
+  startLedger,
+  writeLedger,
+} from '../ledger';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { stageStatusPath } from '../artifacts';
 import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
-import { allocateFreshRunWorkspace, resolveRepositoryRoot, resolveSessionRootRecord } from '../workspace-substrate';
+import {
+  allocateFreshRunWorkspace,
+  cleanupRetiredRunWorkspace,
+  resolveRepositoryRoot,
+  resolveSessionRootRecord,
+} from '../workspace-substrate';
+import { readStageStatus, writeStageStatus } from '../status';
 import type { PmDiscoverRaw } from '../adapters/pm';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
@@ -73,7 +86,33 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   }
 
   if (existingLedger && existingLedger.current_stage === 'closeout') {
-    archiveCompletedRunLedger(existingLedger, repositoryRoot);
+    const finalizedWorkspace = cleanupRetiredRunWorkspace(repositoryRoot, existingLedger.execution.workspace);
+    const archivedLedger = finalizedWorkspace
+      ? {
+        ...existingLedger,
+        execution: {
+          ...existingLedger.execution,
+          workspace: finalizedWorkspace,
+        },
+      }
+      : existingLedger;
+    if (archivedLedger !== existingLedger) {
+      writeLedger(archivedLedger, repositoryRoot);
+
+      const closeoutStatus = readStageStatus(stageStatusPath('closeout'), repositoryRoot);
+      if (closeoutStatus && closeoutStatus.run_id === archivedLedger.run_id) {
+        writeStageStatus(
+          stageStatusPath('closeout'),
+          {
+            ...closeoutStatus,
+            workspace: archivedLedger.execution.workspace,
+            session_root: archivedLedger.execution.session_root,
+          },
+          repositoryRoot,
+        );
+      }
+    }
+    archiveCompletedRunLedger(archivedLedger, repositoryRoot);
   }
 
   const ledger = existingLedger && existingLedger.current_stage === 'discover'
