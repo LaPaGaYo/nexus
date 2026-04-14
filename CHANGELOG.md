@@ -36,6 +36,7 @@ tags.
 - **[v1.0.25](docs/releases/2026-04-13-nexus-v1.0.25.md)** — governed handoff now discovers CCB sessions from the repo session root even when execution happens in a linked worktree, so mounted providers are found without abandoning worktree execution.
 - **[v1.0.26](docs/releases/2026-04-13-nexus-v1.0.26.md)** — fresh governed runs now allocate a dedicated branch and worktree, bind every execution stage to that run-owned workspace, and retire the worktree safely at closeout while keeping CCB sessions anchored at the repo root.
 - **[v1.0.27](docs/releases/2026-04-13-nexus-v1.0.27.md)** — run-owned worktrees now receive the current planning and product contract artifacts before governed execution, so Codex audits and builds stop reading stale phase packets after a fresh run workspace is allocated.
+- **[v1.0.28](docs/releases/2026-04-13-nexus-v1.0.28.md)** — governed build and review now carry the explicit execution contract into provider prompts, and build no longer false-blocks when a generator reports that it ignored stale stage artifacts.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 
