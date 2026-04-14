@@ -11,7 +11,7 @@ import {
 } from '../normalizers/ccb';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
@@ -103,6 +103,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const predecessorArtifacts = [artifactPointerFor(reviewStatusPath)];
   const requestedRoute = requestedQaRouteFromLedger(ledgerWithExecution);
   const qaAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
+  syncRunWorkspaceArtifacts(ctx.cwd, workspace);
   const result = await qaAdapter.execute_qa({
     cwd: ctx.cwd,
     workspace,
@@ -158,6 +159,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -206,6 +208,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -255,6 +258,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -313,6 +317,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       },
     ),
     status,
+    mirrorWorkspace: workspace,
     ledger: next,
   });
 

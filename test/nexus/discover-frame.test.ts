@@ -497,4 +497,35 @@ describe('nexus discover/frame PM seams', () => {
       });
     });
   });
+
+  test('mirrors product and planning artifacts into the run-owned worktree when commands run from the repo root', async () => {
+    await runInTempGitRepo(async ({ run, readJson, cwd }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+
+      const ledger = readJson('.planning/nexus/current-run.json');
+      const workspacePath = realpathSync.native(join(cwd, '.nexus-worktrees', ledger.run_id));
+
+      expect(readFileSync(join(workspacePath, 'docs/product/idea-brief.md'), 'utf8')).toBe(
+        readFileSync(join(cwd, 'docs/product/idea-brief.md'), 'utf8'),
+      );
+      expect(readFileSync(join(workspacePath, 'docs/product/decision-brief.md'), 'utf8')).toBe(
+        readFileSync(join(cwd, 'docs/product/decision-brief.md'), 'utf8'),
+      );
+      expect(readFileSync(join(workspacePath, 'docs/product/prd.md'), 'utf8')).toBe(
+        readFileSync(join(cwd, 'docs/product/prd.md'), 'utf8'),
+      );
+      expect(readFileSync(join(workspacePath, '.planning/current/plan/execution-readiness-packet.md'), 'utf8')).toBe(
+        readFileSync(join(cwd, '.planning/current/plan/execution-readiness-packet.md'), 'utf8'),
+      );
+      expect(readFileSync(join(workspacePath, '.planning/current/plan/sprint-contract.md'), 'utf8')).toBe(
+        readFileSync(join(cwd, '.planning/current/plan/sprint-contract.md'), 'utf8'),
+      );
+      expect(JSON.parse(readFileSync(join(workspacePath, '.planning/nexus/current-run.json'), 'utf8'))).toMatchObject({
+        run_id: ledger.run_id,
+        current_stage: 'plan',
+      });
+    });
+  });
 });

@@ -15,7 +15,7 @@ import {
 import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
@@ -134,6 +134,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const handoffPath = '.planning/current/handoff/governed-handoff.md';
   const statusPath = stageStatusPath('handoff');
   const routeAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
+  syncRunWorkspaceArtifacts(ctx.cwd, workspace);
   const result = await routeAdapter.resolve_route({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
@@ -268,6 +269,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: next,
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -303,6 +305,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       },
     ),
     status,
+    mirrorWorkspace: workspace,
     ledger: next,
   });
 

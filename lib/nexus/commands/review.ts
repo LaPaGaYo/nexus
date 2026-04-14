@@ -19,7 +19,7 @@ import {
 } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
 import type { LocalExecuteAuditRaw } from '../adapters/local';
 import type { SuperpowersReviewDisciplineRaw } from '../adapters/superpowers';
@@ -187,6 +187,7 @@ export async function runReviewWithWriteAtomicFile(
   const synthesisPath = '.planning/audits/current/synthesis.md';
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
   const metaPath = '.planning/audits/current/meta.json';
+  syncRunWorkspaceArtifacts(ctx.cwd, workspace);
 
   const disciplineResult = await ctx.adapters.superpowers.review_discipline({
     cwd: ctx.cwd,
@@ -251,6 +252,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(ledgerWithExecution, disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, commandHistoryVia, disciplineResult.outcome === 'refused' ? [] : ['review']),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
@@ -306,7 +308,8 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
-        ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review']),
+      mirrorWorkspace: workspace,
+      ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review']),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -392,6 +395,7 @@ export async function runReviewWithWriteAtomicFile(
           },
         ),
         status,
+        mirrorWorkspace: workspace,
         ledger: nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, commandHistoryVia, result.outcome === 'refused' ? [] : ['review']),
         conflicts: [conflict, ...result.conflict_candidates],
         writeAtomicFile,
@@ -453,6 +457,7 @@ export async function runReviewWithWriteAtomicFile(
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review']),
       conflicts: [conflict, ...auditAResult.conflict_candidates, ...auditBResult.conflict_candidates],
       writeAtomicFile,
@@ -602,6 +607,7 @@ export async function runReviewWithWriteAtomicFile(
       },
     ),
     status,
+    mirrorWorkspace: workspace,
     ledger: next,
     writeAtomicFile,
   });

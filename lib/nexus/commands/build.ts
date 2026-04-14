@@ -19,7 +19,7 @@ import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleR
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbExecuteGeneratorRaw } from '../adapters/ccb';
 import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
@@ -279,12 +279,14 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         },
       ],
       status,
+      mirrorWorkspace: workspace,
       ledger: next,
       conflicts: [conflict],
     });
 
     throw new Error(message);
   }
+  syncRunWorkspaceArtifacts(ctx.cwd, workspace);
   const disciplineResult = await ctx.adapters.superpowers.build_discipline({
     cwd: ctx.cwd,
     workspace,
@@ -365,6 +367,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: next,
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
     });
@@ -433,6 +436,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: next,
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
     });
@@ -526,6 +530,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: next,
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -601,6 +606,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: next,
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -690,6 +696,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       },
     ),
     status,
+    mirrorWorkspace: workspace,
     ledger: next,
   });
 

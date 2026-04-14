@@ -98,6 +98,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [],
       traceWrites: [],
       status,
+      mirrorWorkspace: ledger.execution.workspace,
       ledger: nextLedger(ledger, 'blocked', at, ctx.via),
     });
     throw new Error(`Missing required input artifact: ${inputPath}`);
@@ -130,6 +131,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         { outcome: 'refused', status: { state: status.state, decision: status.decision, ready: status.ready } },
       ),
       status,
+      mirrorWorkspace: ledger.execution.workspace,
       ledger: nextLedger(ledger, 'refused', at, ctx.via),
     });
     throw new Error('PM framing refused');
@@ -151,6 +153,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         { outcome: 'blocked', status: { state: status.state, decision: status.decision, ready: status.ready } },
       ),
       status,
+      mirrorWorkspace: ledger.execution.workspace,
       ledger: nextLedger(ledger, 'blocked', at, ctx.via),
     });
     throw new Error('PM framing blocked');
@@ -185,6 +188,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: next.execution.workspace,
       ledger: next,
     });
 
@@ -225,6 +229,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: ledger.execution.workspace,
       ledger: nextLedger(ledger, 'blocked', at, ctx.via),
       conflicts: [conflict],
     });

@@ -548,6 +548,76 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('handoff resyncs repo-root plan artifacts into the run workspace before governed route validation', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => {
+            const workspacePlan = readFileSync(
+              join(ctx.workspace!.path, '.planning/current/plan/execution-readiness-packet.md'),
+              'utf8',
+            );
+            expect(workspacePlan).toContain('updated phase contract from repo root');
+
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                available: true,
+                provider: 'codex',
+                providers: ['codex', 'gemini'],
+                mounted: ['codex', 'gemini'],
+                provider_checks: [
+                  {
+                    provider: 'codex',
+                    ping_command: 'ccb-ping codex',
+                    ping_output: '✅ codex connection OK (Session healthy)',
+                  },
+                  {
+                    provider: 'gemini',
+                    ping_command: 'ccb-ping gemini',
+                    ping_output: '✅ gemini connection OK (Session healthy)',
+                  },
+                ],
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/handoff/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('discover');
+      await run('frame');
+      await run('plan');
+
+      const ledger = readJson('.planning/nexus/current-run.json');
+      const workspacePath = realpathSync.native(join(cwd, '.nexus-worktrees', ledger.run_id));
+      writeFileSync(
+        join(cwd, '.planning/current/plan/execution-readiness-packet.md'),
+        '# Execution Readiness Packet\n\nupdated phase contract from repo root\n',
+      );
+      writeFileSync(
+        join(workspacePath, '.planning/current/plan/execution-readiness-packet.md'),
+        '# Execution Readiness Packet\n\nstale worktree contract\n',
+      );
+
+      await run('handoff', adapters);
+
+      expect(readFileSync(join(workspacePath, '.planning/current/plan/execution-readiness-packet.md'), 'utf8')).toContain(
+        'updated phase contract from repo root',
+      );
+    });
+  });
+
   test('records requested and actual route separately on successful build', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

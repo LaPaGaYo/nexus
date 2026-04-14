@@ -1,14 +1,24 @@
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, realpathSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, realpathSync, rmSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { getPrimaryWorktreeRoot } from './support-surface';
 import type { SessionRootRecord, WorkspaceRecord } from './types';
 
 const LEGACY_WORKTREE_ROOT = '.worktrees';
+const RUN_WORKSPACE_SYNC_PATHS = [
+  '.planning/current',
+  '.planning/nexus/current-run.json',
+  'docs/product',
+] as const;
 
 type GitWorktreeEntry = {
   path: string;
   branch: string | null;
+};
+
+type GitStatusEntry = {
+  code: string;
+  path: string;
 };
 
 function gitStdout(cwd: string, args: string[]): string | null {
@@ -66,6 +76,91 @@ function canonicalPath(path: string): string {
     return realpathSync.native(path);
   } catch {
     return resolve(path);
+  }
+}
+
+function syncRepoPathIntoWorkspace(
+  repoRoot: string,
+  workspacePath: string,
+  relativePath: string,
+): void {
+  const sourcePath = join(repoRoot, relativePath);
+  const targetPath = join(workspacePath, relativePath);
+
+  rmSync(targetPath, { recursive: true, force: true });
+
+  if (!existsSync(sourcePath)) {
+    return;
+  }
+
+  mkdirSync(dirname(targetPath), { recursive: true });
+  cpSync(sourcePath, targetPath, {
+    force: true,
+    recursive: true,
+  });
+}
+
+function parsePorcelainPath(value: string): string {
+  const trimmed = value.trim();
+  const renameSeparator = ' -> ';
+  const target = trimmed.includes(renameSeparator)
+    ? trimmed.slice(trimmed.lastIndexOf(renameSeparator) + renameSeparator.length)
+    : trimmed;
+
+  if (target.startsWith('"') && target.endsWith('"')) {
+    try {
+      return JSON.parse(target);
+    } catch {
+      return target.slice(1, -1);
+    }
+  }
+
+  return target;
+}
+
+function gitStatusEntries(cwd: string): GitStatusEntry[] {
+  const porcelain = gitStdout(cwd, ['status', '--porcelain', '--untracked-files=all']);
+  if (porcelain === null) {
+    return [];
+  }
+
+  return porcelain
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => ({
+      code: line.slice(0, 2),
+      path: parsePorcelainPath(line.slice(3)),
+    }));
+}
+
+function isMirroredRunArtifactPath(relativePath: string): boolean {
+  return relativePath === '.planning/nexus/current-run.json'
+    || relativePath.startsWith('.planning/current/')
+    || relativePath === 'docs/product'
+    || relativePath.startsWith('docs/product/');
+}
+
+function hasOnlyMirroredRunArtifactsDirty(workspacePath: string): boolean {
+  const entries = gitStatusEntries(workspacePath);
+  return entries.length > 0 && entries.every((entry) => isMirroredRunArtifactPath(entry.path));
+}
+
+function clearMirroredRunArtifacts(workspacePath: string): void {
+  for (const entry of gitStatusEntries(workspacePath)) {
+    if (!isMirroredRunArtifactPath(entry.path)) {
+      continue;
+    }
+
+    if (entry.code === '??') {
+      rmSync(join(workspacePath, entry.path), { recursive: true, force: true });
+      continue;
+    }
+
+    spawnSync('git', ['-C', workspacePath, 'restore', '--staged', '--worktree', '--source=HEAD', '--', entry.path], {
+      stdio: 'pipe',
+      timeout: 15_000,
+    });
   }
 }
 
@@ -394,6 +489,17 @@ export function cleanupRetiredRunWorkspace(
   }
 
   if (!isCleanWorktree(normalizedWorkspace.path)) {
+    if (!hasOnlyMirroredRunArtifactsDirty(normalizedWorkspace.path)) {
+      return {
+        ...normalizedWorkspace,
+        retirement_state: 'retained',
+      };
+    }
+
+    clearMirroredRunArtifacts(normalizedWorkspace.path);
+  }
+
+  if (!isCleanWorktree(normalizedWorkspace.path)) {
     return {
       ...normalizedWorkspace,
       retirement_state: 'retained',
@@ -411,6 +517,29 @@ export function cleanupRetiredRunWorkspace(
     ...normalizedWorkspace,
     retirement_state: 'retained',
   };
+}
+
+export function syncRunWorkspaceArtifacts(
+  repoRoot: string,
+  workspace?: WorkspaceRecord | null,
+): void {
+  if (!workspace || workspace.kind !== 'worktree') {
+    return;
+  }
+
+  const resolvedRepoRoot = resolveRepositoryRoot(repoRoot);
+  const normalizedWorkspacePath = canonicalPath(workspace.path);
+  if (normalizedWorkspacePath === resolvedRepoRoot) {
+    return;
+  }
+
+  if (!isWorkspaceUsable(resolvedRepoRoot, normalizedWorkspacePath)) {
+    return;
+  }
+
+  for (const relativePath of RUN_WORKSPACE_SYNC_PATHS) {
+    syncRepoPathIntoWorkspace(resolvedRepoRoot, normalizedWorkspacePath, relativePath);
+  }
 }
 
 export function resolveExecutionWorkspace(

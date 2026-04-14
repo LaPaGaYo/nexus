@@ -7,7 +7,7 @@ import { applyNormalizationPlan } from '../normalizers';
 import { buildShipStageTraceabilityPayloads } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { SuperpowersShipDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
@@ -108,6 +108,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     artifactPointerFor(reviewStatusPath),
     ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
   ];
+  syncRunWorkspaceArtifacts(ctx.cwd, workspace);
   const result = await ctx.adapters.superpowers.ship_discipline({
     cwd: ctx.cwd,
     workspace,
@@ -164,6 +165,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(
         ledgerWithExecution,
         previousStage,
@@ -210,6 +212,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: workspace,
       ledger: nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -264,6 +267,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       },
     ),
     status,
+    mirrorWorkspace: workspace,
     ledger: next,
   });
 

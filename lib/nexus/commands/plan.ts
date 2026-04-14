@@ -81,6 +81,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: ledger.execution.workspace,
       ledger: nextLedger(ledger, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
     });
     throw new Error(result.outcome === 'refused' ? 'GSD planning refused' : 'GSD planning blocked');
@@ -134,6 +135,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: next.execution.workspace,
       ledger: next,
     });
 
@@ -195,6 +197,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
+      mirrorWorkspace: ledger.execution.workspace,
       ledger: nextLedger(ledger, 'blocked', startedAt, ctx.via),
       conflicts: [conflict],
     });

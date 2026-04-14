@@ -3,7 +3,8 @@ import { dirname, join } from 'path';
 import { writeConflictArtifacts } from '../conflicts';
 import { writeLedger } from '../ledger';
 import { writeStageStatus } from '../status';
-import type { CanonicalCommandId, ConflictRecord, RunLedger, StageStatus } from '../types';
+import { syncRunWorkspaceArtifacts } from '../workspace-substrate';
+import type { CanonicalCommandId, ConflictRecord, RunLedger, StageStatus, WorkspaceRecord } from '../types';
 
 function writeRepoFile(cwd: string, relativePath: string, content: string): void {
   const absolutePath = join(cwd, relativePath);
@@ -34,6 +35,7 @@ interface ApplyNormalizationPlanInput {
   status: StageStatus;
   ledger?: RunLedger;
   conflicts?: ConflictRecord[];
+  mirrorWorkspace?: WorkspaceRecord | null;
   writeAtomicFile?: (cwd: string, relativePath: string, content: string) => void;
 }
 
@@ -54,6 +56,7 @@ export async function applyNormalizationPlan(input: ApplyNormalizationPlanInput)
     if (input.conflicts && input.conflicts.length > 0) {
       writeConflictArtifacts(input.cwd, input.stage, input.conflicts);
     }
+    syncRunWorkspaceArtifacts(input.cwd, input.mirrorWorkspace);
   } catch (error) {
     const blockedStatus: StageStatus = {
       ...input.status,
@@ -75,6 +78,7 @@ export async function applyNormalizationPlan(input: ApplyNormalizationPlanInput)
 
     writeConflictArtifacts(input.cwd, input.stage, conflicts);
     writeStageStatus(input.statusPath, blockedStatus, input.cwd);
+    syncRunWorkspaceArtifacts(input.cwd, input.mirrorWorkspace);
     throw new Error('Canonical writeback failed');
   }
 }
