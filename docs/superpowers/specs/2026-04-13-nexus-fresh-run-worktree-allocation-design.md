@@ -197,8 +197,12 @@ Retirement states:
 Default behavior:
 
 - mark retired at closeout
-- cleanup may happen automatically on the next fresh `/discover`, or by explicit
-  cleanup command/policy
+- cleanup happens conservatively on the next fresh `/discover`
+- only fresh-run worktrees under `.nexus-worktrees/` are eligible for automatic
+  removal
+- safe cleanup uses `git worktree remove`, not raw directory deletion
+- worktrees that are dirty, still unsafe to remove, or outside the managed
+  worktree root are marked `retained`
 
 Nexus should not silently reuse a retired workspace for a new run.
 
@@ -210,12 +214,18 @@ When `/discover` starts and the prior ledger is a completed closeout:
 
 1. archive the completed run ledger
 2. archive the prior closeout artifact set
-3. create a fresh execution branch from the resolved repository primary branch
-4. create a fresh linked worktree under `.nexus-worktrees/`
-5. write the new ledger with execution workspace already bound
+3. if the prior run workspace is retired and safely removable, remove it via
+   `git worktree remove`; otherwise mark it `retained`
+4. create a fresh execution branch from the resolved repository primary branch
+5. create a fresh linked worktree under `.nexus-worktrees/`
+6. write the new ledger with execution workspace already bound
 
 This means fresh-run workspace allocation is part of run bootstrap, not an
 incidental side effect of `/handoff`.
+
+The archived run ledger and archived closeout status should reflect the final
+retirement outcome (`removed` or `retained`), not only the immediate
+closeout-time `retired_pending_cleanup` marker.
 
 ### 2. Workspace record contract
 

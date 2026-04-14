@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Fresh governed runs now allocate a dedicated `codex/run-*` branch and linked
+  worktree under `.nexus-worktrees/`, instead of reusing an old implement
+  worktree from a prior run.
+- Governed `/handoff`, `/build`, `/review`, `/qa`, and `/ship` now stay bound
+  to the run-owned workspace, while CCB `mounted`/`ping`/`autonew` remain
+  anchored at the repo-root session root.
+- `/closeout` now retires the run-owned worktree, and the next fresh
+  `/discover` conservatively removes safe retired worktrees or archives them as
+  `retained` when cleanup is unsafe.
+
 ## Nexus Patch Release Index
 
 The initial Nexus baseline is recorded below as `v1.0.0`. Incremental Nexus
