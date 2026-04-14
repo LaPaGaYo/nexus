@@ -4,6 +4,7 @@ import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { stageStatusPath } from '../artifacts';
 import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
+import { allocateFreshRunWorkspace, resolveRepositoryRoot, resolveSessionRootRecord } from '../workspace-substrate';
 import type { PmDiscoverRaw } from '../adapters/pm';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
@@ -61,18 +62,29 @@ function buildStatus(
 }
 
 export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
-  const existingLedger = readLedger(ctx.cwd);
-  if (existingLedger && existingLedger.current_stage !== 'discover' && !isCompletedCloseoutLedger(existingLedger, ctx.cwd)) {
+  const repositoryRoot = resolveRepositoryRoot(ctx.cwd);
+  const existingLedger = readLedger(repositoryRoot);
+  if (
+    existingLedger
+    && existingLedger.current_stage !== 'discover'
+    && !isCompletedCloseoutLedger(existingLedger, repositoryRoot)
+  ) {
     throw new Error(`Illegal Nexus transition: ${existingLedger.current_stage} -> discover`);
   }
 
   if (existingLedger && existingLedger.current_stage === 'closeout') {
-    archiveCompletedRunLedger(existingLedger, ctx.cwd);
+    archiveCompletedRunLedger(existingLedger, repositoryRoot);
   }
 
   const ledger = existingLedger && existingLedger.current_stage === 'discover'
     ? existingLedger
-    : startLedger(makeRunId(ctx.clock), 'discover', ctx.execution);
+    : (() => {
+      const freshRunId = makeRunId(ctx.clock);
+      return startLedger(freshRunId, 'discover', ctx.execution, {
+        workspace: allocateFreshRunWorkspace(repositoryRoot, freshRunId),
+        sessionRoot: resolveSessionRootRecord(repositoryRoot),
+      });
+    })();
   const at = ctx.clock();
   const manifest = CANONICAL_MANIFEST.discover;
   const requestPayload = {
@@ -81,7 +93,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     contract_outputs: manifest.durable_outputs,
   };
   const result = await ctx.adapters.pm.discover({
-    cwd: ctx.cwd,
+    cwd: repositoryRoot,
     run_id: ledger.run_id,
     command: 'discover',
     stage: 'discover',
@@ -94,7 +106,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   if (result.outcome === 'refused') {
     const status = buildStatus(ledger, at, 'refused', 'refused', false, ['PM discovery refused']);
     await applyNormalizationPlan({
-      cwd: ctx.cwd,
+      cwd: repositoryRoot,
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [],
@@ -115,7 +127,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   if (result.outcome !== 'success') {
     const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['PM discovery blocked']);
     await applyNormalizationPlan({
-      cwd: ctx.cwd,
+      cwd: repositoryRoot,
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [],
@@ -144,7 +156,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     };
 
     await applyNormalizationPlan({
-      cwd: ctx.cwd,
+      cwd: repositoryRoot,
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: normalized.canonicalWrites,
@@ -180,7 +192,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     };
     const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
     await applyNormalizationPlan({
-      cwd: ctx.cwd,
+      cwd: repositoryRoot,
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [],

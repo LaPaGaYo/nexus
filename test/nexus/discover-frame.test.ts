@@ -1,8 +1,104 @@
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
 import { createDiscoverStagePack } from '../../lib/nexus/stage-packs/discover';
 import { createFrameStagePack } from '../../lib/nexus/stage-packs/frame';
+import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
+import type { NexusAdapters } from '../../lib/nexus/adapters/types';
+import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
+import { resolveInvocation } from '../../lib/nexus/commands/index';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
+
+type TempGitRepoRun = {
+  run: (command: string, adapters?: NexusAdapters, execution?: ExecutionSelection) => Promise<void>;
+  runFrom: (
+    cwd: string,
+    command: string,
+    adapters?: NexusAdapters,
+    execution?: ExecutionSelection,
+  ) => Promise<void>;
+  readJson: (path: string) => any;
+  cwd: string;
+};
+
+function createTempGitRepo(): string {
+  const cwd = mkdtempSync(join(tmpdir(), 'nexus-discover-frame-'));
+  mkdirSync(join(cwd, '.planning'), { recursive: true });
+  mkdirSync(join(cwd, '.ccb'), { recursive: true });
+  writeFileSync(join(cwd, 'README.md'), '# temp repo\n');
+  spawnSync('git', ['init', '-b', 'main'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.email', 'test@example.com'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['add', 'README.md'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd, stdio: 'pipe' });
+  return cwd;
+}
+
+function createLinkedWorktree(
+  repoRoot: string,
+  worktreeRoot: '.nexus-worktrees' | '.worktrees',
+  name = 'implement',
+  branch = 'feature/implement',
+): string {
+  const base = join(repoRoot, worktreeRoot);
+  mkdirSync(base, { recursive: true });
+  spawnSync('git', ['branch', branch], { cwd: repoRoot, stdio: 'pipe' });
+  const worktreePath = join(base, name);
+  const result = spawnSync('git', ['worktree', 'add', worktreePath, branch], {
+    cwd: repoRoot,
+    stdio: 'pipe',
+  });
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr.toString() || result.stdout.toString() || 'failed to create linked worktree');
+  }
+
+  return worktreePath;
+}
+
+async function runInTempGitRepo(
+  fn: (ctx: TempGitRepoRun) => Promise<void>,
+): Promise<void> {
+  const cwd = createTempGitRepo();
+  let tick = 0;
+
+  const invoke = async (
+    commandCwd: string,
+    command: string,
+    adapters = getDefaultNexusAdapters(),
+    execution: ExecutionSelection = {
+      mode: 'governed_ccb',
+      primary_provider: 'codex',
+      provider_topology: 'multi_session',
+      requested_execution_path: 'codex-via-ccb',
+    },
+  ) => {
+    const invocation = resolveInvocation(command);
+    const at = new Date(Date.UTC(2026, 3, 13, 12, 0, 0, tick)).toISOString();
+    tick += 1;
+    await invocation.handler({
+      cwd: commandCwd,
+      clock: () => at,
+      via: invocation.via,
+      adapters,
+      execution,
+    });
+  };
+
+  try {
+    await fn({
+      cwd,
+      run: (command, adapters, execution) => invoke(cwd, command, adapters, execution),
+      runFrom: (commandCwd, command, adapters, execution) => invoke(commandCwd, command, adapters, execution),
+      readJson: (path: string) => JSON.parse(readFileSync(join(cwd, path), 'utf8')),
+    });
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+}
 
 describe('nexus discover/frame PM seams', () => {
   test('pm stage packs stay Nexus-owned internal units', () => {
@@ -168,7 +264,9 @@ describe('nexus discover/frame PM seams', () => {
   });
 
   test('rolls over to a fresh discover run after a completed closeout', async () => {
-    await runInTempRepo(async ({ run }) => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      const legacyWorktreePath = createLinkedWorktree(cwd, '.worktrees');
+
       await run('discover');
       await run('frame');
       await run('plan');
@@ -179,11 +277,11 @@ describe('nexus discover/frame PM seams', () => {
       await run('ship');
       await run('closeout');
 
-      const completedLedger = await run.readJson('.planning/nexus/current-run.json');
+      const completedLedger = readJson('.planning/nexus/current-run.json');
 
       await run('discover');
 
-      const nextLedger = await run.readJson('.planning/nexus/current-run.json');
+      const nextLedger = readJson('.planning/nexus/current-run.json');
       expect(nextLedger.run_id).not.toBe(completedLedger.run_id);
       expect(nextLedger).toMatchObject({
         status: 'active',
@@ -191,23 +289,111 @@ describe('nexus discover/frame PM seams', () => {
         current_stage: 'discover',
         previous_stage: null,
         allowed_next_stages: ['frame'],
+        execution: {
+          workspace: {
+            path: realpathSync.native(join(cwd, '.nexus-worktrees', nextLedger.run_id)),
+            kind: 'worktree',
+            branch: `codex/${nextLedger.run_id}`,
+            source: 'allocated:fresh_run',
+            run_id: nextLedger.run_id,
+            retirement_state: 'active',
+          },
+          session_root: {
+            path: realpathSync.native(cwd),
+            kind: 'repo_root',
+            source: 'ccb_root',
+          },
+        },
       });
       expect(nextLedger.command_history).toHaveLength(1);
       expect(nextLedger.command_history[0]).toMatchObject({
         command: 'discover',
         via: null,
       });
+      expect(nextLedger.execution.workspace.path).not.toBe(realpathSync.native(legacyWorktreePath));
+      expect(nextLedger.execution.workspace.path).not.toBe(completedLedger.execution.workspace.path);
+      expect(nextLedger.execution.workspace.path).toContain(`${cwd}/.nexus-worktrees/`);
+      expect(nextLedger.execution.workspace.path).not.toContain(`${cwd}/.worktrees/`);
 
-      expect(await run.readJson(`.planning/archive/runs/${completedLedger.run_id}/current-run.json`)).toMatchObject({
+      expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/current-run.json`)).toMatchObject({
         run_id: completedLedger.run_id,
         current_stage: 'closeout',
         status: 'completed',
       });
-      expect(await run.readJson(`.planning/archive/runs/${completedLedger.run_id}/closeout/status.json`)).toMatchObject({
+      expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/closeout/status.json`)).toMatchObject({
         run_id: completedLedger.run_id,
         stage: 'closeout',
         state: 'completed',
         ready: true,
+      });
+    });
+  });
+
+  test('starts the next fresh discover from an old linked worktree but allocates under the repository root', async () => {
+    await runInTempGitRepo(async ({ cwd, run, runFrom, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      const completedLedger = readJson('.planning/nexus/current-run.json');
+      const oldWorktreePath = realpathSync.native(join(cwd, '.nexus-worktrees', completedLedger.run_id));
+
+      await runFrom(oldWorktreePath, 'discover');
+
+      const nextLedger = readJson('.planning/nexus/current-run.json');
+      expect(nextLedger.run_id).not.toBe(completedLedger.run_id);
+      expect(nextLedger.execution.workspace).toMatchObject({
+        path: realpathSync.native(join(cwd, '.nexus-worktrees', nextLedger.run_id)),
+        kind: 'worktree',
+        branch: `codex/${nextLedger.run_id}`,
+        source: 'allocated:fresh_run',
+        run_id: nextLedger.run_id,
+        retirement_state: 'active',
+      });
+      expect(nextLedger.execution.workspace.path).not.toContain(`${oldWorktreePath}/.nexus-worktrees/`);
+      expect(nextLedger.execution.workspace.path).not.toBe(oldWorktreePath);
+      expect(nextLedger.execution.session_root).toEqual({
+        path: realpathSync.native(cwd),
+        kind: 'repo_root',
+        source: 'ccb_root',
+      });
+    });
+  });
+
+  test('continues from fresh discover to frame when invoked inside the newly allocated worktree', async () => {
+    await runInTempGitRepo(async ({ cwd, run, runFrom, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      await run('discover');
+      const nextLedger = readJson('.planning/nexus/current-run.json');
+      const freshWorktreePath = realpathSync.native(join(cwd, '.nexus-worktrees', nextLedger.run_id));
+
+      await runFrom(freshWorktreePath, 'frame');
+
+      expect(readJson('.planning/current/frame/status.json')).toMatchObject({
+        run_id: nextLedger.run_id,
+        stage: 'frame',
+        state: 'completed',
+        decision: 'ready',
+        ready: true,
+      });
+      expect(readJson('.planning/nexus/current-run.json')).toMatchObject({
+        run_id: nextLedger.run_id,
+        current_stage: 'frame',
       });
     });
   });

@@ -7,6 +7,11 @@ import { resolveInvocation } from '../../lib/nexus/commands/index';
 import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
 import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
+import {
+  allocateFreshRunWorkspace,
+  resolveExecutionWorkspace,
+  resolveSessionRootRecord,
+} from '../../lib/nexus/workspace-substrate';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 
 type TempRepoRun = {
@@ -272,9 +277,71 @@ function governedAdapters(seen: SeenCall[]): NexusAdapters {
 }
 
 describe('nexus workspace substrate', () => {
+  test('allocates a fresh run workspace under .nexus-worktrees instead of reusing a legacy implement worktree', async () => {
+    await runInTempGitRepo(async ({ cwd }) => {
+      const legacyWorktreePath = createLinkedWorktree(cwd, '.worktrees');
+
+      const workspace = allocateFreshRunWorkspace(cwd, 'run-2026-04-13T00-00-00-000Z');
+
+      expect(workspace).toMatchObject({
+        path: realpathSync.native(join(cwd, '.nexus-worktrees', 'run-2026-04-13T00-00-00-000Z')),
+        kind: 'worktree',
+        branch: 'codex/run-2026-04-13T00-00-00-000Z',
+        source: 'allocated:fresh_run',
+        run_id: 'run-2026-04-13T00-00-00-000Z',
+        retirement_state: 'active',
+      });
+      expect(workspace.path).not.toBe(realpathSync.native(legacyWorktreePath));
+      expect(workspace.path).toContain(`${cwd}/.nexus-worktrees/`);
+      expect(workspace.path).not.toContain(`${cwd}/.worktrees/`);
+    });
+  });
+
+  test('anchors fresh-run allocation and session root to the repository root when invoked from a linked worktree', async () => {
+    await runInTempGitRepo(async ({ cwd }) => {
+      mkdirSync(join(cwd, '.ccb'), { recursive: true });
+      const existingWorktreePath = createLinkedWorktree(cwd, '.nexus-worktrees', 'current-run', 'codex/current-run');
+
+      const workspace = allocateFreshRunWorkspace(existingWorktreePath, 'run-2026-04-13T00-00-00-001Z');
+      const sessionRoot = resolveSessionRootRecord(existingWorktreePath);
+
+      expect(workspace).toMatchObject({
+        path: realpathSync.native(join(cwd, '.nexus-worktrees', 'run-2026-04-13T00-00-00-001Z')),
+        kind: 'worktree',
+        branch: 'codex/run-2026-04-13T00-00-00-001Z',
+        source: 'allocated:fresh_run',
+        run_id: 'run-2026-04-13T00-00-00-001Z',
+        retirement_state: 'active',
+      });
+      expect(workspace.path).not.toContain(`${existingWorktreePath}/.nexus-worktrees/`);
+      expect(sessionRoot).toEqual({
+        path: realpathSync.native(cwd),
+        kind: 'repo_root',
+        source: 'ccb_root',
+      });
+    });
+  });
+
+  test('resolves existing workspace candidates against the repository root when called from a linked worktree cwd', async () => {
+    await runInTempGitRepo(async ({ cwd }) => {
+      const currentRunPath = createLinkedWorktree(cwd, '.nexus-worktrees', 'current-run', 'codex/current-run');
+      const implementPath = createLinkedWorktree(cwd, '.nexus-worktrees', 'implement', 'feature/implement');
+
+      const workspace = resolveExecutionWorkspace(currentRunPath);
+
+      expect(workspace).toEqual({
+        path: realpathSync.native(implementPath),
+        kind: 'worktree',
+        branch: 'feature/implement',
+        source: 'existing:nexus_worktree',
+      });
+    });
+  });
+
   test('governed lifecycle selects a linked worktree workspace and persists provenance', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
       const worktreePath = createLinkedWorktree(cwd, '.nexus-worktrees');
+      const expectedCwd = realpathSync.native(cwd);
       const seen: SeenCall[] = [];
       const adapters = governedAdapters(seen);
 
@@ -317,20 +384,21 @@ describe('nexus workspace substrate', () => {
       });
 
       expect(seen).toEqual([
-        { stage: 'handoff', cwd, workspace: expectedWorkspace },
-        { stage: 'build-discipline', cwd, workspace: expectedWorkspace },
-        { stage: 'build', cwd, workspace: expectedWorkspace },
-        { stage: 'review-discipline', cwd, workspace: expectedWorkspace },
-        { stage: 'review-codex', cwd, workspace: expectedWorkspace },
-        { stage: 'review-gemini', cwd, workspace: expectedWorkspace },
-        { stage: 'qa', cwd, workspace: expectedWorkspace },
-        { stage: 'ship', cwd, workspace: expectedWorkspace },
+        { stage: 'handoff', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'build-discipline', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'build', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'review-discipline', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'review-codex', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'review-gemini', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'qa', cwd: expectedCwd, workspace: expectedWorkspace },
+        { stage: 'ship', cwd: expectedCwd, workspace: expectedWorkspace },
       ]);
     });
   });
 
   test('falls back to the repo root workspace when no linked worktree exists', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      const expectedCwd = realpathSync.native(cwd);
       const seen: SeenCall[] = [];
       const adapters = governedAdapters(seen);
 
@@ -353,7 +421,7 @@ describe('nexus workspace substrate', () => {
         workspace: expectedWorkspace,
       });
       expect(seen).toEqual([
-        { stage: 'handoff', cwd, workspace: expectedWorkspace },
+        { stage: 'handoff', cwd: expectedCwd, workspace: expectedWorkspace },
       ]);
     });
   });

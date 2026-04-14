@@ -3,6 +3,7 @@ import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
 import type { ExecutionSelection } from '../execution-topology';
 import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
 import type { CanonicalCommandId, StageStatus } from '../types';
+import { resolveRepositoryRoot } from '../workspace-substrate';
 import { runBuild } from './build';
 import { runCloseout } from './closeout';
 import { runDiscover } from './discover';
@@ -56,7 +57,7 @@ export function resolveInvocation(name: string): CommandInvocation {
   return {
     command,
     via,
-    handler: async (ctx: CommandContext) => handler({ ...ctx, via }),
+    handler: async (ctx: CommandContext) => handler({ ...ctx, cwd: resolveRepositoryRoot(ctx.cwd), via }),
     contract: CANONICAL_MANIFEST[command],
   };
 }

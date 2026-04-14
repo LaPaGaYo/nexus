@@ -1,8 +1,8 @@
 import { spawnSync } from 'child_process';
-import { existsSync, realpathSync } from 'fs';
-import { join, resolve } from 'path';
+import { existsSync, mkdirSync, realpathSync } from 'fs';
+import { dirname, join, resolve } from 'path';
 import { getPrimaryWorktreeRoot } from './support-surface';
-import type { WorkspaceRecord } from './types';
+import type { SessionRootRecord, WorkspaceRecord } from './types';
 
 const LEGACY_WORKTREE_ROOT = '.worktrees';
 
@@ -22,6 +22,14 @@ function gitStdout(cwd: string, args: string[]): string | null {
   }
 
   return result.stdout.toString('utf8');
+}
+
+function gitExitCode(cwd: string, args: string[]): number {
+  const result = spawnSync('git', ['-C', cwd, ...args], {
+    stdio: 'pipe',
+    timeout: 15_000,
+  });
+  return result.status ?? 1;
 }
 
 function normalizeBranch(value: string | null | undefined): string | null {
@@ -55,6 +63,23 @@ function canonicalPath(path: string): string {
   } catch {
     return resolve(path);
   }
+}
+
+export function resolveRepositoryRoot(cwd: string): string {
+  const commonDir = gitCommonDir(cwd);
+  if (commonDir) {
+    const normalizedCommonDir = canonicalPath(commonDir);
+    if (normalizedCommonDir.endsWith('/.git')) {
+      return canonicalPath(dirname(normalizedCommonDir));
+    }
+  }
+
+  const topLevel = gitStdout(cwd, ['rev-parse', '--show-toplevel'])?.trim();
+  if (topLevel) {
+    return canonicalPath(topLevel);
+  }
+
+  return canonicalPath(cwd);
 }
 
 function parseWorktreeList(stdout: string): GitWorktreeEntry[] {
@@ -171,11 +196,100 @@ function rootWorkspace(repoRoot: string): WorkspaceRecord {
   };
 }
 
+function branchExists(repoRoot: string, branch: string): boolean {
+  return gitExitCode(repoRoot, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]) === 0;
+}
+
+function freshRunBranch(runId: string): string {
+  return `codex/${runId}`;
+}
+
+function isGitRepository(repoRoot: string): boolean {
+  const resolvedRoot = gitStdout(repoRoot, ['rev-parse', '--show-toplevel'])?.trim() ?? null;
+  return resolvedRoot !== null;
+}
+
+function allocatedWorkspace(repoRoot: string, worktreePath: string, runId: string): WorkspaceRecord {
+  return {
+    path: canonicalPath(worktreePath),
+    kind: 'worktree',
+    branch: currentBranch(worktreePath) ?? freshRunBranch(runId),
+    source: 'allocated:fresh_run',
+    run_id: runId,
+    retirement_state: 'active',
+  };
+}
+
+export function resolveRepositoryPrimaryBranch(repoRoot: string): string {
+  const remoteHead = normalizeBranch(gitStdout(repoRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD'])?.trim() ?? null);
+  return remoteHead ?? currentBranch(repoRoot) ?? 'main';
+}
+
+export function resolveSessionRootRecord(repoRoot: string): SessionRootRecord {
+  let current = resolveRepositoryRoot(repoRoot);
+
+  while (true) {
+    if (existsSync(join(current, '.ccb')) || existsSync(join(current, '.ccb_config'))) {
+      return {
+        path: current,
+        kind: 'repo_root',
+        source: 'ccb_root',
+      };
+    }
+
+    const parent = dirname(current);
+    if (parent === current) {
+      return {
+        path: resolveRepositoryRoot(repoRoot),
+        kind: 'repo_root',
+        source: 'ccb_root',
+      };
+    }
+
+    current = parent;
+  }
+}
+
+export function allocateFreshRunWorkspace(repoRoot: string, runId: string): WorkspaceRecord {
+  const resolvedRepoRoot = resolveRepositoryRoot(repoRoot);
+  if (!isGitRepository(resolvedRepoRoot)) {
+    return rootWorkspace(resolvedRepoRoot);
+  }
+
+  const worktreeRoot = getPrimaryWorktreeRoot(resolvedRepoRoot);
+  const worktreePath = join(worktreeRoot, runId);
+  const branch = freshRunBranch(runId);
+
+  if (isWorkspaceUsable(resolvedRepoRoot, worktreePath)) {
+    return allocatedWorkspace(resolvedRepoRoot, worktreePath, runId);
+  }
+
+  mkdirSync(worktreeRoot, { recursive: true });
+
+  const args = branchExists(resolvedRepoRoot, branch)
+    ? ['worktree', 'add', worktreePath, branch]
+    : ['worktree', 'add', worktreePath, '-b', branch, resolveRepositoryPrimaryBranch(resolvedRepoRoot)];
+  const result = spawnSync('git', ['-C', resolvedRepoRoot, ...args], {
+    stdio: 'pipe',
+    timeout: 15_000,
+  });
+
+  if (result.status !== 0) {
+    const stderr = result.stderr.toString('utf8').trim();
+    const stdout = result.stdout.toString('utf8').trim();
+    throw new Error(stderr || stdout || `failed to allocate fresh run workspace for ${runId}`);
+  }
+
+  return allocatedWorkspace(resolvedRepoRoot, worktreePath, runId);
+}
+
 export function resolveExecutionWorkspace(
   repoRoot: string,
   existingWorkspace?: WorkspaceRecord | null,
 ): WorkspaceRecord {
-  if (existingWorkspace && isWorkspaceUsable(repoRoot, existingWorkspace.path)) {
+  const resolvedRepoRoot = resolveRepositoryRoot(repoRoot);
+
+  if (existingWorkspace && isWorkspaceUsable(resolvedRepoRoot, existingWorkspace.path)) {
     return {
       ...existingWorkspace,
       path: canonicalPath(existingWorkspace.path),
@@ -183,26 +297,25 @@ export function resolveExecutionWorkspace(
     };
   }
 
-  const worktreeList = gitStdout(repoRoot, ['worktree', 'list', '--porcelain']);
+  const worktreeList = gitStdout(resolvedRepoRoot, ['worktree', 'list', '--porcelain']);
   if (!worktreeList) {
-    return rootWorkspace(repoRoot);
+    return rootWorkspace(resolvedRepoRoot);
   }
 
-  const resolvedRepoRoot = canonicalPath(repoRoot);
   const candidates = parseWorktreeList(worktreeList)
     .filter((entry) => canonicalPath(entry.path) !== resolvedRepoRoot)
-    .filter((entry) => preferredWorktreeSource(repoRoot, entry.path) !== null)
-    .filter((entry) => isWorkspaceUsable(repoRoot, entry.path));
+    .filter((entry) => preferredWorktreeSource(resolvedRepoRoot, entry.path) !== null)
+    .filter((entry) => isWorkspaceUsable(resolvedRepoRoot, entry.path));
 
   if (candidates.length === 0) {
-    return rootWorkspace(repoRoot);
+    return rootWorkspace(resolvedRepoRoot);
   }
 
-  const selected = sortCandidates(repoRoot, candidates)[0]!;
+  const selected = sortCandidates(resolvedRepoRoot, candidates)[0]!;
   return {
     path: canonicalPath(selected.path),
     kind: 'worktree',
     branch: currentBranch(selected.path) ?? selected.branch,
-    source: preferredWorktreeSource(repoRoot, selected.path) ?? 'existing:legacy_worktree',
+    source: preferredWorktreeSource(resolvedRepoRoot, selected.path) ?? 'existing:legacy_worktree',
   };
 }
