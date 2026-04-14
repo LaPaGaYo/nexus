@@ -1,10 +1,101 @@
-import { writeFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
+import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
 import { createBuildStagePack } from '../../lib/nexus/stage-packs/build';
 import { createHandoffStagePack } from '../../lib/nexus/stage-packs/handoff';
+import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
+import type { NexusAdapters } from '../../lib/nexus/adapters/types';
+import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
+import { resolveInvocation } from '../../lib/nexus/commands/index';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
+
+type TempGitRepoRun = {
+  run: (command: string, adapters?: NexusAdapters, execution?: ExecutionSelection) => Promise<void>;
+  readJson: (path: string) => any;
+  writeJson: (path: string, value: unknown) => void;
+  cwd: string;
+};
+
+function createTempGitRepo(): string {
+  const cwd = mkdtempSync(join(tmpdir(), 'nexus-build-routing-'));
+  mkdirSync(join(cwd, '.planning'), { recursive: true });
+  mkdirSync(join(cwd, '.ccb'), { recursive: true });
+  writeFileSync(join(cwd, 'README.md'), '# temp repo\n');
+  spawnSync('git', ['init', '-b', 'main'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.email', 'test@example.com'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['add', 'README.md'], { cwd, stdio: 'pipe' });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd, stdio: 'pipe' });
+  return cwd;
+}
+
+function createLinkedWorktree(
+  repoRoot: string,
+  worktreeRoot: '.nexus-worktrees' | '.worktrees',
+  name = 'implement',
+  branch = 'feature/implement',
+): string {
+  const base = join(repoRoot, worktreeRoot);
+  mkdirSync(base, { recursive: true });
+  spawnSync('git', ['branch', branch], { cwd: repoRoot, stdio: 'pipe' });
+  const worktreePath = join(base, name);
+  const result = spawnSync('git', ['worktree', 'add', worktreePath, branch], {
+    cwd: repoRoot,
+    stdio: 'pipe',
+  });
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr.toString() || result.stdout.toString() || 'failed to create linked worktree');
+  }
+
+  return worktreePath;
+}
+
+async function runInTempGitRepo(
+  fn: (ctx: TempGitRepoRun) => Promise<void>,
+): Promise<void> {
+  const cwd = createTempGitRepo();
+  let tick = 0;
+
+  const run = async (
+    command: string,
+    adapters = getDefaultNexusAdapters(),
+    execution: ExecutionSelection = {
+      mode: 'governed_ccb',
+      primary_provider: 'codex',
+      provider_topology: 'multi_session',
+      requested_execution_path: 'codex-via-ccb',
+    },
+  ) => {
+    const invocation = resolveInvocation(command);
+    const at = new Date(Date.UTC(2026, 3, 13, 12, 0, 0, tick)).toISOString();
+    tick += 1;
+    await invocation.handler({
+      cwd,
+      clock: () => at,
+      via: invocation.via,
+      adapters,
+      execution,
+    });
+  };
+
+  try {
+    await fn({
+      cwd,
+      run,
+      readJson: (path: string) => JSON.parse(readFileSync(join(cwd, path), 'utf8')),
+      writeJson: (path: string, value: unknown) => {
+        mkdirSync(dirname(join(cwd, path)), { recursive: true });
+        writeFileSync(join(cwd, path), JSON.stringify(value, null, 2) + '\n');
+      },
+    });
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+}
 
 describe('nexus build routing', () => {
   test('build and handoff stage packs stay Nexus-owned internal units', () => {
@@ -356,6 +447,107 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('fresh handoff ignores prior-run handoff workspace artifacts', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson, writeJson }) => {
+      const staleWorktreePath = createLinkedWorktree(cwd, '.worktrees');
+      const seen: Array<{ workspace: unknown; ledgerWorkspace: unknown; ledgerSessionRoot: unknown }> = [];
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => {
+            seen.push({
+              workspace: ctx.workspace,
+              ledgerWorkspace: ctx.ledger.execution.workspace,
+              ledgerSessionRoot: ctx.ledger.execution.session_root,
+            });
+
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                available: true,
+                provider: 'codex',
+                providers: ['codex', 'gemini'],
+                mounted: ['codex', 'gemini'],
+                provider_checks: [
+                  {
+                    provider: 'codex',
+                    ping_command: 'ccb-ping codex',
+                    ping_output: '✅ codex connection OK (Session healthy)',
+                  },
+                  {
+                    provider: 'gemini',
+                    ping_command: 'ccb-ping gemini',
+                    ping_output: '✅ gemini connection OK (Session healthy)',
+                  },
+                ],
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/handoff/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('discover');
+      await run('frame');
+      await run('plan');
+
+      writeJson('.planning/current/handoff/status.json', {
+        run_id: 'run-stale',
+        stage: 'handoff',
+        state: 'completed',
+        decision: 'route_recorded',
+        ready: true,
+        workspace: {
+          path: realpathSync.native(staleWorktreePath),
+          kind: 'worktree',
+          branch: 'feature/implement',
+          source: 'existing:legacy_worktree',
+        },
+        session_root: {
+          path: realpathSync.native(cwd),
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+        requested_route: {
+          command: 'build',
+          governed: true,
+          execution_mode: 'governed_ccb',
+          primary_provider: 'codex',
+          provider_topology: 'multi_session',
+          planner: 'claude+pm-gsd',
+          generator: 'codex-via-ccb',
+          evaluator_a: 'codex-via-ccb',
+          evaluator_b: 'gemini-via-ccb',
+          synthesizer: 'claude',
+          substrate: 'superpowers-core',
+          transport: 'ccb',
+          fallback_policy: 'disabled',
+        },
+      });
+
+      await run('handoff', adapters);
+
+      const ledger = readJson('.planning/nexus/current-run.json');
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatchObject({
+        workspace: ledger.execution.workspace,
+        ledgerWorkspace: ledger.execution.workspace,
+        ledgerSessionRoot: ledger.execution.session_root,
+      });
+      expect((seen[0]?.workspace as { path: string }).path).not.toBe(realpathSync.native(staleWorktreePath));
+      expect((seen[0]?.workspace as { path: string }).path).toContain(`${realpathSync.native(cwd)}/.nexus-worktrees/`);
+    });
+  });
+
   test('records requested and actual route separately on successful build', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');
@@ -385,6 +577,84 @@ describe('nexus build routing', () => {
           receipt_path: '.planning/current/build/adapter-output.json',
         },
       });
+    });
+  });
+
+  test('build prefers the ledger run workspace over a conflicting handoff status workspace', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson, writeJson }) => {
+      const staleWorktreePath = createLinkedWorktree(cwd, '.worktrees');
+      const seen: Array<{ stage: string; workspace: unknown; ledgerWorkspace: unknown }> = [];
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          build_discipline: async (ctx) => {
+            seen.push({
+              stage: 'discipline',
+              workspace: ctx.workspace,
+              ledgerWorkspace: ctx.ledger.execution.workspace,
+            });
+            return {
+              adapter_id: 'superpowers',
+              outcome: 'success',
+              raw_output: { verification_summary: 'ok' },
+              requested_route: null,
+              actual_route: null,
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+        ccb: {
+          execute_generator: async (ctx) => {
+            seen.push({
+              stage: 'generator',
+              workspace: ctx.workspace,
+              ledgerWorkspace: ctx.ledger.execution.workspace,
+            });
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                receipt: 'ccb-build',
+                summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: Implemented bounded build.\n- Files touched: README.md\n- Verification: ok\n',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/build/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+
+      const ledgerWorkspace = readJson('.planning/nexus/current-run.json').execution.workspace;
+      const handoffStatus = readJson('.planning/current/handoff/status.json');
+      writeJson('.planning/current/handoff/status.json', {
+        ...handoffStatus,
+        workspace: {
+          path: realpathSync.native(staleWorktreePath),
+          kind: 'worktree',
+          branch: 'feature/implement',
+          source: 'existing:legacy_worktree',
+        },
+      });
+
+      await run('build', adapters);
+
+      expect(seen).toEqual([
+        { stage: 'discipline', workspace: ledgerWorkspace, ledgerWorkspace },
+        { stage: 'generator', workspace: ledgerWorkspace, ledgerWorkspace },
+      ]);
     });
   });
 

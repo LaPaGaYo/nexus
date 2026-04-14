@@ -1,13 +1,13 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { shipChecklistPath, shipReleaseGateRecordPath, stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
+import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertCanonicalTailLedger, assertQaReadyForCloseout, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildShipStageTraceabilityPayloads } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
 import type { SuperpowersShipDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
@@ -96,7 +96,11 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     ctx.cwd,
     ledger.execution.workspace ?? qaStatus?.workspace ?? reviewStatus.workspace ?? null,
   );
-  const ledgerWithWorkspace = withExecutionWorkspace(ledger, workspace);
+  const sessionRoot = ledger.execution.session_root
+    ?? qaStatus?.session_root
+    ?? reviewStatus.session_root
+    ?? resolveSessionRootRecord(ctx.cwd);
+  const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const releaseGateRecordPath = shipReleaseGateRecordPath();
   const checklistPath = shipChecklistPath();
   const statusPath = stageStatusPath('ship');
@@ -110,7 +114,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     run_id: ledger.run_id,
     command: 'ship',
     stage: 'ship',
-    ledger: ledgerWithWorkspace,
+    ledger: ledgerWithExecution,
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: null,
@@ -125,7 +129,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ? 'Superpowers ship discipline refused ship'
       : 'Superpowers ship discipline blocked ship';
     const status = blockedShipStatus(
-      ledgerWithWorkspace,
+      ledgerWithExecution,
       startedAt,
       predecessorArtifacts,
       message,
@@ -161,7 +165,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ),
       status,
       ledger: nextLedger(
-        ledgerWithWorkspace,
+        ledgerWithExecution,
         previousStage,
         result.outcome === 'refused' ? 'refused' : 'blocked',
         startedAt,
@@ -175,7 +179,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
 
   if (!result.raw_output.release_gate_record?.trim()) {
     const message = 'Release gate record is empty';
-    const status = blockedShipStatus(ledgerWithWorkspace, startedAt, predecessorArtifacts, message);
+    const status = blockedShipStatus(ledgerWithExecution, startedAt, predecessorArtifacts, message);
     const conflict: ConflictRecord = {
       stage: 'ship',
       adapter: 'superpowers',
@@ -206,7 +210,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: nextLedger(ledgerWithWorkspace, previousStage, 'blocked', startedAt, ctx.via),
+      ledger: nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -217,7 +221,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'ship',
-    ...executionFieldsFromLedger(ledgerWithWorkspace),
+    ...executionFieldsFromLedger(ledgerWithExecution),
     state: 'completed',
     decision: 'ship_recorded',
     ready: result.raw_output.merge_ready,
@@ -232,7 +236,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     errors: result.raw_output.merge_ready ? [] : ['Release gate remains blocked'],
     workspace,
   };
-  const next = nextLedger(ledgerWithWorkspace, previousStage, result.raw_output.merge_ready ? 'active' : 'blocked', startedAt, ctx.via);
+  const next = nextLedger(ledgerWithExecution, previousStage, result.raw_output.merge_ready ? 'active' : 'blocked', startedAt, ctx.via);
   next.artifact_index = {
     ...next.artifact_index,
     [releaseGateRecordPath]: artifactPointerFor(releaseGateRecordPath),

@@ -1,6 +1,6 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
+import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
@@ -15,7 +15,7 @@ import {
 import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace } from '../workspace-substrate';
+import { resolveExecutionWorkspace, resolveSessionRootRecord } from '../workspace-substrate';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
@@ -95,11 +95,20 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const manifest = CANONICAL_MANIFEST.handoff;
   const workspace = resolveExecutionWorkspace(
     ctx.cwd,
-    ledger.execution.workspace ?? priorHandoffStatus?.workspace ?? reviewStatus?.workspace ?? null,
+    ledger.execution.workspace
+      ?? (ledger.current_stage === 'review' ? reviewStatus?.workspace ?? null : null)
+      ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.workspace ?? null : null),
   );
+  const sessionRoot = ledger.execution.session_root
+    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root ?? null : null)
+    ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.session_root ?? null : null)
+    ?? resolveSessionRootRecord(ctx.cwd);
+  const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const reviewScope = ledger.current_stage === 'review'
     ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
-    : normalizeReviewScopeRecord(priorHandoffStatus?.review_scope ?? fullAcceptanceReviewScope());
+    : normalizeReviewScopeRecord(
+      ledger.current_stage === 'handoff' ? priorHandoffStatus?.review_scope ?? fullAcceptanceReviewScope() : fullAcceptanceReviewScope(),
+    );
   const commandHistoryVia = handoffCommandHistoryVia(ledger, ctx.via);
   const requestedRoute = (
     ledger.current_stage === 'review'
@@ -130,7 +139,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     run_id: ledger.run_id,
     command: 'handoff',
     stage: 'handoff',
-    ledger: withExecutionWorkspace(ledger, workspace),
+    ledger: ledgerWithExecution,
     manifest,
     predecessor_artifacts: ledger.current_stage === 'review'
       ? [artifactPointerFor(planStatusPath), artifactPointerFor(reviewStatusPath)]
@@ -174,7 +183,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'handoff',
-    ...executionFieldsFromLedger(withExecutionWorkspace(ledger, workspace)),
+    ...executionFieldsFromLedger(ledgerWithExecution),
     state: result.outcome === 'refused'
       ? 'refused'
       : routeValidation.approved
@@ -193,11 +202,11 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     workspace,
   };
   const next = nextLedger(
-    withExecutionWorkspace({
-      ...ledger,
+    {
+      ...ledgerWithExecution,
       execution: {
-        ...ledger.execution,
-        requested_path: requestedRoute.generator ?? ledger.execution.requested_path,
+        ...ledgerWithExecution.execution,
+        requested_path: requestedRoute.generator ?? ledgerWithExecution.execution.requested_path,
       },
       route_intent: {
         planner: requestedRoute.planner,
@@ -209,7 +218,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         fallback_policy: requestedRoute.fallback_policy,
       },
       route_check: buildRunLevelRouteCheck(startedAt, requestedRoute, routeValidation.route_validation),
-    }, workspace),
+    },
     ledger.current_stage === 'review' ? 'review' : ledger.current_stage === 'handoff' ? 'handoff' : 'plan',
     routeValidation.approved ? 'active' : result.outcome === 'refused' ? 'refused' : 'blocked',
     startedAt,

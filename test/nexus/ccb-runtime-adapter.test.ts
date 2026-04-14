@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { createRuntimeCcbAdapter } from '../../lib/nexus/adapters/ccb';
+import { withExecutionSessionRoot, withExecutionWorkspace } from '../../lib/nexus/execution-topology';
 import { startLedger } from '../../lib/nexus/ledger';
 import type { NexusAdapterContext } from '../../lib/nexus/adapters/types';
-import type { RequestedRouteRecord, ReviewScopeRecord } from '../../lib/nexus/types';
+import type { RequestedRouteRecord, ReviewScopeRecord, SessionRootRecord, WorkspaceRecord } from '../../lib/nexus/types';
 
 interface RecordedCommand {
   argv: string[];
@@ -30,19 +31,37 @@ function buildContext(
   command: 'handoff' | 'build' | 'review' | 'qa',
   requestedRoute: RequestedRouteRecord = REQUESTED_ROUTE,
   reviewScope: ReviewScopeRecord | null = null,
+  options: {
+    cwd?: string;
+    contextWorkspace?: WorkspaceRecord;
+    ledgerWorkspace?: WorkspaceRecord;
+    ledgerSessionRoot?: SessionRootRecord;
+  } = {},
 ): NexusAdapterContext {
+  const contextWorkspace = options.contextWorkspace ?? {
+    path: '/repo/root/.nexus-worktrees/feature',
+    kind: 'worktree',
+    branch: 'feature',
+    source: 'existing:nexus_worktree',
+  };
+  const ledgerWorkspace = options.ledgerWorkspace ?? contextWorkspace;
+  const ledgerSessionRoot = options.ledgerSessionRoot ?? {
+    path: '/repo/root',
+    kind: 'repo_root',
+    source: 'ccb_root',
+  };
+  const ledger = withExecutionSessionRoot(
+    withExecutionWorkspace(startLedger('run-123', stage), ledgerWorkspace),
+    ledgerSessionRoot,
+  );
+
   return {
-    cwd: '/repo/root',
-    workspace: {
-      path: '/repo/root/.nexus-worktrees/feature',
-      kind: 'worktree',
-      branch: 'feature',
-      source: 'existing:nexus_worktree',
-    },
+    cwd: options.cwd ?? '/repo/root',
+    workspace: contextWorkspace,
     run_id: 'run-123',
     command,
     stage,
-    ledger: startLedger('run-123', stage),
+    ledger,
     manifest: CANONICAL_MANIFEST[command],
     predecessor_artifacts: [{ kind: 'json', path: `.planning/current/${stage}/status.json` }],
     requested_route: requestedRoute,
@@ -127,6 +146,63 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('prefers ledger session root over execution workspace for route verification', async () => {
+    const calls: RecordedCommand[] = [];
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/wrong/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/ccb-ping') {
+          return {
+            exit_code: 0,
+            stdout: `✅ ${spec.argv[1]} connection OK (Session healthy)\n`,
+            stderr: '',
+          };
+        }
+        return {
+          exit_code: 0,
+          stdout: '{"cwd":"/repo/ledger-session","mounted":["codex","gemini"]}\n',
+          stderr: '',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    await adapter.resolve_route(buildContext('handoff', 'handoff', REQUESTED_ROUTE, null, {
+      contextWorkspace: {
+        path: '/repo/root/.worktrees/stale',
+        kind: 'worktree',
+        branch: 'stale',
+        source: 'existing:legacy_worktree',
+      },
+      ledgerWorkspace: {
+        path: '/repo/root/.nexus-worktrees/run-owned',
+        kind: 'worktree',
+        branch: 'codex/run-owned',
+        source: 'allocated:fresh_run',
+        run_id: 'run-123',
+        retirement_state: 'active',
+      },
+      ledgerSessionRoot: {
+        path: '/repo/ledger-session',
+        kind: 'repo_root',
+        source: 'ccb_root',
+      },
+    }));
+
+    expect(calls.map((call) => call.cwd)).toEqual([
+      '/repo/ledger-session',
+      '/repo/ledger-session',
+      '/repo/ledger-session',
+    ]);
+  });
+
   test('autostarts mounted providers before pinging required routes', async () => {
     const calls: RecordedCommand[] = [];
     let mountedReady = false;
@@ -192,7 +268,22 @@ describe('nexus runtime ccb adapter', () => {
       now: () => '2026-04-08T00:00:00.000Z',
     });
 
-    const result = await adapter.execute_generator(buildContext('build', 'build'));
+    const result = await adapter.execute_generator(buildContext('build', 'build', REQUESTED_ROUTE, null, {
+      contextWorkspace: {
+        path: '/repo/root/.worktrees/stale',
+        kind: 'worktree',
+        branch: 'stale',
+        source: 'existing:legacy_worktree',
+      },
+      ledgerWorkspace: {
+        path: '/repo/root/.nexus-worktrees/run-owned',
+        kind: 'worktree',
+        branch: 'codex/run-owned',
+        source: 'allocated:fresh_run',
+        run_id: 'run-123',
+        retirement_state: 'active',
+      },
+    }));
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.argv).toEqual([
@@ -206,12 +297,12 @@ describe('nexus runtime ccb adapter', () => {
     expect(calls[0]?.env).toMatchObject({
       CCB_CALLER: 'claude',
       CCB_ASKD_AUTOSTART: '1',
-      PWD: '/repo/root/.nexus-worktrees/feature',
+      PWD: '/repo/root/.nexus-worktrees/run-owned',
     });
     expect(calls[0]?.stdin_text).toContain('.planning/current/build/status.json');
     expect(calls[0]?.stdin_text).toContain('codex-via-ccb');
     expect(calls[0]?.stdin_text).toContain('Repository cwd: /repo/root');
-    expect(calls[0]?.stdin_text).toContain('Execution workspace cwd: /repo/root/.nexus-worktrees/feature');
+    expect(calls[0]?.stdin_text).toContain('Execution workspace cwd: /repo/root/.nexus-worktrees/run-owned');
     expect(result.outcome).toBe('success');
     expect(result.raw_output).toMatchObject({
       receipt: 'ccb-build-codex-2026-04-08T00-00-00.000Z',
@@ -302,19 +393,41 @@ describe('nexus runtime ccb adapter', () => {
       now: () => '2026-04-08T00:00:00.000Z',
     });
 
-    const result = await adapter.execute_audit_b(buildContext('review', 'review'));
+    const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, null, {
+      contextWorkspace: {
+        path: '/repo/root/.worktrees/stale',
+        kind: 'worktree',
+        branch: 'stale',
+        source: 'existing:legacy_worktree',
+      },
+      ledgerWorkspace: {
+        path: '/repo/root/.nexus-worktrees/run-owned',
+        kind: 'worktree',
+        branch: 'codex/run-owned',
+        source: 'allocated:fresh_run',
+        run_id: 'run-123',
+        retirement_state: 'active',
+      },
+      ledgerSessionRoot: {
+        path: '/repo/ledger-session',
+        kind: 'repo_root',
+        source: 'ccb_root',
+      },
+    }));
 
     expect(calls).toHaveLength(2);
     expect(calls[0]).toMatchObject({
       argv: ['/opt/ccb/bin/autonew', 'gemini'],
-      cwd: '/repo/root/.nexus-worktrees/feature',
+      cwd: '/repo/ledger-session',
       env: {
         CCB_CALLER: 'claude',
-        CCB_SESSION_FILE: '/repo/root/.ccb/.gemini-session',
-        PWD: '/repo/root/.nexus-worktrees/feature',
+        CCB_SESSION_FILE: '/repo/ledger-session/.ccb/.gemini-session',
+        PWD: '/repo/ledger-session',
       },
     });
     expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
+    expect(calls[1]?.cwd).toBe('/repo/root/.nexus-worktrees/run-owned');
+    expect(calls[1]?.env.PWD).toBe('/repo/root/.nexus-worktrees/run-owned');
     expect(result.outcome).toBe('success');
     expect(result.actual_route).toMatchObject({
       provider: 'gemini',

@@ -326,18 +326,25 @@ function buildActualRoute(
 }
 
 function executionWorkspacePath(ctx: NexusAdapterContext): string {
-  return ctx.workspace?.path ?? ctx.cwd;
+  return ctx.ledger.execution.workspace?.path ?? ctx.workspace?.path ?? ctx.cwd;
 }
 
 function sessionRootPath(
   ctx: NexusAdapterContext,
   options: Required<CreateRuntimeCcbAdapterOptions>,
 ): string {
-  return options.resolveSessionRoot(executionWorkspacePath(ctx));
+  return ctx.ledger.execution.session_root?.path ?? options.resolveSessionRoot(ctx.cwd);
+}
+
+function normalizedExecutionContext(ctx: NexusAdapterContext): NexusAdapterContext {
+  return {
+    ...ctx,
+    workspace: ctx.ledger.execution.workspace ?? ctx.workspace,
+  };
 }
 
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
-  return buildBuildExecutionPrompt(ctx, 'Nexus governed stage');
+  return buildBuildExecutionPrompt(normalizedExecutionContext(ctx), 'Nexus governed stage');
 }
 
 function buildAuditPrompt(
@@ -347,7 +354,7 @@ function buildAuditPrompt(
   const header = provider === 'codex' ? '# Codex Audit' : '# Gemini Audit';
 
   return buildReviewAuditPrompt(
-    ctx,
+    normalizedExecutionContext(ctx),
     'Nexus governed stage',
     `Perform the governed Nexus /review audit for the ${provider} path.`,
     header,
@@ -356,7 +363,7 @@ function buildAuditPrompt(
 
 function buildQaPrompt(ctx: NexusAdapterContext): string {
   return buildQaValidationPrompt(
-    ctx,
+    normalizedExecutionContext(ctx),
     'Nexus governed stage',
     'Perform the governed Nexus /qa validation for this repository.',
     [
@@ -653,7 +660,7 @@ async function runAskDispatch(
 ): Promise<CcbCommandResult | AdapterResult<any>> {
   const toolPaths = options.resolveToolPaths();
   const executionCwd = executionWorkspacePath(ctx);
-  const sessionRoot = options.resolveSessionRoot(executionCwd);
+  const sessionRoot = sessionRootPath(ctx, options);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
 
   const argv = [
@@ -716,7 +723,7 @@ async function resetProviderSession(
 ): Promise<AdapterResult<any> | null> {
   const toolPaths = options.resolveToolPaths();
   const executionCwd = executionWorkspacePath(ctx);
-  const sessionRoot = options.resolveSessionRoot(executionCwd);
+  const sessionRoot = sessionRootPath(ctx, options);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
   const argv = [toolPaths.autonew_path, provider];
 
@@ -724,8 +731,8 @@ async function resetProviderSession(
   try {
     execution = await options.runCommand({
       argv,
-      cwd: executionCwd,
-      env: envForCwd(executionCwd, {
+      cwd: sessionRoot,
+      env: envForCwd(sessionRoot, {
         CCB_CALLER: 'claude',
         CCB_SESSION_FILE: sessionFile,
       }),
