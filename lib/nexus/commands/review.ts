@@ -1,4 +1,10 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
+import {
+  artifactPointerFor,
+  BUILD_STATUS_PATH,
+  dedupeArtifactPointers,
+  executionContractArtifacts,
+} from '../contract-artifacts';
 import { currentAuditPointer, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
@@ -34,13 +40,6 @@ import type {
 import type { CommandContext, CommandResult } from './index';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
-
-function artifactPointerFor(path: string): ArtifactPointer {
-  return {
-    kind: path.endsWith('.json') ? 'json' : 'markdown',
-    path,
-  };
-}
 
 function nextLedger(
   ledger: RunLedger,
@@ -162,7 +161,10 @@ export async function runReviewWithWriteAtomicFile(
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.review;
-  const predecessorArtifacts = [artifactPointerFor(buildStatusPath)];
+  const predecessorArtifacts = dedupeArtifactPointers([
+    artifactPointerFor(BUILD_STATUS_PATH),
+    ...executionContractArtifacts(),
+  ]);
   const workspace = resolveExecutionWorkspace(
     ctx.cwd,
     ledger.execution.workspace

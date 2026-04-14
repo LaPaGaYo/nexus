@@ -331,6 +331,12 @@ export function buildGovernedHandoffMarkdown(
     }
   }
 
+  lines.push('');
+  lines.push('## Execution Contract');
+  lines.push('');
+  lines.push('- .planning/current/plan/execution-readiness-packet.md');
+  lines.push('- .planning/current/plan/sprint-contract.md');
+
   if (reviewScope) {
     lines.push('');
     lines.push('## Review Scope');

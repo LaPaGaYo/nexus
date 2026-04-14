@@ -42,7 +42,11 @@ export function buildBuildExecutionPrompt(ctx: NexusAdapterContext, stageLabel: 
         'Implement only the blocking items listed in Review scope.',
         'Do not reopen unrelated phase-scope concerns during this build.',
       ]
-    : [];
+    : [
+        'This is a full-acceptance build for the current execution packet.',
+        'Read the current execution contract from the predecessor artifacts before deciding whether code changes are required.',
+        'If the repository only satisfies an earlier phase, implement the missing work required by the current execution packet instead of re-validating the earlier phase.',
+      ];
 
   return [
     buildPromptContextPreamble(ctx, stageLabel),
@@ -76,7 +80,7 @@ export function buildReviewAuditPrompt(
     introLine,
     boundedScope
       ? 'This is a bounded fix-cycle review.'
-      : 'Review the current repo state and relevant changed files independently.',
+      : 'Review the current repo state and relevant changed files against the current execution contract in the predecessor artifacts.',
     ...(boundedScope
       ? [
           'Decide pass/fail only against the blocking items listed in Review scope.',

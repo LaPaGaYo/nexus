@@ -80,7 +80,12 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     owner: 'superpowers-core',
     implementation: 'implemented',
     purpose: 'Record the bounded build result.',
-    required_inputs: ['.planning/current/handoff/status.json'],
+    required_inputs: [
+      '.planning/current/handoff/status.json',
+      '.planning/current/handoff/governed-handoff.md',
+      '.planning/current/plan/execution-readiness-packet.md',
+      '.planning/current/plan/sprint-contract.md',
+    ],
     durable_outputs: [
       '.planning/current/build/build-request.json',
       '.planning/current/build/build-result.md',
@@ -94,7 +99,12 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     owner: 'audit-core',
     implementation: 'implemented',
     purpose: 'Write the current audit set and reviewed provenance.',
-    required_inputs: ['.planning/current/build/status.json'],
+    required_inputs: [
+      '.planning/current/build/status.json',
+      '.planning/current/handoff/governed-handoff.md',
+      '.planning/current/plan/execution-readiness-packet.md',
+      '.planning/current/plan/sprint-contract.md',
+    ],
     durable_outputs: [
       '.planning/audits/current/codex.md',
       '.planning/audits/current/gemini.md',

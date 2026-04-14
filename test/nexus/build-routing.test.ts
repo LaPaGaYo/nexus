@@ -618,6 +618,97 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('build passes the governed handoff and plan contract artifacts to discipline and generator', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const seen: string[][] = [];
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              available: true,
+              provider: 'codex',
+              providers: ['codex', 'gemini'],
+              mounted: ['codex', 'gemini'],
+              provider_checks: [
+                {
+                  provider: 'codex',
+                  ping_command: 'ccb-ping codex',
+                  ping_output: '✅ codex connection OK (Session healthy)',
+                },
+                {
+                  provider: 'gemini',
+                  ping_command: 'ccb-ping gemini',
+                  ping_output: '✅ gemini connection OK (Session healthy)',
+                },
+              ],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/handoff/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => {
+            seen.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                receipt: 'ccb-build-codex-contract-scope',
+                summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: implemented the current execution packet\n- Files touched: apps/web\n- Verification: verified the current execution packet\n',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/build/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+        superpowers: {
+          build_discipline: async (ctx) => {
+            seen.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'superpowers',
+              outcome: 'success',
+              raw_output: { verification_summary: 'verified current execution packet' },
+              requested_route: null,
+              actual_route: null,
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('plan');
+      await run('handoff', adapters);
+      await run('build', adapters);
+
+      expect(seen).toHaveLength(2);
+      for (const paths of seen) {
+        expect(paths).toEqual(expect.arrayContaining([
+          '.planning/current/handoff/status.json',
+          '.planning/current/handoff/governed-handoff.md',
+          '.planning/current/plan/execution-readiness-packet.md',
+          '.planning/current/plan/sprint-contract.md',
+        ]));
+      }
+    });
+  });
+
   test('records requested and actual route separately on successful build', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');
@@ -951,6 +1042,94 @@ describe('nexus build routing', () => {
         state: 'blocked',
         ready: false,
         errors: ['Generator build summary relied on existing build-stage artifacts instead of predecessor artifacts or repository implementation state'],
+      });
+    });
+  });
+
+  test('allows build when the generator summary explicitly says stale stage artifacts were ignored', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              available: true,
+              provider: 'codex',
+              providers: ['codex', 'gemini'],
+              mounted: ['codex', 'gemini'],
+              provider_checks: [
+                {
+                  provider: 'codex',
+                  ping_command: 'ccb-ping codex',
+                  ping_output: '✅ codex connection OK (Session healthy)',
+                },
+                {
+                  provider: 'gemini',
+                  ping_command: 'ccb-ping gemini',
+                  ping_output: '✅ gemini connection OK (Session healthy)',
+                },
+              ],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/handoff/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-codex-ignore-stale-stage-outputs',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: completed',
+                '- Actions: Ignored stale `.planning/current/build/*` and `.planning/nexus/current-run.json` as instructed, then implemented and verified the current execution packet from predecessor artifacts.',
+                '- Files touched: apps/web, packages/shared',
+                '- Verification: Fresh acceptance passed after ignoring stale `.planning/current/build/*` and `.planning/nexus/current-run.json`.',
+              ].join('\n'),
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        superpowers: {
+          build_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: { verification_summary: 'verified current execution packet' },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff', adapters);
+      await run('build', adapters);
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'completed',
+        ready: true,
+        errors: [],
       });
     });
   });

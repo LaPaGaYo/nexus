@@ -1,4 +1,11 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
+import {
+  artifactPointerFor,
+  dedupeArtifactPointers,
+  executionContractArtifacts,
+  HANDOFF_STATUS_PATH,
+  REVIEW_STATUS_PATH,
+} from '../contract-artifacts';
 import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath, stageStatusPath } from '../artifacts';
 import {
   executionFieldsFromLedger,
@@ -25,13 +32,6 @@ import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
-
-function artifactPointerFor(path: string): ArtifactPointer {
-  return {
-    kind: path.endsWith('.json') ? 'json' : 'markdown',
-    path,
-  };
-}
 
 function nextLedger(
   ledger: RunLedger,
@@ -113,11 +113,22 @@ function parseBuildExecutionSummary(summaryMarkdown: string | null | undefined):
 }
 
 function buildSummaryReliesOnStageOutputs(summary: ParsedBuildExecutionSummary): boolean {
-  return [
-    '.planning/current/build/',
-    '.planning/nexus/current-run.json',
-    'build_recorded',
-  ].some((needle) => summary.markdown.includes(needle));
+  const evidenceText = [summary.actions, summary.verification]
+    .filter((value): value is string => Boolean(value))
+    .join('\n');
+
+  if (evidenceText.includes('build_recorded')) {
+    return true;
+  }
+
+  const reliancePatterns = [
+    /already marks the stage [`'"]?build_recorded[`'"]?/i,
+    /already (?:show|shows|showed)\b.*recorded build outcome/i,
+    /no repository changes were required\b.*\b(?:because|since)\b.*(?:\.planning\/current\/build|\.planning\/nexus\/current-run\.json)/i,
+    /\b(?:used|using|relied on|based on|determined from|confirmed)\b.*(?:\.planning\/current\/build|\.planning\/nexus\/current-run\.json)/i,
+  ];
+
+  return reliancePatterns.some((pattern) => pattern.test(evidenceText));
 }
 
 export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
@@ -165,9 +176,18 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     : normalizeReviewScopeRecord(handoffStatus.review_scope ?? fullAcceptanceReviewScope());
   const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledgerWithExecution);
   const commandHistoryVia = buildCommandHistoryVia(reviewScope, ctx.via);
-  const predecessorArtifacts = fixCycle
-    ? [artifactPointerFor(handoffStatusPath), artifactPointerFor(reviewStatusPath)]
-    : [artifactPointerFor(handoffStatusPath)];
+  const predecessorArtifacts = dedupeArtifactPointers(
+    fixCycle
+      ? [
+          artifactPointerFor(HANDOFF_STATUS_PATH),
+          artifactPointerFor(REVIEW_STATUS_PATH),
+          ...executionContractArtifacts(),
+        ]
+      : [
+          artifactPointerFor(HANDOFF_STATUS_PATH),
+          ...executionContractArtifacts(),
+        ],
+  );
   const buildRequestWrite = {
     path: buildRequestPath,
     content: JSON.stringify(

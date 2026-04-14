@@ -4,7 +4,7 @@ import { createRuntimeCcbAdapter } from '../../lib/nexus/adapters/ccb';
 import { withExecutionSessionRoot, withExecutionWorkspace } from '../../lib/nexus/execution-topology';
 import { startLedger } from '../../lib/nexus/ledger';
 import type { NexusAdapterContext } from '../../lib/nexus/adapters/types';
-import type { RequestedRouteRecord, ReviewScopeRecord, SessionRootRecord, WorkspaceRecord } from '../../lib/nexus/types';
+import type { ArtifactPointer, RequestedRouteRecord, ReviewScopeRecord, SessionRootRecord, WorkspaceRecord } from '../../lib/nexus/types';
 
 interface RecordedCommand {
   argv: string[];
@@ -36,6 +36,7 @@ function buildContext(
     contextWorkspace?: WorkspaceRecord;
     ledgerWorkspace?: WorkspaceRecord;
     ledgerSessionRoot?: SessionRootRecord;
+    predecessorArtifacts?: ArtifactPointer[];
   } = {},
 ): NexusAdapterContext {
   const contextWorkspace = options.contextWorkspace ?? {
@@ -63,7 +64,7 @@ function buildContext(
     stage,
     ledger,
     manifest: CANONICAL_MANIFEST[command],
-    predecessor_artifacts: [{ kind: 'json', path: `.planning/current/${stage}/status.json` }],
+    predecessor_artifacts: options.predecessorArtifacts ?? [{ kind: 'json', path: `.planning/current/${stage}/status.json` }],
     requested_route: requestedRoute,
     review_scope: reviewScope,
   };
@@ -363,6 +364,43 @@ describe('nexus runtime ccb adapter', () => {
     expect(calls[2]?.stdin_text).toContain('This is a bounded fix-cycle review.');
     expect(calls[2]?.stdin_text).toContain('Additional out-of-scope concerns may be noted as advisories only');
     expect(calls[2]?.stdin_text).toContain('Remove the legacy Vue root app files.');
+  });
+
+  test('full-acceptance build prompt points the generator at the current execution contract artifacts', async () => {
+    const calls: RecordedCommand[] = [];
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        return {
+          exit_code: 0,
+          stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: implemented the current execution packet\n- Files touched: apps/web\n- Verification: verified the current execution packet\n',
+          stderr: '',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    await adapter.execute_generator(buildContext('build', 'build', REQUESTED_ROUTE, null, {
+      predecessorArtifacts: [
+        { kind: 'json', path: '.planning/current/handoff/status.json' },
+        { kind: 'markdown', path: '.planning/current/handoff/governed-handoff.md' },
+        { kind: 'markdown', path: '.planning/current/plan/execution-readiness-packet.md' },
+        { kind: 'markdown', path: '.planning/current/plan/sprint-contract.md' },
+      ],
+    }));
+
+    expect(calls[0]?.stdin_text).toContain('- .planning/current/handoff/governed-handoff.md');
+    expect(calls[0]?.stdin_text).toContain('- .planning/current/plan/execution-readiness-packet.md');
+    expect(calls[0]?.stdin_text).toContain('- .planning/current/plan/sprint-contract.md');
+    expect(calls[0]?.stdin_text).toContain('This is a full-acceptance build for the current execution packet.');
+    expect(calls[0]?.stdin_text).toContain('If the repository only satisfies an earlier phase, implement the missing work required by the current execution packet instead of re-validating the earlier phase.');
   });
 
   test('resets the provider session before governed review audit dispatch', async () => {
