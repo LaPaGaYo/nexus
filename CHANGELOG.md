@@ -2,16 +2,6 @@
 
 ## Unreleased
 
-- Fresh governed runs now allocate a dedicated `codex/run-*` branch and linked
-  worktree under `.nexus-worktrees/`, instead of reusing an old implement
-  worktree from a prior run.
-- Governed `/handoff`, `/build`, `/review`, `/qa`, and `/ship` now stay bound
-  to the run-owned workspace, while CCB `mounted`/`ping`/`autonew` remain
-  anchored at the repo-root session root.
-- `/closeout` now retires the run-owned worktree, and the next fresh
-  `/discover` conservatively removes safe retired worktrees or archives them as
-  `retained` when cleanup is unsafe.
-
 ## Nexus Patch Release Index
 
 The initial Nexus baseline is recorded below as `v1.0.0`. Incremental Nexus
@@ -44,6 +34,7 @@ tags.
 - **[v1.0.23](docs/releases/2026-04-13-nexus-v1.0.23.md)** — stable patch releases now preserve direct patch-line upgrades, and release preflight blocks manifests that accidentally require sequential patch hops.
 - **[v1.0.24](docs/releases/2026-04-13-nexus-v1.0.24.md)** — CCB and local runtime dispatch now align `PWD` with the execution workspace, so project-scoped provider/session tools stop resolving against the Nexus install directory.
 - **[v1.0.25](docs/releases/2026-04-13-nexus-v1.0.25.md)** — governed handoff now discovers CCB sessions from the repo session root even when execution happens in a linked worktree, so mounted providers are found without abandoning worktree execution.
+- **[v1.0.26](docs/releases/2026-04-13-nexus-v1.0.26.md)** — fresh governed runs now allocate a dedicated branch and worktree, bind every execution stage to that run-owned workspace, and retire the worktree safely at closeout while keeping CCB sessions anchored at the repo root.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release
 
