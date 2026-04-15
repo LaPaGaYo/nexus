@@ -516,6 +516,67 @@ describe('nexus runtime ccb adapter', () => {
       adapter: 'ccb',
       kind: 'backend_conflict',
     });
+    expect(result.raw_output).toMatchObject({
+      receipt: '',
+      exit_code: 1,
+      stdout: '',
+      stderr: '[ERROR] Unified askd daemon not running',
+      request_id: null,
+    });
+  });
+
+  test('recovers a successful review audit when ask exits nonzero but stdout contains a canonical audit payload', async () => {
+    const calls: RecordedCommand[] = [];
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        }
+
+        return {
+          exit_code: 1,
+          stdout: [
+            'I have completed the governed Nexus review for the Phase 2 implementation.',
+            '',
+            '# Gemini Audit',
+            '',
+            'Result: pass',
+            '',
+            'Findings:',
+            '- none',
+          ].join('\n'),
+          stderr: 'CCB_REQ_ID: 20260415-000000-000-00000-1',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.execute_audit_b(buildContext('review', 'review'));
+
+    expect(calls).toHaveLength(2);
+    expect(result.outcome).toBe('success');
+    expect(result.actual_route).toMatchObject({
+      provider: 'gemini',
+      route: 'gemini-via-ccb',
+      transport: 'ccb',
+    });
+    expect(result.raw_output).toMatchObject({
+      markdown: expect.stringContaining('Result: pass'),
+      exit_code: 1,
+      request_id: '20260415-000000-000-00000-1',
+    });
   });
 
   test('blocks review retry when the provider session reset fails', async () => {

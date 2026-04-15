@@ -36,12 +36,20 @@ export interface CcbExecuteGeneratorRaw {
   receipt: string;
   summary_markdown?: string;
   dispatch_command?: string;
+  exit_code?: number;
+  stdout?: string;
+  stderr?: string;
+  request_id?: string;
 }
 
 export interface CcbExecuteAuditRaw {
   markdown: string;
   receipt: string;
   dispatch_command?: string;
+  exit_code?: number;
+  stdout?: string;
+  stderr?: string;
+  request_id?: string;
 }
 
 export interface CcbExecuteQaRaw {
@@ -50,6 +58,10 @@ export interface CcbExecuteQaRaw {
   findings: string[];
   receipt: string;
   dispatch_command?: string;
+  exit_code?: number;
+  stdout?: string;
+  stderr?: string;
+  request_id?: string;
 }
 
 export interface CcbToolPaths {
@@ -436,6 +448,48 @@ function summarizeCommandOutput(stdout: string, stderr: string): string {
   return [stdout.trim(), stderr.trim()].filter(Boolean).join('\n').trim();
 }
 
+function extractRequestId(stdout: string, stderr: string): string | null {
+  const combined = `${stdout}\n${stderr}`;
+  const match = combined.match(/CCB_REQ_ID:\s*([^\s]+)/);
+
+  return match?.[1] ?? null;
+}
+
+function recoverableAskPayload(
+  stage: 'handoff' | 'build' | 'review' | 'qa',
+  stdout: string,
+  stderr: string,
+): string | null {
+  const candidates = [stdout.trim(), stderr.trim()].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (stage === 'build') {
+      if (/^# Build Execution Summary\b/m.test(candidate) && /^- Status:\s*(completed|blocked)\s*$/mi.test(candidate)) {
+        return candidate;
+      }
+      continue;
+    }
+
+    if (stage === 'review') {
+      if (/Result:\s*(pass|fail)/i.test(candidate) && /^Findings:\s*$/mi.test(candidate)) {
+        return candidate;
+      }
+      continue;
+    }
+
+    if (stage === 'qa') {
+      try {
+        parseQaPayload(candidate);
+        return candidate;
+      } catch {
+        // keep checking
+      }
+    }
+  }
+
+  return null;
+}
+
 function parseMountedProviders(stdout: string): string[] {
   let parsed: { mounted?: unknown };
   try {
@@ -700,12 +754,24 @@ async function runAskDispatch(
   }
 
   if (execution.exit_code !== 0) {
+    const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
+    if (recoveredPayload !== null) {
+      return {
+        ...execution,
+        stdout: recoveredPayload,
+      };
+    }
+
     return blockedResult(
       ctx.stage,
       execution.stderr.trim() || `CCB ${provider} dispatch failed`,
       {
         receipt: '',
         dispatch_command: describeCommand(argv),
+        exit_code: execution.exit_code,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+        request_id: extractRequestId(execution.stdout, execution.stderr),
       },
       ctx.requested_route,
       traceability,
@@ -893,6 +959,10 @@ export function createRuntimeCcbAdapter(
             '--timeout',
             DEFAULT_TIMEOUTS_SECONDS.build,
           ]),
+          exit_code: execution.exit_code,
+          stdout: execution.stdout,
+          stderr: execution.stderr,
+          request_id: extractRequestId(execution.stdout, execution.stderr),
         },
         buildActualRoute(provider, ctx.requested_route?.generator ?? null, ctx.requested_route?.substrate ?? null, 'build'),
         ctx.requested_route,
@@ -930,6 +1000,10 @@ export function createRuntimeCcbAdapter(
             '--timeout',
             DEFAULT_TIMEOUTS_SECONDS.review,
           ]),
+          exit_code: execution.exit_code,
+          stdout: execution.stdout,
+          stderr: execution.stderr,
+          request_id: extractRequestId(execution.stdout, execution.stderr),
         },
         buildActualRoute('codex', ctx.requested_route?.evaluator_a ?? 'codex-via-ccb', ctx.requested_route?.substrate ?? null, 'review'),
         ctx.requested_route,
@@ -967,6 +1041,10 @@ export function createRuntimeCcbAdapter(
             '--timeout',
             DEFAULT_TIMEOUTS_SECONDS.review,
           ]),
+          exit_code: execution.exit_code,
+          stdout: execution.stdout,
+          stderr: execution.stderr,
+          request_id: extractRequestId(execution.stdout, execution.stderr),
         },
         buildActualRoute('gemini', ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb', ctx.requested_route?.substrate ?? null, 'review'),
         ctx.requested_route,
@@ -1007,6 +1085,10 @@ export function createRuntimeCcbAdapter(
               '--timeout',
               DEFAULT_TIMEOUTS_SECONDS.qa,
             ]),
+            exit_code: execution.exit_code,
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+            request_id: extractRequestId(execution.stdout, execution.stderr),
           },
           buildActualRoute('gemini', ctx.requested_route?.generator ?? 'gemini-via-ccb', ctx.requested_route?.substrate ?? null, 'qa'),
           ctx.requested_route,
@@ -1029,6 +1111,10 @@ export function createRuntimeCcbAdapter(
               '--timeout',
               DEFAULT_TIMEOUTS_SECONDS.qa,
             ]),
+            exit_code: execution.exit_code,
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+            request_id: extractRequestId(execution.stdout, execution.stderr),
           },
           ctx.requested_route,
           traceability,
