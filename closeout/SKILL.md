@@ -393,7 +393,7 @@ Nexus-owned closeout guidance for archive verification, provenance consistency, 
 
 ## Artifact Contract
 
-Writes `.planning/current/closeout/CLOSEOUT-RECORD.md` and `.planning/current/closeout/status.json`.
+Writes `.planning/current/closeout/CLOSEOUT-RECORD.md`, `.planning/current/closeout/NEXT-RUN.md`, `.planning/current/closeout/next-run-bootstrap.json`, and `.planning/current/closeout/status.json`.
 
 ## Routing
 
