@@ -1,5 +1,6 @@
 import { createDiscoverStagePack, createFrameStagePack } from '../stage-packs';
 import type { AdapterResult, AdapterTraceability, PmAdapter } from './types';
+import type { DesignIntentRecord } from '../types';
 
 export interface PmDiscoverRaw {
   idea_brief_markdown: string;
@@ -8,6 +9,7 @@ export interface PmDiscoverRaw {
 export interface PmFrameRaw {
   decision_brief_markdown: string;
   prd_markdown: string;
+  design_intent: DesignIntentRecord;
 }
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
@@ -36,6 +38,13 @@ export function createDefaultPmAdapter(): PmAdapter {
       successResult<PmFrameRaw>({
         decision_brief_markdown: framePack.buildDecisionBrief(ctx),
         prd_markdown: framePack.buildPrd(ctx),
+        design_intent: {
+          impact: 'none',
+          affected_surfaces: [],
+          design_system_source: 'none',
+          contract_required: false,
+          verification_required: false,
+        },
       }, framePack.traceability()),
   };
 }

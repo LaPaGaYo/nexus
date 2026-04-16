@@ -1,15 +1,32 @@
 import {
   stageAdapterOutputPath,
   stageAdapterRequestPath,
+  frameDesignIntentPath,
   stageNormalizationPath,
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
-import type { CanonicalCommandId } from '../types';
+import { DESIGN_IMPACTS, type CanonicalCommandId, type DesignIntentRecord } from '../types';
 import type { PmDiscoverRaw, PmFrameRaw } from '../adapters/pm';
 
 interface ArtifactWrite {
   path: string;
   content: string;
+}
+
+const DESIGN_SYSTEM_SOURCES = ['none', 'design_md', 'support_skill', 'mixed'] as const;
+
+function isValidDesignIntent(value: unknown): value is DesignIntentRecord {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const intent = value as Record<string, unknown>;
+  return DESIGN_IMPACTS.includes(intent.impact as DesignIntentRecord['impact'])
+    && Array.isArray(intent.affected_surfaces)
+    && intent.affected_surfaces.every((surface) => typeof surface === 'string')
+    && DESIGN_SYSTEM_SOURCES.includes(intent.design_system_source as DesignIntentRecord['design_system_source'])
+    && typeof intent.contract_required === 'boolean'
+    && typeof intent.verification_required === 'boolean';
 }
 
 function buildTraceWrites(
@@ -54,7 +71,11 @@ export function normalizePmDiscover(
 export function normalizePmFrame(
   result: AdapterResult<PmFrameRaw>,
 ): { canonicalWrites: ArtifactWrite[] } {
-  if (!result.raw_output.decision_brief_markdown.trim() || !result.raw_output.prd_markdown.trim()) {
+  if (
+    !result.raw_output.decision_brief_markdown.trim()
+    || !result.raw_output.prd_markdown.trim()
+    || !isValidDesignIntent(result.raw_output.design_intent)
+  ) {
     throw new Error('Canonical writeback failed');
   }
 
@@ -67,6 +88,10 @@ export function normalizePmFrame(
       {
         path: 'docs/product/prd.md',
         content: result.raw_output.prd_markdown,
+      },
+      {
+        path: frameDesignIntentPath(),
+        content: JSON.stringify(result.raw_output.design_intent, null, 2) + '\n',
       },
     ],
   };
@@ -91,6 +116,7 @@ export function canonicalStageOutputs(stage: 'discover' | 'frame'): string[] {
   return [
     'docs/product/decision-brief.md',
     'docs/product/prd.md',
+    frameDesignIntentPath(),
     '.planning/current/frame/status.json',
   ];
 }
