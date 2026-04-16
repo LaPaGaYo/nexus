@@ -1,8 +1,6 @@
 import type { CanonicalCommandId, ImplementationStatus } from './types';
 import {
   frameDesignIntentPath,
-  planDesignContractPath,
-  qaDesignVerificationPath,
 } from './artifacts';
 
 export type CommandOwner =
@@ -58,10 +56,9 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     owner: 'gsd-core',
     implementation: 'implemented',
     purpose: 'Write the execution-ready planning packet.',
-    required_inputs: [],
+    required_inputs: ['.planning/current/frame/status.json'],
     durable_outputs: [
       '.planning/current/plan/execution-readiness-packet.md',
-      planDesignContractPath(),
       '.planning/current/plan/sprint-contract.md',
       '.planning/current/plan/status.json',
     ],
@@ -130,7 +127,6 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     purpose: 'Record explicit QA validation scope.',
     required_inputs: ['.planning/current/review/status.json'],
     durable_outputs: [
-      qaDesignVerificationPath(),
       '.planning/current/qa/qa-report.md',
       '.planning/current/qa/status.json',
     ],

@@ -22,8 +22,6 @@ import {
 } from '../../lib/nexus/types';
 import {
   frameDesignIntentPath,
-  planDesignContractPath,
-  qaDesignVerificationPath,
 } from '../../lib/nexus/artifacts';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { executionFieldsFromLedger, withExecutionSessionRoot } from '../../lib/nexus/execution-topology';
@@ -66,13 +64,13 @@ describe('nexus types', () => {
       errors: [],
       design_impact: impact,
       design_contract_required: intent.contract_required,
-      design_contract_path: planDesignContractPath(),
+      design_contract_path: '.planning/current/plan/design-contract.md',
       design_verified: null,
     };
 
     expect(stage.design_impact).toBe('material');
     expect(stage.design_contract_required).toBe(true);
-    expect(stage.design_contract_path).toBe(planDesignContractPath());
+    expect(stage.design_contract_path).toBe('.planning/current/plan/design-contract.md');
     expect(stage.design_verified).toBeNull();
   });
 
@@ -336,19 +334,17 @@ describe('nexus types', () => {
 
   test('freezes the design artifact helper paths', () => {
     expect(frameDesignIntentPath()).toBe('.planning/current/frame/design-intent.json');
-    expect(planDesignContractPath()).toBe('.planning/current/plan/design-contract.md');
-    expect(qaDesignVerificationPath()).toBe('.planning/current/qa/design-verification.md');
   });
 
-  test('locks the design-bearing command manifest outputs', () => {
+  test('locks the plan manifest input contract', () => {
+    expect(CANONICAL_MANIFEST.plan.required_inputs).toEqual([
+      '.planning/current/frame/status.json',
+    ]);
+  });
+
+  test('locks the frame design-bearing command manifest output', () => {
     expect(CANONICAL_MANIFEST.frame.durable_outputs).toContain(
       '.planning/current/frame/design-intent.json',
-    );
-    expect(CANONICAL_MANIFEST.plan.durable_outputs).toContain(
-      '.planning/current/plan/design-contract.md',
-    );
-    expect(CANONICAL_MANIFEST.qa.durable_outputs).toContain(
-      '.planning/current/qa/design-verification.md',
     );
   });
 });

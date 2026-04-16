@@ -336,6 +336,132 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('blocks plan when material design work has no design contract', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const frameAdapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: material plan gate\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: enforce design contract\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: ['apps/web/src/app/page.tsx'],
+                design_system_source: 'design_md',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+      });
+
+      await run('discover');
+      await run('frame', frameAdapters);
+
+      await expect(run('plan')).rejects.toThrow('Plan is not ready for execution');
+      expect(await run.readJson('.planning/current/plan/status.json')).toMatchObject({
+        stage: 'plan',
+        state: 'blocked',
+        decision: 'not_ready',
+        ready: false,
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: null,
+        design_verified: false,
+      });
+      expect(() => readFileSync(join(cwd, '.planning/current/plan/design-contract.md'), 'utf8')).toThrow();
+    });
+  });
+
+  test('writes the plan design contract when material design work provides one', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const frameAdapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: material plan contract\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: persist design contract\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: ['apps/web/src/app/page.tsx'],
+                design_system_source: 'design_md',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+        gsd: {
+          plan: async () => ({
+            adapter_id: 'gsd',
+            outcome: 'success',
+            raw_output: {
+              execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
+              sprint_contract: '# Sprint Contract\n\nWave 1\n',
+              design_contract: '# Design Contract\n\nMaterial UI constraints\n',
+              ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-plan-pack',
+              absorbed_capability: 'gsd-plan',
+              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+            },
+          }),
+        },
+      });
+
+      await run('discover');
+      await run('frame', frameAdapters);
+      await run('plan', frameAdapters);
+
+      expect(await run.readJson('.planning/current/plan/status.json')).toMatchObject({
+        stage: 'plan',
+        state: 'completed',
+        decision: 'ready',
+        ready: true,
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: '.planning/current/plan/design-contract.md',
+        design_verified: false,
+      });
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Material UI constraints');
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        artifact_index: {
+          '.planning/current/plan/design-contract.md': {
+            path: '.planning/current/plan/design-contract.md',
+          },
+        },
+      });
+    });
+  });
+
   test('blocks discover when normalized PM output is malformed', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
