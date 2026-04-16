@@ -94,6 +94,9 @@ export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
 export const REVIEW_SCOPE_MODES = ['full_acceptance', 'bounded_fix_cycle'] as const;
 export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
 
+export const DESIGN_IMPACTS = ['none', 'touchup', 'material'] as const;
+export type DesignImpact = (typeof DESIGN_IMPACTS)[number];
+
 export const CONTINUATION_MODES = ['task', 'phase', 'project_reset'] as const;
 export type ContinuationMode = (typeof CONTINUATION_MODES)[number];
 
@@ -194,6 +197,14 @@ export interface ReviewScopeRecord {
   advisory_policy: 'out_of_scope_advisory';
 }
 
+export interface DesignIntentRecord {
+  impact: DesignImpact;
+  affected_surfaces: string[];
+  design_system_source: 'none' | 'design_md' | 'support_skill' | 'mixed';
+  contract_required: boolean;
+  verification_required: boolean;
+}
+
 export interface SessionRootRecord {
   path: string;
   kind: 'repo_root';
@@ -262,6 +273,17 @@ export interface ConflictRecord {
   trace_paths: string[];
 }
 
+export interface PullRequestRecord {
+  provider: 'github' | 'gitlab' | 'unknown';
+  status: 'created' | 'reused' | 'unavailable' | 'not_requested';
+  number: number | null;
+  url: string | null;
+  state: string | null;
+  head_branch: string | null;
+  base_branch: string | null;
+  reason?: string | null;
+}
+
 export interface StageStatus {
   run_id: string;
   stage: CanonicalCommandId;
@@ -270,6 +292,10 @@ export interface StageStatus {
   provider_topology?: ProviderTopology;
   workspace?: WorkspaceRecord;
   session_root?: SessionRootRecord;
+  design_impact?: DesignImpact;
+  design_contract_required?: boolean;
+  design_contract_path?: string | null;
+  design_verified?: boolean | null;
   requested_execution_path?: string;
   actual_execution_path?: string | null;
   state: StageState;
@@ -292,6 +318,7 @@ export interface StageStatus {
   archive_state?: 'pending' | 'archived' | 'not_required' | 'failed';
   verification_count?: number;
   defect_count?: number;
+  pull_request?: PullRequestRecord | null;
 }
 
 export interface RunLedger {

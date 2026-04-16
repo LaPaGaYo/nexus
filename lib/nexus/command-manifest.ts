@@ -1,4 +1,9 @@
 import type { CanonicalCommandId, ImplementationStatus } from './types';
+import {
+  frameDesignIntentPath,
+  planDesignContractPath,
+  qaDesignVerificationPath,
+} from './artifacts';
 
 export type CommandOwner =
   | 'pm-core'
@@ -42,6 +47,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       'docs/product/decision-brief.md',
       'docs/product/prd.md',
+      frameDesignIntentPath(),
       '.planning/current/frame/status.json',
     ],
     exit_condition: 'Framing is structured or sent back to discover.',
@@ -55,6 +61,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     required_inputs: [],
     durable_outputs: [
       '.planning/current/plan/execution-readiness-packet.md',
+      planDesignContractPath(),
       '.planning/current/plan/sprint-contract.md',
       '.planning/current/plan/status.json',
     ],
@@ -123,6 +130,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     purpose: 'Record explicit QA validation scope.',
     required_inputs: ['.planning/current/review/status.json'],
     durable_outputs: [
+      qaDesignVerificationPath(),
       '.planning/current/qa/qa-report.md',
       '.planning/current/qa/status.json',
     ],
@@ -138,6 +146,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       '.planning/current/ship/release-gate-record.md',
       '.planning/current/ship/checklist.json',
+      '.planning/current/ship/pull-request.json',
       '.planning/current/ship/status.json',
     ],
     exit_condition: 'Release-gate state is explicitly recorded.',
