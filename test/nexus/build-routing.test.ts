@@ -1267,6 +1267,89 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('rejects fix-cycle build when review status is not a completed failing review', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Fix the webhook signature verification.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', reviewAdapters);
+
+      const corruptedReviewStatus = await run.readJson('.planning/current/review/status.json');
+      writeFileSync(
+        join(cwd, '.planning/current/review/status.json'),
+        JSON.stringify(
+          {
+            ...corruptedReviewStatus,
+            state: 'blocked',
+            ready: false,
+            review_complete: false,
+            audit_set_complete: false,
+            provenance_consistent: false,
+            gate_decision: 'fail',
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      await expect(run('build')).rejects.toThrow('Fix-cycle /build is only valid after a completed failing review gate');
+    });
+  });
+
   test('keeps the review stage active when a fix-cycle build finds a stale governed handoff contract, and allows handoff refresh', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const reviewAdapters = makeFakeAdapters({

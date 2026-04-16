@@ -1,4 +1,4 @@
-import { mkdirSync, renameSync, writeFileSync } from 'fs';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { writeConflictArtifacts } from '../conflicts';
 import { writeLedger } from '../ledger';
@@ -21,6 +21,10 @@ function writeAtomicRepoFile(cwd: string, relativePath: string, content: string)
   renameSync(tempPath, absolutePath);
 }
 
+function removeRepoFile(cwd: string, relativePath: string): void {
+  rmSync(join(cwd, relativePath), { recursive: true, force: true });
+}
+
 interface ArtifactWrite {
   path: string;
   content: string;
@@ -31,6 +35,7 @@ interface ApplyNormalizationPlanInput {
   stage: CanonicalCommandId;
   statusPath: string;
   canonicalWrites: ArtifactWrite[];
+  removeWrites?: string[];
   traceWrites: ArtifactWrite[];
   status: StageStatus;
   ledger?: RunLedger;
@@ -43,6 +48,10 @@ export async function applyNormalizationPlan(input: ApplyNormalizationPlanInput)
   try {
     for (const trace of input.traceWrites) {
       writeRepoFile(input.cwd, trace.path, trace.content);
+    }
+
+    for (const relativePath of input.removeWrites ?? []) {
+      removeRepoFile(input.cwd, relativePath);
     }
 
     for (const write of input.canonicalWrites) {
@@ -71,7 +80,7 @@ export async function applyNormalizationPlan(input: ApplyNormalizationPlanInput)
         adapter: 'normalizer',
         kind: 'partial_write_failure',
         message: error instanceof Error ? error.message : String(error),
-        canonical_paths: input.canonicalWrites.map((write) => write.path),
+        canonical_paths: [...(input.removeWrites ?? []), ...input.canonicalWrites.map((write) => write.path)],
         trace_paths: input.traceWrites.map((write) => write.path),
       },
     ];

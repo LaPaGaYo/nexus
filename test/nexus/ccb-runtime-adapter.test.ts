@@ -579,6 +579,92 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('recovers a successful review audit from pend when ask exits nonzero before the provider reply is flushed', async () => {
+    const calls: RecordedCommand[] = [];
+    let pendAttempts = 0;
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+        pend_path: '/opt/ccb/bin/pend',
+      }),
+      runCommand: async (spec) => {
+        calls.push(spec);
+        if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        }
+        if (spec.argv[0] === '/opt/ccb/bin/ask') {
+          return {
+            exit_code: 1,
+            stdout: '',
+            stderr: [
+              'CCB_REQ_ID: 20260415-000000-000-00000-2',
+              '[TIMEOUT] foreground wait ended before provider reply was surfaced',
+            ].join('\n'),
+          };
+        }
+
+        pendAttempts += 1;
+        if (pendAttempts === 1) {
+          return {
+            exit_code: 2,
+            stdout: '',
+            stderr: 'No reply available yet',
+          };
+        }
+
+        return {
+          exit_code: 0,
+          stdout: [
+            '# Gemini Audit',
+            '',
+            'Result: pass',
+            '',
+            'Findings:',
+            '- none',
+          ].join('\n'),
+          stderr: '',
+        };
+      },
+      sleep: async () => {},
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, null, {
+      ledgerSessionRoot: {
+        path: '/repo/ledger-session',
+        kind: 'repo_root',
+        source: 'ccb_root',
+      },
+    }));
+
+    expect(calls).toHaveLength(4);
+    expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+    expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
+    expect(calls[2]).toMatchObject({
+      argv: ['/opt/ccb/bin/pend', 'gemini', '--session-file', '/repo/ledger-session/.ccb/.gemini-session'],
+      cwd: '/repo/ledger-session',
+      env: {
+        CCB_SESSION_FILE: '/repo/ledger-session/.ccb/.gemini-session',
+        PWD: '/repo/ledger-session',
+      },
+    });
+    expect(calls[3]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', '/repo/ledger-session/.ccb/.gemini-session']);
+    expect(result.outcome).toBe('success');
+    expect(result.raw_output).toMatchObject({
+      markdown: expect.stringContaining('Result: pass'),
+      exit_code: 1,
+      request_id: '20260415-000000-000-00000-2',
+    });
+  });
+
   test('blocks review retry when the provider session reset fails', async () => {
     const calls: RecordedCommand[] = [];
     const adapter = createRuntimeCcbAdapter({

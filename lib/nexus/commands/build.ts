@@ -62,6 +62,17 @@ function buildCommandHistoryVia(
   return via as CommandHistoryVia;
 }
 
+function isCanonicalFailingReview(reviewStatus: StageStatus | null | undefined): boolean {
+  return reviewStatus?.stage === 'review'
+    && reviewStatus.state === 'completed'
+    && reviewStatus.decision === 'audit_recorded'
+    && reviewStatus.ready === false
+    && reviewStatus.review_complete === true
+    && reviewStatus.audit_set_complete === true
+    && reviewStatus.provenance_consistent === true
+    && reviewStatus.gate_decision === 'fail';
+}
+
 function blockedPreflightLedger(
   ledger: RunLedger,
   recoveryStage: 'handoff',
@@ -153,8 +164,8 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
 
     assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
 
-    if (reviewStatus.gate_decision !== 'fail') {
-      throw new Error('Fix-cycle /build is only valid after a failing review gate');
+    if (!isCanonicalFailingReview(reviewStatus)) {
+      throw new Error('Fix-cycle /build is only valid after a completed failing review gate');
     }
   }
 

@@ -1,4 +1,4 @@
-import { mkdirSync, renameSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { runReviewWithWriteAtomicFile } from '../../lib/nexus/commands/review';
@@ -654,6 +654,146 @@ describe('nexus review', () => {
             via: 'retry',
           },
         ],
+      });
+    });
+  });
+
+  test('clears stale current audits when a review retry blocks before the audit set completes', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const failingReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Fix the webhook signature verification.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', failingReviewAdapters);
+      expect(existsSync(join(cwd, '.planning/audits/current/codex.md'))).toBe(true);
+      expect(existsSync(join(cwd, '.planning/audits/current/gemini.md'))).toBe(true);
+
+      const blockedReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Fix the webhook signature verification.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'blocked',
+            raw_output: {
+              markdown: '',
+              receipt: '',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['Gemini review session reset failed'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('review', blockedReviewAdapters)).rejects.toThrow('CCB gemini audit blocked review');
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'blocked',
+        ready: false,
+        review_complete: false,
+        audit_set_complete: false,
+        gate_decision: 'blocked',
+      });
+      expect(existsSync(join(cwd, '.planning/audits/current/codex.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.planning/audits/current/gemini.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.planning/audits/current/synthesis.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.planning/audits/current/gate-decision.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.planning/audits/current/meta.json'))).toBe(false);
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'review',
+        allowed_next_stages: ['review'],
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).not.toMatchObject({
+        artifact_index: expect.objectContaining({
+          '.planning/audits/current/codex.md': expect.anything(),
+        }),
       });
     });
   });

@@ -69,6 +69,7 @@ export interface CcbToolPaths {
   ping_path: string;
   mounted_path: string;
   autonew_path: string;
+  pend_path?: string;
 }
 
 export interface CcbCommandSpec {
@@ -90,6 +91,7 @@ export interface CreateRuntimeCcbAdapterOptions {
   resolveSessionRoot?: (cwd: string) => string;
   runCommand?: (spec: CcbCommandSpec) => Promise<CcbCommandResult>;
   now?: () => string;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 const DEFAULT_TIMEOUTS_SECONDS = {
@@ -97,6 +99,9 @@ const DEFAULT_TIMEOUTS_SECONDS = {
   review: '900',
   qa: '900',
 } as const;
+
+const LATE_RECOVERY_ATTEMPTS = 5;
+const LATE_RECOVERY_POLL_MS = 1_000;
 
 function successResult<TRaw>(
   raw_output: TRaw,
@@ -200,13 +205,19 @@ function defaultResolveToolPaths(): CcbToolPaths {
   const pingPath = join(installBin, 'ccb-ping');
   const mountedPath = join(installBin, 'ccb-mounted');
   const autonewPath = join(installBin, 'autonew');
+  const pendPath = join(installBin, 'pend');
 
   return {
     ask_path: existsSync(askPath) ? askPath : 'ask',
     ping_path: existsSync(pingPath) ? pingPath : 'ccb-ping',
     mounted_path: existsSync(mountedPath) ? mountedPath : 'ccb-mounted',
     autonew_path: existsSync(autonewPath) ? autonewPath : 'autonew',
+    pend_path: existsSync(pendPath) ? pendPath : 'pend',
   };
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }
 
 function defaultResolveSessionRoot(cwd: string): string {
@@ -754,11 +765,22 @@ async function runAskDispatch(
   }
 
   if (execution.exit_code !== 0) {
+    const requestId = extractRequestId(execution.stdout, execution.stderr);
     const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
     if (recoveredPayload !== null) {
       return {
         ...execution,
         stdout: recoveredPayload,
+      };
+    }
+
+    const lateRecoveredPayload = requestId
+      ? await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, requestId, options)
+      : null;
+    if (lateRecoveredPayload !== null) {
+      return {
+        ...execution,
+        stdout: lateRecoveredPayload,
       };
     }
 
@@ -771,7 +793,7 @@ async function runAskDispatch(
         exit_code: execution.exit_code,
         stdout: execution.stdout,
         stderr: execution.stderr,
-        request_id: extractRequestId(execution.stdout, execution.stderr),
+        request_id: requestId,
       },
       ctx.requested_route,
       traceability,
@@ -779,6 +801,55 @@ async function runAskDispatch(
   }
 
   return execution;
+}
+
+async function recoverLateAskPayload(
+  ctx: NexusAdapterContext,
+  provider: 'codex' | 'gemini',
+  stage: 'handoff' | 'build' | 'review' | 'qa',
+  sessionRoot: string,
+  sessionFile: string | null,
+  _requestId: string,
+  options: Required<CreateRuntimeCcbAdapterOptions>,
+): Promise<string | null> {
+  if (stage === 'handoff') {
+    return null;
+  }
+
+  const toolPaths = options.resolveToolPaths();
+  const pendArgv = [toolPaths.pend_path ?? 'pend', provider];
+  if (sessionFile) {
+    pendArgv.push('--session-file', sessionFile);
+  }
+
+  for (let attempt = 0; attempt < LATE_RECOVERY_ATTEMPTS; attempt += 1) {
+    let execution: CcbCommandResult;
+    try {
+      execution = await options.runCommand({
+        argv: pendArgv,
+        cwd: sessionRoot,
+        env: envForCwd(sessionRoot, sessionFile ? { CCB_SESSION_FILE: sessionFile } : {}),
+        timeout_ms: 5_000,
+      });
+    } catch {
+      execution = {
+        exit_code: 1,
+        stdout: '',
+        stderr: '',
+      };
+    }
+
+    const payload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
+    if (execution.exit_code === 0 && payload !== null) {
+      return payload;
+    }
+
+    if (attempt < LATE_RECOVERY_ATTEMPTS - 1) {
+      await options.sleep(LATE_RECOVERY_POLL_MS);
+    }
+  }
+
+  return null;
 }
 
 async function resetProviderSession(
@@ -925,6 +996,7 @@ export function createRuntimeCcbAdapter(
     resolveSessionRoot: providedOptions.resolveSessionRoot ?? defaultResolveSessionRoot,
     runCommand: providedOptions.runCommand ?? defaultRunCommand,
     now: providedOptions.now ?? (() => new Date().toISOString()),
+    sleep: providedOptions.sleep ?? defaultSleep,
   };
 
   return {

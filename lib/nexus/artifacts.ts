@@ -52,6 +52,16 @@ export function currentAuditPointer(
   };
 }
 
+export function currentAuditArtifactPaths(): string[] {
+  return [
+    currentAuditPointer('codex').path,
+    currentAuditPointer('gemini').path,
+    currentAuditPointer('synthesis').path,
+    currentAuditPointer('gate-decision').path,
+    currentAuditPointer('meta').path,
+  ];
+}
+
 export function archiveRootFor(runId: string): string {
   return `${ARCHIVE_ROOT}/${runId}`;
 }

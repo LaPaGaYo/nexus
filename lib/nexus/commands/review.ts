@@ -5,7 +5,7 @@ import {
   dedupeArtifactPointers,
   executionContractArtifacts,
 } from '../contract-artifacts';
-import { currentAuditPointer, stageStatusPath } from '../artifacts';
+import { currentAuditArtifactPaths, currentAuditPointer, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
 import { readLedger } from '../ledger';
@@ -56,6 +56,19 @@ function nextLedger(
     current_stage: 'review',
     allowed_next_stages: allowedNextStages,
     command_history: [...ledger.command_history, { command: 'review', at, via }],
+  };
+}
+
+function clearCurrentAuditArtifactIndex(ledger: RunLedger): RunLedger {
+  const nextArtifactIndex = { ...ledger.artifact_index };
+
+  for (const path of currentAuditArtifactPaths()) {
+    delete nextArtifactIndex[path];
+  }
+
+  return {
+    ...ledger,
+    artifact_index: nextArtifactIndex,
   };
 }
 
@@ -189,6 +202,7 @@ export async function runReviewWithWriteAtomicFile(
   const synthesisPath = '.planning/audits/current/synthesis.md';
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
   const metaPath = '.planning/audits/current/meta.json';
+  const currentAuditPaths = currentAuditArtifactPaths();
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
 
   const disciplineResult = await ctx.adapters.superpowers.review_discipline({
@@ -239,6 +253,7 @@ export async function runReviewWithWriteAtomicFile(
       stage: 'review',
       statusPath: reviewStatusPath,
       canonicalWrites: [],
+      removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
         [buildStatusPath],
@@ -255,7 +270,15 @@ export async function runReviewWithWriteAtomicFile(
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, disciplineResult.outcome === 'refused' ? 'refused' : 'blocked', startedAt, commandHistoryVia, disciplineResult.outcome === 'refused' ? [] : ['review']),
+      ledger: clearCurrentAuditArtifactIndex(
+        nextLedger(
+          ledgerWithExecution,
+          disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
+          startedAt,
+          commandHistoryVia,
+          disciplineResult.outcome === 'refused' ? [] : ['review'],
+        ),
+      ),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -294,6 +317,7 @@ export async function runReviewWithWriteAtomicFile(
       stage: 'review',
       statusPath: reviewStatusPath,
       canonicalWrites: [],
+      removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
         [buildStatusPath],
@@ -311,7 +335,7 @@ export async function runReviewWithWriteAtomicFile(
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review']),
+      ledger: clearCurrentAuditArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review'])),
       conflicts: [conflict, ...disciplineResult.conflict_candidates],
       writeAtomicFile,
     });
@@ -382,6 +406,7 @@ export async function runReviewWithWriteAtomicFile(
         stage: 'review',
         statusPath: reviewStatusPath,
         canonicalWrites: [],
+        removeWrites: currentAuditPaths,
         traceWrites: buildReviewTraceabilityPayloads(
           ledger.run_id,
           [buildStatusPath],
@@ -398,7 +423,15 @@ export async function runReviewWithWriteAtomicFile(
         ),
         status,
         mirrorWorkspace: workspace,
-        ledger: nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, commandHistoryVia, result.outcome === 'refused' ? [] : ['review']),
+        ledger: clearCurrentAuditArtifactIndex(
+          nextLedger(
+            ledgerWithExecution,
+            result.outcome === 'refused' ? 'refused' : 'blocked',
+            startedAt,
+            commandHistoryVia,
+            result.outcome === 'refused' ? [] : ['review'],
+          ),
+        ),
         conflicts: [conflict, ...result.conflict_candidates],
         writeAtomicFile,
       });
@@ -443,6 +476,7 @@ export async function runReviewWithWriteAtomicFile(
       stage: 'review',
       statusPath: reviewStatusPath,
       canonicalWrites: [],
+      removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
         [buildStatusPath],
@@ -460,7 +494,7 @@ export async function runReviewWithWriteAtomicFile(
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review']),
+      ledger: clearCurrentAuditArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review'])),
       conflicts: [conflict, ...auditAResult.conflict_candidates, ...auditBResult.conflict_candidates],
       writeAtomicFile,
     });
