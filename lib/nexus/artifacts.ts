@@ -4,6 +4,7 @@ export const CURRENT_ROOT = '.planning/current';
 export const AUDIT_ROOT = '.planning/audits/current';
 export const ARCHIVE_ROOT = '.planning/audits/archive';
 export const RUN_ARCHIVE_ROOT = '.planning/archive/runs';
+export const NEXUS_STATE_ROOT = '.planning/nexus';
 
 export function stageStatusPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/status.json`;
@@ -76,4 +77,28 @@ export function archivedRunLedgerPath(runId: string): string {
 
 export function archivedCloseoutRootFor(runId: string): string {
   return `${runArchiveRootFor(runId)}/closeout`;
+}
+
+export function closeoutNextRunBootstrapJsonPath(): string {
+  return `${CURRENT_ROOT}/closeout/next-run-bootstrap.json`;
+}
+
+export function closeoutNextRunMarkdownPath(): string {
+  return `${CURRENT_ROOT}/closeout/NEXT-RUN.md`;
+}
+
+export function discoverBootstrapJsonPath(): string {
+  return `${CURRENT_ROOT}/discover/next-run-bootstrap.json`;
+}
+
+export function discoverBootstrapMarkdownPath(): string {
+  return `${CURRENT_ROOT}/discover/NEXT-RUN.md`;
+}
+
+export function ccbProviderStatePath(): string {
+  return `${NEXUS_STATE_ROOT}/providers.json`;
+}
+
+export function ccbDispatchStatePath(requestId: string): string {
+  return `${NEXUS_STATE_ROOT}/dispatch/${requestId}.json`;
 }

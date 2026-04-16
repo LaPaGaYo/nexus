@@ -38,6 +38,7 @@ tags.
 - **[v1.0.27](docs/releases/2026-04-13-nexus-v1.0.27.md)** — run-owned worktrees now receive the current planning and product contract artifacts before governed execution, so Codex audits and builds stop reading stale phase packets after a fresh run workspace is allocated.
 - **[v1.0.28](docs/releases/2026-04-13-nexus-v1.0.28.md)** — governed build and review now carry the explicit execution contract into provider prompts, and build no longer false-blocks when a generator reports that it ignored stale stage artifacts.
 - **[v1.0.29](docs/releases/2026-04-14-nexus-v1.0.29.md)** — governed CCB review/build/QA now recover canonical provider payloads even when `ask` exits non-zero, so late or noisy provider dispatches no longer spuriously block the audit set.
+- **[v1.0.31](docs/releases/2026-04-16-nexus-v1.0.31.md)** — repo-visible CCB provider/dispatch state, closeout-to-discover bootstrap continuity, parallel fast-bounded dual review, and late-review recovery even when `ask` exits without a `CCB_REQ_ID`.
 - **[v1.0.30](docs/releases/2026-04-15-nexus-v1.0.30.md)** — governed review now clears stale `audits/current` truth when an audit set blocks, late CCB replies can be recovered from `pend`, and fix-cycle `/build` now requires a complete failing review instead of a stray `gate_decision`.
 
 ## [1.0.0] - 2026-04-08 — Nexus First Release

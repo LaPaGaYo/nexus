@@ -122,6 +122,12 @@ describe('nexus closeout', () => {
       expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
         'Closeout is the final governed conclusion of the work unit and must remain blocked if archive or provenance checks are inconsistent.',
       );
+      expect(await run.readFile('.planning/current/closeout/NEXT-RUN.md')).toContain('Next Run Bootstrap');
+      expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({
+        previous_run_id: closeout.run_id,
+        recommended_entrypoint: 'discover',
+        recommended_continuation_mode: 'phase',
+      });
       expect(readFileSync(join(cwd, '.planning/audits/archive', closeout.run_id, 'meta.json'), 'utf8')).toContain(
         closeout.run_id,
       );

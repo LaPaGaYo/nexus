@@ -151,6 +151,8 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     required_inputs: ['.planning/current/review/status.json'],
     durable_outputs: [
       '.planning/current/closeout/CLOSEOUT-RECORD.md',
+      '.planning/current/closeout/NEXT-RUN.md',
+      '.planning/current/closeout/next-run-bootstrap.json',
       '.planning/current/closeout/status.json',
     ],
     exit_condition: 'Final readiness status is explicit.',

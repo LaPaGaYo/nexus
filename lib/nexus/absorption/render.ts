@@ -34,15 +34,26 @@ export function renderChecklist(title: string, items: string[]): string {
 }
 
 export function renderExecutionContext(ctx: NexusAdapterContext): string {
+  const predecessorSection = ctx.predecessor_artifacts.length > 0
+    ? [
+      '### Predecessor Artifacts',
+      '',
+      ...ctx.predecessor_artifacts.map((artifact) => `- ${artifact.path}`),
+      '',
+    ]
+    : [];
+
   return [
     '## Nexus Execution Context',
     '',
     `- Run ID: ${ctx.run_id}`,
     `- Command: ${ctx.command}`,
     `- Stage: ${ctx.stage}`,
+    `- Continuation mode: ${ctx.ledger.continuation_mode}`,
     `- Execution mode: ${ctx.ledger.execution.mode}`,
     `- Primary provider: ${ctx.ledger.execution.primary_provider}`,
     `- Provider topology: ${ctx.ledger.execution.provider_topology}`,
     '',
+    ...predecessorSection,
   ].join('\n');
 }

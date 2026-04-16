@@ -1,7 +1,11 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { stageStatusPath } from '../artifacts';
+import {
+  closeoutNextRunBootstrapJsonPath,
+  closeoutNextRunMarkdownPath,
+  stageStatusPath,
+} from '../artifacts';
 import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
 import {
   archiveAuditWorkspace,
@@ -17,6 +21,7 @@ import {
 import { readLedger } from '../ledger';
 import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalizers/gsd';
 import { applyNormalizationPlan } from '../normalizers';
+import { buildNextRunBootstrap, persistCloseoutBootstrap } from '../run-bootstrap';
 import { readStageStatus } from '../status';
 import { assertLegalTransition } from '../transitions';
 import { retireRunWorkspace } from '../workspace-substrate';
@@ -125,6 +130,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const startedAt = ctx.clock();
   const closeoutRecordPath = '.planning/current/closeout/CLOSEOUT-RECORD.md';
   const closeoutStatusPath = stageStatusPath('closeout');
+  const closeoutBootstrapJson = closeoutNextRunBootstrapJsonPath();
+  const closeoutBootstrapMarkdown = closeoutNextRunMarkdownPath();
   const manifest = CANONICAL_MANIFEST.closeout;
   const result = await ctx.adapters.gsd.closeout({
     cwd: ctx.cwd,
@@ -195,6 +202,14 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdCloseout(result);
+    const bootstrap = buildNextRunBootstrap({
+      ledger,
+      reviewStatus,
+      qaStatus,
+      shipStatus,
+      generatedAt: startedAt,
+    });
+    const bootstrapWrites = persistCloseoutBootstrap(ctx.cwd, bootstrap);
     const retiredWorkspace = retireRunWorkspace(ledger.execution.workspace);
     const ledgerWithRetiredWorkspace = retiredWorkspace ? withExecutionWorkspace(ledger, retiredWorkspace) : ledger;
     const status: StageStatus = {
@@ -212,6 +227,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       ],
       outputs: [
         artifactPointerFor(closeoutRecordPath),
+        artifactPointerFor(closeoutBootstrapMarkdown),
+        artifactPointerFor(closeoutBootstrapJson),
         artifactPointerFor(closeoutStatusPath),
       ],
       started_at: startedAt,
@@ -232,6 +249,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       artifact_index: {
         ...ledger.artifact_index,
         [closeoutRecordPath]: artifactPointerFor(closeoutRecordPath),
+        [closeoutBootstrapMarkdown]: artifactPointerFor(closeoutBootstrapMarkdown),
+        [closeoutBootstrapJson]: artifactPointerFor(closeoutBootstrapJson),
         [closeoutStatusPath]: artifactPointerFor(closeoutStatusPath),
       },
     };
@@ -240,7 +259,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'closeout',
       statusPath: closeoutStatusPath,
-      canonicalWrites: normalized.canonicalWrites,
+      canonicalWrites: [...normalized.canonicalWrites, ...bootstrapWrites],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,

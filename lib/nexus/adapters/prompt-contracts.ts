@@ -83,8 +83,12 @@ export function buildReviewAuditPrompt(
       : 'Review the current repo state and relevant changed files against the current execution contract in the predecessor artifacts.',
     ...(boundedScope
       ? [
+          'Operate as a fast bounded auditor, not an open-ended investigator.',
           'Decide pass/fail only against the blocking items listed in Review scope.',
           'Additional out-of-scope concerns may be noted as advisories only, and must not by themselves cause Result: fail.',
+          'Inspect only the files and symbols directly relevant to the blocking items and predecessor artifacts unless one targeted follow-up read is required to reach a verdict.',
+          'Do not activate extra review workflows or broad repo-search procedures for this bounded review.',
+          'As soon as the blocking items are confirmed pass/fail from repo-visible evidence, finalize immediately.',
         ]
       : []),
     'Reply with markdown only in this exact shape:',

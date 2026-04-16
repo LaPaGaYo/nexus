@@ -4,7 +4,14 @@ import { archivedCloseoutRootFor, archivedRunLedgerPath, stageStatusPath } from 
 import { defaultExecutionSelection, type ExecutionSelection } from './execution-topology';
 import { readStageStatus } from './status';
 import { getAllowedNextStages } from './transitions';
-import type { CanonicalCommandId, RunLedger, SessionRootRecord, StageStatus, WorkspaceRecord } from './types';
+import type {
+  CanonicalCommandId,
+  ContinuationMode,
+  RunLedger,
+  SessionRootRecord,
+  StageStatus,
+  WorkspaceRecord,
+} from './types';
 
 const LEDGER_PATH = '.planning/nexus/current-run.json';
 
@@ -85,12 +92,14 @@ export function startLedger(
   stage: CanonicalCommandId,
   execution: ExecutionSelection = defaultExecutionSelection(),
   options: {
+    continuationMode?: ContinuationMode;
     workspace?: WorkspaceRecord;
     sessionRoot?: SessionRootRecord;
   } = {},
 ): RunLedger {
   return {
     run_id,
+    continuation_mode: options.continuationMode ?? 'project_reset',
     status: 'active',
     current_command: stage,
     current_stage: stage,

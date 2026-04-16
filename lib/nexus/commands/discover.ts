@@ -12,6 +12,11 @@ import { applyNormalizationPlan } from '../normalizers';
 import { stageStatusPath } from '../artifacts';
 import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
 import {
+  resolveContinuationModeFromBootstrap,
+  resetCurrentPlanningStateForFreshRun,
+  seedDiscoverBootstrapFromArchivedRun,
+} from '../run-bootstrap';
+import {
   allocateFreshRunWorkspace,
   cleanupRetiredRunWorkspace,
   resolveRepositoryRoot,
@@ -52,6 +57,7 @@ function buildStatus(
   state: StageStatus['state'],
   decision: StageStatus['decision'],
   ready: boolean,
+  inputs: ArtifactPointer[],
   errors: string[],
 ): StageStatus {
   return {
@@ -61,7 +67,7 @@ function buildStatus(
     state,
     decision,
     ready,
-    inputs: [],
+    inputs,
     outputs: ready
       ? [
           artifactPointerFor('docs/product/idea-brief.md'),
@@ -77,6 +83,7 @@ function buildStatus(
 export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   const repositoryRoot = resolveRepositoryRoot(ctx.cwd);
   const existingLedger = readLedger(repositoryRoot);
+  let predecessorArtifacts: ArtifactPointer[] = [];
   if (
     existingLedger
     && existingLedger.current_stage !== 'discover'
@@ -113,6 +120,8 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       }
     }
     archiveCompletedRunLedger(archivedLedger, repositoryRoot);
+    resetCurrentPlanningStateForFreshRun(repositoryRoot);
+    predecessorArtifacts = seedDiscoverBootstrapFromArchivedRun(repositoryRoot, archivedLedger.run_id);
   }
 
   const ledger = existingLedger && existingLedger.current_stage === 'discover'
@@ -120,6 +129,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     : (() => {
       const freshRunId = makeRunId(ctx.clock);
       return startLedger(freshRunId, 'discover', ctx.execution, {
+        continuationMode: resolveContinuationModeFromBootstrap(repositoryRoot),
         workspace: allocateFreshRunWorkspace(repositoryRoot, freshRunId),
         sessionRoot: resolveSessionRootRecord(repositoryRoot),
       });
@@ -129,6 +139,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   const requestPayload = {
     adapter: 'pm',
     stage: 'discover',
+    continuation_mode: ledger.continuation_mode,
     contract_outputs: manifest.durable_outputs,
   };
   const result = await ctx.adapters.pm.discover({
@@ -138,12 +149,12 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     stage: 'discover',
     ledger,
     manifest,
-    predecessor_artifacts: [],
+    predecessor_artifacts: predecessorArtifacts,
     requested_route: null,
   }) as Awaited<ReturnType<typeof ctx.adapters.pm.discover>> & { raw_output: PmDiscoverRaw };
 
   if (result.outcome === 'refused') {
-    const status = buildStatus(ledger, at, 'refused', 'refused', false, ['PM discovery refused']);
+    const status = buildStatus(ledger, at, 'refused', 'refused', false, predecessorArtifacts, ['PM discovery refused']);
     await applyNormalizationPlan({
       cwd: repositoryRoot,
       stage: 'discover',
@@ -152,20 +163,28 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildPmTraceabilityPayloads(
         'discover',
         ledger.run_id,
-        [],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestPayload,
         result,
         { outcome: 'refused', status: { state: status.state, decision: status.decision, ready: status.ready } },
       ),
       status,
       mirrorWorkspace: ledger.execution.workspace,
-      ledger: nextLedger(ledger, 'refused', at, ctx.via),
+      ledger: {
+        ...nextLedger(ledger, 'refused', at, ctx.via),
+        artifact_index: {
+          ...ledger.artifact_index,
+          ...Object.fromEntries(
+            predecessorArtifacts.map((artifact) => [artifact.path, artifact]),
+          ),
+        },
+      },
     });
     throw new Error('PM discovery refused');
   }
 
   if (result.outcome !== 'success') {
-    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['PM discovery blocked']);
+    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, predecessorArtifacts, ['PM discovery blocked']);
     await applyNormalizationPlan({
       cwd: repositoryRoot,
       stage: 'discover',
@@ -174,24 +193,35 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildPmTraceabilityPayloads(
         'discover',
         ledger.run_id,
-        [],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestPayload,
         result,
         { outcome: 'blocked', status: { state: status.state, decision: status.decision, ready: status.ready } },
       ),
       status,
       mirrorWorkspace: ledger.execution.workspace,
-      ledger: nextLedger(ledger, 'blocked', at, ctx.via),
+      ledger: {
+        ...nextLedger(ledger, 'blocked', at, ctx.via),
+        artifact_index: {
+          ...ledger.artifact_index,
+          ...Object.fromEntries(
+            predecessorArtifacts.map((artifact) => [artifact.path, artifact]),
+          ),
+        },
+      },
     });
     throw new Error('PM discovery blocked');
   }
 
   try {
     const normalized = normalizePmDiscover(result);
-    const status = buildStatus(ledger, at, 'completed', 'ready', true, []);
+    const status = buildStatus(ledger, at, 'completed', 'ready', true, predecessorArtifacts, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
+      ...Object.fromEntries(
+        predecessorArtifacts.map((artifact) => [artifact.path, artifact]),
+      ),
       'docs/product/idea-brief.md': artifactPointerFor('docs/product/idea-brief.md'),
       [stageStatusPath('discover')]: artifactPointerFor(stageStatusPath('discover')),
     };
@@ -204,7 +234,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildPmTraceabilityPayloads(
         'discover',
         ledger.run_id,
-        [],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestPayload,
         result,
         {
@@ -232,7 +262,15 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
         '.planning/current/discover/normalization.json',
       ],
     };
-    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
+    const status = buildStatus(
+      ledger,
+      at,
+      'blocked',
+      'not_ready',
+      false,
+      predecessorArtifacts,
+      ['Canonical writeback failed'],
+    );
     await applyNormalizationPlan({
       cwd: repositoryRoot,
       stage: 'discover',
@@ -241,7 +279,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildPmTraceabilityPayloads(
         'discover',
         ledger.run_id,
-        [],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestPayload,
         result,
         {
@@ -252,7 +290,15 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       ),
       status,
       mirrorWorkspace: ledger.execution.workspace,
-      ledger: nextLedger(ledger, 'blocked', at, ctx.via),
+      ledger: {
+        ...nextLedger(ledger, 'blocked', at, ctx.via),
+        artifact_index: {
+          ...ledger.artifact_index,
+          ...Object.fromEntries(
+            predecessorArtifacts.map((artifact) => [artifact.path, artifact]),
+          ),
+        },
+      },
       conflicts: [conflict],
     });
     throw error;

@@ -94,6 +94,9 @@ export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
 export const REVIEW_SCOPE_MODES = ['full_acceptance', 'bounded_fix_cycle'] as const;
 export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
 
+export const CONTINUATION_MODES = ['task', 'phase', 'project_reset'] as const;
+export type ContinuationMode = (typeof CONTINUATION_MODES)[number];
+
 export const COMMAND_HISTORY_VIAS = [
   'office-hours',
   'plan-ceo-review',
@@ -293,6 +296,7 @@ export interface StageStatus {
 
 export interface RunLedger {
   run_id: string;
+  continuation_mode: ContinuationMode;
   status: RunStatus;
   current_command: CanonicalCommandId;
   current_stage: CanonicalCommandId;

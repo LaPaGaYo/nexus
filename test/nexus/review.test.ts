@@ -184,6 +184,102 @@ describe('nexus review', () => {
     });
   });
 
+  test('dispatches codex and gemini audits in parallel after review discipline succeeds', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      let auditBStarted = false;
+      let auditBObservedBeforeAuditACompleted = false;
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'superpowers-review-discipline',
+              source_map: ['upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+            },
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            auditBObservedBeforeAuditACompleted = auditBStarted;
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                markdown: '# Codex Audit\n\nResult: pass\n',
+                receipt: 'codex-review-receipt',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/review/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+              traceability: {
+                nexus_stage_pack: 'nexus-review-pack',
+                absorbed_capability: 'ccb-review-codex',
+                source_map: ['upstream/claude-code-bridge/lib/codex_comm.py'],
+              },
+            };
+          },
+          execute_audit_b: async (ctx) => {
+            auditBStarted = true;
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                markdown: '# Gemini Audit\n\nResult: pass\n',
+                receipt: 'gemini-review-receipt',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'gemini',
+                route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/review/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+              traceability: {
+                nexus_stage_pack: 'nexus-review-pack',
+                absorbed_capability: 'ccb-review-gemini',
+                source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              },
+            };
+          },
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(auditBObservedBeforeAuditACompleted).toBe(true);
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'completed',
+        gate_decision: 'pass',
+      });
+    });
+  });
+
   test('default review discipline summary carries Nexus-owned absorbed review guidance', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

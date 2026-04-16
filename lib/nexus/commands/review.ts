@@ -344,30 +344,32 @@ export async function runReviewWithWriteAtomicFile(
   }
 
   const auditAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
-  const auditAResult = await auditAdapter.execute_audit_a({
-    cwd: ctx.cwd,
-    workspace,
-    run_id: ledger.run_id,
-    command: 'review',
-    stage: 'review',
-    ledger: ledgerWithExecution,
-    manifest,
-    predecessor_artifacts: predecessorArtifacts,
-    requested_route: requestedRoute,
-    review_scope: inheritedReviewScope,
-  }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
-  const auditBResult = await auditAdapter.execute_audit_b({
-    cwd: ctx.cwd,
-    workspace,
-    run_id: ledger.run_id,
-    command: 'review',
-    stage: 'review',
-    ledger: ledgerWithExecution,
-    manifest,
-    predecessor_artifacts: predecessorArtifacts,
-    requested_route: requestedRoute,
-    review_scope: inheritedReviewScope,
-  }) as Awaited<ReturnType<typeof auditAdapter.execute_audit_b>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw };
+  const [auditAResult, auditBResult] = await Promise.all([
+    auditAdapter.execute_audit_a({
+      cwd: ctx.cwd,
+      workspace,
+      run_id: ledger.run_id,
+      command: 'review',
+      stage: 'review',
+      ledger: ledgerWithExecution,
+      manifest,
+      predecessor_artifacts: predecessorArtifacts,
+      requested_route: requestedRoute,
+      review_scope: inheritedReviewScope,
+    }) as Promise<Awaited<ReturnType<typeof auditAdapter.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw }>,
+    auditAdapter.execute_audit_b({
+      cwd: ctx.cwd,
+      workspace,
+      run_id: ledger.run_id,
+      command: 'review',
+      stage: 'review',
+      ledger: ledgerWithExecution,
+      manifest,
+      predecessor_artifacts: predecessorArtifacts,
+      requested_route: requestedRoute,
+      review_scope: inheritedReviewScope,
+    }) as Promise<Awaited<ReturnType<typeof auditAdapter.execute_audit_b>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw }>,
+  ]);
 
   for (const [label, result] of [
     ['codex', auditAResult] as const,

@@ -4,12 +4,19 @@ import { join, dirname, resolve } from 'path';
 import { spawn } from 'child_process';
 import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath } from '../artifacts';
 import {
+  recordCcbAutonewProviderState,
+  recordCcbDispatchState,
+  recordCcbMountedProviderState,
+  recordCcbPingProviderState,
+} from '../ccb-runtime-state';
+import {
   buildBuildExecutionPrompt,
   buildPromptContextPreamble,
   buildQaValidationPrompt,
   buildReviewAuditPrompt,
 } from './prompt-contracts';
 import { createBuildStagePack, createHandoffStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
+import { resolveRepositoryRoot } from '../workspace-substrate';
 import type { ActualRouteRecord, ConflictRecord } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter, NexusAdapterContext } from './types';
 
@@ -501,6 +508,36 @@ function recoverableAskPayload(
   return null;
 }
 
+function shouldAttemptAnonymousLateRecovery(
+  stage: 'handoff' | 'build' | 'review' | 'qa',
+  stdout: string,
+  stderr: string,
+): boolean {
+  if (stage === 'handoff') {
+    return false;
+  }
+
+  if (recoverableAskPayload(stage, stdout, stderr) !== null) {
+    return false;
+  }
+
+  const trimmedStdout = stdout.trim();
+  if (!trimmedStdout || !/[A-Za-z]/.test(trimmedStdout)) {
+    return false;
+  }
+
+  const combined = `${trimmedStdout}\n${stderr.trim()}`;
+  if (/CCB_REQ_ID:\s*[^\s]+/.test(combined)) {
+    return false;
+  }
+
+  if (/\[ERROR\]|Unknown provider|not running|No (?:Gemini |Codex )?reply available|command exceeded/i.test(combined)) {
+    return false;
+  }
+
+  return true;
+}
+
 function parseMountedProviders(stdout: string): string[] {
   let parsed: { mounted?: unknown };
   try {
@@ -521,6 +558,7 @@ async function runRouteVerification(
   traceability: AdapterTraceability,
   options: Required<CreateRuntimeCcbAdapterOptions>,
 ): Promise<AdapterResult<CcbResolveRouteRaw>> {
+  const repoRoot = resolveRepositoryRoot(ctx.cwd);
   const provider = expectedProvider(ctx.requested_route?.generator ?? null);
   const providers = expectedProvidersFromRequestedRoute(ctx.requested_route);
   if (!ctx.requested_route || !provider || providers.length === 0) {
@@ -540,6 +578,7 @@ async function runRouteVerification(
 
   const toolPaths = options.resolveToolPaths();
   const verificationCwd = sessionRootPath(ctx, options);
+  const verificationAt = options.now();
   const mountedArgv = [toolPaths.mounted_path, '--autostart'];
   const verificationCommands = [
     describeCommand(mountedArgv),
@@ -556,6 +595,17 @@ async function runRouteVerification(
       timeout_ms: 40_000,
     });
   } catch (error) {
+    for (const candidate of providers) {
+      recordCcbMountedProviderState({
+        repoRoot,
+        provider: candidate,
+        sessionRoot: verificationCwd,
+        sessionFile: sessionFileForProvider(verificationCwd, candidate),
+        mounted: false,
+        mountedOutput: error instanceof Error ? error.message : String(error),
+        now: verificationAt,
+      });
+    }
     return blockedResult(
       ctx.stage,
       error instanceof Error ? error.message : String(error),
@@ -575,6 +625,17 @@ async function runRouteVerification(
 
   const mountedOutput = summarizeCommandOutput(mountedExecution.stdout, mountedExecution.stderr);
   if (mountedExecution.exit_code !== 0) {
+    for (const candidate of providers) {
+      recordCcbMountedProviderState({
+        repoRoot,
+        provider: candidate,
+        sessionRoot: verificationCwd,
+        sessionFile: sessionFileForProvider(verificationCwd, candidate),
+        mounted: false,
+        mountedOutput,
+        now: verificationAt,
+      });
+    }
     return blockedResult(
       ctx.stage,
       mountedOutput || 'CCB mounted provider discovery failed',
@@ -597,6 +658,17 @@ async function runRouteVerification(
   try {
     mountedProviders = parseMountedProviders(mountedExecution.stdout);
   } catch (error) {
+    for (const candidate of providers) {
+      recordCcbMountedProviderState({
+        repoRoot,
+        provider: candidate,
+        sessionRoot: verificationCwd,
+        sessionFile: sessionFileForProvider(verificationCwd, candidate),
+        mounted: false,
+        mountedOutput: error instanceof Error ? error.message : String(error),
+        now: verificationAt,
+      });
+    }
     return blockedResult(
       ctx.stage,
       error instanceof Error ? error.message : String(error),
@@ -615,6 +687,18 @@ async function runRouteVerification(
   }
 
   for (const candidate of providers) {
+    recordCcbMountedProviderState({
+      repoRoot,
+      provider: candidate,
+      sessionRoot: verificationCwd,
+      sessionFile: sessionFileForProvider(verificationCwd, candidate),
+      mounted: mountedProviders.includes(candidate),
+      mountedOutput,
+      now: verificationAt,
+    });
+  }
+
+  for (const candidate of providers) {
     const pingArgv = [toolPaths.ping_path, candidate];
     let pingExecution: CcbCommandResult;
     try {
@@ -625,6 +709,15 @@ async function runRouteVerification(
         timeout_ms: 40_000,
       });
     } catch (error) {
+      recordCcbPingProviderState({
+        repoRoot,
+        provider: candidate,
+        sessionRoot: verificationCwd,
+        sessionFile: sessionFileForProvider(verificationCwd, candidate),
+        pingOk: false,
+        pingOutput: error instanceof Error ? error.message : String(error),
+        now: options.now(),
+      });
       return blockedResult(
         ctx.stage,
         error instanceof Error ? error.message : String(error),
@@ -644,6 +737,15 @@ async function runRouteVerification(
     }
 
     const pingOutput = summarizeCommandOutput(pingExecution.stdout, pingExecution.stderr);
+    recordCcbPingProviderState({
+      repoRoot,
+      provider: candidate,
+      sessionRoot: verificationCwd,
+      sessionFile: sessionFileForProvider(verificationCwd, candidate),
+      pingOk: pingExecution.exit_code === 0,
+      pingOutput,
+      now: options.now(),
+    });
     if (pingExecution.exit_code !== 0) {
       return blockedResult(
         ctx.stage,
@@ -725,8 +827,10 @@ async function runAskDispatch(
 ): Promise<CcbCommandResult | AdapterResult<any>> {
   const toolPaths = options.resolveToolPaths();
   const executionCwd = executionWorkspacePath(ctx);
+  const repoRoot = resolveRepositoryRoot(ctx.cwd);
   const sessionRoot = sessionRootPath(ctx, options);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
+  const dispatchAt = options.now();
 
   const argv = [
     toolPaths.ask_path,
@@ -768,20 +872,78 @@ async function runAskDispatch(
     const requestId = extractRequestId(execution.stdout, execution.stderr);
     const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
     if (recoveredPayload !== null) {
+      if (requestId && stage !== 'handoff') {
+        recordCcbDispatchState({
+          repoRoot,
+          requestId,
+          provider,
+          stage,
+          status: 'completed',
+          payloadSource: 'ask',
+          sessionRoot,
+          sessionFile,
+          executionWorkspace: executionCwd,
+          dispatchCommand: describeCommand(argv),
+          dispatchedAt: dispatchAt,
+          updatedAt: options.now(),
+          askExitCode: execution.exit_code,
+          stdout: recoveredPayload,
+          stderr: execution.stderr,
+        });
+      }
       return {
         ...execution,
         stdout: recoveredPayload,
       };
     }
 
-    const lateRecoveredPayload = requestId
-      ? await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, requestId, options)
+    const lateRecoveredPayload = requestId || shouldAttemptAnonymousLateRecovery(stage, execution.stdout, execution.stderr)
+      ? await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, options)
       : null;
     if (lateRecoveredPayload !== null) {
+      if (requestId && stage !== 'handoff') {
+        recordCcbDispatchState({
+          repoRoot,
+          requestId,
+          provider,
+          stage,
+          status: 'recovered_late',
+          payloadSource: 'pend',
+          sessionRoot,
+          sessionFile,
+          executionWorkspace: executionCwd,
+          dispatchCommand: describeCommand(argv),
+          dispatchedAt: dispatchAt,
+          updatedAt: options.now(),
+          askExitCode: execution.exit_code,
+          stdout: lateRecoveredPayload,
+          stderr: execution.stderr,
+        });
+      }
       return {
         ...execution,
         stdout: lateRecoveredPayload,
       };
+    }
+
+    if (requestId && stage !== 'handoff') {
+      recordCcbDispatchState({
+        repoRoot,
+        requestId,
+        provider,
+        stage,
+        status: 'blocked',
+        payloadSource: null,
+        sessionRoot,
+        sessionFile,
+        executionWorkspace: executionCwd,
+        dispatchCommand: describeCommand(argv),
+        dispatchedAt: dispatchAt,
+        updatedAt: options.now(),
+        askExitCode: execution.exit_code,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+      });
     }
 
     return blockedResult(
@@ -800,6 +962,27 @@ async function runAskDispatch(
     );
   }
 
+  const requestId = extractRequestId(execution.stdout, execution.stderr);
+  if (requestId && stage !== 'handoff') {
+    recordCcbDispatchState({
+      repoRoot,
+      requestId,
+      provider,
+      stage,
+      status: 'completed',
+      payloadSource: 'ask',
+      sessionRoot,
+      sessionFile,
+      executionWorkspace: executionCwd,
+      dispatchCommand: describeCommand(argv),
+      dispatchedAt: dispatchAt,
+      updatedAt: options.now(),
+      askExitCode: execution.exit_code,
+      stdout: execution.stdout,
+      stderr: execution.stderr,
+    });
+  }
+
   return execution;
 }
 
@@ -809,7 +992,6 @@ async function recoverLateAskPayload(
   stage: 'handoff' | 'build' | 'review' | 'qa',
   sessionRoot: string,
   sessionFile: string | null,
-  _requestId: string,
   options: Required<CreateRuntimeCcbAdapterOptions>,
 ): Promise<string | null> {
   if (stage === 'handoff') {
@@ -859,7 +1041,7 @@ async function resetProviderSession(
   options: Required<CreateRuntimeCcbAdapterOptions>,
 ): Promise<AdapterResult<any> | null> {
   const toolPaths = options.resolveToolPaths();
-  const executionCwd = executionWorkspacePath(ctx);
+  const repoRoot = resolveRepositoryRoot(ctx.cwd);
   const sessionRoot = sessionRootPath(ctx, options);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
   const argv = [toolPaths.autonew_path, provider];
@@ -876,6 +1058,15 @@ async function resetProviderSession(
       timeout_ms: 15_000,
     });
   } catch (error) {
+    recordCcbAutonewProviderState({
+      repoRoot,
+      provider,
+      sessionRoot,
+      sessionFile,
+      autonewOk: false,
+      autonewOutput: error instanceof Error ? error.message : String(error),
+      now: options.now(),
+    });
     return blockedResult(
       ctx.stage,
       error instanceof Error ? error.message : String(error),
@@ -889,6 +1080,15 @@ async function resetProviderSession(
   }
 
   if (execution.exit_code !== 0) {
+    recordCcbAutonewProviderState({
+      repoRoot,
+      provider,
+      sessionRoot,
+      sessionFile,
+      autonewOk: false,
+      autonewOutput: execution.stderr.trim() || execution.stdout.trim() || `CCB ${provider} session reset failed`,
+      now: options.now(),
+    });
     return blockedResult(
       ctx.stage,
       execution.stderr.trim() || execution.stdout.trim() || `CCB ${provider} session reset failed`,
@@ -900,6 +1100,16 @@ async function resetProviderSession(
       traceability,
     );
   }
+
+  recordCcbAutonewProviderState({
+    repoRoot,
+    provider,
+    sessionRoot,
+    sessionFile,
+    autonewOk: true,
+    autonewOutput: summarizeCommandOutput(execution.stdout, execution.stderr),
+    now: options.now(),
+  });
 
   return null;
 }

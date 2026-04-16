@@ -284,6 +284,7 @@ describe('nexus discover/frame PM seams', () => {
       const nextLedger = readJson('.planning/nexus/current-run.json');
       expect(nextLedger.run_id).not.toBe(completedLedger.run_id);
       expect(nextLedger).toMatchObject({
+        continuation_mode: 'phase',
         status: 'active',
         current_command: 'discover',
         current_stage: 'discover',
@@ -314,6 +315,7 @@ describe('nexus discover/frame PM seams', () => {
       expect(nextLedger.execution.workspace.path).not.toBe(completedLedger.execution.workspace.path);
       expect(nextLedger.execution.workspace.path).toContain(`${cwd}/.nexus-worktrees/`);
       expect(nextLedger.execution.workspace.path).not.toContain(`${cwd}/.worktrees/`);
+      expect(completedLedger.continuation_mode).toBe('project_reset');
 
       expect(readJson(`.planning/archive/runs/${completedLedger.run_id}/current-run.json`)).toMatchObject({
         run_id: completedLedger.run_id,
@@ -326,6 +328,27 @@ describe('nexus discover/frame PM seams', () => {
         state: 'completed',
         ready: true,
       });
+      expect(readFileSync(
+        join(cwd, '.planning/archive/runs', completedLedger.run_id, 'closeout', 'NEXT-RUN.md'),
+        'utf8',
+      )).toContain('Next Run Bootstrap');
+      expect(readJson('.planning/current/discover/status.json')).toMatchObject({
+        run_id: nextLedger.run_id,
+        stage: 'discover',
+        inputs: [
+          { kind: 'json', path: '.planning/current/discover/next-run-bootstrap.json' },
+          { kind: 'markdown', path: '.planning/current/discover/NEXT-RUN.md' },
+        ],
+      });
+      expect(readJson('.planning/current/discover/next-run-bootstrap.json')).toMatchObject({
+        previous_run_id: completedLedger.run_id,
+        recommended_entrypoint: 'discover',
+        recommended_continuation_mode: 'phase',
+      });
+      expect(readFileSync(join(cwd, '.planning/current/discover/NEXT-RUN.md'), 'utf8')).toContain(
+        `Previous run: ${completedLedger.run_id}`,
+      );
+      expect(() => readJson('.planning/current/plan/status.json')).toThrow();
     });
   });
 
