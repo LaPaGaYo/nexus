@@ -9,7 +9,7 @@ import {
   buildReviewAuditPrompt,
 } from './prompt-contracts';
 import { createBuildStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
-import type { ActualRouteRecord, ConflictRecord, PrimaryProvider, ProviderTopology } from '../types';
+import type { ActualRouteRecord, ConflictRecord, LearningCandidate, PrimaryProvider, ProviderTopology } from '../types';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
 export interface LocalResolveRouteRaw {
@@ -32,6 +32,7 @@ export interface LocalExecuteGeneratorRaw {
 export interface LocalExecuteAuditRaw {
   markdown: string;
   receipt: string;
+  learning_candidates?: LearningCandidate[];
   dispatch_command?: string;
   dispatch_commands?: string[];
   agent_roles?: string[];
@@ -41,6 +42,7 @@ export interface LocalExecuteQaRaw {
   report_markdown: string;
   ready: boolean;
   findings: string[];
+  learning_candidates?: LearningCandidate[];
   receipt: string;
   dispatch_command?: string;
   dispatch_commands?: string[];
@@ -336,6 +338,7 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
     ready?: unknown;
     findings?: unknown;
     report_markdown?: unknown;
+    learning_candidates?: unknown;
   };
 
   if (
@@ -347,10 +350,48 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
     throw new Error('Malformed QA response: expected ready, findings, and report_markdown');
   }
 
+  let learningCandidates: LearningCandidate[] | undefined;
+  if (typeof parsed.learning_candidates !== 'undefined') {
+    if (!Array.isArray(parsed.learning_candidates)) {
+      throw new Error('Malformed QA response: learning_candidates must be an array when present');
+    }
+
+    learningCandidates = parsed.learning_candidates.map((candidate, index) => {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        throw new Error(`Malformed QA response: learning_candidates[${index}] must be an object`);
+      }
+
+      const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+      if (
+        typeof rawCandidate.type !== 'string'
+        || typeof rawCandidate.key !== 'string'
+        || typeof rawCandidate.insight !== 'string'
+        || typeof rawCandidate.confidence !== 'number'
+        || typeof rawCandidate.source !== 'string'
+        || !Array.isArray(rawCandidate.files)
+        || rawCandidate.files.some((file) => typeof file !== 'string')
+      ) {
+        throw new Error(`Malformed QA response: learning_candidates[${index}] must match the LearningCandidate shape`);
+      }
+
+      return {
+        type: rawCandidate.type,
+        key: rawCandidate.key,
+        insight: rawCandidate.insight,
+        confidence: rawCandidate.confidence,
+        source: rawCandidate.source,
+        files: rawCandidate.files,
+      };
+    });
+  }
+
   return {
     ready: parsed.ready,
     findings: parsed.findings,
     report_markdown: parsed.report_markdown.trim(),
+    ...(typeof learningCandidates !== 'undefined'
+      ? { learning_candidates: learningCandidates }
+      : {}),
   };
 }
 
@@ -393,7 +434,7 @@ function buildClaudeAuditAgent(slot: 'a' | 'b'): LocalRoleAgent {
   return {
     name: slot === 'a' ? 'nexus_audit_a' : 'nexus_audit_b',
     description: `Performs independent local Nexus review audit ${slot.toUpperCase()}.`,
-    systemPrompt: `You are the Nexus local review audit ${slot.toUpperCase()} subagent. Review independently and reply exactly in the requested markdown format.`,
+    systemPrompt: `You are the Nexus local review audit ${slot.toUpperCase()} subagent. Review independently and reply exactly in the requested markdown format. If the transport supports it, optional learning_candidates may be included in the raw response contract for durable reusable learnings.`,
   };
 }
 
@@ -401,7 +442,7 @@ function buildClaudeQaAgent(): LocalRoleAgent {
   return {
     name: 'nexus_qa',
     description: 'Performs local Nexus QA validation.',
-    systemPrompt: 'You are the Nexus local QA subagent. Return only the requested JSON payload with ready, findings, and report_markdown.',
+    systemPrompt: 'You are the Nexus local QA subagent. Return only the requested JSON payload with ready, findings, and report_markdown. You may also include optional learning_candidates for durable reusable learnings.',
   };
 }
 

@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { qaDesignVerificationPath, qaReportPath, stageStatusPath } from '../artifacts';
+import { qaDesignVerificationPath, qaLearningCandidatesPath, qaReportPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertCanonicalTailLedger, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
@@ -14,7 +14,15 @@ import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
+import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
+import type {
+  ArtifactPointer,
+  ConflictRecord,
+  LearningCandidate,
+  RunLedger,
+  StageLearningCandidatesRecord,
+  StageStatus,
+} from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -42,6 +50,108 @@ function buildDesignVerificationMarkdown(
   ].join('\n');
 }
 
+function isOneOf<T extends readonly string[]>(value: unknown, values: T): value is T[number] {
+  return typeof value === 'string' && values.includes(value as T[number]);
+}
+
+function normalizeQaLearningCandidate(candidate: unknown): LearningCandidate | null {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return null;
+  }
+
+  const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+  const type = typeof rawCandidate.type === 'string' ? rawCandidate.type.trim() : '';
+  const key = typeof rawCandidate.key === 'string' ? rawCandidate.key.trim() : '';
+  const insight = typeof rawCandidate.insight === 'string' ? rawCandidate.insight.trim() : '';
+  const source = typeof rawCandidate.source === 'string' ? rawCandidate.source.trim() : '';
+
+  if (
+    !isOneOf(type, LEARNING_TYPES)
+    || !key
+    || !insight
+    || typeof rawCandidate.confidence !== 'number'
+    || !Number.isFinite(rawCandidate.confidence)
+    || !isOneOf(source, LEARNING_SOURCES)
+    || !Array.isArray(rawCandidate.files)
+    || rawCandidate.files.some((file) => typeof file !== 'string')
+  ) {
+    return null;
+  }
+
+  const files = rawCandidate.files
+    .map((file) => file.trim())
+    .filter((file) => file.length > 0);
+
+  return {
+    type,
+    key,
+    insight,
+    confidence: rawCandidate.confidence,
+    source,
+    files,
+  };
+}
+
+function collectQaLearningCandidates(rawCandidates: unknown): LearningCandidate[] {
+  if (!Array.isArray(rawCandidates)) {
+    return [];
+  }
+
+  const candidates: LearningCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of rawCandidates) {
+    const normalized = normalizeQaLearningCandidate(candidate);
+    if (!normalized) {
+      continue;
+    }
+
+    const candidateKey = `${normalized.type}:${normalized.key}`;
+    if (seen.has(candidateKey)) {
+      continue;
+    }
+
+    seen.add(candidateKey);
+    candidates.push(normalized);
+  }
+
+  return candidates;
+}
+
+function buildQaLearningCandidatesRecord(
+  runId: string,
+  startedAt: string,
+  rawCandidates: unknown,
+): StageLearningCandidatesRecord | null {
+  const candidates = collectQaLearningCandidates(rawCandidates);
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return {
+    schema_version: 1,
+    run_id: runId,
+    stage: 'qa',
+    generated_at: startedAt,
+    candidates,
+  };
+}
+
+function qaStatusTracePayload(
+  status: Pick<StageStatus, 'state' | 'decision' | 'ready' | 'design_impact' | 'design_contract_path' | 'design_verified' | 'learning_candidates_path' | 'learnings_recorded'>,
+): Record<string, unknown> {
+  return {
+    state: status.state,
+    decision: status.decision,
+    ready: status.ready,
+    design_impact: status.design_impact,
+    design_contract_path: status.design_contract_path,
+    design_verified: status.design_verified,
+    learning_candidates_path: status.learning_candidates_path ?? null,
+    learnings_recorded: status.learnings_recorded ?? false,
+  };
+}
+
 function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
@@ -56,6 +166,16 @@ function nextLedger(
     current_stage: 'qa',
     allowed_next_stages: status === 'active' ? getAllowedNextStages('qa') : [],
     command_history: [...ledger.command_history, { command: 'qa', at, via }],
+  };
+}
+
+function clearQaLearningArtifactIndex(ledger: RunLedger): RunLedger {
+  const nextArtifactIndex = { ...ledger.artifact_index };
+  delete nextArtifactIndex[qaLearningCandidatesPath()];
+
+  return {
+    ...ledger,
+    artifact_index: nextArtifactIndex,
   };
 }
 
@@ -77,6 +197,8 @@ function blockedQaStatus(
     design_impact: designImpact ?? 'none',
     design_contract_path: designContractPath ?? null,
     design_verified: designBearing(designImpact) ? false : null,
+    learning_candidates_path: null,
+    learnings_recorded: false,
     state,
     decision: state === 'refused' ? 'refused' : 'qa_recorded',
     ready: false,
@@ -126,6 +248,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const statusPath = stageStatusPath('qa');
   const reportPath = qaReportPath();
+  const learningCandidatesPath = qaLearningCandidatesPath();
   const predecessorArtifacts = [artifactPointerFor(reviewStatusPath)];
   const requestedRoute = requestedQaRouteFromLedger(ledgerWithExecution);
   const qaAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
@@ -180,22 +303,18 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         [reviewStatusPath],
         requestedRoute,
         workspace,
-        result,
-        {
-          outcome: result.outcome,
-          status: {
-            state: status.state,
-            decision: status.decision,
-            ready: status.ready,
-            design_impact: status.design_impact,
-            design_contract_path: status.design_contract_path,
-            design_verified: status.design_verified,
-          },
-        },
-      ),
+      result,
+      {
+        outcome: result.outcome,
+        status: qaStatusTracePayload(status),
+      },
+    ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+      ledger: clearQaLearningArtifactIndex(
+        nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+      ),
+      removeWrites: [learningCandidatesPath],
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -237,23 +356,17 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         [reviewStatusPath],
         requestedRoute,
         workspace,
-        result,
-        {
-          outcome: 'blocked',
-          error: message,
-          status: {
-            state: status.state,
-            decision: status.decision,
-            ready: status.ready,
-            design_impact: status.design_impact,
-            design_contract_path: status.design_contract_path,
-            design_verified: status.design_verified,
-          },
-        },
-      ),
+      result,
+      {
+        outcome: 'blocked',
+        error: message,
+        status: qaStatusTracePayload(status),
+      },
+    ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via),
+      ledger: clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via)),
+      removeWrites: [learningCandidatesPath],
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -296,23 +409,17 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         [reviewStatusPath],
         requestedRoute,
         workspace,
-        result,
-        {
-          outcome: 'blocked',
-          error: message,
-          status: {
-            state: status.state,
-            decision: status.decision,
-            ready: status.ready,
-            design_impact: status.design_impact,
-            design_contract_path: status.design_contract_path,
-            design_verified: status.design_verified,
-          },
-        },
-      ),
+      result,
+      {
+        outcome: 'blocked',
+        error: message,
+        status: qaStatusTracePayload(status),
+      },
+    ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via),
+      ledger: clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via)),
+      removeWrites: [learningCandidatesPath],
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -324,6 +431,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const verificationCount = ready ? findings.length : 0;
   const defectCount = ready ? 0 : findings.length;
   const designVerificationPath = qaDesignVerificationPath();
+  const learningCandidatesRecord = buildQaLearningCandidatesRecord(
+    ledger.run_id,
+    startedAt,
+    result.raw_output.learning_candidates,
+  );
   const designVerificationMarkdown = designIsBearing
     ? buildDesignVerificationMarkdown(designImpact, designContractPath, ready)
     : null;
@@ -341,6 +453,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     outputs: [
       artifactPointerFor(reportPath),
       ...(designVerificationMarkdown ? [artifactPointerFor(designVerificationPath)] : []),
+      ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
@@ -350,6 +463,8 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     actual_route: result.actual_route,
     verification_count: verificationCount,
     defect_count: defectCount,
+    learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
+    learnings_recorded: Boolean(learningCandidatesRecord),
     workspace,
   };
   const next = nextLedger(ledgerWithExecution, ready ? 'active' : 'blocked', startedAt, ctx.via);
@@ -363,6 +478,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   } else {
     delete next.artifact_index[designVerificationPath];
   }
+  if (learningCandidatesRecord) {
+    next.artifact_index[learningCandidatesPath] = artifactPointerFor(learningCandidatesPath);
+  } else {
+    delete next.artifact_index[learningCandidatesPath];
+  }
 
   await applyNormalizationPlan({
     cwd: ctx.cwd,
@@ -373,8 +493,14 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       ...(designVerificationMarkdown
         ? [{ path: designVerificationPath, content: `${designVerificationMarkdown}\n` }]
         : []),
+      ...(learningCandidatesRecord
+        ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
+        : []),
     ],
-    removeWrites: designVerificationMarkdown ? [] : [designVerificationPath],
+    removeWrites: [
+      ...(designVerificationMarkdown ? [] : [designVerificationPath]),
+      ...(learningCandidatesRecord ? [] : [learningCandidatesPath]),
+    ],
     traceWrites: buildQaTraceabilityPayloads(
       ledger.run_id,
       [reviewStatusPath],
@@ -386,17 +512,13 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         canonical_paths: [
           reportPath,
           ...(designVerificationMarkdown ? [designVerificationPath] : []),
+          ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
         ],
         verification_count: verificationCount,
         defect_count: defectCount,
-        status: {
-          state: status.state,
-          decision: status.decision,
-          ready: status.ready,
-          design_impact: status.design_impact,
-          design_contract_path: status.design_contract_path,
-          design_verified: status.design_verified,
-        },
+        learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
+        learnings_recorded: Boolean(learningCandidatesRecord),
+        status: qaStatusTracePayload(status),
       },
     ),
     status,

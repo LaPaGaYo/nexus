@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { archivedCloseoutRootFor, archivedRunLedgerPath, stageStatusPath } from './artifacts';
 import { defaultExecutionSelection, type ExecutionSelection } from './execution-topology';
@@ -60,6 +60,7 @@ export function archiveCompletedRunLedger(ledger: RunLedger, cwd = process.cwd()
   const closeoutRoot = join(cwd, '.planning', 'current', 'closeout');
   if (existsSync(closeoutRoot)) {
     const archivedCloseoutRoot = join(cwd, archivedCloseoutRootFor(ledger.run_id));
+    rmSync(archivedCloseoutRoot, { recursive: true, force: true });
     cpSync(closeoutRoot, archivedCloseoutRoot, {
       recursive: true,
       force: true,

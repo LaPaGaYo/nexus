@@ -76,8 +76,20 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('Nexus does not ship usage telemetry.');
     expect(readme).toContain('no remote analytics backend');
     expect(readme).toContain('file an issue or PR on GitHub instead');
+    expect(readme).toContain('Governed runs may publish canonical learnings at `/closeout`.');
     expect(readme).toContain('git clone --single-branch --depth 1 https://github.com/LaPaGaYo/nexus.git ~/.claude/skills/nexus');
     expect(readme).toContain('Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.');
+    expect(readme).toContain('Lifecycle continuation does not require a fresh session.');
+    expect(readme).toContain('Nexus can continue in');
+    expect(readme).toContain('the current session. That is a lifecycle rule, not a session-quality');
+    expect(readme).toContain('When setup or a fresh-run discover boundary emits session continuation advice,');
+    expect(readme).toContain('continue here (`continue_here`)');
+    expect(readme).toContain('compact this session and continue (`compact_then_continue`)');
+    expect(readme).toContain('start a fresh session and run `/continue` (`fresh_session_continue`)');
+    expect(readme).toContain('`continue_here`');
+    expect(readme).toContain('`compact_then_continue`');
+    expect(readme).toContain('`fresh_session_continue`');
+    expect(readme).toContain('Use `/continue` when you want to resume from a fresh session');
     expect(installSection).toContain('/nexus-upgrade');
     expect(readme).not.toContain('git pull');
     expect(installSection).not.toContain('git pull --ff-only');
@@ -91,6 +103,14 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(skills).toContain('/nexus-upgrade');
     expect(skills).toContain('Upgrade Nexus itself through the supported release-based update flow.');
+    expect(skills).toContain('Fresh-run discover may emit session continuation advice at phase boundaries.');
+    expect(skills).toContain('Nexus can continue here even when compaction or a fresh session is');
+    expect(skills).toContain('`continue_here`');
+    expect(skills).toContain('`compact_then_continue`');
+    expect(skills).toContain('`fresh_session_continue`');
+    expect(skills).toContain('`/continue` remains the');
+    expect(skills).toContain('canonical fresh-session resume path.');
+    expect(skills).toContain('`/learn` surfaces both operational JSONL learnings and canonical run learnings when available.');
     expect(skills).not.toContain('Manage what gstack learned');
     expect(skills).not.toContain('controlled by gstack');
 

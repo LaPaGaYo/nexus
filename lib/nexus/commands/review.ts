@@ -5,7 +5,7 @@ import {
   dedupeArtifactPointers,
   executionContractArtifacts,
 } from '../contract-artifacts';
-import { currentAuditArtifactPaths, currentAuditPointer, stageStatusPath } from '../artifacts';
+import { currentAuditArtifactPaths, currentAuditPointer, reviewLearningCandidatesPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
 import { readLedger } from '../ledger';
@@ -33,10 +33,12 @@ import type {
   ArtifactPointer,
   CommandHistoryVia,
   ConflictRecord,
+  LearningCandidate,
   ReviewMetaRecord,
   RunLedger,
   StageStatus,
 } from '../types';
+import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
@@ -66,6 +68,8 @@ function clearCurrentAuditArtifactIndex(ledger: RunLedger): RunLedger {
   for (const path of currentAuditArtifactPaths()) {
     delete nextArtifactIndex[path];
   }
+
+  delete nextArtifactIndex[reviewLearningCandidatesPath()];
 
   return {
     ...ledger,
@@ -134,6 +138,76 @@ function assertNonEmptyMarkdown(markdown: string, label: string): void {
   if (!markdown.trim()) {
     throw new Error(`${label} markdown is empty`);
   }
+}
+
+function isOneOf<T extends readonly string[]>(value: unknown, values: T): value is T[number] {
+  return typeof value === 'string' && values.includes(value as T[number]);
+}
+
+function normalizeLearningCandidate(candidate: unknown): LearningCandidate | null {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return null;
+  }
+
+  const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+  const type = typeof rawCandidate.type === 'string' ? rawCandidate.type.trim() : '';
+  const key = typeof rawCandidate.key === 'string' ? rawCandidate.key.trim() : '';
+  const insight = typeof rawCandidate.insight === 'string' ? rawCandidate.insight.trim() : '';
+  const source = typeof rawCandidate.source === 'string' ? rawCandidate.source.trim() : '';
+
+  if (
+    !isOneOf(type, LEARNING_TYPES)
+    || !key
+    || !insight
+    || typeof rawCandidate.confidence !== 'number'
+    || !Number.isFinite(rawCandidate.confidence)
+    || !isOneOf(source, LEARNING_SOURCES)
+    || !Array.isArray(rawCandidate.files)
+    || rawCandidate.files.some((file) => typeof file !== 'string')
+  ) {
+    return null;
+  }
+
+  const files = rawCandidate.files
+    .map((file) => file.trim())
+    .filter((file) => file.length > 0);
+
+  return {
+    type,
+    key,
+    insight,
+    confidence: rawCandidate.confidence,
+    source,
+    files,
+  };
+}
+
+function collectReviewLearningCandidates(
+  auditAResult: Pick<CcbExecuteAuditRaw | LocalExecuteAuditRaw, 'learning_candidates'>,
+  auditBResult: Pick<CcbExecuteAuditRaw | LocalExecuteAuditRaw, 'learning_candidates'>,
+): LearningCandidate[] {
+  const candidates: LearningCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const rawCandidates of [auditAResult.learning_candidates, auditBResult.learning_candidates]) {
+    if (!Array.isArray(rawCandidates)) {
+      continue;
+    }
+
+    for (const candidate of rawCandidates) {
+      const normalized = normalizeLearningCandidate(candidate);
+      if (normalized) {
+        const candidateKey = `${normalized.type}:${normalized.key}`;
+        if (seen.has(candidateKey)) {
+          continue;
+        }
+        seen.add(candidateKey);
+        candidates.push(normalized);
+      }
+    }
+  }
+
+  return candidates;
 }
 
 function planDesignContractPointer(planStatus: StageStatus | null | undefined): ArtifactPointer | null {
@@ -235,7 +309,8 @@ export async function runReviewWithWriteAtomicFile(
   const synthesisPath = '.planning/audits/current/synthesis.md';
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
   const metaPath = '.planning/audits/current/meta.json';
-  const currentAuditPaths = currentAuditArtifactPaths();
+  const learningCandidatesPath = reviewLearningCandidatesPath();
+  const currentAuditPaths = [...currentAuditArtifactPaths(), learningCandidatesPath];
 
   if (planStatus?.design_impact === 'material') {
     const designContractPath = designContractPointer?.path ?? null;
@@ -618,6 +693,16 @@ export async function runReviewWithWriteAtomicFile(
   const reviewScope = gateDecision === 'fail'
     ? boundedFixCycleReviewScopeFromAudits(codexMarkdown, geminiMarkdown)
     : inheritedReviewScope;
+  const learningCandidates = collectReviewLearningCandidates(auditAResult.raw_output, auditBResult.raw_output);
+  const learningCandidatesRecord = learningCandidates.length > 0
+    ? {
+        schema_version: 1 as const,
+        run_id: ledger.run_id,
+        stage: 'review' as const,
+        generated_at: startedAt,
+        candidates: learningCandidates,
+      }
+    : null;
   const synthesisMarkdown = buildReviewSynthesisMarkdown(disciplineSummary, codexMarkdown, geminiMarkdown, gateDecision);
   const gateDecisionMarkdown = buildReviewGateDecisionMarkdown(gateDecision);
   const meta: ReviewMetaRecord = {
@@ -679,6 +764,7 @@ export async function runReviewWithWriteAtomicFile(
     currentAuditPointer('synthesis'),
     currentAuditPointer('gate-decision'),
     currentAuditPointer('meta'),
+    ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
     artifactPointerFor(reviewStatusPath),
   ];
   const status: StageStatus = {
@@ -697,6 +783,8 @@ export async function runReviewWithWriteAtomicFile(
     requested_route: requestedRoute,
     actual_route: actualRoute,
     review_scope: reviewScope,
+    learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
+    learnings_recorded: Boolean(learningCandidatesRecord),
     workspace,
     review_complete: true,
     audit_set_complete: true,
@@ -719,8 +807,12 @@ export async function runReviewWithWriteAtomicFile(
     [synthesisPath]: currentAuditPointer('synthesis'),
     [gateDecisionPath]: currentAuditPointer('gate-decision'),
     [metaPath]: currentAuditPointer('meta'),
+    ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
     [reviewStatusPath]: artifactPointerFor(reviewStatusPath),
   };
+  if (!learningCandidatesRecord) {
+    delete next.artifact_index[learningCandidatesPath];
+  }
 
   await applyNormalizationPlan({
     cwd: ctx.cwd,
@@ -732,7 +824,11 @@ export async function runReviewWithWriteAtomicFile(
       { path: synthesisPath, content: synthesisMarkdown },
       { path: gateDecisionPath, content: gateDecisionMarkdown },
       { path: metaPath, content: JSON.stringify(meta, null, 2) + '\n' },
+      ...(learningCandidatesRecord
+        ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
+        : []),
     ],
+    removeWrites: learningCandidatesRecord ? [] : [learningCandidatesPath],
     traceWrites: buildReviewTraceabilityPayloads(
       ledger.run_id,
       [buildStatusPath],
@@ -744,7 +840,16 @@ export async function runReviewWithWriteAtomicFile(
       auditBResult,
       {
         outcome: 'success',
-        canonical_paths: [codexPath, geminiPath, synthesisPath, gateDecisionPath, metaPath],
+        canonical_paths: [
+          codexPath,
+          geminiPath,
+          synthesisPath,
+          gateDecisionPath,
+          metaPath,
+          ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
+        ],
+        learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
+        learnings_recorded: Boolean(learningCandidatesRecord),
         status: { state: status.state, decision: status.decision, ready: status.ready },
       },
     ),

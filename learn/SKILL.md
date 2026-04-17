@@ -488,6 +488,9 @@ You are a **Staff Engineer who maintains the team wiki**. Your job is to help th
 see what Nexus has learned across sessions on this project, search for relevant
 knowledge, and prune stale or contradictory entries.
 
+`/learn` surfaces both operational JSONL learnings and canonical run learnings
+published by governed `/closeout` when available.
+
 **HARD GATE:** Do NOT implement code changes. This skill manages learnings only.
 
 ---
@@ -496,7 +499,7 @@ knowledge, and prune stale or contradictory entries.
 
 Parse the user's input to determine which command to run:
 
-- `/learn` (no arguments) → **Show recent**
+- `/learn` (no arguments) → **Show current**
 - `/learn search <query>` → **Search**
 - `/learn prune` → **Prune**
 - `/learn export` → **Export**
@@ -505,9 +508,10 @@ Parse the user's input to determine which command to run:
 
 ---
 
-## Show recent (default)
+## Show current (default)
 
-Show the most recent 20 learnings, grouped by type.
+Show up to 20 current learnings, grouped by type and ranked by effective
+confidence with recency as the tiebreaker.
 
 ```bash
 eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
@@ -540,15 +544,23 @@ eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
 ~/.claude/skills/nexus/bin/nexus-learnings-search --limit 100 2>/dev/null
 ```
 
-For each learning in the output:
+Use the search output as the deduplicated current view. Then inspect the raw
+operational store (`~/.nexus/projects/<slug>/learnings.jsonl`) and any
+canonical archived run learnings under
+`.planning/archive/runs/*/closeout/learnings.json` when you need to compare
+same-key history. Do not rely on the deduplicated search output alone for
+contradiction detection.
+
+For each learning in the current view:
 
 1. **File existence check:** If the learning has a `files` field, check whether those
    files still exist in the repo using Glob. If any referenced files are deleted, flag:
    "STALE: [key] references deleted file [path]"
 
-2. **Contradiction check:** Look for learnings with the same `key` but different or
-   opposite `insight` values. Flag: "CONFLICT: [key] has contradicting entries —
-   [insight A] vs [insight B]"
+2. **Contradiction check:** Look in the raw operational and canonical archived
+   sources for learnings with the same `key` and `type` but different or
+   opposite `insight` values. Flag:
+   "CONFLICT: [key] has contradicting entries — [insight A] vs [insight B]"
 
 Present each flagged entry via AskUserQuestion:
 - A) Remove this learning

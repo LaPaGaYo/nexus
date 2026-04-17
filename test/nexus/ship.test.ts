@@ -1,6 +1,7 @@
-import { writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
+import { shipLearningCandidatesPath } from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 import { resolveInvocation } from '../../lib/nexus/commands';
@@ -704,6 +705,322 @@ describe('nexus ship', () => {
           absorbed_capability: 'superpowers-ship-discipline',
         },
       });
+    });
+  });
+
+  test('writes ship learning candidates when valid candidates exist', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const candidatesPath = shipLearningCandidatesPath();
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+              learning_candidates: [
+                {
+                  type: 'pattern',
+                  key: 'ship-learning-capture',
+                  insight: 'Ship should persist only valid reusable candidates.',
+                  confidence: 8,
+                  source: 'observed',
+                  files: ['lib/nexus/commands/ship.ts', ''],
+                },
+                {
+                  type: 'pattern',
+                  key: '',
+                  insight: 'This invalid candidate must be ignored.',
+                  confidence: 5,
+                  source: 'observed',
+                  files: ['lib/nexus/commands/ship.ts'],
+                },
+              ],
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      await run('ship', adapters);
+
+      expect(existsSync(join(cwd, candidatesPath))).toBe(true);
+      expect(await run.readJson('.planning/current/ship/learning-candidates.json')).toMatchObject({
+        schema_version: 1,
+        run_id: expect.any(String),
+        stage: 'ship',
+        candidates: [
+          {
+            type: 'pattern',
+            key: 'ship-learning-capture',
+            insight: 'Ship should persist only valid reusable candidates.',
+            confidence: 8,
+            source: 'observed',
+            files: ['lib/nexus/commands/ship.ts'],
+          },
+        ],
+      });
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        learning_candidates_path: candidatesPath,
+        learnings_recorded: true,
+        outputs: expect.arrayContaining([
+          expect.objectContaining({ path: candidatesPath, kind: 'json' }),
+        ]),
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        artifact_index: {
+          [candidatesPath]: expect.objectContaining({ path: candidatesPath, kind: 'json' }),
+        },
+      });
+    });
+  });
+
+  test('does not write ship learning candidates when there are none', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const candidatesPath = shipLearningCandidatesPath();
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+              learning_candidates: [],
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      await run('ship', adapters);
+
+      expect(existsSync(join(cwd, candidatesPath))).toBe(false);
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        learning_candidates_path: null,
+        learnings_recorded: false,
+      });
+      expect(await run.readJson('.planning/current/ship/status.json').then((status) => status.outputs)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: '.planning/current/ship/release-gate-record.md' }),
+          expect.objectContaining({ path: '.planning/current/ship/checklist.json' }),
+          expect.objectContaining({ path: '.planning/current/ship/pull-request.json' }),
+          expect.objectContaining({ path: '.planning/current/ship/status.json' }),
+        ]),
+      );
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      expect(ledger.artifact_index[candidatesPath]).toBeUndefined();
+    });
+  });
+
+  test('clears stale ship learning candidates on a later success with none', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const candidatesPath = shipLearningCandidatesPath();
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      ledger.artifact_index[candidatesPath] = { kind: 'json', path: candidatesPath };
+      ledger.current_command = 'review';
+      ledger.current_stage = 'review';
+      ledger.previous_stage = 'build';
+      ledger.allowed_next_stages = ['ship'];
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+      mkdirSync(join(cwd, '.planning/current/ship'), { recursive: true });
+      writeFileSync(join(cwd, candidatesPath), JSON.stringify({ stale: true }, null, 2) + '\n');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      await run('ship', adapters);
+
+      expect(existsSync(join(cwd, candidatesPath))).toBe(false);
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        learning_candidates_path: null,
+        learnings_recorded: false,
+      });
+      const updatedLedger = await run.readJson('.planning/nexus/current-run.json');
+      expect(updatedLedger.artifact_index[candidatesPath]).toBeUndefined();
+    });
+  });
+
+  test('clears stale ship learning candidates on refused ship', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const candidatesPath = shipLearningCandidatesPath();
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      ledger.artifact_index[candidatesPath] = { kind: 'json', path: candidatesPath };
+      ledger.current_command = 'review';
+      ledger.current_stage = 'review';
+      ledger.previous_stage = 'build';
+      ledger.allowed_next_stages = ['ship'];
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+      mkdirSync(join(cwd, '.planning/current/ship'), { recursive: true });
+      writeFileSync(join(cwd, candidatesPath), JSON.stringify({ stale: true }, null, 2) + '\n');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'refused',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      await expect(run('ship', adapters)).rejects.toThrow('Superpowers ship discipline refused ship');
+      expect(existsSync(join(cwd, candidatesPath))).toBe(false);
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        state: 'refused',
+        learning_candidates_path: null,
+        learnings_recorded: false,
+      });
+      const updatedLedger = await run.readJson('.planning/nexus/current-run.json');
+      expect(updatedLedger.artifact_index[candidatesPath]).toBeUndefined();
+    });
+  });
+
+  test('clears stale ship learning candidates on blocked ship', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const candidatesPath = shipLearningCandidatesPath();
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      ledger.artifact_index[candidatesPath] = { kind: 'json', path: candidatesPath };
+      ledger.current_command = 'review';
+      ledger.current_stage = 'review';
+      ledger.previous_stage = 'build';
+      ledger.allowed_next_stages = ['ship'];
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+      mkdirSync(join(cwd, '.planning/current/ship'), { recursive: true });
+      writeFileSync(join(cwd, candidatesPath), JSON.stringify({ stale: true }, null, 2) + '\n');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'blocked',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: blocked\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: false,
+              },
+              merge_ready: false,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['Ship discipline blocked'],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      await expect(run('ship', adapters)).rejects.toThrow('Superpowers ship discipline blocked ship');
+      expect(existsSync(join(cwd, candidatesPath))).toBe(false);
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        state: 'blocked',
+        learning_candidates_path: null,
+        learnings_recorded: false,
+      });
+      const updatedLedger = await run.readJson('.planning/nexus/current-run.json');
+      expect(updatedLedger.artifact_index[candidatesPath]).toBeUndefined();
     });
   });
 

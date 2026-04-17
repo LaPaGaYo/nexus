@@ -28,6 +28,10 @@ function bootstrapArtifactPointer(path: string): ArtifactPointer {
   };
 }
 
+export function bootstrapResumeArtifacts(): string[] {
+  return [discoverBootstrapMarkdownPath(), discoverBootstrapJsonPath()];
+}
+
 export function buildNextRunBootstrap(input: {
   ledger: RunLedger;
   reviewStatus: StageStatus;

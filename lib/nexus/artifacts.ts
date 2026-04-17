@@ -38,6 +38,14 @@ export function qaReportPath(): string {
   return `${CURRENT_ROOT}/qa/qa-report.md`;
 }
 
+export function reviewLearningCandidatesPath(): string {
+  return `${CURRENT_ROOT}/review/learning-candidates.json`;
+}
+
+export function qaLearningCandidatesPath(): string {
+  return `${CURRENT_ROOT}/qa/learning-candidates.json`;
+}
+
 export function shipReleaseGateRecordPath(): string {
   return `${CURRENT_ROOT}/ship/release-gate-record.md`;
 }
@@ -48,6 +56,10 @@ export function shipChecklistPath(): string {
 
 export function shipPullRequestPath(): string {
   return `${CURRENT_ROOT}/ship/pull-request.json`;
+}
+
+export function shipLearningCandidatesPath(): string {
+  return `${CURRENT_ROOT}/ship/learning-candidates.json`;
 }
 
 export function stageConflictPath(stage: CanonicalCommandId, adapter: string): string {
@@ -103,12 +115,36 @@ export function closeoutNextRunMarkdownPath(): string {
   return `${CURRENT_ROOT}/closeout/NEXT-RUN.md`;
 }
 
-export function discoverBootstrapJsonPath(): string {
+export function closeoutLearningsMarkdownPath(): string {
+  return `${CURRENT_ROOT}/closeout/LEARNINGS.md`;
+}
+
+export function closeoutLearningsJsonPath(): string {
+  return `${CURRENT_ROOT}/closeout/learnings.json`;
+}
+
+export function discoverNextRunBootstrapJsonPath(): string {
   return `${CURRENT_ROOT}/discover/next-run-bootstrap.json`;
 }
 
-export function discoverBootstrapMarkdownPath(): string {
+export function discoverNextRunMarkdownPath(): string {
   return `${CURRENT_ROOT}/discover/NEXT-RUN.md`;
+}
+
+export function discoverBootstrapJsonPath(): string {
+  return discoverNextRunBootstrapJsonPath();
+}
+
+export function discoverBootstrapMarkdownPath(): string {
+  return discoverNextRunMarkdownPath();
+}
+
+export function discoverSessionContinuationAdvicePath(): string {
+  return `${CURRENT_ROOT}/discover/session-continuation-advice.json`;
+}
+
+export function discoverSessionContinuationMarkdownPath(): string {
+  return `${CURRENT_ROOT}/discover/SESSION-CONTINUATION.md`;
 }
 
 export function ccbProviderStatePath(): string {

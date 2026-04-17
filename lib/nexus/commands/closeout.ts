@@ -1,9 +1,14 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import {
+  closeoutLearningsJsonPath,
+  closeoutLearningsMarkdownPath,
   closeoutNextRunBootstrapJsonPath,
   closeoutNextRunMarkdownPath,
+  qaLearningCandidatesPath,
+  reviewLearningCandidatesPath,
+  shipLearningCandidatesPath,
   stageStatusPath,
 } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
@@ -18,6 +23,11 @@ import {
   assertShipReadyForCloseout,
   gateRequiresArchive,
 } from '../governance';
+import {
+  collectRunLearnings,
+  collectValidLearningCandidates,
+  renderRunLearningsMarkdown,
+} from '../learnings';
 import { readLedger } from '../ledger';
 import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalizers/gsd';
 import { applyNormalizationPlan } from '../normalizers';
@@ -26,13 +36,78 @@ import { readStageStatus } from '../status';
 import { assertLegalTransition } from '../transitions';
 import { retireRunWorkspace } from '../workspace-substrate';
 import type { GsdCloseoutRaw } from '../adapters/gsd';
-import type { ArtifactPointer, ConflictRecord, StageStatus } from '../types';
+import type {
+  ArtifactPointer,
+  ConflictRecord,
+  RunLedger,
+  RunLearningsRecord,
+  StageLearningCandidatesRecord,
+  StageStatus,
+} from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
     kind: path.endsWith('.json') ? 'json' : 'markdown',
     path,
+  };
+}
+
+type CloseoutLearningSource = {
+  path: string;
+  stage: 'review' | 'qa' | 'ship';
+  candidates: StageLearningCandidatesRecord['candidates'];
+};
+
+function readLearningCandidatesSource(
+  cwd: string,
+  runId: string,
+  path: string,
+  stage: CloseoutLearningSource['stage'],
+): CloseoutLearningSource | null {
+  const absolutePath = join(cwd, path);
+  if (!existsSync(absolutePath)) {
+    return null;
+  }
+
+  try {
+    const record = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<StageLearningCandidatesRecord>;
+    const candidates = collectValidLearningCandidates(record.candidates);
+    if (
+      record.schema_version !== 1
+      || record.run_id !== runId
+      || record.stage !== stage
+      || candidates.length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      path,
+      stage,
+      candidates,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function collectCloseoutLearningSources(cwd: string, runId: string): CloseoutLearningSource[] {
+  return [
+    readLearningCandidatesSource(cwd, runId, reviewLearningCandidatesPath(), 'review'),
+    readLearningCandidatesSource(cwd, runId, qaLearningCandidatesPath(), 'qa'),
+    readLearningCandidatesSource(cwd, runId, shipLearningCandidatesPath(), 'ship'),
+  ].filter((source): source is CloseoutLearningSource => source !== null);
+}
+
+function clearCloseoutLearningArtifactIndex(ledger: RunLedger): RunLedger {
+  const nextArtifactIndex = { ...ledger.artifact_index };
+  delete nextArtifactIndex[closeoutLearningsMarkdownPath()];
+  delete nextArtifactIndex[closeoutLearningsJsonPath()];
+
+  return {
+    ...ledger,
+    artifact_index: nextArtifactIndex,
   };
 }
 
@@ -132,6 +207,27 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const closeoutStatusPath = stageStatusPath('closeout');
   const closeoutBootstrapJson = closeoutNextRunBootstrapJsonPath();
   const closeoutBootstrapMarkdown = closeoutNextRunMarkdownPath();
+  const closeoutLearningSources = collectCloseoutLearningSources(ctx.cwd, ledger.run_id);
+  const closeoutLearningRecord: RunLearningsRecord | null = closeoutLearningSources.length > 0
+    ? collectRunLearnings({
+        runId: ledger.run_id,
+        generatedAt: startedAt,
+        candidates: closeoutLearningSources,
+      })
+    : null;
+  const closeoutLearningMarkdown = closeoutLearningRecord
+    ? renderRunLearningsMarkdown(closeoutLearningRecord)
+    : null;
+  const closeoutLearningInputs = closeoutLearningSources.map((source) => artifactPointerFor(source.path));
+  const predecessorArtifacts = [
+    artifactPointerFor(reviewStatusPath),
+    ...closeoutLearningInputs.filter((artifact) => artifact.path === reviewLearningCandidatesPath()),
+    ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
+    ...closeoutLearningInputs.filter((artifact) => artifact.path === qaLearningCandidatesPath()),
+    ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
+    ...closeoutLearningInputs.filter((artifact) => artifact.path === shipLearningCandidatesPath()),
+    artifactPointerFor(metaPath),
+  ];
   const manifest = CANONICAL_MANIFEST.closeout;
   const result = await ctx.adapters.gsd.closeout({
     cwd: ctx.cwd,
@@ -140,16 +236,19 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     stage: 'closeout',
     ledger,
     manifest,
-    predecessor_artifacts: [
-      artifactPointerFor(reviewStatusPath),
-      ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
-      ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
-      artifactPointerFor(metaPath),
-    ],
+    predecessor_artifacts: predecessorArtifacts,
     requested_route: null,
   }) as Awaited<ReturnType<typeof ctx.adapters.gsd.closeout>> & { raw_output: GsdCloseoutRaw };
 
   if (result.outcome !== 'success') {
+    const nextLedger = clearCloseoutLearningArtifactIndex({
+      ...ledger,
+      status: result.outcome === 'refused' ? 'refused' : 'blocked',
+      current_command: 'closeout',
+      current_stage: 'closeout',
+      allowed_next_stages: [],
+      command_history: [...ledger.command_history, { command: 'closeout', at: startedAt, via: ctx.via }],
+    });
     const status: StageStatus = {
       run_id: ledger.run_id,
       stage: 'closeout',
@@ -157,16 +256,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       state: result.outcome === 'refused' ? 'refused' : 'blocked',
       decision: result.outcome === 'refused' ? 'refused' : 'closeout_recorded',
       ready: false,
-      inputs: [
-        artifactPointerFor(reviewStatusPath),
-        ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
-        ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
-        artifactPointerFor(metaPath),
-      ],
+      inputs: predecessorArtifacts,
       outputs: [artifactPointerFor(closeoutStatusPath)],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [result.outcome === 'refused' ? 'GSD closeout refused' : 'GSD closeout blocked'],
+      learnings_recorded: false,
       archive_required: archiveRequired,
       archive_state: archiveRequired ? 'archived' : 'not_required',
       provenance_consistent: true,
@@ -176,10 +271,11 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       stage: 'closeout',
       statusPath: closeoutStatusPath,
       canonicalWrites: [],
+      removeWrites: [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
-        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), ...(shipStatus ? [shipStatusPath] : []), metaPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         { adapter: 'gsd', stage: 'closeout', archive_path: archivePath },
         result,
         {
@@ -188,14 +284,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: {
-        ...ledger,
-        status: result.outcome === 'refused' ? 'refused' : 'blocked',
-        current_command: 'closeout',
-        current_stage: 'closeout',
-        allowed_next_stages: [],
-        command_history: [...ledger.command_history, { command: 'closeout', at: startedAt, via: ctx.via }],
-      },
+      ledger: nextLedger,
     });
     throw new Error(result.outcome === 'refused' ? 'GSD closeout refused' : 'GSD closeout blocked');
   }
@@ -219,14 +308,15 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       state: result.raw_output.merge_ready ? 'completed' : 'blocked',
       decision: 'closeout_recorded',
       ready: result.raw_output.merge_ready,
-      inputs: [
-        artifactPointerFor(reviewStatusPath),
-        ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
-        ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
-        artifactPointerFor(metaPath),
-      ],
+      inputs: predecessorArtifacts,
       outputs: [
         artifactPointerFor(closeoutRecordPath),
+        ...(closeoutLearningRecord
+          ? [
+              artifactPointerFor(closeoutLearningsMarkdownPath()),
+              artifactPointerFor(closeoutLearningsJsonPath()),
+            ]
+          : []),
         artifactPointerFor(closeoutBootstrapMarkdown),
         artifactPointerFor(closeoutBootstrapJson),
         artifactPointerFor(closeoutStatusPath),
@@ -234,6 +324,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       started_at: startedAt,
       completed_at: startedAt,
       errors: [],
+      learnings_recorded: Boolean(closeoutLearningRecord),
       archive_required: archiveRequired,
       archive_state: archiveRequired ? 'archived' : 'not_required',
       provenance_consistent: true,
@@ -249,26 +340,59 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       artifact_index: {
         ...ledger.artifact_index,
         [closeoutRecordPath]: artifactPointerFor(closeoutRecordPath),
+        ...(closeoutLearningRecord
+          ? {
+              [closeoutLearningsMarkdownPath()]: artifactPointerFor(closeoutLearningsMarkdownPath()),
+              [closeoutLearningsJsonPath()]: artifactPointerFor(closeoutLearningsJsonPath()),
+            }
+          : {}),
         [closeoutBootstrapMarkdown]: artifactPointerFor(closeoutBootstrapMarkdown),
         [closeoutBootstrapJson]: artifactPointerFor(closeoutBootstrapJson),
         [closeoutStatusPath]: artifactPointerFor(closeoutStatusPath),
       },
     };
+    if (!closeoutLearningRecord) {
+      delete nextLedger.artifact_index[closeoutLearningsMarkdownPath()];
+      delete nextLedger.artifact_index[closeoutLearningsJsonPath()];
+    }
 
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'closeout',
       statusPath: closeoutStatusPath,
-      canonicalWrites: [...normalized.canonicalWrites, ...bootstrapWrites],
+      canonicalWrites: [
+        ...normalized.canonicalWrites,
+        ...(closeoutLearningRecord
+          ? [
+              {
+                path: closeoutLearningsMarkdownPath(),
+                content: closeoutLearningMarkdown ?? '',
+              },
+              {
+                path: closeoutLearningsJsonPath(),
+                content: JSON.stringify(closeoutLearningRecord, null, 2) + '\n',
+              },
+            ]
+          : []),
+        ...bootstrapWrites,
+      ],
+      removeWrites: closeoutLearningRecord
+        ? []
+        : [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
-        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), ...(shipStatus ? [shipStatusPath] : []), metaPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         { adapter: 'gsd', stage: 'closeout', archive_path: archivePath },
         result,
         {
           outcome: 'success',
-          canonical_paths: normalized.canonicalWrites.map((write) => write.path),
+          canonical_paths: [
+            ...normalized.canonicalWrites.map((write) => write.path),
+            ...(closeoutLearningRecord
+              ? [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()]
+              : []),
+          ],
           status: { state: status.state, decision: status.decision, ready: status.ready },
         },
       ),
@@ -297,16 +421,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       state: 'blocked',
       decision: 'closeout_recorded',
       ready: false,
-      inputs: [
-        artifactPointerFor(reviewStatusPath),
-        ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
-        ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
-        artifactPointerFor(metaPath),
-      ],
+      inputs: predecessorArtifacts,
       outputs: [artifactPointerFor(closeoutStatusPath)],
       started_at: startedAt,
       completed_at: startedAt,
       errors: ['Canonical writeback failed'],
+      learnings_recorded: false,
       archive_required: archiveRequired,
       archive_state: archiveRequired ? 'archived' : 'not_required',
       provenance_consistent: true,
@@ -316,10 +436,11 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       stage: 'closeout',
       statusPath: closeoutStatusPath,
       canonicalWrites: [],
+      removeWrites: [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
-        [reviewStatusPath, ...(qaStatus ? [qaStatusPath] : []), ...(shipStatus ? [shipStatusPath] : []), metaPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         { adapter: 'gsd', stage: 'closeout', archive_path: archivePath },
         result,
         {
@@ -329,14 +450,14 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: {
+      ledger: clearCloseoutLearningArtifactIndex({
         ...ledger,
         status: 'blocked',
         current_command: 'closeout',
         current_stage: 'closeout',
         allowed_next_stages: [],
         command_history: [...ledger.command_history, { command: 'closeout', at: startedAt, via: ctx.via }],
-      },
+      }),
       conflicts: [conflict],
     });
     throw error;

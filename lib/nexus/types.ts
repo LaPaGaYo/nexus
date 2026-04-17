@@ -97,8 +97,32 @@ export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
 export const DESIGN_IMPACTS = ['none', 'touchup', 'material'] as const;
 export type DesignImpact = (typeof DESIGN_IMPACTS)[number];
 
+export const LEARNING_TYPES = [
+  'pattern',
+  'pitfall',
+  'preference',
+  'architecture',
+  'tool',
+] as const;
+export type LearningType = (typeof LEARNING_TYPES)[number];
+
+export const LEARNING_SOURCES = [
+  'observed',
+  'user-stated',
+  'inferred',
+  'cross-model',
+] as const;
+export type LearningSource = (typeof LEARNING_SOURCES)[number];
+
 export const CONTINUATION_MODES = ['task', 'phase', 'project_reset'] as const;
 export type ContinuationMode = (typeof CONTINUATION_MODES)[number];
+
+export const CONTINUATION_ADVICE_OPTIONS = [
+  'continue_here',
+  'compact_then_continue',
+  'fresh_session_continue',
+] as const;
+export type ContinuationAdviceOption = (typeof CONTINUATION_ADVICE_OPTIONS)[number];
 
 export const COMMAND_HISTORY_VIAS = [
   'office-hours',
@@ -197,6 +221,31 @@ export interface ReviewScopeRecord {
   advisory_policy: 'out_of_scope_advisory';
 }
 
+export interface LearningCandidate {
+  type: LearningType;
+  key: string;
+  insight: string;
+  confidence: number;
+  source: LearningSource;
+  files: string[];
+}
+
+export interface StageLearningCandidatesRecord {
+  schema_version: 1;
+  run_id: string;
+  stage: 'review' | 'qa' | 'ship';
+  generated_at: string;
+  candidates: LearningCandidate[];
+}
+
+export interface RunLearningsRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  source_candidates: string[];
+  learnings: Array<LearningCandidate & { origin_stage: 'review' | 'qa' | 'ship' }>;
+}
+
 export interface DesignIntentRecord {
   impact: DesignImpact;
   affected_surfaces: string[];
@@ -259,6 +308,21 @@ export interface ReviewMetaRecord {
   review_scope?: ReviewScopeRecord;
 }
 
+export interface SessionContinuationAdviceRecord {
+  schema_version: 1;
+  run_id: string;
+  boundary_kind: 'fresh_run_phase';
+  continuation_mode: ContinuationMode;
+  lifecycle_can_continue_here: true;
+  recommended_option: ContinuationAdviceOption;
+  available_options: ContinuationAdviceOption[];
+  host_compact_supported: boolean;
+  resume_artifacts: string[];
+  recommended_next_command: '/frame';
+  summary: string;
+  generated_at: string;
+}
+
 export interface ConflictRecord {
   stage: CanonicalCommandId;
   adapter: string;
@@ -313,6 +377,8 @@ export interface StageStatus {
   review_complete?: boolean;
   audit_set_complete?: boolean;
   provenance_consistent?: boolean;
+  learning_candidates_path?: string | null;
+  learnings_recorded?: boolean | null;
   gate_decision?: 'pass' | 'fail' | 'blocked' | null;
   archive_required?: boolean;
   archive_state?: 'pending' | 'archived' | 'not_required' | 'failed';

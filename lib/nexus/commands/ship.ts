@@ -1,6 +1,7 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import {
   qaDesignVerificationPath,
+  shipLearningCandidatesPath,
   shipChecklistPath,
   shipPullRequestPath,
   shipReleaseGateRecordPath,
@@ -16,7 +17,15 @@ import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { SuperpowersShipDisciplineRaw } from '../adapters/superpowers';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
+import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
+import type {
+  ArtifactPointer,
+  ConflictRecord,
+  LearningCandidate,
+  RunLedger,
+  StageLearningCandidatesRecord,
+  StageStatus,
+} from '../types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -49,6 +58,10 @@ function designVerificationSummary(
   ].join('\n');
 }
 
+function isOneOf<T extends readonly string[]>(value: unknown, values: T): value is T[number] {
+  return typeof value === 'string' && values.includes(value as T[number]);
+}
+
 function augmentChecklist(
   checklist: SuperpowersShipDisciplineRaw['checklist'],
   designImpact: StageStatus['design_impact'] | null | undefined,
@@ -61,6 +74,114 @@ function augmentChecklist(
     design_contract_path: designContractPath ?? null,
     design_verified: designVerified,
     design_verification_path: designVerified === true ? qaDesignVerificationPath() : null,
+  };
+}
+
+function normalizeShipLearningCandidate(candidate: unknown): LearningCandidate | null {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return null;
+  }
+
+  const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+  const type = typeof rawCandidate.type === 'string' ? rawCandidate.type.trim() : '';
+  const key = typeof rawCandidate.key === 'string' ? rawCandidate.key.trim() : '';
+  const insight = typeof rawCandidate.insight === 'string' ? rawCandidate.insight.trim() : '';
+  const source = typeof rawCandidate.source === 'string' ? rawCandidate.source.trim() : '';
+
+  if (
+    !isOneOf(type, LEARNING_TYPES)
+    || !key
+    || !insight
+    || typeof rawCandidate.confidence !== 'number'
+    || !Number.isFinite(rawCandidate.confidence)
+    || !isOneOf(source, LEARNING_SOURCES)
+    || !Array.isArray(rawCandidate.files)
+    || rawCandidate.files.some((file) => typeof file !== 'string')
+  ) {
+    return null;
+  }
+
+  const files = rawCandidate.files
+    .map((file) => file.trim())
+    .filter((file) => file.length > 0);
+
+  return {
+    type,
+    key,
+    insight,
+    confidence: rawCandidate.confidence,
+    source,
+    files,
+  };
+}
+
+function collectShipLearningCandidates(rawCandidates: unknown): LearningCandidate[] {
+  if (!Array.isArray(rawCandidates)) {
+    return [];
+  }
+
+  const candidates: LearningCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of rawCandidates) {
+    const normalized = normalizeShipLearningCandidate(candidate);
+    if (!normalized) {
+      continue;
+    }
+
+    const candidateKey = `${normalized.type}:${normalized.key}`;
+    if (seen.has(candidateKey)) {
+      continue;
+    }
+
+    seen.add(candidateKey);
+    candidates.push(normalized);
+  }
+
+  return candidates;
+}
+
+function buildShipLearningCandidatesRecord(
+  runId: string,
+  startedAt: string,
+  rawCandidates: unknown,
+): StageLearningCandidatesRecord | null {
+  const candidates = collectShipLearningCandidates(rawCandidates);
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return {
+    schema_version: 1,
+    run_id: runId,
+    stage: 'ship',
+    generated_at: startedAt,
+    candidates,
+  };
+}
+
+function shipStatusTracePayload(
+  status: Pick<
+    StageStatus,
+    | 'state'
+    | 'decision'
+    | 'ready'
+    | 'design_impact'
+    | 'design_contract_path'
+    | 'design_verified'
+    | 'learning_candidates_path'
+    | 'learnings_recorded'
+  >,
+): Record<string, unknown> {
+  return {
+    state: status.state,
+    decision: status.decision,
+    ready: status.ready,
+    design_impact: status.design_impact,
+    design_contract_path: status.design_contract_path,
+    design_verified: status.design_verified,
+    learning_candidates_path: status.learning_candidates_path ?? null,
+    learnings_recorded: status.learnings_recorded ?? false,
   };
 }
 
@@ -82,6 +203,16 @@ function nextLedger(
   };
 }
 
+function clearShipLearningArtifactIndex(ledger: RunLedger): RunLedger {
+  const nextArtifactIndex = { ...ledger.artifact_index };
+  delete nextArtifactIndex[shipLearningCandidatesPath()];
+
+  return {
+    ...ledger,
+    artifact_index: nextArtifactIndex,
+  };
+}
+
 function blockedShipStatus(
   ledger: RunLedger,
   startedAt: string,
@@ -99,6 +230,8 @@ function blockedShipStatus(
     design_impact: designImpact ?? 'none',
     design_contract_path: designContractPath ?? null,
     design_verified: designVerified,
+    learning_candidates_path: null,
+    learnings_recorded: false,
     state,
     decision: state === 'refused' ? 'refused' : 'ship_recorded',
     ready: false,
@@ -163,6 +296,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const releaseGateRecordPath = shipReleaseGateRecordPath();
   const checklistPath = shipChecklistPath();
   const pullRequestPath = shipPullRequestPath();
+  const learningCandidatesPath = shipLearningCandidatesPath();
   const statusPath = stageStatusPath('ship');
   const predecessorArtifacts = [
     artifactPointerFor(reviewStatusPath),
@@ -217,6 +351,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       stage: 'ship',
       statusPath,
       canonicalWrites: [],
+      removeWrites: [learningCandidatesPath],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -224,25 +359,22 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         result,
         {
           outcome: result.outcome,
+          learning_candidates_path: null,
+          learnings_recorded: false,
           status: {
-            state: status.state,
-            decision: status.decision,
-            ready: status.ready,
-            design_impact: status.design_impact,
-            design_contract_path: status.design_contract_path,
-            design_verified: status.design_verified,
+            ...shipStatusTracePayload(status),
           },
         },
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(
+      ledger: clearShipLearningArtifactIndex(nextLedger(
         ledgerWithExecution,
         previousStage,
         result.outcome === 'refused' ? 'refused' : 'blocked',
         startedAt,
         ctx.via,
-      ),
+      )),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -278,6 +410,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       stage: 'ship',
       statusPath,
       canonicalWrites: [],
+      removeWrites: [learningCandidatesPath],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -286,19 +419,16 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         {
           outcome: 'blocked',
           error: message,
+          learning_candidates_path: null,
+          learnings_recorded: false,
           status: {
-            state: status.state,
-            decision: status.decision,
-            ready: status.ready,
-            design_impact: status.design_impact,
-            design_contract_path: status.design_contract_path,
-            design_verified: status.design_verified,
+            ...shipStatusTracePayload(status),
           },
         },
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via),
+      ledger: clearShipLearningArtifactIndex(nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via)),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -310,6 +440,11 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     designImpact,
     designContractPath,
     designVerified,
+  );
+  const learningCandidatesRecord = buildShipLearningCandidatesRecord(
+    ledger.run_id,
+    startedAt,
+    result.raw_output.learning_candidates,
   );
   const releaseGateRecord = `${result.raw_output.release_gate_record.trimEnd()}${designVerificationSummary(
     designImpact,
@@ -332,6 +467,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       artifactPointerFor(releaseGateRecordPath),
       artifactPointerFor(checklistPath),
       artifactPointerFor(pullRequestPath),
+      ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
@@ -339,6 +475,8 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     errors: result.raw_output.merge_ready ? [] : ['Release gate remains blocked'],
     workspace,
     pull_request: pullRequest,
+    learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
+    learnings_recorded: Boolean(learningCandidatesRecord),
   };
   const next = nextLedger(ledgerWithExecution, previousStage, result.raw_output.merge_ready ? 'active' : 'blocked', startedAt, ctx.via);
   next.artifact_index = {
@@ -346,8 +484,12 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     [releaseGateRecordPath]: artifactPointerFor(releaseGateRecordPath),
     [checklistPath]: artifactPointerFor(checklistPath),
     [pullRequestPath]: artifactPointerFor(pullRequestPath),
+    ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
     [statusPath]: artifactPointerFor(statusPath),
   };
+  if (!learningCandidatesRecord) {
+    delete next.artifact_index[learningCandidatesPath];
+  }
 
   await applyNormalizationPlan({
     cwd: ctx.cwd,
@@ -357,27 +499,31 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       { path: releaseGateRecordPath, content: `${releaseGateRecord}\n` },
       { path: checklistPath, content: JSON.stringify(checklist, null, 2) + '\n' },
       { path: pullRequestPath, content: JSON.stringify(pullRequest, null, 2) + '\n' },
+      ...(learningCandidatesRecord
+        ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
+        : []),
     ],
+    removeWrites: learningCandidatesRecord ? [] : [learningCandidatesPath],
     traceWrites: buildShipStageTraceabilityPayloads(
       ledger.run_id,
       predecessorArtifacts.map((artifact) => artifact.path),
       workspace,
       result,
-        {
-          outcome: 'success',
-          canonical_paths: [releaseGateRecordPath, checklistPath, pullRequestPath],
-          status: {
-            state: status.state,
-            decision: status.decision,
-            ready: status.ready,
-            design_impact: status.design_impact,
-            design_contract_path: status.design_contract_path,
-            design_verified: status.design_verified,
-          },
-          pull_request: pullRequest,
-          checklist,
-        },
-      ),
+      {
+        outcome: 'success',
+        canonical_paths: [
+          releaseGateRecordPath,
+          checklistPath,
+          pullRequestPath,
+          ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
+        ],
+        learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
+        learnings_recorded: Boolean(learningCandidatesRecord),
+        status: shipStatusTracePayload(status),
+        pull_request: pullRequest,
+        checklist,
+      },
+    ),
     status,
     mirrorWorkspace: workspace,
     ledger: next,

@@ -1,4 +1,5 @@
 import { createBuildStagePack, createReviewStagePack, createShipStagePack } from '../stage-packs';
+import type { LearningCandidate } from '../types';
 import type { AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
 
 export interface SuperpowersBuildDisciplineRaw {
@@ -7,6 +8,7 @@ export interface SuperpowersBuildDisciplineRaw {
 
 export interface SuperpowersReviewDisciplineRaw {
   discipline_summary: string;
+  learning_candidates?: LearningCandidate[];
 }
 
 export interface SuperpowersShipDisciplineRaw {
@@ -17,6 +19,7 @@ export interface SuperpowersShipDisciplineRaw {
     merge_ready: boolean;
   };
   merge_ready: boolean;
+  learning_candidates?: LearningCandidate[];
 }
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {

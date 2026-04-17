@@ -10,6 +10,7 @@ const BIN = path.join(ROOT, 'bin');
 let tmpDir: string;
 let slugDir: string;
 let learningsFile: string;
+let repoDir: string;
 
 function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: string; exitCode: number } {
   const execOpts: ExecSyncOptionsWithStringEncoding = {
@@ -29,9 +30,9 @@ function runLog(input: string, opts: { expectFail?: boolean } = {}): { stdout: s
   }
 }
 
-function runSearch(args: string = ''): string {
+function runSearch(args: string = '', cwd: string = ROOT): string {
   const execOpts: ExecSyncOptionsWithStringEncoding = {
-    cwd: ROOT,
+    cwd,
     env: { ...process.env, NEXUS_STATE_DIR: tmpDir },
     encoding: 'utf-8',
     timeout: 15000,
@@ -47,10 +48,12 @@ beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-learn-'));
   slugDir = path.join(tmpDir, 'projects');
   fs.mkdirSync(slugDir, { recursive: true });
+  repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-learn-repo-'));
 });
 
 afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
+  fs.rmSync(repoDir, { recursive: true, force: true });
 });
 
 function findLearningsFile(): string | null {
@@ -116,6 +119,36 @@ describe('nexus-learnings-search', () => {
     expect(output).toContain('LEARNINGS:');
     expect(output).toContain('test-search');
     expect(output).toContain('search test insight');
+  });
+
+  test('includes canonical closeout learnings when present', () => {
+    execSync('git init -b main', { cwd: repoDir, stdio: 'pipe' });
+    const nestedDir = path.join(repoDir, 'apps', 'web');
+    fs.mkdirSync(nestedDir, { recursive: true });
+    const closeoutDir = path.join(repoDir, '.planning', 'archive', 'runs', 'run-1', 'closeout');
+    fs.mkdirSync(closeoutDir, { recursive: true });
+    fs.writeFileSync(path.join(closeoutDir, 'learnings.json'), JSON.stringify({
+      schema_version: 1,
+      run_id: 'run-1',
+      generated_at: '2026-04-16T00:00:00.000Z',
+      source_candidates: ['.planning/current/review/learning-candidates.json'],
+      learnings: [
+        {
+          type: 'pitfall',
+          key: 'owner-mutation-requires-db-lock',
+          insight: 'Concurrent owner mutations must serialize through the database.',
+          confidence: 8,
+          source: 'observed',
+          origin_stage: 'review',
+          files: ['apps/web/src/server/workspaces/service.ts'],
+        },
+      ],
+    }));
+
+    const output = runSearch('', nestedDir);
+    expect(output).toContain('LEARNINGS:');
+    expect(output).toContain('owner-mutation-requires-db-lock');
+    expect(output).toContain('Concurrent owner mutations must serialize through the database.');
   });
 
   test('deduplicates entries by key+type (latest wins)', () => {

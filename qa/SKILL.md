@@ -394,8 +394,11 @@ Nexus-owned QA guidance for governed validation scope beyond code review.
 ## Artifact Contract
 
 Writes `.planning/current/qa/qa-report.md`,
-`.planning/current/qa/design-verification.md`, and
-`.planning/current/qa/status.json`.
+`.planning/current/qa/design-verification.md`,
+`.planning/current/qa/status.json`, and optionally
+`.planning/current/qa/learning-candidates.json` when QA raw output contains
+valid reusable learning candidates. `/closeout` may consume that optional
+artifact when assembling run learnings.
 
 ## Routing
 

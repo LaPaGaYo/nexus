@@ -318,6 +318,20 @@ bun run bin/nexus.ts discover --continuation-mode task
 Supported values are `task`, `phase`, and `project_reset`. Automation can use
 the same override through `NEXUS_CONTINUATION_MODE`.
 
+Lifecycle continuation does not require a fresh session. Nexus can continue in
+the current session. That is a lifecycle rule, not a session-quality
+guarantee.
+
+When setup or a fresh-run discover boundary emits session continuation advice,
+the three user-facing paths are:
+
+- continue here (`continue_here`)
+- compact this session and continue (`compact_then_continue`)
+- start a fresh session and run `/continue` (`fresh_session_continue`)
+
+Use `/continue` when you want to resume from a fresh session and reload the
+latest repo-visible context transfer files.
+
 Legacy aliases remain compatibility-only:
 
 - `/office-hours -> /discover`
@@ -385,6 +399,9 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/codex` | Independent second-opinion review through Codex. |
 
 Deep dives and usage examples live in [docs/skills.md](docs/skills.md).
+
+Governed runs may publish canonical learnings at `/closeout`.
+`/learn` surfaces both operational JSONL learnings and canonical run learnings when available.
 
 `/land-and-deploy` is intentionally post-lifecycle: it consumes the PR handoff
 record written by `/ship` and is meant for merge/deploy/production verification

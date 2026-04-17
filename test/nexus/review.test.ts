@@ -4,12 +4,13 @@ import { describe, expect, test } from 'bun:test';
 import { buildReviewAuditPrompt } from '../../lib/nexus/adapters/prompt-contracts';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { runReviewWithWriteAtomicFile } from '../../lib/nexus/commands/review';
+import { reviewLearningCandidatesPath } from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus review', () => {
   test('runs governed dual-audit review and writes nested audit provenance', async () => {
-    await runInTempRepo(async ({ run }) => {
+    await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');
       await run('handoff');
       await run('build');
@@ -96,6 +97,7 @@ describe('nexus review', () => {
       await run('review', adapters);
 
       const buildStatus = await run.readJson('.planning/current/build/status.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
       expect(calls).toEqual(['discipline', 'audit_a', 'audit_b']);
       expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
         stage: 'review',
@@ -105,9 +107,13 @@ describe('nexus review', () => {
         audit_set_complete: true,
         provenance_consistent: true,
         gate_decision: 'pass',
+        learning_candidates_path: null,
+        learnings_recorded: false,
         requested_route: buildStatus.requested_route,
         actual_route: buildStatus.actual_route,
       });
+      expect(existsSync(join(cwd, reviewLearningCandidatesPath()))).toBe(false);
+      expect(ledger.artifact_index[reviewLearningCandidatesPath()]).toBeUndefined();
 
       expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain('Verification-before-completion passed');
       expect(await run.readJson('.planning/current/review/adapter-output.json')).toMatchObject({
@@ -182,6 +188,128 @@ describe('nexus review', () => {
           adapter: 'superpowers',
           summary: 'Verification-before-completion passed',
         },
+      });
+    });
+  });
+
+  test('writes optional learning candidates when audit raw outputs include valid candidates', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const candidateA = {
+        type: 'pitfall' as const,
+        key: 'serialize-owner-mutations',
+        insight: 'Concurrent owner updates should serialize through the database layer.',
+        confidence: 8,
+        source: 'observed' as const,
+        files: ['apps/web/src/server/workspaces/service.ts'],
+      };
+      const candidateB = {
+        type: 'pattern' as const,
+        key: 'prefer-explicit-review-scopes',
+        insight: 'Bounded review scopes reduce false failures during fix cycles.',
+        confidence: 7,
+        source: 'inferred' as const,
+        files: ['lib/nexus/review-scope.ts'],
+      };
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'superpowers-review-discipline',
+              source_map: ['upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+            },
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n',
+              receipt: 'codex-review-receipt',
+              learning_candidates: [candidateA, { ...candidateA, key: ' ', insight: '' }],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'ccb-review-codex',
+              source_map: ['upstream/claude-code-bridge/lib/codex_comm.py'],
+            },
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n',
+              receipt: 'gemini-review-receipt',
+              learning_candidates: [candidateA, candidateB],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'ccb-review-gemini',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('review', adapters);
+
+      const learningCandidatesPath = reviewLearningCandidatesPath();
+      const status = await run.readJson('.planning/current/review/status.json');
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      const candidates = await run.readJson(learningCandidatesPath);
+
+      expect(status).toMatchObject({
+        learning_candidates_path: learningCandidatesPath,
+        learnings_recorded: true,
+      });
+      expect(status.outputs).toEqual(
+        expect.arrayContaining([expect.objectContaining({ path: learningCandidatesPath })]),
+      );
+      expect(ledger.artifact_index).toMatchObject({
+        [learningCandidatesPath]: {
+          kind: 'json',
+          path: learningCandidatesPath,
+        },
+      });
+      expect(candidates).toMatchObject({
+        schema_version: 1,
+        stage: 'review',
+        candidates: [candidateA, candidateB],
       });
     });
   });
@@ -1128,6 +1256,7 @@ describe('nexus review', () => {
       expect(existsSync(join(cwd, '.planning/audits/current/synthesis.md'))).toBe(false);
       expect(existsSync(join(cwd, '.planning/audits/current/gate-decision.md'))).toBe(false);
       expect(existsSync(join(cwd, '.planning/audits/current/meta.json'))).toBe(false);
+      expect(existsSync(join(cwd, reviewLearningCandidatesPath()))).toBe(false);
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         status: 'blocked',
         current_stage: 'review',
@@ -1136,6 +1265,118 @@ describe('nexus review', () => {
       expect(await run.readJson('.planning/nexus/current-run.json')).not.toMatchObject({
         artifact_index: expect.objectContaining({
           '.planning/audits/current/codex.md': expect.anything(),
+          [reviewLearningCandidatesPath()]: expect.anything(),
+        }),
+      });
+    });
+  });
+
+  test('clears stale learning candidates when a review retry is refused before audits run', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const candidate = {
+        type: 'pitfall' as const,
+        key: 'serialize-owner-mutations',
+        insight: 'Concurrent owner updates should serialize through the database layer.',
+        confidence: 8,
+        source: 'observed' as const,
+        files: ['apps/web/src/server/workspaces/service.ts'],
+      };
+
+      const learningReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- Fix the owner mutation race.\n',
+              receipt: 'codex-review-receipt',
+              learning_candidates: [candidate],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', learningReviewAdapters);
+      expect(existsSync(join(cwd, reviewLearningCandidatesPath()))).toBe(true);
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        gate_decision: 'fail',
+      });
+
+      const refusedReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'refused',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion refused',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['Review discipline refused retry'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('review', refusedReviewAdapters)).rejects.toThrow('Superpowers review discipline refused review');
+
+      expect(existsSync(join(cwd, reviewLearningCandidatesPath()))).toBe(false);
+      const refusedStatus = await run.readJson('.planning/current/review/status.json');
+      expect(refusedStatus).toMatchObject({
+        stage: 'review',
+        state: 'refused',
+        gate_decision: 'blocked',
+      });
+      expect(refusedStatus.learning_candidates_path).toBeUndefined();
+      expect(refusedStatus.learnings_recorded).toBeUndefined();
+      expect(await run.readJson('.planning/nexus/current-run.json')).not.toMatchObject({
+        artifact_index: expect.objectContaining({
+          [reviewLearningCandidatesPath()]: expect.anything(),
         }),
       });
     });

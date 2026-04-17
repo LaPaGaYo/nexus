@@ -116,6 +116,8 @@ export function buildReviewAuditPrompt(
           'Additional visual concerns are advisories unless they show a clear contract violation.',
         ]
       : []),
+    'If the transport supports it, you may include optional learning_candidates in the raw response contract for durable reusable learnings.',
+    'Do not change the required markdown verdict shape to do this.',
     'Reply with markdown only in this exact shape:',
     header,
     '',
@@ -167,6 +169,8 @@ export function buildReviewFinalizePrompt(
           'Only explicit design contract violations may justify fail on visual grounds; other visual concerns are advisories.',
         ]
       : []),
+    'If the transport supports it, you may include optional learning_candidates in the raw response contract for durable reusable learnings.',
+    'Do not change the required markdown verdict shape to do this.',
     'Reply with markdown only in this exact shape:',
     header,
     '',
@@ -210,6 +214,8 @@ export function buildQaValidationPrompt(
     buildPromptContextPreamble(ctx, stageLabel),
     introLine,
     'Return JSON only, with no code fences and no extra prose.',
+    'You may include an optional learning_candidates array for durable reusable learnings; omit it when there are none.',
+    'Keep the required ready, findings, and report_markdown fields unchanged.',
     ...extraLines,
     buildQaPromptSchemaExample(),
   ].join('\n');

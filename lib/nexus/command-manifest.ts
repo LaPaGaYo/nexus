@@ -1,6 +1,11 @@
 import type { CanonicalCommandId, ImplementationStatus } from './types';
 import {
   frameDesignIntentPath,
+  planDesignContractPath,
+  discoverNextRunMarkdownPath,
+  discoverNextRunBootstrapJsonPath,
+  discoverSessionContinuationAdvicePath,
+  discoverSessionContinuationMarkdownPath,
 } from './artifacts';
 
 export type CommandOwner =
@@ -18,6 +23,7 @@ export interface CommandContract {
   purpose: string;
   required_inputs: string[];
   durable_outputs: string[];
+  optional_outputs?: string[];
   exit_condition: string;
   legal_predecessors: CanonicalCommandId[];
 }
@@ -32,6 +38,12 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       'docs/product/idea-brief.md',
       '.planning/current/discover/status.json',
+    ],
+    optional_outputs: [
+      discoverNextRunMarkdownPath(),
+      discoverNextRunBootstrapJsonPath(),
+      discoverSessionContinuationAdvicePath(),
+      discoverSessionContinuationMarkdownPath(),
     ],
     exit_condition: 'Problem is clarified or deferred.',
     legal_predecessors: [],
@@ -62,6 +74,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
       '.planning/current/plan/sprint-contract.md',
       '.planning/current/plan/status.json',
     ],
+    optional_outputs: [planDesignContractPath()],
     exit_condition: 'Execution is ready or blocked.',
     legal_predecessors: ['frame'],
   },
@@ -130,6 +143,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
       '.planning/current/qa/qa-report.md',
       '.planning/current/qa/status.json',
     ],
+    optional_outputs: ['.planning/current/qa/design-verification.md'],
     exit_condition: 'QA scope is validated and recorded.',
     legal_predecessors: ['review'],
   },

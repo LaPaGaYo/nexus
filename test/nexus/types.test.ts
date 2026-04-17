@@ -3,6 +3,13 @@ import {
   DESIGN_IMPACTS,
   CANONICAL_COMMANDS,
   ACTUAL_ROUTE_TRANSPORTS,
+  CONTINUATION_ADVICE_OPTIONS,
+  LEARNING_SOURCES,
+  LEARNING_TYPES,
+  type LearningCandidate,
+  type RunLearningsRecord,
+  type StageLearningCandidatesRecord,
+  type SessionContinuationAdviceRecord,
   STAGE_DECISIONS,
   PLACEHOLDER_OUTCOME,
   RUN_STATUSES,
@@ -22,6 +29,16 @@ import {
 } from '../../lib/nexus/types';
 import {
   frameDesignIntentPath,
+  planDesignContractPath,
+  discoverNextRunBootstrapJsonPath,
+  discoverNextRunMarkdownPath,
+  discoverSessionContinuationAdvicePath,
+  discoverSessionContinuationMarkdownPath,
+  reviewLearningCandidatesPath,
+  qaLearningCandidatesPath,
+  shipLearningCandidatesPath,
+  closeoutLearningsMarkdownPath,
+  closeoutLearningsJsonPath,
 } from '../../lib/nexus/artifacts';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { executionFieldsFromLedger, withExecutionSessionRoot } from '../../lib/nexus/execution-topology';
@@ -233,6 +250,7 @@ describe('nexus types', () => {
 
     const ledger: RunLedger = {
       run_id: 'run-1',
+      continuation_mode: 'project_reset',
       status: 'active',
       current_command: 'handoff',
       current_stage: 'handoff',
@@ -279,6 +297,7 @@ describe('nexus types', () => {
     };
     const ledger: RunLedger = {
       run_id: 'run-1',
+      continuation_mode: 'project_reset',
       status: 'active',
       current_command: 'handoff',
       current_stage: 'handoff',
@@ -336,9 +355,131 @@ describe('nexus types', () => {
     expect(frameDesignIntentPath()).toBe('.planning/current/frame/design-intent.json');
   });
 
+  test('freezes the learning schema and artifact helpers', () => {
+    expect(LEARNING_TYPES).toEqual([
+      'pattern',
+      'pitfall',
+      'preference',
+      'architecture',
+      'tool',
+    ]);
+    expect(LEARNING_SOURCES).toEqual([
+      'observed',
+      'user-stated',
+      'inferred',
+      'cross-model',
+    ]);
+    expect(reviewLearningCandidatesPath()).toBe(
+      '.planning/current/review/learning-candidates.json',
+    );
+    expect(qaLearningCandidatesPath()).toBe('.planning/current/qa/learning-candidates.json');
+    expect(shipLearningCandidatesPath()).toBe('.planning/current/ship/learning-candidates.json');
+    expect(closeoutLearningsMarkdownPath()).toBe('.planning/current/closeout/LEARNINGS.md');
+    expect(closeoutLearningsJsonPath()).toBe('.planning/current/closeout/learnings.json');
+
+    const candidate: LearningCandidate = {
+      type: 'pitfall',
+      key: 'owner-mutation-requires-db-lock',
+      insight: 'Concurrent owner mutations must serialize through the database.',
+      confidence: 8,
+      source: 'observed',
+      files: ['apps/web/src/server/workspaces/service.ts'],
+    };
+    const status: StageStatus = {
+      run_id: 'run-1',
+      stage: 'review',
+      state: 'completed',
+      decision: 'audit_recorded',
+      ready: true,
+      inputs: [],
+      outputs: [],
+      started_at: '2026-04-16T00:00:00.000Z',
+      completed_at: '2026-04-16T00:00:00.000Z',
+      errors: [],
+      learning_candidates_path: '.planning/current/review/learning-candidates.json',
+      learnings_recorded: true,
+    };
+    const stageLearningCandidates: StageLearningCandidatesRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      stage: 'review',
+      generated_at: '2026-04-16T00:00:00.000Z',
+      candidates: [candidate],
+    };
+    const runLearnings: RunLearningsRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      generated_at: '2026-04-16T00:00:00.000Z',
+      source_candidates: ['.planning/current/review/learning-candidates.json'],
+      learnings: [
+        {
+          ...candidate,
+          origin_stage: 'review',
+        },
+      ],
+    };
+
+    expect(candidate.type).toBe('pitfall');
+    expect(status.learning_candidates_path).toBe(
+      '.planning/current/review/learning-candidates.json',
+    );
+    expect(stageLearningCandidates.candidates).toHaveLength(1);
+    expect(runLearnings.learnings[0]?.origin_stage).toBe('review');
+  });
+
+  test('freezes the continuation advisory schema and artifact helpers', () => {
+    expect(CONTINUATION_ADVICE_OPTIONS).toEqual([
+      'continue_here',
+      'compact_then_continue',
+      'fresh_session_continue',
+    ]);
+    expect(discoverNextRunMarkdownPath()).toBe('.planning/current/discover/NEXT-RUN.md');
+    expect(discoverNextRunBootstrapJsonPath()).toBe(
+      '.planning/current/discover/next-run-bootstrap.json',
+    );
+    expect(discoverSessionContinuationAdvicePath()).toBe(
+      '.planning/current/discover/session-continuation-advice.json',
+    );
+    expect(discoverSessionContinuationMarkdownPath()).toBe(
+      '.planning/current/discover/SESSION-CONTINUATION.md',
+    );
+
+    const record: SessionContinuationAdviceRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      boundary_kind: 'fresh_run_phase',
+      continuation_mode: 'phase',
+      lifecycle_can_continue_here: true,
+      recommended_option: 'compact_then_continue',
+      available_options: [
+        'continue_here',
+        'compact_then_continue',
+        'fresh_session_continue',
+      ],
+      host_compact_supported: false,
+      resume_artifacts: [
+        '.planning/current/discover/NEXT-RUN.md',
+        '.planning/current/discover/next-run-bootstrap.json',
+      ],
+      recommended_next_command: '/frame',
+      summary: 'Nexus can continue in this session.',
+      generated_at: '2026-04-16T00:00:00.000Z',
+    };
+
+    expect(record.recommended_option).toBe('compact_then_continue');
+  });
+
   test('locks the plan manifest input contract', () => {
     expect(CANONICAL_MANIFEST.plan.required_inputs).toEqual([
       '.planning/current/frame/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.plan.durable_outputs).toEqual([
+      '.planning/current/plan/execution-readiness-packet.md',
+      '.planning/current/plan/sprint-contract.md',
+      '.planning/current/plan/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.plan.optional_outputs).toEqual([
+      planDesignContractPath(),
     ]);
   });
 
@@ -346,5 +487,51 @@ describe('nexus types', () => {
     expect(CANONICAL_MANIFEST.frame.durable_outputs).toContain(
       '.planning/current/frame/design-intent.json',
     );
+  });
+
+  test('locks the learning artifact manifest outputs', () => {
+    expect(CANONICAL_MANIFEST.review.durable_outputs).toEqual([
+      '.planning/audits/current/codex.md',
+      '.planning/audits/current/gemini.md',
+      '.planning/audits/current/synthesis.md',
+      '.planning/audits/current/gate-decision.md',
+      '.planning/audits/current/meta.json',
+      '.planning/current/review/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.review.optional_outputs).toBeUndefined();
+    expect(CANONICAL_MANIFEST.qa.durable_outputs).toEqual([
+      '.planning/current/qa/qa-report.md',
+      '.planning/current/qa/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.qa.optional_outputs).toEqual([
+      '.planning/current/qa/design-verification.md',
+    ]);
+    expect(CANONICAL_MANIFEST.ship.durable_outputs).toEqual([
+      '.planning/current/ship/release-gate-record.md',
+      '.planning/current/ship/checklist.json',
+      '.planning/current/ship/pull-request.json',
+      '.planning/current/ship/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.ship.optional_outputs).toBeUndefined();
+    expect(CANONICAL_MANIFEST.closeout.durable_outputs).toEqual([
+      '.planning/current/closeout/CLOSEOUT-RECORD.md',
+      '.planning/current/closeout/NEXT-RUN.md',
+      '.planning/current/closeout/next-run-bootstrap.json',
+      '.planning/current/closeout/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.closeout.optional_outputs).toBeUndefined();
+  });
+
+  test('locks the discover manifest outputs for continuation advisory artifacts', () => {
+    expect(CANONICAL_MANIFEST.discover.durable_outputs).toEqual([
+      'docs/product/idea-brief.md',
+      '.planning/current/discover/status.json',
+    ]);
+    expect(CANONICAL_MANIFEST.discover.optional_outputs).toEqual([
+      '.planning/current/discover/NEXT-RUN.md',
+      '.planning/current/discover/next-run-bootstrap.json',
+      '.planning/current/discover/session-continuation-advice.json',
+      '.planning/current/discover/SESSION-CONTINUATION.md',
+    ]);
   });
 });

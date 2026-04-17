@@ -9,13 +9,24 @@ import {
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
-import { stageStatusPath } from '../artifacts';
+import {
+  discoverBootstrapJsonPath,
+  discoverBootstrapMarkdownPath,
+  discoverSessionContinuationAdvicePath,
+  discoverSessionContinuationMarkdownPath,
+  stageStatusPath,
+} from '../artifacts';
 import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
 import {
   resolveContinuationModeFromBootstrap,
   resetCurrentPlanningStateForFreshRun,
   seedDiscoverBootstrapFromArchivedRun,
 } from '../run-bootstrap';
+import {
+  buildSessionContinuationAdvice,
+  findLatestContextTransferArtifact,
+  renderSessionContinuationMarkdown,
+} from '../session-continuation-advice';
 import {
   allocateFreshRunWorkspace,
   cleanupRetiredRunWorkspace,
@@ -125,6 +136,12 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     predecessorArtifacts = seedDiscoverBootstrapFromArchivedRun(repositoryRoot, archivedLedger.run_id);
   }
 
+  const seededFromArchivedRun = predecessorArtifacts.some(
+    (artifact) =>
+      artifact.path === discoverBootstrapJsonPath()
+      || artifact.path === discoverBootstrapMarkdownPath(),
+  );
+
   const ledger = existingLedger && existingLedger.current_stage === 'discover'
     ? existingLedger
     : (() => {
@@ -137,6 +154,20 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     })();
   const at = ctx.clock();
   const manifest = CANONICAL_MANIFEST.discover;
+  const contextTransferArtifactPath = seededFromArchivedRun
+    ? findLatestContextTransferArtifact(repositoryRoot)
+    : null;
+  const continuationAdvice = seededFromArchivedRun
+    ? buildSessionContinuationAdvice({
+        runId: ledger.run_id,
+        boundaryKind: 'fresh_run_phase',
+        continuationMode: ledger.continuation_mode,
+        hostCompactSupported: false,
+        contextTransferArtifactPath,
+        recommendedNextCommand: '/frame',
+        generatedAt: at,
+      })
+    : null;
   const requestPayload = {
     adapter: 'pm',
     stage: 'discover',
@@ -220,10 +251,19 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     const normalized = normalizePmDiscover(result);
     const status = buildStatus(ledger, at, 'completed', 'ready', true, predecessorArtifacts, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
+    const continuationAdviceArtifacts = continuationAdvice
+      ? [
+          artifactPointerFor(discoverSessionContinuationAdvicePath()),
+          artifactPointerFor(discoverSessionContinuationMarkdownPath()),
+        ]
+      : [];
     next.artifact_index = {
       ...next.artifact_index,
       ...Object.fromEntries(
         predecessorArtifacts.map((artifact) => [artifact.path, artifact]),
+      ),
+      ...Object.fromEntries(
+        continuationAdviceArtifacts.map((artifact) => [artifact.path, artifact]),
       ),
       'docs/product/idea-brief.md': artifactPointerFor('docs/product/idea-brief.md'),
       [stageStatusPath('discover')]: artifactPointerFor(stageStatusPath('discover')),
@@ -233,7 +273,21 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       cwd: repositoryRoot,
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
-      canonicalWrites: normalized.canonicalWrites,
+      canonicalWrites: [
+        ...normalized.canonicalWrites,
+        ...(continuationAdvice
+          ? [
+              {
+                path: discoverSessionContinuationAdvicePath(),
+                content: JSON.stringify(continuationAdvice, null, 2) + '\n',
+              },
+              {
+                path: discoverSessionContinuationMarkdownPath(),
+                content: renderSessionContinuationMarkdown(continuationAdvice),
+              },
+            ]
+          : []),
+      ],
       traceWrites: buildPmTraceabilityPayloads(
         'discover',
         ledger.run_id,

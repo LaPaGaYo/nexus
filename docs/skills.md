@@ -72,6 +72,13 @@ The canonical discovery command. This is the Nexus-owned front door for vague id
 - Canonical outputs: `docs/product/idea-brief.md` and `.planning/current/discover/status.json`.
 - Legacy compatibility alias: `/office-hours`.
 
+Fresh-run discover may emit session continuation advice at phase boundaries.
+That advice keeps lifecycle legality separate from session-quality guidance:
+Nexus can continue here even when compaction or a fresh session is
+recommended. The normalized options are `continue_here`,
+`compact_then_continue`, and `fresh_session_continue`. `/continue` remains the
+canonical fresh-session resume path.
+
 ## `/frame`
 
 The canonical framing command. This is where Nexus converts discovery into scoped product intent and success criteria.
@@ -164,6 +171,9 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/careful`, `/freeze`, `/guard`, `/unfreeze` | Safety and edit-boundary controls. |
 | `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. |
 | `/nexus-upgrade` | Upgrade Nexus itself through the supported release-based update flow. |
+
+Governed runs may publish canonical learnings at `/closeout`.
+`/learn` surfaces both operational JSONL learnings and canonical run learnings when available.
 
 ## Historical Lineage Note
 

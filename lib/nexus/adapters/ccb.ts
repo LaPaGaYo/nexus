@@ -21,7 +21,7 @@ import {
 } from './prompt-contracts';
 import { createBuildStagePack, createHandoffStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
 import { resolveRepositoryRoot } from '../workspace-substrate';
-import type { ActualRouteRecord, ConflictRecord } from '../types';
+import type { ActualRouteRecord, ConflictRecord, LearningCandidate } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter, NexusAdapterContext } from './types';
 
 export interface CcbResolveRouteRaw {
@@ -56,6 +56,7 @@ export interface CcbExecuteGeneratorRaw {
 export interface CcbExecuteAuditRaw {
   markdown: string;
   receipt: string;
+  learning_candidates?: LearningCandidate[];
   dispatch_command?: string;
   exit_code?: number;
   stdout?: string;
@@ -67,6 +68,7 @@ export interface CcbExecuteQaRaw {
   report_markdown: string;
   ready: boolean;
   findings: string[];
+  learning_candidates?: LearningCandidate[];
   receipt: string;
   dispatch_command?: string;
   exit_code?: number;
@@ -451,6 +453,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
     ready?: unknown;
     findings?: unknown;
     report_markdown?: unknown;
+    learning_candidates?: unknown;
   };
 
   try {
@@ -458,6 +461,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
       ready?: unknown;
       findings?: unknown;
       report_markdown?: unknown;
+      learning_candidates?: unknown;
     };
   } catch (error) {
     throw new Error(`Malformed QA response: ${error instanceof Error ? error.message : String(error)}`);
@@ -470,10 +474,48 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
     throw new Error('Malformed QA response: expected JSON with ready, findings, and report_markdown');
   }
 
+  let learningCandidates: LearningCandidate[] | undefined;
+  if (typeof parsed.learning_candidates !== 'undefined') {
+    if (!Array.isArray(parsed.learning_candidates)) {
+      throw new Error('Malformed QA response: learning_candidates must be an array when present');
+    }
+
+    learningCandidates = parsed.learning_candidates.map((candidate, index) => {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        throw new Error(`Malformed QA response: learning_candidates[${index}] must be an object`);
+      }
+
+      const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+      if (
+        typeof rawCandidate.type !== 'string'
+        || typeof rawCandidate.key !== 'string'
+        || typeof rawCandidate.insight !== 'string'
+        || typeof rawCandidate.confidence !== 'number'
+        || typeof rawCandidate.source !== 'string'
+        || !Array.isArray(rawCandidate.files)
+        || rawCandidate.files.some((file) => typeof file !== 'string')
+      ) {
+        throw new Error(`Malformed QA response: learning_candidates[${index}] must match the LearningCandidate shape`);
+      }
+
+      return {
+        type: rawCandidate.type,
+        key: rawCandidate.key,
+        insight: rawCandidate.insight,
+        confidence: rawCandidate.confidence,
+        source: rawCandidate.source,
+        files: rawCandidate.files,
+      };
+    });
+  }
+
   return {
     ready: parsed.ready,
     findings,
     report_markdown: parsed.report_markdown.trim(),
+    ...(typeof learningCandidates !== 'undefined'
+      ? { learning_candidates: learningCandidates }
+      : {}),
   };
 }
 

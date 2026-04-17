@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
@@ -9,6 +9,13 @@ import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
 import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
 import { resolveInvocation } from '../../lib/nexus/commands/index';
+import { bootstrapResumeArtifacts } from '../../lib/nexus/run-bootstrap';
+import {
+  buildSessionContinuationAdvice,
+  findLatestContextTransferArtifact,
+  renderSessionContinuationMarkdown,
+} from '../../lib/nexus/session-continuation-advice';
+import { CONTINUATION_ADVICE_OPTIONS } from '../../lib/nexus/types';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
@@ -109,6 +116,160 @@ async function runInTempGitRepo(
 }
 
 describe('nexus discover/frame PM seams', () => {
+  test('builds continuation advice for project reset runs', () => {
+    const advice = buildSessionContinuationAdvice({
+      runId: 'run-1',
+      boundaryKind: 'fresh_run_phase',
+      continuationMode: 'project_reset',
+      hostCompactSupported: false,
+      contextTransferArtifactPath: null,
+      recommendedNextCommand: '/frame',
+      generatedAt: '2026-04-16T00:00:00.000Z',
+    });
+
+    expect(advice).toEqual({
+      schema_version: 1,
+      run_id: 'run-1',
+      boundary_kind: 'fresh_run_phase',
+      continuation_mode: 'project_reset',
+      lifecycle_can_continue_here: true,
+      recommended_option: 'continue_here',
+      available_options: [...CONTINUATION_ADVICE_OPTIONS],
+      host_compact_supported: false,
+      resume_artifacts: bootstrapResumeArtifacts(),
+      recommended_next_command: '/frame',
+      summary: 'Nexus can continue in this session.',
+      generated_at: '2026-04-16T00:00:00.000Z',
+    });
+
+    expect(renderSessionContinuationMarkdown(advice)).toBe([
+      '# Session Continuation Advisory',
+      '',
+      '- Lifecycle can continue here: yes',
+      '- Recommended option: continue_here',
+      '- Recommended next command: /frame',
+      '- Host compact supported: no',
+      '',
+      '## Summary',
+      '',
+      'Nexus can continue in this session.',
+      '',
+      '## Resume Artifacts',
+      '',
+      '- .planning/current/discover/NEXT-RUN.md',
+      '- .planning/current/discover/next-run-bootstrap.json',
+      '',
+      '## Available Options',
+      '',
+      '- continue_here',
+      '- compact_then_continue',
+      '- fresh_session_continue',
+      '',
+    ].join('\n'));
+  });
+
+  test('builds continuation advice for phase continuations', () => {
+    const advice = buildSessionContinuationAdvice({
+      runId: 'run-2',
+      boundaryKind: 'fresh_run_phase',
+      continuationMode: 'phase',
+      hostCompactSupported: true,
+      contextTransferArtifactPath: '.ccb/history/<latest>.md',
+      recommendedNextCommand: '/frame',
+      generatedAt: '2026-04-16T00:00:01.000Z',
+    });
+
+    expect(advice).toEqual({
+      schema_version: 1,
+      run_id: 'run-2',
+      boundary_kind: 'fresh_run_phase',
+      continuation_mode: 'phase',
+      lifecycle_can_continue_here: true,
+      recommended_option: 'compact_then_continue',
+      available_options: [...CONTINUATION_ADVICE_OPTIONS],
+      host_compact_supported: true,
+      resume_artifacts: [
+        ...bootstrapResumeArtifacts(),
+        '.ccb/history/<latest>.md',
+      ],
+      recommended_next_command: '/frame',
+      summary: 'Nexus can continue in this session. Because this is a new phase boundary, compacting first or resuming in a fresh session is recommended.',
+      generated_at: '2026-04-16T00:00:01.000Z',
+    });
+
+    expect(renderSessionContinuationMarkdown(advice)).toBe([
+      '# Session Continuation Advisory',
+      '',
+      '- Lifecycle can continue here: yes',
+      '- Recommended option: compact_then_continue',
+      '- Recommended next command: /frame',
+      '- Host compact supported: yes',
+      '',
+      '## Summary',
+      '',
+      'Nexus can continue in this session. Because this is a new phase boundary, compacting first or resuming in a fresh session is recommended.',
+      '',
+      '## Resume Artifacts',
+      '',
+      '- .planning/current/discover/NEXT-RUN.md',
+      '- .planning/current/discover/next-run-bootstrap.json',
+      '- .ccb/history/<latest>.md',
+      '',
+      '## Available Options',
+      '',
+      '- continue_here',
+      '- compact_then_continue',
+      '- fresh_session_continue',
+      '',
+    ].join('\n'));
+  });
+
+  test('falls back to fresh-session recommendation when phase continuation cannot compact', () => {
+    const advice = buildSessionContinuationAdvice({
+      runId: 'run-3',
+      boundaryKind: 'fresh_run_phase',
+      continuationMode: 'phase',
+      hostCompactSupported: false,
+      contextTransferArtifactPath: null,
+      recommendedNextCommand: '/frame',
+      generatedAt: '2026-04-16T00:00:02.000Z',
+    });
+
+    expect(advice).toEqual({
+      schema_version: 1,
+      run_id: 'run-3',
+      boundary_kind: 'fresh_run_phase',
+      continuation_mode: 'phase',
+      lifecycle_can_continue_here: true,
+      recommended_option: 'fresh_session_continue',
+      available_options: [...CONTINUATION_ADVICE_OPTIONS],
+      host_compact_supported: false,
+      resume_artifacts: bootstrapResumeArtifacts(),
+      recommended_next_command: '/frame',
+      summary: 'Nexus can continue in this session. Because this is a new phase boundary and host-managed compact is unavailable, a fresh session is recommended; manual compact remains an option.',
+      generated_at: '2026-04-16T00:00:02.000Z',
+    });
+  });
+
+  test('finds the latest context-transfer artifact from the repo history folders', () => {
+    const cwd = createTempGitRepo();
+
+    try {
+      const historyRoot = join(cwd, '.ccb', 'history');
+      mkdirSync(historyRoot, { recursive: true });
+      const olderPath = join(historyRoot, 'older.md');
+      const newerPath = join(historyRoot, 'newer.md');
+      writeFileSync(olderPath, '# older\n');
+      writeFileSync(newerPath, '# newer\n');
+      utimesSync(olderPath, new Date('2026-04-16T00:00:00.000Z'), new Date('2026-04-16T00:00:00.000Z'));
+      utimesSync(newerPath, new Date('2026-04-16T00:00:01.000Z'), new Date('2026-04-16T00:00:01.000Z'));
+
+      expect(findLatestContextTransferArtifact(cwd)).toBe('.ccb/history/newer.md');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   test('pm stage packs stay Nexus-owned internal units', () => {
     const discoverPack = createDiscoverStagePack();
     const framePack = createFrameStagePack();
@@ -630,6 +791,81 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('fresh discover seeds continuation advice after archived closeout', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      const completedLedger = readJson('.planning/nexus/current-run.json');
+
+      await run('discover');
+
+      const nextLedger = readJson('.planning/nexus/current-run.json');
+      const advice = readJson('.planning/current/discover/session-continuation-advice.json');
+      expect(nextLedger.run_id).not.toBe(completedLedger.run_id);
+      expect(advice).toMatchObject({
+        schema_version: 1,
+        run_id: nextLedger.run_id,
+        boundary_kind: 'fresh_run_phase',
+        continuation_mode: 'phase',
+        lifecycle_can_continue_here: true,
+        recommended_option: 'fresh_session_continue',
+        available_options: [...CONTINUATION_ADVICE_OPTIONS],
+        host_compact_supported: false,
+        resume_artifacts: bootstrapResumeArtifacts(),
+        recommended_next_command: '/frame',
+        summary: 'Nexus can continue in this session. Because this is a new phase boundary and host-managed compact is unavailable, a fresh session is recommended; manual compact remains an option.',
+      });
+      expect(advice.generated_at).toBe('2026-04-13T12:00:00.009Z');
+      expect(readFileSync(join(cwd, '.planning/current/discover/SESSION-CONTINUATION.md'), 'utf8')).toBe(
+        renderSessionContinuationMarkdown(advice),
+      );
+      expect(nextLedger).toMatchObject({
+        artifact_index: {
+          '.planning/current/discover/session-continuation-advice.json': {
+            path: '.planning/current/discover/session-continuation-advice.json',
+          },
+          '.planning/current/discover/SESSION-CONTINUATION.md': {
+            path: '.planning/current/discover/SESSION-CONTINUATION.md',
+          },
+        },
+      });
+    });
+  });
+
+  test('fresh discover includes the latest context-transfer artifact when present', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      const historyRoot = join(cwd, '.ccb', 'history');
+      mkdirSync(historyRoot, { recursive: true });
+      writeFileSync(join(historyRoot, 'phase-3.md'), '# phase 3 handoff\n');
+
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+      await run('discover');
+
+      expect(readJson('.planning/current/discover/session-continuation-advice.json')).toMatchObject({
+        resume_artifacts: [
+          ...bootstrapResumeArtifacts(),
+          '.ccb/history/phase-3.md',
+        ],
+      });
+    });
+  });
+
   test('ignores a continuation mode override when discover stays on the same run', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
       await run('discover', undefined, undefined, { continuationModeOverride: 'task' });
@@ -642,6 +878,8 @@ describe('nexus discover/frame PM seams', () => {
         requested_continuation_mode: 'task',
         effective_continuation_mode: 'task',
       });
+      expect(() => readJson('.planning/current/discover/session-continuation-advice.json')).toThrow();
+      expect(() => readFileSync(join(cwd, '.planning/current/discover/SESSION-CONTINUATION.md'), 'utf8')).toThrow();
 
       await run('discover', undefined, undefined, { continuationModeOverride: 'phase' });
 
@@ -653,6 +891,8 @@ describe('nexus discover/frame PM seams', () => {
         requested_continuation_mode: 'phase',
         effective_continuation_mode: 'task',
       });
+      expect(() => readJson('.planning/current/discover/session-continuation-advice.json')).toThrow();
+      expect(() => readFileSync(join(cwd, '.planning/current/discover/SESSION-CONTINUATION.md'), 'utf8')).toThrow();
     });
   });
 

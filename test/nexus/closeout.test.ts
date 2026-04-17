@@ -1,9 +1,20 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
+import {
+  closeoutLearningsJsonPath,
+  closeoutLearningsMarkdownPath,
+  qaLearningCandidatesPath,
+  reviewLearningCandidatesPath,
+  shipLearningCandidatesPath,
+} from '../../lib/nexus/artifacts';
 import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
+import {
+  collectRunLearnings,
+  renderRunLearningsMarkdown,
+} from '../../lib/nexus/learnings';
 import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
 import { resolveInvocation } from '../../lib/nexus/commands/index';
@@ -69,6 +80,90 @@ async function runInTempGitRepo(
 }
 
 describe('nexus closeout', () => {
+  test('collectRunLearnings dedupes by key and type with latest stage winner', () => {
+    const record = collectRunLearnings({
+      runId: 'run-1',
+      generatedAt: '2026-04-16T00:00:00.000Z',
+      candidates: [
+        {
+          path: '.planning/current/review/learning-candidates.json',
+          stage: 'review',
+          candidates: [
+            {
+              type: 'pitfall',
+              key: 'same-key',
+              insight: 'old',
+              confidence: 6,
+              source: 'observed',
+              files: [],
+            },
+          ],
+        },
+        {
+          path: '.planning/current/qa/learning-candidates.json',
+          stage: 'qa',
+          candidates: [
+            {
+              type: 'pitfall',
+              key: 'same-key',
+              insight: 'new',
+              confidence: 8,
+              source: 'observed',
+              files: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(record.learnings).toEqual([
+      {
+        type: 'pitfall',
+        key: 'same-key',
+        insight: 'new',
+        confidence: 8,
+        source: 'observed',
+        origin_stage: 'qa',
+        files: [],
+      },
+    ]);
+  });
+
+  test('renderRunLearningsMarkdown groups learnings by type', () => {
+    const markdown = renderRunLearningsMarkdown({
+      schema_version: 1,
+      run_id: 'run-1',
+      generated_at: '2026-04-16T00:00:00.000Z',
+      source_candidates: ['.planning/current/review/learning-candidates.json'],
+      learnings: [
+        {
+          type: 'pattern',
+          key: 'lock-owner-mutations',
+          insight: 'Use database serialization for concurrent owner changes.',
+          confidence: 8,
+          source: 'observed',
+          origin_stage: 'review',
+          files: ['apps/web/src/server/workspaces/service.ts'],
+        },
+        {
+          type: 'tool',
+          key: 'prefer-bun-test-for-local-iteration',
+          insight: 'Run targeted Bun tests during iteration to keep feedback tight.',
+          confidence: 7,
+          source: 'inferred',
+          origin_stage: 'review',
+          files: [],
+        },
+      ],
+    });
+
+    expect(markdown).toContain('# Run Learnings');
+    expect(markdown).toContain('## Patterns');
+    expect(markdown).toContain('## Tools');
+    expect(markdown).toContain('lock-owner-mutations');
+    expect(markdown).toContain('prefer-bun-test-for-local-iteration');
+  });
+
   test('closeout marks the run workspace retired_pending_cleanup', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
       await run('discover');
@@ -131,6 +226,413 @@ describe('nexus closeout', () => {
       expect(readFileSync(join(cwd, '.planning/audits/archive', closeout.run_id, 'meta.json'), 'utf8')).toContain(
         closeout.run_id,
       );
+    });
+  });
+
+  test('aggregates review, qa, and ship learning candidates into closeout learnings', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const sharedCandidateReview = {
+        type: 'pattern' as const,
+        key: 'shared-learning',
+        insight: 'Review observes the pattern first.',
+        confidence: 6,
+        source: 'observed' as const,
+        files: ['review.ts'],
+      };
+      const sharedCandidateQa = {
+        type: 'pattern' as const,
+        key: 'shared-learning',
+        insight: 'QA confirms the pattern.',
+        confidence: 7,
+        source: 'observed' as const,
+        files: ['qa.ts'],
+      };
+      const sharedCandidateShip = {
+        type: 'pattern' as const,
+        key: 'shared-learning',
+        insight: 'Ship wins the final tie-breaker.',
+        confidence: 9,
+        source: 'observed' as const,
+        files: ['ship.ts'],
+      };
+      const reviewOnlyCandidate = {
+        type: 'tool' as const,
+        key: 'review-only',
+        insight: 'Review adds an extra tool lesson.',
+        confidence: 5,
+        source: 'inferred' as const,
+        files: ['review.ts'],
+      };
+
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n',
+              receipt: 'codex-review-receipt',
+              learning_candidates: [sharedCandidateReview, reviewOnlyCandidate],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      const qaAdapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              ready: true,
+              findings: [],
+              report_markdown: '# QA Report\n',
+              receipt: 'qa-receipt',
+              learning_candidates: [sharedCandidateQa],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/qa/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      const shipAdapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate\n\nResult: pass\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+              learning_candidates: [sharedCandidateShip],
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', reviewAdapters);
+      await run('qa', qaAdapters);
+      await run('ship', shipAdapters);
+      await run('closeout');
+
+      const closeoutStatus = await run.readJson('.planning/current/closeout/status.json');
+      const closeoutLearnings = await run.readJson(closeoutLearningsJsonPath());
+      const closeoutMarkdown = await run.readFile(closeoutLearningsMarkdownPath());
+
+      expect(closeoutStatus).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        learnings_recorded: true,
+      });
+      expect(closeoutStatus.outputs).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: closeoutLearningsMarkdownPath() }),
+        expect.objectContaining({ path: closeoutLearningsJsonPath() }),
+      ]));
+      expect(closeoutStatus.inputs).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: reviewLearningCandidatesPath() }),
+        expect.objectContaining({ path: qaLearningCandidatesPath() }),
+        expect.objectContaining({ path: shipLearningCandidatesPath() }),
+      ]));
+      expect(closeoutLearnings).toMatchObject({
+        run_id: closeoutStatus.run_id,
+        source_candidates: [
+          reviewLearningCandidatesPath(),
+          qaLearningCandidatesPath(),
+          shipLearningCandidatesPath(),
+        ],
+        learnings: [
+          {
+            type: 'pattern',
+            key: 'shared-learning',
+            origin_stage: 'ship',
+            insight: 'Ship wins the final tie-breaker.',
+          },
+          {
+            type: 'tool',
+            key: 'review-only',
+            origin_stage: 'review',
+          },
+        ],
+      });
+      expect(closeoutMarkdown).toContain('# Run Learnings');
+      expect(closeoutMarkdown).toContain('review-only');
+      expect(closeoutMarkdown).toContain('shared-learning');
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        artifact_index: expect.objectContaining({
+          [closeoutLearningsMarkdownPath()]: {
+            kind: 'markdown',
+            path: closeoutLearningsMarkdownPath(),
+          },
+          [closeoutLearningsJsonPath()]: {
+            kind: 'json',
+            path: closeoutLearningsJsonPath(),
+          },
+        }),
+      });
+      expect(existsSync(join(cwd, closeoutLearningsMarkdownPath()))).toBe(true);
+      expect(existsSync(join(cwd, closeoutLearningsJsonPath()))).toBe(true);
+
+      const archivedRunId = closeoutStatus.run_id;
+      await run('discover');
+
+      expect(await run.readFile(
+        join('.planning/archive/runs', archivedRunId, 'closeout', 'LEARNINGS.md'),
+      )).toContain('shared-learning');
+      expect(await run.readJson(
+        join('.planning/archive/runs', archivedRunId, 'closeout', 'learnings.json'),
+      )).toMatchObject({
+        run_id: archivedRunId,
+        learnings: expect.arrayContaining([
+          expect.objectContaining({ key: 'shared-learning', origin_stage: 'ship' }),
+        ]),
+      });
+    });
+  });
+
+  test('removes stale closeout learning artifacts when no candidates remain', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+
+      const staleMarkdownPath = join(cwd, closeoutLearningsMarkdownPath());
+      const staleJsonPath = join(cwd, closeoutLearningsJsonPath());
+      mkdirSync(join(cwd, '.planning', 'current', 'closeout'), { recursive: true });
+      writeFileSync(staleMarkdownPath, '# stale\n');
+      writeFileSync(staleJsonPath, '{"stale":true}\n');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+        artifact_index: Record<string, { kind: string; path: string }>;
+      };
+      ledger.artifact_index[closeoutLearningsMarkdownPath()] = {
+        kind: 'markdown',
+        path: closeoutLearningsMarkdownPath(),
+      };
+      ledger.artifact_index[closeoutLearningsJsonPath()] = {
+        kind: 'json',
+        path: closeoutLearningsJsonPath(),
+      };
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      await run('closeout');
+
+      const closeoutStatus = await run.readJson('.planning/current/closeout/status.json');
+      const updatedLedger = await run.readJson('.planning/nexus/current-run.json');
+
+      expect(closeoutStatus).toMatchObject({
+        stage: 'closeout',
+        state: 'completed',
+        learnings_recorded: false,
+      });
+      expect(closeoutStatus.outputs).toEqual(expect.not.arrayContaining([
+        expect.objectContaining({ path: closeoutLearningsMarkdownPath() }),
+        expect.objectContaining({ path: closeoutLearningsJsonPath() }),
+      ]));
+      expect(updatedLedger.artifact_index[closeoutLearningsMarkdownPath()]).toBeUndefined();
+      expect(updatedLedger.artifact_index[closeoutLearningsJsonPath()]).toBeUndefined();
+      expect(existsSync(staleMarkdownPath)).toBe(false);
+      expect(existsSync(staleJsonPath)).toBe(false);
+    });
+  });
+
+  test('ignores malformed learning candidates when building closeout learnings', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      mkdirSync(join(cwd, '.planning', 'current', 'review'), { recursive: true });
+      writeFileSync(
+        join(cwd, reviewLearningCandidatesPath()),
+        JSON.stringify(
+          {
+            schema_version: 1,
+            run_id: (await run.readJson('.planning/nexus/current-run.json')).run_id,
+            stage: 'review',
+            generated_at: '2026-04-16T00:00:00.000Z',
+            candidates: [
+              {
+                type: 'pattern',
+                key: 'valid-learning',
+                insight: 'Only valid candidates should survive.',
+                confidence: 8,
+                source: 'observed',
+                files: ['review.ts'],
+              },
+              {
+                type: 'pattern',
+                key: '',
+                insight: 42,
+                confidence: 'high',
+                source: 'observed',
+                files: [null],
+              },
+            ],
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      await run('closeout');
+
+      expect(await run.readJson(closeoutLearningsJsonPath())).toMatchObject({
+        learnings: [
+          expect.objectContaining({
+            key: 'valid-learning',
+            origin_stage: 'review',
+          }),
+        ],
+      });
+      expect(await run.readFile(closeoutLearningsMarkdownPath())).toContain('valid-learning');
+      expect(await run.readFile(closeoutLearningsMarkdownPath())).not.toContain('undefined');
+    });
+  });
+
+  test('discover archive replaces stale archived closeout learnings when current closeout has none', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('closeout');
+
+      const runId = (await run.readJson('.planning/current/closeout/status.json')).run_id as string;
+      const archivedCloseoutRoot = join(cwd, '.planning/archive/runs', runId, 'closeout');
+      mkdirSync(archivedCloseoutRoot, { recursive: true });
+      writeFileSync(join(archivedCloseoutRoot, 'LEARNINGS.md'), '# stale archived learnings\n');
+      writeFileSync(join(archivedCloseoutRoot, 'learnings.json'), '{"stale":true}\n');
+
+      await run('discover');
+
+      expect(existsSync(join(archivedCloseoutRoot, 'LEARNINGS.md'))).toBe(false);
+      expect(existsSync(join(archivedCloseoutRoot, 'learnings.json'))).toBe(false);
+      expect(existsSync(join(archivedCloseoutRoot, 'status.json'))).toBe(true);
+    });
+  });
+
+  test('clears stale closeout learnings when the GSD closeout adapter blocks', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const staleMarkdownPath = join(cwd, closeoutLearningsMarkdownPath());
+      const staleJsonPath = join(cwd, closeoutLearningsJsonPath());
+      mkdirSync(join(cwd, '.planning', 'current', 'closeout'), { recursive: true });
+      writeFileSync(staleMarkdownPath, '# stale\n');
+      writeFileSync(staleJsonPath, '{"stale":true}\n');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+        artifact_index: Record<string, { kind: string; path: string }>;
+      };
+      ledger.artifact_index[closeoutLearningsMarkdownPath()] = {
+        kind: 'markdown',
+        path: closeoutLearningsMarkdownPath(),
+      };
+      ledger.artifact_index[closeoutLearningsJsonPath()] = {
+        kind: 'json',
+        path: closeoutLearningsJsonPath(),
+      };
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      const adapters = makeFakeAdapters({
+        gsd: {
+          closeout: async () => ({
+            adapter_id: 'gsd',
+            outcome: 'blocked',
+            raw_output: {
+              closeout_record: '# Closeout Record\n\nResult: blocked\n',
+              archive_required: true,
+              merge_ready: false,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['Closeout blocked'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('closeout', adapters)).rejects.toThrow('GSD closeout blocked');
+      expect(existsSync(staleMarkdownPath)).toBe(false);
+      expect(existsSync(staleJsonPath)).toBe(false);
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        stage: 'closeout',
+        state: 'blocked',
+        learnings_recorded: false,
+      });
+      const updatedLedger = await run.readJson('.planning/nexus/current-run.json');
+      expect(updatedLedger.artifact_index[closeoutLearningsMarkdownPath()]).toBeUndefined();
+      expect(updatedLedger.artifact_index[closeoutLearningsJsonPath()]).toBeUndefined();
     });
   });
 
