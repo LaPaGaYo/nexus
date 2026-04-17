@@ -40,6 +40,7 @@ import type {
 import type { CommandContext, CommandResult } from './index';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
+const PLAN_STATUS_PATH = stageStatusPath('plan');
 
 function nextLedger(
   ledger: RunLedger,
@@ -97,6 +98,7 @@ function blockedReviewStatus(
   startedAt: string,
   inputs: ArtifactPointer[],
   outputs: ArtifactPointer[],
+  design: Pick<StageStatus, 'design_impact' | 'design_contract_required' | 'design_contract_path' | 'design_verified'>,
   requestedRoute: StageStatus['requested_route'],
   actualRoute: StageStatus['actual_route'],
   reviewScope: StageStatus['review_scope'],
@@ -112,6 +114,7 @@ function blockedReviewStatus(
     ready: false,
     inputs,
     outputs,
+    ...design,
     started_at: startedAt,
     completed_at: startedAt,
     errors: [error],
@@ -133,11 +136,35 @@ function assertNonEmptyMarkdown(markdown: string, label: string): void {
   }
 }
 
+function planDesignContractPointer(planStatus: StageStatus | null | undefined): ArtifactPointer | null {
+  return planStatus?.design_contract_path ? artifactPointerFor(planStatus.design_contract_path) : null;
+}
+
+function reviewDesignFields(
+  planStatus: StageStatus | null | undefined,
+  buildStatus: StageStatus | null | undefined,
+): Pick<StageStatus, 'design_impact' | 'design_contract_required' | 'design_contract_path' | 'design_verified'> {
+  const designImpact = planStatus?.design_impact ?? buildStatus?.design_impact;
+  const designContractRequired = planStatus?.design_contract_required ?? buildStatus?.design_contract_required;
+  const designContractPath = planStatus?.design_contract_path ?? buildStatus?.design_contract_path ?? null;
+  const designVerified = designImpact === 'none'
+    ? null
+    : (buildStatus?.design_verified ?? false);
+
+  return {
+    design_impact: designImpact,
+    design_contract_required: designContractRequired,
+    design_contract_path: designContractPath,
+    design_verified: designVerified,
+  };
+}
+
 export async function runReviewWithWriteAtomicFile(
   ctx: CommandContext,
   writeAtomicFile?: AtomicWriteFile,
 ): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
+  const planStatus = readStageStatus(PLAN_STATUS_PATH, ctx.cwd);
   const buildStatusPath = stageStatusPath('build');
   const reviewStatusPath = stageStatusPath('review');
   const buildStatus = readStageStatus(buildStatusPath, ctx.cwd);
@@ -147,6 +174,9 @@ export async function runReviewWithWriteAtomicFile(
     throw new Error('Build must be completed before review');
   }
 
+  if (planStatus) {
+    assertSameRunId(ledger.run_id, planStatus.run_id, 'plan status');
+  }
   assertSameRunId(ledger.run_id, buildStatus.run_id, 'build status');
   assertLegalTransition(ledger.current_stage, 'review');
 
@@ -174,9 +204,11 @@ export async function runReviewWithWriteAtomicFile(
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.review;
+  const designContractPointer = planDesignContractPointer(planStatus);
   const predecessorArtifacts = dedupeArtifactPointers([
     artifactPointerFor(BUILD_STATUS_PATH),
     ...executionContractArtifacts(),
+    ...(designContractPointer ? [designContractPointer] : []),
   ]);
   const workspace = resolveExecutionWorkspace(
     ctx.cwd,
@@ -192,6 +224,7 @@ export async function runReviewWithWriteAtomicFile(
   const commandHistoryVia = reviewCommandHistoryVia(ledger, ctx.via);
   const requestedRoute = buildStatus.requested_route;
   const actualRoute = buildStatus.actual_route;
+  const designFields = reviewDesignFields(planStatus, buildStatus);
   const inheritedReviewScope = buildStatus.review_scope
     ? normalizeReviewScopeRecord(buildStatus.review_scope)
     : (buildStatus.inputs.some((artifact) => artifact.path === reviewStatusPath)
@@ -203,6 +236,72 @@ export async function runReviewWithWriteAtomicFile(
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
   const metaPath = '.planning/audits/current/meta.json';
   const currentAuditPaths = currentAuditArtifactPaths();
+
+  if (planStatus?.design_impact === 'material') {
+    const designContractPath = designContractPointer?.path ?? null;
+    const buildRecordedDesignContract = designContractPath
+      ? buildStatus.inputs.some((artifact) => artifact.path === designContractPath)
+      : false;
+
+    if (!designContractPath || !buildRecordedDesignContract) {
+      const message = !designContractPath
+        ? 'Material design-bearing run is missing required design contract provenance'
+        : 'Build inputs are missing required design contract provenance for a material design-bearing run';
+      const status = blockedReviewStatus(
+        ledgerWithExecution,
+        startedAt,
+        predecessorArtifacts,
+        [artifactPointerFor(reviewStatusPath)],
+        designFields,
+        requestedRoute,
+        actualRoute,
+        inheritedReviewScope,
+        message,
+      );
+      const conflict: ConflictRecord = {
+        stage: 'review',
+        adapter: 'superpowers',
+        kind: 'backend_conflict',
+        message,
+        canonical_paths: [reviewStatusPath],
+        trace_paths: [
+          '.planning/current/review/adapter-request.json',
+          '.planning/current/review/adapter-output.json',
+          '.planning/current/review/normalization.json',
+        ],
+      };
+
+      await applyNormalizationPlan({
+        cwd: ctx.cwd,
+        stage: 'review',
+        statusPath: reviewStatusPath,
+        canonicalWrites: [],
+        removeWrites: currentAuditPaths,
+        traceWrites: buildReviewTraceabilityPayloads(
+          ledger.run_id,
+          [buildStatusPath],
+          requestedRoute,
+          inheritedReviewScope,
+          workspace,
+          null,
+          null,
+          null,
+          {
+            outcome: 'blocked',
+            error: message,
+            status: { state: status.state, decision: status.decision, ready: status.ready },
+          },
+        ),
+        status,
+        mirrorWorkspace: workspace,
+        ledger: clearCurrentAuditArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, commandHistoryVia, ['review'])),
+        conflicts: [conflict],
+        writeAtomicFile,
+      });
+
+      throw new Error(message);
+    }
+  }
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
 
   const disciplineResult = await ctx.adapters.superpowers.review_discipline({
@@ -229,6 +328,7 @@ export async function runReviewWithWriteAtomicFile(
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
+      designFields,
       requestedRoute,
       actualRoute,
       inheritedReviewScope,
@@ -294,6 +394,7 @@ export async function runReviewWithWriteAtomicFile(
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
+      designFields,
       requestedRoute,
       actualRoute,
       inheritedReviewScope,
@@ -384,6 +485,7 @@ export async function runReviewWithWriteAtomicFile(
         startedAt,
         predecessorArtifacts,
         [artifactPointerFor(reviewStatusPath)],
+        designFields,
         requestedRoute,
         actualRoute,
         inheritedReviewScope,
@@ -455,6 +557,7 @@ export async function runReviewWithWriteAtomicFile(
       startedAt,
       predecessorArtifacts,
       [artifactPointerFor(reviewStatusPath)],
+      designFields,
       requestedRoute,
       actualRoute,
       inheritedReviewScope,
@@ -587,6 +690,7 @@ export async function runReviewWithWriteAtomicFile(
     ready: gateDecision === 'pass',
     inputs: predecessorArtifacts,
     outputs,
+    ...designFields,
     started_at: startedAt,
     completed_at: startedAt,
     errors: gateDecision === 'pass' ? [] : ['Review gate failed; fix cycle required before QA, ship, or closeout'],

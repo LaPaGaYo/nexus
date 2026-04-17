@@ -1,6 +1,6 @@
 {
   "name": "nexus",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "description": "Nexus — single-package AI engineering operating system for governed discovery, planning, build, review, QA, ship, and closeout.",
   "license": "MIT",
   "type": "module",
@@ -12,7 +12,9 @@
   "dev:design": "bun run design/src/cli.ts",
   "gen:skill-docs": "bun run scripts/gen-skill-docs.ts",
   "nexus": "bun run bin/nexus.ts",
+  "ledger:doctor": "./bin/nexus-ledger-doctor",
   "maintainer:check": "./bin/nexus-maintainer-check",
+  "release:publish": "./bin/nexus-release-publish",
   "upstream:check": "bun run scripts/upstream-check.ts",
     "upstream:refresh": "bun run scripts/upstream-refresh.ts",
     "test:nexus": "bun test test/nexus/",

@@ -1,8 +1,9 @@
 import type { NexusAdapters } from '../adapters/types';
+import type { NexusCommandRunner } from '../command-runner';
 import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
 import type { ExecutionSelection } from '../execution-topology';
 import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
-import type { CanonicalCommandId, StageStatus } from '../types';
+import type { CanonicalCommandId, ContinuationMode, StageStatus } from '../types';
 import { resolveRepositoryRoot } from '../workspace-substrate';
 import { runBuild } from './build';
 import { runCloseout } from './closeout';
@@ -20,6 +21,8 @@ export interface CommandContext {
   via: string | null;
   adapters: NexusAdapters;
   execution: ExecutionSelection;
+  continuation_mode_override?: ContinuationMode | null;
+  run_command?: NexusCommandRunner;
 }
 
 export interface CommandResult {

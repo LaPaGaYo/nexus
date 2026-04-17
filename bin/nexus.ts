@@ -2,23 +2,19 @@
 import { getRuntimeNexusAdapters } from '../lib/nexus/adapters/registry';
 import { resolveInvocation } from '../lib/nexus/commands/index';
 import { defaultExecutionSelection } from '../lib/nexus/execution-topology';
+import { resolveRuntimeInvocation } from '../lib/nexus/runtime-invocation';
 import { resolveRuntimeCwd } from '../lib/nexus/runtime-cwd';
 
-const [, , rawCommand] = process.argv;
-
-if (!rawCommand) {
-  console.error('Usage: bun run bin/nexus.ts <command>');
-  process.exit(1);
-}
-
 try {
-  const invocation = resolveInvocation(rawCommand);
+  const runtimeInvocation = resolveRuntimeInvocation(process.argv.slice(2), process.env);
+  const invocation = resolveInvocation(runtimeInvocation.command);
   const result = await invocation.handler({
     cwd: resolveRuntimeCwd(),
     clock: () => new Date().toISOString(),
     via: invocation.via,
     adapters: getRuntimeNexusAdapters(),
     execution: defaultExecutionSelection(),
+    continuation_mode_override: runtimeInvocation.continuationModeOverride,
   });
 
   console.log(JSON.stringify(result, null, 2));

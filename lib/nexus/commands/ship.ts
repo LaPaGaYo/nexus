@@ -1,10 +1,17 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { shipChecklistPath, shipReleaseGateRecordPath, stageStatusPath } from '../artifacts';
+import {
+  qaDesignVerificationPath,
+  shipChecklistPath,
+  shipPullRequestPath,
+  shipReleaseGateRecordPath,
+  stageStatusPath,
+} from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertCanonicalTailLedger, assertQaReadyForCloseout, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildShipStageTraceabilityPayloads } from '../normalizers/superpowers';
+import { resolveShipPullRequest } from '../ship-pull-request';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
@@ -16,6 +23,44 @@ function artifactPointerFor(path: string): ArtifactPointer {
   return {
     kind: path.endsWith('.json') ? 'json' : 'markdown',
     path,
+  };
+}
+
+function designBearing(designImpact: StageStatus['design_impact'] | null | undefined): boolean {
+  return (designImpact ?? 'none') !== 'none';
+}
+
+function designVerificationSummary(
+  designImpact: StageStatus['design_impact'] | null | undefined,
+  designContractPath: string | null | undefined,
+  designVerified: boolean | null | undefined,
+): string {
+  return [
+    '',
+    '## Design Verification',
+    '',
+    `- Design impact: ${designImpact ?? 'none'}`,
+    `- Design contract: ${designContractPath ?? 'none'}`,
+    `- QA design verification: ${
+      designVerified === true ? 'verified' : designVerified === false ? 'not verified' : 'not required'
+    }`,
+    `- Design verification artifact: ${designVerified === true ? qaDesignVerificationPath() : 'none'}`,
+    '',
+  ].join('\n');
+}
+
+function augmentChecklist(
+  checklist: SuperpowersShipDisciplineRaw['checklist'],
+  designImpact: StageStatus['design_impact'] | null | undefined,
+  designContractPath: string | null | undefined,
+  designVerified: boolean | null | undefined,
+): Record<string, unknown> {
+  return {
+    ...checklist,
+    design_impact: designImpact ?? 'none',
+    design_contract_path: designContractPath ?? null,
+    design_verified: designVerified,
+    design_verification_path: designVerified === true ? qaDesignVerificationPath() : null,
   };
 }
 
@@ -42,12 +87,18 @@ function blockedShipStatus(
   startedAt: string,
   inputs: ArtifactPointer[],
   error: string,
+  designImpact: StageStatus['design_impact'] | null | undefined,
+  designContractPath: string | null | undefined,
+  designVerified: boolean | null | undefined,
   state: 'blocked' | 'refused' = 'blocked',
 ): StageStatus {
   return {
     run_id: ledger.run_id,
     stage: 'ship',
     ...executionFieldsFromLedger(ledger),
+    design_impact: designImpact ?? 'none',
+    design_contract_path: designContractPath ?? null,
+    design_verified: designVerified,
     state,
     decision: state === 'refused' ? 'refused' : 'ship_recorded',
     ready: false,
@@ -65,6 +116,10 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const qaStatusPath = stageStatusPath('qa');
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
   const qaStatus = readStageStatus(qaStatusPath, ctx.cwd);
+  const designImpact = qaStatus?.design_impact ?? reviewStatus?.design_impact ?? 'none';
+  const designContractPath = qaStatus?.design_contract_path ?? reviewStatus?.design_contract_path ?? null;
+  const designIsBearing = designBearing(designImpact);
+  const designVerified = qaStatus?.design_verified ?? null;
 
   if (!ledger || !reviewStatus) {
     throw new Error('Review must be completed before ship');
@@ -90,6 +145,10 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     }
   }
 
+  if (designIsBearing && designVerified !== true) {
+    throw new Error('Design-bearing runs require QA design verification before ship');
+  }
+
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.ship;
   const workspace = resolveExecutionWorkspace(
@@ -103,6 +162,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const releaseGateRecordPath = shipReleaseGateRecordPath();
   const checklistPath = shipChecklistPath();
+  const pullRequestPath = shipPullRequestPath();
   const statusPath = stageStatusPath('ship');
   const predecessorArtifacts = [
     artifactPointerFor(reviewStatusPath),
@@ -134,6 +194,9 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       startedAt,
       predecessorArtifacts,
       message,
+      designImpact,
+      designContractPath,
+      designVerified,
       result.outcome === 'refused' ? 'refused' : 'blocked',
     );
     const conflict: ConflictRecord = {
@@ -161,7 +224,14 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         result,
         {
           outcome: result.outcome,
-          status: { state: status.state, decision: status.decision, ready: status.ready },
+          status: {
+            state: status.state,
+            decision: status.decision,
+            ready: status.ready,
+            design_impact: status.design_impact,
+            design_contract_path: status.design_contract_path,
+            design_verified: status.design_verified,
+          },
         },
       ),
       status,
@@ -181,7 +251,15 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
 
   if (!result.raw_output.release_gate_record?.trim()) {
     const message = 'Release gate record is empty';
-    const status = blockedShipStatus(ledgerWithExecution, startedAt, predecessorArtifacts, message);
+    const status = blockedShipStatus(
+      ledgerWithExecution,
+      startedAt,
+      predecessorArtifacts,
+      message,
+      designImpact,
+      designContractPath,
+      designVerified,
+    );
     const conflict: ConflictRecord = {
       stage: 'ship',
       adapter: 'superpowers',
@@ -208,7 +286,14 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         {
           outcome: 'blocked',
           error: message,
-          status: { state: status.state, decision: status.decision, ready: status.ready },
+          status: {
+            state: status.state,
+            decision: status.decision,
+            ready: status.ready,
+            design_impact: status.design_impact,
+            design_contract_path: status.design_contract_path,
+            design_verified: status.design_verified,
+          },
         },
       ),
       status,
@@ -220,11 +305,25 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     throw new Error(message);
   }
 
-  const checklist = result.raw_output.checklist;
+  const checklist = augmentChecklist(
+    result.raw_output.checklist,
+    designImpact,
+    designContractPath,
+    designVerified,
+  );
+  const releaseGateRecord = `${result.raw_output.release_gate_record.trimEnd()}${designVerificationSummary(
+    designImpact,
+    designContractPath,
+    designVerified,
+  )}`;
+  const pullRequest = await resolveShipPullRequest(ctx.cwd, result.raw_output.merge_ready, ctx.run_command);
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'ship',
     ...executionFieldsFromLedger(ledgerWithExecution),
+    design_impact: designImpact,
+    design_contract_path: designContractPath,
+    design_verified: designVerified,
     state: 'completed',
     decision: 'ship_recorded',
     ready: result.raw_output.merge_ready,
@@ -232,18 +331,21 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     outputs: [
       artifactPointerFor(releaseGateRecordPath),
       artifactPointerFor(checklistPath),
+      artifactPointerFor(pullRequestPath),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
     completed_at: startedAt,
     errors: result.raw_output.merge_ready ? [] : ['Release gate remains blocked'],
     workspace,
+    pull_request: pullRequest,
   };
   const next = nextLedger(ledgerWithExecution, previousStage, result.raw_output.merge_ready ? 'active' : 'blocked', startedAt, ctx.via);
   next.artifact_index = {
     ...next.artifact_index,
     [releaseGateRecordPath]: artifactPointerFor(releaseGateRecordPath),
     [checklistPath]: artifactPointerFor(checklistPath),
+    [pullRequestPath]: artifactPointerFor(pullRequestPath),
     [statusPath]: artifactPointerFor(statusPath),
   };
 
@@ -252,20 +354,30 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     stage: 'ship',
     statusPath,
     canonicalWrites: [
-      { path: releaseGateRecordPath, content: result.raw_output.release_gate_record },
+      { path: releaseGateRecordPath, content: `${releaseGateRecord}\n` },
       { path: checklistPath, content: JSON.stringify(checklist, null, 2) + '\n' },
+      { path: pullRequestPath, content: JSON.stringify(pullRequest, null, 2) + '\n' },
     ],
     traceWrites: buildShipStageTraceabilityPayloads(
       ledger.run_id,
       predecessorArtifacts.map((artifact) => artifact.path),
       workspace,
       result,
-      {
-        outcome: 'success',
-        canonical_paths: [releaseGateRecordPath, checklistPath],
-        status: { state: status.state, decision: status.decision, ready: status.ready },
-      },
-    ),
+        {
+          outcome: 'success',
+          canonical_paths: [releaseGateRecordPath, checklistPath, pullRequestPath],
+          status: {
+            state: status.state,
+            decision: status.decision,
+            ready: status.ready,
+            design_impact: status.design_impact,
+            design_contract_path: status.design_contract_path,
+            design_verified: status.design_verified,
+          },
+          pull_request: pullRequest,
+          checklist,
+        },
+      ),
     status,
     mirrorWorkspace: workspace,
     ledger: next,

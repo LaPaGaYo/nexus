@@ -83,6 +83,7 @@ function buildStatus(
 export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   const repositoryRoot = resolveRepositoryRoot(ctx.cwd);
   const existingLedger = readLedger(repositoryRoot);
+  const requestedContinuationMode = ctx.continuation_mode_override ?? null;
   let predecessorArtifacts: ArtifactPointer[] = [];
   if (
     existingLedger
@@ -129,7 +130,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     : (() => {
       const freshRunId = makeRunId(ctx.clock);
       return startLedger(freshRunId, 'discover', ctx.execution, {
-        continuationMode: resolveContinuationModeFromBootstrap(repositoryRoot),
+        continuationMode: requestedContinuationMode ?? resolveContinuationModeFromBootstrap(repositoryRoot),
         workspace: allocateFreshRunWorkspace(repositoryRoot, freshRunId),
         sessionRoot: resolveSessionRootRecord(repositoryRoot),
       });
@@ -140,6 +141,8 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     adapter: 'pm',
     stage: 'discover',
     continuation_mode: ledger.continuation_mode,
+    requested_continuation_mode: requestedContinuationMode,
+    effective_continuation_mode: ledger.continuation_mode,
     contract_outputs: manifest.durable_outputs,
   };
   const result = await ctx.adapters.pm.discover({

@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { qaReportPath, stageStatusPath } from '../artifacts';
+import { qaDesignVerificationPath, qaReportPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertCanonicalTailLedger, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
@@ -22,6 +22,24 @@ function artifactPointerFor(path: string): ArtifactPointer {
     kind: path.endsWith('.json') ? 'json' : 'markdown',
     path,
   };
+}
+
+function designBearing(designImpact: StageStatus['design_impact'] | null | undefined): boolean {
+  return (designImpact ?? 'none') !== 'none';
+}
+
+function buildDesignVerificationMarkdown(
+  designImpact: StageStatus['design_impact'] | null | undefined,
+  designContractPath: string | null | undefined,
+  ready: boolean,
+): string {
+  return [
+    '# Design Verification',
+    '',
+    `- Design impact: ${designImpact ?? 'none'}`,
+    `- Design contract: ${designContractPath ?? 'none'}`,
+    `- Result: ${ready ? 'verified' : 'not verified'}`,
+  ].join('\n');
 }
 
 function nextLedger(
@@ -47,6 +65,8 @@ function blockedQaStatus(
   inputs: ArtifactPointer[],
   requestedRoute: StageStatus['requested_route'],
   actualRoute: StageStatus['actual_route'],
+  designImpact: StageStatus['design_impact'] | null | undefined,
+  designContractPath: string | null | undefined,
   error: string,
   state: 'blocked' | 'refused' = 'blocked',
 ): StageStatus {
@@ -54,6 +74,9 @@ function blockedQaStatus(
     run_id: ledger.run_id,
     stage: 'qa',
     ...executionFieldsFromLedger(ledger, actualRoute?.route ?? null),
+    design_impact: designImpact ?? 'none',
+    design_contract_path: designContractPath ?? null,
+    design_verified: designBearing(designImpact) ? false : null,
     state,
     decision: state === 'refused' ? 'refused' : 'qa_recorded',
     ready: false,
@@ -74,6 +97,9 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const reviewStatusPath = stageStatusPath('review');
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
+  const designImpact = reviewStatus?.design_impact ?? 'none';
+  const designContractPath = reviewStatus?.design_contract_path ?? null;
+  const designIsBearing = designBearing(designImpact);
 
   if (!ledger || !reviewStatus) {
     throw new Error('Review must be completed before QA');
@@ -126,6 +152,8 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       predecessorArtifacts,
       requestedRoute,
       result.actual_route,
+      designImpact,
+      designContractPath,
       message,
       result.outcome === 'refused' ? 'refused' : 'blocked',
     );
@@ -155,7 +183,14 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         result,
         {
           outcome: result.outcome,
-          status: { state: status.state, decision: status.decision, ready: status.ready },
+          status: {
+            state: status.state,
+            decision: status.decision,
+            ready: status.ready,
+            design_impact: status.design_impact,
+            design_contract_path: status.design_contract_path,
+            design_verified: status.design_verified,
+          },
         },
       ),
       status,
@@ -175,6 +210,8 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       predecessorArtifacts,
       requestedRoute,
       result.actual_route,
+      designImpact,
+      designContractPath,
       message,
     );
     const conflict: ConflictRecord = {
@@ -204,7 +241,14 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         {
           outcome: 'blocked',
           error: message,
-          status: { state: status.state, decision: status.decision, ready: status.ready },
+          status: {
+            state: status.state,
+            decision: status.decision,
+            ready: status.ready,
+            design_impact: status.design_impact,
+            design_contract_path: status.design_contract_path,
+            design_verified: status.design_verified,
+          },
         },
       ),
       status,
@@ -225,6 +269,8 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       predecessorArtifacts,
       requestedRoute,
       result.actual_route,
+      designImpact,
+      designContractPath,
       message,
     );
     const conflict: ConflictRecord = {
@@ -254,7 +300,14 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         {
           outcome: 'blocked',
           error: message,
-          status: { state: status.state, decision: status.decision, ready: status.ready },
+          status: {
+            state: status.state,
+            decision: status.decision,
+            ready: status.ready,
+            design_impact: status.design_impact,
+            design_contract_path: status.design_contract_path,
+            design_verified: status.design_verified,
+          },
         },
       ),
       status,
@@ -270,15 +323,26 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const findings = result.raw_output.findings ?? [];
   const verificationCount = ready ? findings.length : 0;
   const defectCount = ready ? 0 : findings.length;
+  const designVerificationPath = qaDesignVerificationPath();
+  const designVerificationMarkdown = designIsBearing
+    ? buildDesignVerificationMarkdown(designImpact, designContractPath, ready)
+    : null;
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'qa',
     ...executionFieldsFromLedger(ledgerWithExecution, result.actual_route?.route ?? null),
+    design_impact: designImpact,
+    design_contract_path: designContractPath,
+    design_verified: designIsBearing ? ready : null,
     state: 'completed',
     decision: 'qa_recorded',
     ready,
     inputs: predecessorArtifacts,
-    outputs: [artifactPointerFor(reportPath), artifactPointerFor(statusPath)],
+    outputs: [
+      artifactPointerFor(reportPath),
+      ...(designVerificationMarkdown ? [artifactPointerFor(designVerificationPath)] : []),
+      artifactPointerFor(statusPath),
+    ],
     started_at: startedAt,
     completed_at: startedAt,
     errors: ready ? [] : findings,
@@ -294,6 +358,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     [reportPath]: artifactPointerFor(reportPath),
     [statusPath]: artifactPointerFor(statusPath),
   };
+  if (designVerificationMarkdown) {
+    next.artifact_index[designVerificationPath] = artifactPointerFor(designVerificationPath);
+  } else {
+    delete next.artifact_index[designVerificationPath];
+  }
 
   await applyNormalizationPlan({
     cwd: ctx.cwd,
@@ -301,7 +370,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     statusPath,
     canonicalWrites: [
       { path: reportPath, content: `${reportMarkdown}\n` },
+      ...(designVerificationMarkdown
+        ? [{ path: designVerificationPath, content: `${designVerificationMarkdown}\n` }]
+        : []),
     ],
+    removeWrites: designVerificationMarkdown ? [] : [designVerificationPath],
     traceWrites: buildQaTraceabilityPayloads(
       ledger.run_id,
       [reviewStatusPath],
@@ -310,10 +383,20 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       result,
       {
         outcome: 'success',
-        canonical_paths: [reportPath],
+        canonical_paths: [
+          reportPath,
+          ...(designVerificationMarkdown ? [designVerificationPath] : []),
+        ],
         verification_count: verificationCount,
         defect_count: defectCount,
-        status: { state: status.state, decision: status.decision, ready: status.ready },
+        status: {
+          state: status.state,
+          decision: status.decision,
+          ready: status.ready,
+          design_impact: status.design_impact,
+          design_contract_path: status.design_contract_path,
+          design_verified: status.design_verified,
+        },
       },
     ),
     status,

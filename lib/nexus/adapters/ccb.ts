@@ -4,16 +4,20 @@ import { join, dirname, resolve } from 'path';
 import { spawn } from 'child_process';
 import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath } from '../artifacts';
 import {
+  createCcbDispatchId,
+  readActiveCcbDispatchState,
   recordCcbAutonewProviderState,
   recordCcbDispatchState,
   recordCcbMountedProviderState,
   recordCcbPingProviderState,
+  startCcbDispatchState,
 } from '../ccb-runtime-state';
 import {
   buildBuildExecutionPrompt,
   buildPromptContextPreamble,
   buildQaValidationPrompt,
   buildReviewAuditPrompt,
+  buildReviewFinalizePrompt,
 } from './prompt-contracts';
 import { createBuildStagePack, createHandoffStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
 import { resolveRepositoryRoot } from '../workspace-substrate';
@@ -103,12 +107,15 @@ export interface CreateRuntimeCcbAdapterOptions {
 
 const DEFAULT_TIMEOUTS_SECONDS = {
   build: '1800',
-  review: '900',
+  review: '180',
   qa: '900',
 } as const;
 
 const LATE_RECOVERY_ATTEMPTS = 5;
 const LATE_RECOVERY_POLL_MS = 1_000;
+const REVIEW_WATCHDOG_FINALIZE_TIMEOUT_SECONDS = '45';
+const REVIEW_WATCHDOG_RECOVERY_ATTEMPTS = 12;
+const REVIEW_WATCHDOG_RECOVERY_POLL_MS = 2_000;
 
 function successResult<TRaw>(
   raw_output: TRaw,
@@ -391,6 +398,14 @@ function buildAuditPrompt(
   );
 }
 
+function buildAuditFinalizePrompt(
+  ctx: NexusAdapterContext,
+  provider: 'codex' | 'gemini',
+): string {
+  const header = provider === 'codex' ? '# Codex Audit' : '# Gemini Audit';
+  return buildReviewFinalizePrompt(normalizedExecutionContext(ctx), 'Nexus governed stage', provider, header);
+}
+
 function buildQaPrompt(ctx: NexusAdapterContext): string {
   return buildQaValidationPrompt(
     normalizedExecutionContext(ctx),
@@ -551,6 +566,30 @@ function parseMountedProviders(stdout: string): string[] {
   }
 
   return parsed.mounted;
+}
+
+function shouldAttemptReviewWatchdog(stdout: string, stderr: string): boolean {
+  if (recoverableAskPayload('review', stdout, stderr) !== null) {
+    return false;
+  }
+
+  const combined = `${stdout.trim()}\n${stderr.trim()}`.trim();
+  if (/\[ERROR\]|Unknown provider|not running|No (?:Gemini |Codex )?reply available/i.test(combined)) {
+    return false;
+  }
+
+  // A silent nonzero foreground exit can still leave the provider working in-pane.
+  // Treat it as a watchdog candidate so we nudge finalization and attempt pend recovery
+  // before collapsing the governed review into a blocked state.
+  if (!combined) {
+    return true;
+  }
+
+  if (/\[TIMEOUT\]|foreground wait ended before provider reply was surfaced|command exceeded/i.test(combined)) {
+    return true;
+  }
+
+  return shouldAttemptAnonymousLateRecovery('review', stdout, stderr) || /CCB_REQ_ID:\s*[^\s]+/.test(combined);
 }
 
 async function runRouteVerification(
@@ -831,6 +870,13 @@ async function runAskDispatch(
   const sessionRoot = sessionRootPath(ctx, options);
   const sessionFile = sessionFileForProvider(sessionRoot, provider);
   const dispatchAt = options.now();
+  const dispatchId = stage === 'handoff'
+    ? null
+    : createCcbDispatchId({
+      provider,
+      stage,
+      at: dispatchAt,
+    });
 
   const argv = [
     toolPaths.ask_path,
@@ -840,6 +886,45 @@ async function runAskDispatch(
     '--timeout',
     stage === 'handoff' ? '30' : DEFAULT_TIMEOUTS_SECONDS[stage],
   ];
+  const dispatchCommand = describeCommand(argv);
+
+  if (dispatchId && stage !== 'handoff') {
+    const activeDispatch = readActiveCcbDispatchState(repoRoot, provider, dispatchAt);
+    if (activeDispatch?.status === 'dispatched') {
+      recordCcbDispatchState({
+        repoRoot,
+        dispatchId: activeDispatch.dispatch_id,
+        requestId: activeDispatch.request_id,
+        provider: activeDispatch.provider,
+        stage: activeDispatch.stage,
+        status: 'blocked',
+        payloadSource: activeDispatch.payload_source,
+        sessionRoot: activeDispatch.session_root,
+        sessionFile: activeDispatch.session_file,
+        executionWorkspace: activeDispatch.execution_workspace,
+        dispatchCommand: activeDispatch.dispatch_command,
+        dispatchedAt: activeDispatch.dispatched_at,
+        updatedAt: dispatchAt,
+        askExitCode: activeDispatch.ask_exit_code,
+        stdout: activeDispatch.stdout,
+        stderr: [activeDispatch.stderr, '[SUPERSEDED] replaced by a newer governed dispatch before completion']
+          .filter(Boolean)
+          .join('\n'),
+      });
+    }
+
+    startCcbDispatchState({
+      repoRoot,
+      dispatchId,
+      provider,
+      stage,
+      sessionRoot,
+      sessionFile,
+      executionWorkspace: executionCwd,
+      dispatchCommand,
+      dispatchedAt: dispatchAt,
+    });
+  }
 
   let execution: CcbCommandResult;
   try {
@@ -861,7 +946,7 @@ async function runAskDispatch(
       error instanceof Error ? error.message : String(error),
       {
         receipt: '',
-        dispatch_command: describeCommand(argv),
+        dispatch_command: dispatchCommand,
       },
       ctx.requested_route,
       traceability,
@@ -869,12 +954,13 @@ async function runAskDispatch(
   }
 
   if (execution.exit_code !== 0) {
-    const requestId = extractRequestId(execution.stdout, execution.stderr);
+    let requestId = extractRequestId(execution.stdout, execution.stderr);
     const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
     if (recoveredPayload !== null) {
-      if (requestId && stage !== 'handoff') {
+      if (dispatchId && stage !== 'handoff') {
         recordCcbDispatchState({
           repoRoot,
+          dispatchId,
           requestId,
           provider,
           stage,
@@ -883,7 +969,7 @@ async function runAskDispatch(
           sessionRoot,
           sessionFile,
           executionWorkspace: executionCwd,
-          dispatchCommand: describeCommand(argv),
+          dispatchCommand,
           dispatchedAt: dispatchAt,
           updatedAt: options.now(),
           askExitCode: execution.exit_code,
@@ -897,38 +983,86 @@ async function runAskDispatch(
       };
     }
 
-    const lateRecoveredPayload = requestId || shouldAttemptAnonymousLateRecovery(stage, execution.stdout, execution.stderr)
-      ? await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, options)
-      : null;
-    if (lateRecoveredPayload !== null) {
-      if (requestId && stage !== 'handoff') {
+    let recoveryPayload: string | null = null;
+    let recoveryPayloadSource: 'ask' | 'pend' | null = null;
+    let recoveryStderr = execution.stderr;
+
+    if (stage === 'review' && shouldAttemptReviewWatchdog(execution.stdout, execution.stderr)) {
+      const nudgeExecution = await runReviewFinalizeNudge(
+        ctx,
+        provider,
+        sessionRoot,
+        sessionFile,
+        options,
+      );
+      if (nudgeExecution) {
+        requestId = requestId ?? extractRequestId(nudgeExecution.stdout, nudgeExecution.stderr);
+        recoveryStderr = [recoveryStderr, '[WATCHDOG] finalize nudge issued', nudgeExecution.stderr]
+          .filter(Boolean)
+          .join('\n');
+        const nudgePayload = recoverableAskPayload(stage, nudgeExecution.stdout, nudgeExecution.stderr);
+        if (nudgePayload !== null) {
+          recoveryPayload = nudgePayload;
+          recoveryPayloadSource = 'ask';
+        }
+      }
+
+      if (recoveryPayload === null) {
+        recoveryPayload = await recoverLateAskPayload(
+          ctx,
+          provider,
+          stage,
+          sessionRoot,
+          sessionFile,
+          options,
+          {
+            attempts: REVIEW_WATCHDOG_RECOVERY_ATTEMPTS,
+            pollMs: REVIEW_WATCHDOG_RECOVERY_POLL_MS,
+          },
+        );
+        if (recoveryPayload !== null) {
+          recoveryPayloadSource = 'pend';
+        }
+      }
+    } else if (requestId || shouldAttemptAnonymousLateRecovery(stage, execution.stdout, execution.stderr)) {
+      recoveryPayload = await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, options);
+      if (recoveryPayload !== null) {
+        recoveryPayloadSource = 'pend';
+      }
+    }
+
+    if (recoveryPayload !== null) {
+      if (dispatchId && stage !== 'handoff') {
         recordCcbDispatchState({
           repoRoot,
+          dispatchId,
           requestId,
           provider,
           stage,
-          status: 'recovered_late',
-          payloadSource: 'pend',
+          status: recoveryPayloadSource === 'ask' ? 'completed' : 'recovered_late',
+          payloadSource: recoveryPayloadSource,
           sessionRoot,
           sessionFile,
           executionWorkspace: executionCwd,
-          dispatchCommand: describeCommand(argv),
+          dispatchCommand,
           dispatchedAt: dispatchAt,
           updatedAt: options.now(),
           askExitCode: execution.exit_code,
-          stdout: lateRecoveredPayload,
-          stderr: execution.stderr,
+          stdout: recoveryPayload,
+          stderr: recoveryStderr,
         });
       }
       return {
         ...execution,
-        stdout: lateRecoveredPayload,
+        stdout: recoveryPayload,
+        stderr: recoveryStderr,
       };
     }
 
-    if (requestId && stage !== 'handoff') {
+    if (dispatchId && stage !== 'handoff') {
       recordCcbDispatchState({
         repoRoot,
+        dispatchId,
         requestId,
         provider,
         stage,
@@ -937,24 +1071,24 @@ async function runAskDispatch(
         sessionRoot,
         sessionFile,
         executionWorkspace: executionCwd,
-        dispatchCommand: describeCommand(argv),
+        dispatchCommand,
         dispatchedAt: dispatchAt,
         updatedAt: options.now(),
         askExitCode: execution.exit_code,
         stdout: execution.stdout,
-        stderr: execution.stderr,
+        stderr: recoveryStderr,
       });
     }
 
     return blockedResult(
       ctx.stage,
-      execution.stderr.trim() || `CCB ${provider} dispatch failed`,
+      recoveryStderr.trim() || `CCB ${provider} dispatch failed`,
       {
         receipt: '',
-        dispatch_command: describeCommand(argv),
+        dispatch_command: dispatchCommand,
         exit_code: execution.exit_code,
         stdout: execution.stdout,
-        stderr: execution.stderr,
+        stderr: recoveryStderr,
         request_id: requestId,
       },
       ctx.requested_route,
@@ -963,9 +1097,10 @@ async function runAskDispatch(
   }
 
   const requestId = extractRequestId(execution.stdout, execution.stderr);
-  if (requestId && stage !== 'handoff') {
+  if (dispatchId && stage !== 'handoff') {
     recordCcbDispatchState({
       repoRoot,
+      dispatchId,
       requestId,
       provider,
       stage,
@@ -974,7 +1109,7 @@ async function runAskDispatch(
       sessionRoot,
       sessionFile,
       executionWorkspace: executionCwd,
-      dispatchCommand: describeCommand(argv),
+      dispatchCommand,
       dispatchedAt: dispatchAt,
       updatedAt: options.now(),
       askExitCode: execution.exit_code,
@@ -993,6 +1128,10 @@ async function recoverLateAskPayload(
   sessionRoot: string,
   sessionFile: string | null,
   options: Required<CreateRuntimeCcbAdapterOptions>,
+  recovery: {
+    attempts?: number;
+    pollMs?: number;
+  } = {},
 ): Promise<string | null> {
   if (stage === 'handoff') {
     return null;
@@ -1004,7 +1143,10 @@ async function recoverLateAskPayload(
     pendArgv.push('--session-file', sessionFile);
   }
 
-  for (let attempt = 0; attempt < LATE_RECOVERY_ATTEMPTS; attempt += 1) {
+  const attempts = recovery.attempts ?? LATE_RECOVERY_ATTEMPTS;
+  const pollMs = recovery.pollMs ?? LATE_RECOVERY_POLL_MS;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     let execution: CcbCommandResult;
     try {
       execution = await options.runCommand({
@@ -1026,12 +1168,52 @@ async function recoverLateAskPayload(
       return payload;
     }
 
-    if (attempt < LATE_RECOVERY_ATTEMPTS - 1) {
-      await options.sleep(LATE_RECOVERY_POLL_MS);
+    if (attempt < attempts - 1) {
+      await options.sleep(pollMs);
     }
   }
 
   return null;
+}
+
+async function runReviewFinalizeNudge(
+  ctx: NexusAdapterContext,
+  provider: 'codex' | 'gemini',
+  sessionRoot: string,
+  sessionFile: string | null,
+  options: Required<CreateRuntimeCcbAdapterOptions>,
+): Promise<CcbCommandResult | null> {
+  const toolPaths = options.resolveToolPaths();
+  const executionCwd = executionWorkspacePath(ctx);
+  const argv = [
+    toolPaths.ask_path,
+    provider,
+    '--foreground',
+    '--no-wrap',
+    '--timeout',
+    REVIEW_WATCHDOG_FINALIZE_TIMEOUT_SECONDS,
+  ];
+
+  try {
+    return await options.runCommand({
+      argv,
+      cwd: executionCwd,
+      env: envForCwd(executionCwd, {
+        CCB_CALLER: 'claude',
+        CCB_ASKD_AUTOSTART: '1',
+        CCB_ALLOW_FOREGROUND: '1',
+        CCB_SESSION_FILE: sessionFile,
+      }),
+      stdin_text: buildAuditFinalizePrompt(ctx, provider),
+      timeout_ms: Number(REVIEW_WATCHDOG_FINALIZE_TIMEOUT_SECONDS) * 1000 + 10_000,
+    });
+  } catch (error) {
+    return {
+      exit_code: 1,
+      stdout: '',
+      stderr: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 async function resetProviderSession(

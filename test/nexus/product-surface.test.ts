@@ -130,6 +130,9 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('You:    /plan');
     expect(readme).toContain('You:    /handoff');
     expect(readme).toContain('You:    /build');
+    expect(readme).toContain('`/frame` classifies design impact');
+    expect(readme).toContain('`/plan` requires a design contract for material UI work');
+    expect(readme).toContain('`/qa` records visual verification before `/ship` for design-bearing runs');
     expect(readme).toContain('| `/discover` |');
     expect(readme).toContain('| `/frame` |');
     expect(readme).toContain('| `/plan` |');
@@ -150,12 +153,26 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| [`/qa`](#qa) |');
     expect(skills).toContain('| [`/ship`](#ship) |');
     expect(skills).toContain('| [`/closeout`](#closeout) |');
+    expect(skills).toContain('| `/design-consultation` | Design-system discovery and visual direction that feeds canonical lifecycle artifacts for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation that feeds canonical lifecycle artifacts for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-review` | Live-site visual audit and polish that feeds canonical lifecycle artifacts for UI-bearing runs. |');
+    expect(skills).toContain('| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('## Legacy compatibility deep dives');
     expect(skills).not.toContain('## `/office-hours`');
     expect(skills).not.toContain('## `/plan-ceo-review`');
     expect(skills).not.toContain('## `/plan-eng-review`');
     expect(skills).not.toContain('This is where every project should start.');
     expect(skills).not.toContain('Brian Chesky mode');
+  });
+
+  test('land-and-deploy consumes ship PR handoff rather than assuming closeout-owned PR creation', () => {
+    const landAndDeploy = readFileSync(join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf8');
+    const shipSkill = readFileSync(join(ROOT, 'ship', 'SKILL.md'), 'utf8');
+
+    expect(landAndDeploy).toContain('/ship` records merge readiness');
+    expect(landAndDeploy).not.toContain('/ship` creates the PR');
+    expect(shipSkill).toContain('.planning/current/ship/pull-request.json');
   });
 
   test('package metadata and setup are Nexus-primary', () => {
@@ -199,7 +216,7 @@ describe('nexus product surface contract', () => {
   });
 
   test('active nexus helper entrypoints are executable', () => {
-    for (const helper of ['nexus-clean-claude-hooks', 'nexus-clean-claude-sessions', 'nexus-config', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
+    for (const helper of ['nexus-clean-claude-hooks', 'nexus-clean-claude-sessions', 'nexus-config', 'nexus-release-publish', 'nexus-relink', 'nexus-uninstall', 'nexus-update-check']) {
       const mode = statSync(join(ROOT, 'bin', helper)).mode;
       expect(mode & 0o111).not.toBe(0);
     }
@@ -253,6 +270,7 @@ describe('nexus product surface contract', () => {
     expect(upstreamRunbook).toContain('upstream-notes/maintainer-status.md');
 
     expect(releaseRunbook).toContain('bun run maintainer:check');
+    expect(releaseRunbook).toContain('./bin/nexus-release-publish');
     expect(releaseRunbook).toContain('./bin/nexus-release-preflight');
     expect(releaseRunbook).toContain('./bin/nexus-release-smoke');
 

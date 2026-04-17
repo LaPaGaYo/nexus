@@ -3,6 +3,8 @@ import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
+import { buildBuildExecutionPrompt } from '../../lib/nexus/adapters/prompt-contracts';
+import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { createBuildStagePack } from '../../lib/nexus/stage-packs/build';
 import { createHandoffStagePack } from '../../lib/nexus/stage-packs/handoff';
 import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
@@ -707,6 +709,192 @@ describe('nexus build routing', () => {
         ]));
       }
     });
+  });
+
+  test('handoff and build include the approved design contract as predecessor provenance when present', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const seenHandoff: string[][] = [];
+      const seenBuild: string[][] = [];
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => {
+            seenHandoff.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                available: true,
+                provider: 'codex',
+                providers: ['codex', 'gemini'],
+                mounted: ['codex', 'gemini'],
+                provider_checks: [
+                  { provider: 'codex', ping_command: 'ccb-ping codex', ping_output: 'ok' },
+                  { provider: 'gemini', ping_command: 'ccb-ping gemini', ping_output: 'ok' },
+                ],
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/handoff/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+          execute_generator: async (ctx) => {
+            seenBuild.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                receipt: 'ccb-build-design-contract',
+                summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: implemented the approved design-bearing execution packet\n- Files touched: apps/web\n- Verification: verified the design-bearing execution packet\n',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/build/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+        superpowers: {
+          build_discipline: async (ctx) => {
+            seenBuild.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'superpowers',
+              outcome: 'success',
+              raw_output: { verification_summary: 'verified design-bearing execution packet' },
+              requested_route: null,
+              actual_route: null,
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('plan');
+
+      writeFileSync(
+        join(cwd, '.planning/current/plan/design-contract.md'),
+        '# Design Contract\n\nApproved material UI contract\n',
+      );
+      writeFileSync(
+        join(cwd, '.planning/current/plan/status.json'),
+        JSON.stringify(
+          {
+            ...(await run.readJson('.planning/current/plan/status.json')),
+            design_impact: 'material',
+            design_contract_required: true,
+            design_contract_path: '.planning/current/plan/design-contract.md',
+            design_verified: false,
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      await run('handoff', adapters);
+      await run('build', adapters);
+
+      expect(seenHandoff).toHaveLength(1);
+      expect(seenHandoff[0]).toEqual(expect.arrayContaining([
+        '.planning/current/plan/status.json',
+        '.planning/current/plan/design-contract.md',
+      ]));
+      expect(seenBuild).toHaveLength(2);
+      for (const paths of seenBuild) {
+        expect(paths).toEqual(expect.arrayContaining([
+          '.planning/current/handoff/status.json',
+          '.planning/current/handoff/governed-handoff.md',
+          '.planning/current/plan/execution-readiness-packet.md',
+          '.planning/current/plan/sprint-contract.md',
+          '.planning/current/plan/design-contract.md',
+        ]));
+      }
+    });
+  });
+
+  test('build prompt marks material runs with approved design contract as design-bearing', () => {
+    const prompt = buildBuildExecutionPrompt(
+      {
+        cwd: '/repo',
+        workspace: null,
+        run_id: 'run-1',
+        command: 'build',
+        stage: 'build',
+        ledger: {
+          run_id: 'run-1',
+          continuation_mode: 'phase',
+          status: 'active',
+          current_command: 'build',
+          current_stage: 'build',
+          previous_stage: 'handoff',
+          allowed_next_stages: ['review'],
+          command_history: [],
+          artifact_index: {},
+          execution: {
+            mode: 'governed_ccb',
+            primary_provider: 'codex',
+            provider_topology: 'multi_session',
+            requested_path: 'codex-via-ccb',
+            actual_path: null,
+          },
+          route_intent: {
+            planner: 'claude+pm-gsd',
+            generator: 'codex-via-ccb',
+            evaluator_a: 'codex-via-ccb',
+            evaluator_b: 'gemini-via-ccb',
+            synthesizer: 'claude',
+            substrate: 'superpowers-core',
+            fallback_policy: 'disabled',
+          },
+        },
+        manifest: CANONICAL_MANIFEST.build,
+        predecessor_artifacts: [
+          { kind: 'json', path: '.planning/current/handoff/status.json' },
+          { kind: 'markdown', path: '.planning/current/handoff/governed-handoff.md' },
+          { kind: 'markdown', path: '.planning/current/plan/execution-readiness-packet.md' },
+          { kind: 'markdown', path: '.planning/current/plan/sprint-contract.md' },
+          { kind: 'markdown', path: '.planning/current/plan/design-contract.md' },
+        ],
+        requested_route: {
+          command: 'build',
+          governed: true,
+          execution_mode: 'governed_ccb',
+          primary_provider: 'codex',
+          provider_topology: 'multi_session',
+          planner: 'claude+pm-gsd',
+          generator: 'codex-via-ccb',
+          evaluator_a: 'codex-via-ccb',
+          evaluator_b: 'gemini-via-ccb',
+          synthesizer: 'claude',
+          substrate: 'superpowers-core',
+          transport: 'ccb',
+          fallback_policy: 'disabled',
+        },
+        review_scope: {
+          mode: 'full_acceptance',
+          source_stage: 'plan',
+          blocking_items: [],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      },
+      'Nexus governed stage',
+    );
+
+    expect(prompt).toContain('This is a design-bearing run.');
+    expect(prompt).toContain('Approved design contract: .planning/current/plan/design-contract.md');
+    expect(prompt).toContain('Treat the approved design contract as part of the bounded implementation contract, not optional reference material.');
   });
 
   test('records requested and actual route separately on successful build', async () => {

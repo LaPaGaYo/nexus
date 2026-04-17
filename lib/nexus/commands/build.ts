@@ -33,6 +33,8 @@ import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
+const PLAN_STATUS_PATH = stageStatusPath('plan');
+
 function nextLedger(
   ledger: RunLedger,
   previousStage: 'handoff' | 'review',
@@ -82,6 +84,10 @@ function blockedPreflightLedger(
     status: 'blocked',
     allowed_next_stages: [recoveryStage],
   };
+}
+
+function planDesignContractPointer(planStatus: StageStatus | null | undefined): ArtifactPointer | null {
+  return planStatus?.design_contract_path ? artifactPointerFor(planStatus.design_contract_path) : null;
 }
 
 interface ParsedBuildExecutionSummary {
@@ -146,11 +152,16 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const handoffStatusPath = stageStatusPath('handoff');
   const reviewStatusPath = stageStatusPath('review');
+  const planStatus = readStageStatus(PLAN_STATUS_PATH, ctx.cwd);
   const handoffStatus = readStageStatus(handoffStatusPath, ctx.cwd);
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
 
   if (!ledger || !handoffStatus?.ready) {
     throw new Error('Handoff must be completed before build');
+  }
+
+  if (planStatus) {
+    assertSameRunId(ledger.run_id, planStatus.run_id, 'plan status');
   }
 
   assertSameRunId(ledger.run_id, handoffStatus.run_id, 'handoff status');
@@ -187,16 +198,19 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     : normalizeReviewScopeRecord(handoffStatus.review_scope ?? fullAcceptanceReviewScope());
   const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledgerWithExecution);
   const commandHistoryVia = buildCommandHistoryVia(reviewScope, ctx.via);
+  const designContractPointer = planDesignContractPointer(planStatus);
   const predecessorArtifacts = dedupeArtifactPointers(
     fixCycle
       ? [
           artifactPointerFor(HANDOFF_STATUS_PATH),
           artifactPointerFor(REVIEW_STATUS_PATH),
           ...executionContractArtifacts(),
+          ...(designContractPointer ? [designContractPointer] : []),
         ]
       : [
           artifactPointerFor(HANDOFF_STATUS_PATH),
           ...executionContractArtifacts(),
+          ...(designContractPointer ? [designContractPointer] : []),
         ],
   );
   const buildRequestWrite = {
@@ -210,6 +224,8 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         workspace,
         requested_route: requestedRoute,
         review_scope: reviewScope,
+        design_impact: planStatus?.design_impact ?? 'none',
+        design_contract_path: designContractPointer?.path ?? null,
       },
       null,
       2,
@@ -341,6 +357,10 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       run_id: ledger.run_id,
       stage: 'build',
       ...executionFieldsFromLedger(ledgerWithExecution),
+      design_impact: planStatus?.design_impact ?? 'none',
+      design_contract_required: planStatus?.design_contract_required ?? false,
+      design_contract_path: designContractPointer?.path ?? null,
+      design_verified: planStatus?.design_impact === 'none' ? null : false,
       state: disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
       decision: disciplineResult.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
@@ -415,6 +435,10 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       run_id: ledger.run_id,
       stage: 'build',
       ...executionFieldsFromLedger(ledgerWithExecution),
+      design_impact: planStatus?.design_impact ?? 'none',
+      design_contract_required: planStatus?.design_contract_required ?? false,
+      design_contract_path: designContractPointer?.path ?? null,
+      design_verified: planStatus?.design_impact === 'none' ? null : false,
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -494,6 +518,10 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       run_id: ledger.run_id,
       stage: 'build',
       ...executionFieldsFromLedger(ledgerWithExecution, result.actual_route?.route ?? null),
+      design_impact: planStatus?.design_impact ?? 'none',
+      design_contract_required: planStatus?.design_contract_required ?? false,
+      design_contract_path: designContractPointer?.path ?? null,
+      design_verified: planStatus?.design_impact === 'none' ? null : false,
       state: result.outcome === 'refused' ? 'refused' : 'blocked',
       decision: result.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
@@ -582,6 +610,10 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       run_id: ledger.run_id,
       stage: 'build',
       ...executionFieldsFromLedger(ledgerWithExecution, actualRoute?.route ?? null),
+      design_impact: planStatus?.design_impact ?? 'none',
+      design_contract_required: planStatus?.design_contract_required ?? false,
+      design_contract_path: designContractPointer?.path ?? null,
+      design_verified: planStatus?.design_impact === 'none' ? null : false,
       state: 'blocked',
       decision: 'build_recorded',
       ready: false,
@@ -679,6 +711,10 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     run_id: ledger.run_id,
     stage: 'build',
     ...executionFieldsFromLedger(ledgerWithExecution, result.actual_route?.route ?? null),
+    design_impact: planStatus?.design_impact ?? 'none',
+    design_contract_required: planStatus?.design_contract_required ?? false,
+    design_contract_path: designContractPointer?.path ?? null,
+    design_verified: planStatus?.design_impact === 'none' ? null : false,
     state: 'completed',
     decision: 'build_recorded',
     ready: true,
