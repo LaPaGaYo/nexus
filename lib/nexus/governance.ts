@@ -145,10 +145,21 @@ export function assertExpectedHistoryOneOf(
   throw new Error('Illegal Nexus transition history');
 }
 
-function matchesFixCycleHistory(
+function historyCommandAt(
+  actual: RunLedger['command_history'][number]['command'][],
+  index: number,
+): string {
+  return actual[index] ?? 'end of history';
+}
+
+function closeoutHistoryError(message: string): string {
+  return `Illegal Nexus transition history: ${message}`;
+}
+
+function diagnoseFixCycleHistory(
   actual: RunLedger['command_history'][number]['command'][],
   options: { qaRecorded: boolean; shipRecorded: boolean },
-): boolean {
+): string | null {
   let cursor = 0;
 
   if (actual[cursor] === 'discover') {
@@ -161,12 +172,17 @@ function matchesFixCycleHistory(
 
   const expectedPrefix: RunLedger['command_history'][number]['command'][] = ['plan', 'handoff'];
   if (actual.length < cursor + expectedPrefix.length + 2) {
-    return false;
+    return closeoutHistoryError(
+      `expected plan -> handoff -> build -> review prefix, got ${actual.join(' -> ') || 'empty history'}`,
+    );
   }
 
   for (const [index, command] of expectedPrefix.entries()) {
-    if (actual[cursor + index] !== command) {
-      return false;
+    const actualIndex = cursor + index;
+    if (actual[actualIndex] !== command) {
+      return closeoutHistoryError(
+        `expected ${command} at position ${actualIndex + 1}, got ${historyCommandAt(actual, actualIndex)}`,
+      );
     }
   }
 
@@ -175,19 +191,30 @@ function matchesFixCycleHistory(
     cursor += 1;
   }
 
-  if (actual[cursor] !== 'build' || actual[cursor + 1] !== 'review') {
-    return false;
+  if (actual[cursor] !== 'build') {
+    return closeoutHistoryError(
+      `expected build at position ${cursor + 1}, got ${historyCommandAt(actual, cursor)}`,
+    );
   }
+
+  if (actual[cursor + 1] !== 'review') {
+    return closeoutHistoryError(
+      `expected review after build at positions ${cursor + 1} -> ${cursor + 2}, got ${historyCommandAt(actual, cursor + 1)}`,
+    );
+  }
+
   cursor += 2;
   while (actual[cursor] === 'review') {
     cursor += 1;
   }
 
-  while (
-    cursor < actual.length
-  ) {
+  while (cursor < actual.length) {
     while (actual[cursor] === 'handoff') {
       cursor += 1;
+    }
+
+    if (cursor >= actual.length) {
+      break;
     }
 
     if (cursor + 1 < actual.length && actual[cursor] === 'build' && actual[cursor + 1] === 'review') {
@@ -203,28 +230,46 @@ function matchesFixCycleHistory(
 
   if (options.qaRecorded) {
     if (actual[cursor] !== 'qa') {
-      return false;
+      return closeoutHistoryError(
+        `expected qa at position ${cursor + 1}, got ${historyCommandAt(actual, cursor)}`,
+      );
     }
     cursor += 1;
   }
 
   if (options.shipRecorded) {
     if (actual[cursor] !== 'ship') {
-      return false;
+      return closeoutHistoryError(
+        `expected ship at position ${cursor + 1}, got ${historyCommandAt(actual, cursor)}`,
+      );
     }
     cursor += 1;
   }
 
-  return cursor === actual.length;
+  if (cursor !== actual.length) {
+    return closeoutHistoryError(
+      `unexpected ${historyCommandAt(actual, cursor)} at position ${cursor + 1}; expected end of history`,
+    );
+  }
+
+  return null;
+}
+
+export function diagnoseCloseoutHistory(
+  ledger: RunLedger,
+  options: { qaRecorded: boolean; shipRecorded: boolean },
+): string | null {
+  const actual = ledger.command_history.map((entry) => entry.command);
+  return diagnoseFixCycleHistory(actual, options);
 }
 
 export function assertCloseoutHistory(
   ledger: RunLedger,
   options: { qaRecorded: boolean; shipRecorded: boolean },
 ): void {
-  const actual = ledger.command_history.map((entry) => entry.command);
-  if (!matchesFixCycleHistory(actual, options)) {
-    throw new Error('Illegal Nexus transition history');
+  const error = diagnoseCloseoutHistory(ledger, options);
+  if (error) {
+    throw new Error(error);
   }
 }
 

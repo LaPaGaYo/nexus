@@ -28,6 +28,10 @@ function artifactPointerFor(path: string): ArtifactPointer {
   };
 }
 
+function planDesignContractPointer(planStatus: StageStatus | null | undefined): ArtifactPointer | null {
+  return planStatus?.design_contract_path ? artifactPointerFor(planStatus.design_contract_path) : null;
+}
+
 function nextLedger(
   ledger: RunLedger,
   previousStage: 'plan' | 'handoff' | 'review',
@@ -133,6 +137,15 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const routingPath = '.planning/current/handoff/governed-execution-routing.md';
   const handoffPath = '.planning/current/handoff/governed-handoff.md';
   const statusPath = stageStatusPath('handoff');
+  const designContractPointer = planDesignContractPointer(planStatus);
+  const predecessorArtifacts = ledger.current_stage === 'review'
+    ? [artifactPointerFor(planStatusPath), artifactPointerFor(reviewStatusPath)]
+    : ledger.current_stage === 'handoff' && priorHandoffStatus
+      ? [artifactPointerFor(planStatusPath), artifactPointerFor(priorHandoffStatusPath)]
+      : [artifactPointerFor(planStatusPath)];
+  if (designContractPointer) {
+    predecessorArtifacts.push(designContractPointer);
+  }
   const routeAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
   const result = await routeAdapter.resolve_route({
@@ -142,11 +155,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     stage: 'handoff',
     ledger: ledgerWithExecution,
     manifest,
-    predecessor_artifacts: ledger.current_stage === 'review'
-      ? [artifactPointerFor(planStatusPath), artifactPointerFor(reviewStatusPath)]
-      : ledger.current_stage === 'handoff' && priorHandoffStatus
-        ? [artifactPointerFor(planStatusPath), artifactPointerFor(priorHandoffStatusPath)]
-        : [artifactPointerFor(planStatusPath)],
+    predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
     review_scope: reviewScope,
     workspace,
@@ -192,7 +201,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
         : 'blocked',
     decision: result.outcome === 'refused' ? 'refused' : 'route_recorded',
     ready: routeValidation.approved,
-    inputs: [artifactPointerFor(planStatusPath)],
+    inputs: predecessorArtifacts,
     outputs,
     started_at: startedAt,
     completed_at: startedAt,

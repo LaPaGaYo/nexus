@@ -148,7 +148,39 @@ describe('nexus closeout', () => {
       ledger.command_history = ledger.command_history.filter((entry) => entry.command !== 'handoff');
       writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
 
-      await expect(run('closeout')).rejects.toThrow('Illegal Nexus transition history');
+      await expect(run('closeout')).rejects.toThrow(
+        'Illegal Nexus transition history: expected plan -> handoff -> build -> review prefix, got plan -> build -> review',
+      );
+    });
+  });
+
+  test('diagnoses consecutive build entries in a fix-cycle history', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+        command_history: Array<{ command: string; at: string; via: string | null }>;
+      };
+      ledger.command_history = [
+        ledger.command_history[0]!,
+        ledger.command_history[1]!,
+        ledger.command_history[2]!,
+        {
+          command: 'build',
+          at: new Date(Date.UTC(2026, 3, 13, 12, 0, 0, 999)).toISOString(),
+          via: 'fix-cycle',
+        },
+        ledger.command_history[3]!,
+      ];
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      await expect(run('closeout')).rejects.toThrow(
+        'Illegal Nexus transition history: expected review after build at positions 3 -> 4, got build',
+      );
     });
   });
 
@@ -538,7 +570,9 @@ describe('nexus closeout', () => {
       ];
       writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
 
-      await expect(run('closeout')).rejects.toThrow('Illegal Nexus transition history');
+      await expect(run('closeout')).rejects.toThrow(
+        'Illegal Nexus transition history: expected review after build at positions 3 -> 4, got ship',
+      );
     });
   });
 

@@ -3,7 +3,7 @@ import { join } from 'path';
 import { readLedger, startLedger, makeRunId } from '../ledger';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { executionFieldsFromLedger } from '../execution-topology';
-import { stageStatusPath } from '../artifacts';
+import { frameDesignIntentPath, stageStatusPath } from '../artifacts';
 import { applyNormalizationPlan } from '../normalizers';
 import { canonicalNextStages, normalizePmFrame, buildPmTraceabilityPayloads } from '../normalizers/pm';
 import { assertLegalTransition } from '../transitions';
@@ -38,15 +38,20 @@ function nextLedger(
 function buildStatus(
   ledger: RunLedger,
   at: string,
+  designIntent: PmFrameRaw['design_intent'] | null,
   state: StageStatus['state'],
   decision: StageStatus['decision'],
   ready: boolean,
   errors: string[],
 ): StageStatus {
+  const designImpact = designIntent?.impact ?? 'none';
   return {
     run_id: ledger.run_id,
     stage: 'frame',
     ...executionFieldsFromLedger(ledger),
+    design_impact: designImpact,
+    design_contract_required: designIntent?.contract_required ?? false,
+    design_verified: designImpact === 'none' ? null : false,
     state,
     decision,
     ready,
@@ -55,6 +60,7 @@ function buildStatus(
       ? [
           artifactPointerFor('docs/product/decision-brief.md'),
           artifactPointerFor('docs/product/prd.md'),
+          artifactPointerFor(frameDesignIntentPath()),
           artifactPointerFor(stageStatusPath('frame')),
         ]
       : [artifactPointerFor(stageStatusPath('frame'))],
@@ -86,6 +92,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
     const status = buildStatus(
       ledger,
       at,
+      null,
       'blocked',
       'not_ready',
       false,
@@ -116,7 +123,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
   }) as Awaited<ReturnType<typeof ctx.adapters.pm.frame>> & { raw_output: PmFrameRaw };
 
   if (result.outcome === 'refused') {
-    const status = buildStatus(ledger, at, 'refused', 'refused', false, ['PM framing refused']);
+    const status = buildStatus(ledger, at, null, 'refused', 'refused', false, ['PM framing refused']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
@@ -138,7 +145,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
   }
 
   if (result.outcome !== 'success') {
-    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['PM framing blocked']);
+    const status = buildStatus(ledger, at, null, 'blocked', 'not_ready', false, ['PM framing blocked']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
@@ -161,12 +168,13 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizePmFrame(result);
-    const status = buildStatus(ledger, at, 'completed', 'ready', true, []);
+    const status = buildStatus(ledger, at, result.raw_output.design_intent, 'completed', 'ready', true, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
       'docs/product/decision-brief.md': artifactPointerFor('docs/product/decision-brief.md'),
       'docs/product/prd.md': artifactPointerFor('docs/product/prd.md'),
+      [frameDesignIntentPath()]: artifactPointerFor(frameDesignIntentPath()),
       [stageStatusPath('frame')]: artifactPointerFor(stageStatusPath('frame')),
     };
 
@@ -202,6 +210,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       canonical_paths: [
         'docs/product/decision-brief.md',
         'docs/product/prd.md',
+        frameDesignIntentPath(),
         stageStatusPath('frame'),
       ],
       trace_paths: [
@@ -210,7 +219,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         '.planning/current/frame/normalization.json',
       ],
     };
-    const status = buildStatus(ledger, at, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
+    const status = buildStatus(ledger, at, null, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',

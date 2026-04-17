@@ -13,12 +13,18 @@ import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
 type TempGitRepoRun = {
-  run: (command: string, adapters?: NexusAdapters, execution?: ExecutionSelection) => Promise<void>;
+  run: (
+    command: string,
+    adapters?: NexusAdapters,
+    execution?: ExecutionSelection,
+    options?: { continuationModeOverride?: 'task' | 'phase' | 'project_reset' | null },
+  ) => Promise<void>;
   runFrom: (
     cwd: string,
     command: string,
     adapters?: NexusAdapters,
     execution?: ExecutionSelection,
+    options?: { continuationModeOverride?: 'task' | 'phase' | 'project_reset' | null },
   ) => Promise<void>;
   readJson: (path: string) => any;
   cwd: string;
@@ -75,6 +81,7 @@ async function runInTempGitRepo(
       provider_topology: 'multi_session',
       requested_execution_path: 'codex-via-ccb',
     },
+    options: { continuationModeOverride?: 'task' | 'phase' | 'project_reset' | null } = {},
   ) => {
     const invocation = resolveInvocation(command);
     const at = new Date(Date.UTC(2026, 3, 13, 12, 0, 0, tick)).toISOString();
@@ -85,14 +92,15 @@ async function runInTempGitRepo(
       via: invocation.via,
       adapters,
       execution,
+      continuation_mode_override: options.continuationModeOverride ?? null,
     });
   };
 
   try {
     await fn({
       cwd,
-      run: (command, adapters, execution) => invoke(cwd, command, adapters, execution),
-      runFrom: (commandCwd, command, adapters, execution) => invoke(commandCwd, command, adapters, execution),
+      run: (command, adapters, execution, options) => invoke(cwd, command, adapters, execution, options),
+      runFrom: (commandCwd, command, adapters, execution, options) => invoke(commandCwd, command, adapters, execution, options),
       readJson: (path: string) => JSON.parse(readFileSync(join(cwd, path), 'utf8')),
     });
   } finally {
@@ -172,6 +180,13 @@ describe('nexus discover/frame PM seams', () => {
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: PM seam\n',
               prd_markdown: '# PRD\n\nSuccess criteria: normalized writeback\n',
+              design_intent: {
+                impact: 'none',
+                affected_surfaces: [],
+                design_system_source: 'none',
+                contract_required: false,
+                verification_required: false,
+              },
             },
             requested_route: null,
             actual_route: null,
@@ -193,15 +208,92 @@ describe('nexus discover/frame PM seams', () => {
         state: 'completed',
         decision: 'ready',
         ready: true,
+        design_impact: 'none',
+        design_contract_required: false,
+        design_verified: null,
       });
       expect(await run.readFile('docs/product/decision-brief.md')).toContain('Decision Brief');
       expect(await run.readFile('docs/product/prd.md')).toContain('PRD');
+      expect(await run.readJson('.planning/current/frame/design-intent.json')).toMatchObject({
+        impact: 'none',
+        affected_surfaces: [],
+        design_system_source: 'none',
+        contract_required: false,
+        verification_required: false,
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        artifact_index: {
+          '.planning/current/frame/design-intent.json': {
+            path: '.planning/current/frame/design-intent.json',
+          },
+        },
+      });
       expect(await run.readJson('.planning/current/frame/adapter-output.json')).toMatchObject({
         adapter_id: 'pm',
         outcome: 'success',
         traceability: {
           nexus_stage_pack: 'nexus-frame-pack',
           absorbed_capability: 'pm-frame',
+        },
+      });
+    });
+  });
+
+  test('writes a material design intent artifact for UI-bearing frame work', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('discover');
+      const adapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: material UI work\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: material UI work\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: ['apps/web/src/app/page.tsx', 'apps/web/src/app/layout.tsx'],
+                design_system_source: 'design_md',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+      });
+
+      await run('frame', adapters);
+
+      expect(await run.readJson('.planning/current/frame/design-intent.json')).toMatchObject({
+        impact: 'material',
+        affected_surfaces: ['apps/web/src/app/page.tsx', 'apps/web/src/app/layout.tsx'],
+        design_system_source: 'design_md',
+        contract_required: true,
+        verification_required: true,
+      });
+      expect(await run.readJson('.planning/current/frame/status.json')).toMatchObject({
+        stage: 'frame',
+        state: 'completed',
+        decision: 'ready',
+        ready: true,
+        design_impact: 'material',
+        design_contract_required: true,
+        design_verified: false,
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        artifact_index: {
+          '.planning/current/frame/design-intent.json': {
+            path: '.planning/current/frame/design-intent.json',
+          },
         },
       });
     });
@@ -225,6 +317,148 @@ describe('nexus discover/frame PM seams', () => {
       );
       expect(await run.readFile('docs/product/decision-brief.md')).toContain('define scope');
       expect(await run.readFile('docs/product/prd.md')).toContain('define success criteria');
+      expect(await run.readJson('.planning/current/frame/design-intent.json')).toMatchObject({
+        impact: 'none',
+        affected_surfaces: [],
+        design_system_source: 'none',
+        contract_required: false,
+        verification_required: false,
+      });
+      expect(await run.readJson('.planning/current/frame/status.json')).toMatchObject({
+        stage: 'frame',
+        state: 'completed',
+        decision: 'ready',
+        ready: true,
+        design_impact: 'none',
+        design_contract_required: false,
+        design_verified: null,
+      });
+    });
+  });
+
+  test('blocks plan when material design work has no design contract', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const frameAdapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: material plan gate\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: enforce design contract\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: ['apps/web/src/app/page.tsx'],
+                design_system_source: 'design_md',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+      });
+
+      await run('discover');
+      await run('frame', frameAdapters);
+
+      await expect(run('plan')).rejects.toThrow('Plan is not ready for execution');
+      expect(await run.readJson('.planning/current/plan/status.json')).toMatchObject({
+        stage: 'plan',
+        state: 'blocked',
+        decision: 'not_ready',
+        ready: false,
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: null,
+        design_verified: false,
+      });
+      expect(() => readFileSync(join(cwd, '.planning/current/plan/design-contract.md'), 'utf8')).toThrow();
+    });
+  });
+
+  test('writes the plan design contract when material design work provides one', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const frameAdapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: material plan contract\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: persist design contract\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: ['apps/web/src/app/page.tsx'],
+                design_system_source: 'design_md',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+        gsd: {
+          plan: async () => ({
+            adapter_id: 'gsd',
+            outcome: 'success',
+            raw_output: {
+              execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
+              sprint_contract: '# Sprint Contract\n\nWave 1\n',
+              design_contract: '# Design Contract\n\nMaterial UI constraints\n',
+              ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-plan-pack',
+              absorbed_capability: 'gsd-plan',
+              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+            },
+          }),
+        },
+      });
+
+      await run('discover');
+      await run('frame', frameAdapters);
+      await run('plan', frameAdapters);
+
+      expect(await run.readJson('.planning/current/plan/status.json')).toMatchObject({
+        stage: 'plan',
+        state: 'completed',
+        decision: 'ready',
+        ready: true,
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: '.planning/current/plan/design-contract.md',
+        design_verified: false,
+      });
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Material UI constraints');
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        artifact_index: {
+          '.planning/current/plan/design-contract.md': {
+            path: '.planning/current/plan/design-contract.md',
+          },
+        },
+      });
     });
   });
 
@@ -258,6 +492,50 @@ describe('nexus discover/frame PM seams', () => {
         ready: false,
       });
       expect(await run.readJson('.planning/current/conflicts/discover-pm.json')).toMatchObject({
+        kind: 'backend_conflict',
+      });
+    });
+  });
+
+  test('blocks frame when a success payload carries malformed design intent', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('discover');
+      const adapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: malformed design intent\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: reject poisoned design intent\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: 'apps/web/src/app/page.tsx',
+                design_system_source: 'design_md',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+      });
+
+      await expect(run('frame', adapters)).rejects.toThrow('Canonical writeback failed');
+      expect(await run.readJson('.planning/current/frame/status.json')).toMatchObject({
+        stage: 'frame',
+        state: 'blocked',
+        ready: false,
+      });
+      expect(await run.readJson('.planning/current/conflicts/frame-pm.json')).toMatchObject({
         kind: 'backend_conflict',
       });
     });
@@ -349,6 +627,68 @@ describe('nexus discover/frame PM seams', () => {
         `Previous run: ${completedLedger.run_id}`,
       );
       expect(() => readJson('.planning/current/plan/status.json')).toThrow();
+    });
+  });
+
+  test('ignores a continuation mode override when discover stays on the same run', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover', undefined, undefined, { continuationModeOverride: 'task' });
+
+      expect(readJson('.planning/nexus/current-run.json')).toMatchObject({
+        continuation_mode: 'task',
+      });
+      expect(readJson('.planning/current/discover/adapter-request.json')).toMatchObject({
+        continuation_mode: 'task',
+        requested_continuation_mode: 'task',
+        effective_continuation_mode: 'task',
+      });
+
+      await run('discover', undefined, undefined, { continuationModeOverride: 'phase' });
+
+      expect(readJson('.planning/nexus/current-run.json')).toMatchObject({
+        continuation_mode: 'task',
+      });
+      expect(readJson('.planning/current/discover/adapter-request.json')).toMatchObject({
+        continuation_mode: 'task',
+        requested_continuation_mode: 'phase',
+        effective_continuation_mode: 'task',
+      });
+    });
+  });
+
+  test('applies an explicit continuation mode override when discover starts a fresh run', async () => {
+    await runInTempGitRepo(async ({ run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      const completedLedger = readJson('.planning/nexus/current-run.json');
+      expect(completedLedger.current_stage).toBe('closeout');
+
+      await run('discover', undefined, undefined, { continuationModeOverride: 'task' });
+
+      const nextLedger = readJson('.planning/nexus/current-run.json');
+      expect(nextLedger.run_id).not.toBe(completedLedger.run_id);
+      expect(nextLedger).toMatchObject({
+        continuation_mode: 'task',
+      });
+      expect(readJson('.planning/current/discover/adapter-request.json')).toMatchObject({
+        continuation_mode: 'task',
+        requested_continuation_mode: 'task',
+        effective_continuation_mode: 'task',
+      });
+      expect(readJson('.planning/current/discover/status.json')).toMatchObject({
+        run_id: nextLedger.run_id,
+      });
+      expect(readJson('.planning/current/discover/next-run-bootstrap.json')).toMatchObject({
+        recommended_continuation_mode: 'phase',
+      });
     });
   });
 

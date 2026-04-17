@@ -1,4 +1,7 @@
 import type { CanonicalCommandId, ImplementationStatus } from './types';
+import {
+  frameDesignIntentPath,
+} from './artifacts';
 
 export type CommandOwner =
   | 'pm-core'
@@ -42,6 +45,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       'docs/product/decision-brief.md',
       'docs/product/prd.md',
+      frameDesignIntentPath(),
       '.planning/current/frame/status.json',
     ],
     exit_condition: 'Framing is structured or sent back to discover.',
@@ -52,7 +56,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     owner: 'gsd-core',
     implementation: 'implemented',
     purpose: 'Write the execution-ready planning packet.',
-    required_inputs: [],
+    required_inputs: ['.planning/current/frame/status.json'],
     durable_outputs: [
       '.planning/current/plan/execution-readiness-packet.md',
       '.planning/current/plan/sprint-contract.md',
@@ -138,6 +142,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       '.planning/current/ship/release-gate-record.md',
       '.planning/current/ship/checklist.json',
+      '.planning/current/ship/pull-request.json',
       '.planning/current/ship/status.json',
     ],
     exit_condition: 'Release-gate state is explicitly recorded.',

@@ -60,7 +60,7 @@ Legacy compatibility aliases route through the same Nexus runtime:
 | [`/build`](#build) | **Disciplined execution** | Run the bounded implementation contract through Nexus-governed execution. |
 | [`/review`](#review) | **Dual audit** | Persist the audit set, synthesis, gate decision, and reviewed provenance. |
 | [`/qa`](#qa) | **Validation** | Record explicit validation scope, findings, and QA status. |
-| [`/ship`](#ship) | **Release gate** | Record release readiness and checklist state without bypassing review or closeout requirements. |
+| [`/ship`](#ship) | **Release gate** | Record release readiness, checklist state, and PR handoff metadata without bypassing review or closeout requirements. |
 | [`/closeout`](#closeout) | **Milestone verification** | Verify archive, provenance, legality, and final readiness status. |
 
 ## `/discover`
@@ -149,11 +149,11 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/cso` | Security audit and threat-modeling support skill. |
 | `/browse` | Fast browser automation and QA support. |
 | `/investigate` | Root-cause debugging workflow. |
-| `/design-consultation` | Design-system discovery and visual direction. |
-| `/design-shotgun` | Design exploration and option generation. |
-| `/design-html` | Design-to-implementation handoff support. |
-| `/design-review` | Live-site visual audit and polish. |
-| `/plan-design-review` | Design-specific plan review support. |
+| `/design-consultation` | Design-system discovery and visual direction that feeds canonical lifecycle artifacts for UI-bearing runs. |
+| `/design-shotgun` | Design exploration and option generation that feeds canonical lifecycle artifacts for UI-bearing runs. |
+| `/design-html` | Design-to-implementation handoff support that feeds canonical lifecycle artifacts for UI-bearing runs. |
+| `/design-review` | Live-site visual audit and polish that feeds canonical lifecycle artifacts for UI-bearing runs. |
+| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
 | `/qa-only` | Report-only QA pass without fixes. |
 | `/land-and-deploy` | Post-ship merge and deploy workflow. |
 | `/canary` | Post-deploy monitoring. |

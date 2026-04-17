@@ -22,7 +22,25 @@ Write or update the release notes for the release you are publishing before crea
 
 ## Maintainer Gate
 
-Run these before creating the tag:
+For a prepared release candidate, prefer the atomic publish command:
+
+```bash
+./bin/nexus-release-publish
+```
+
+That command is the canonical maintainer path once version markers and release notes are already prepared. It:
+
+- verifies the release candidate is on `main`
+- verifies generated skill docs are fresh before any publish action
+- runs local release preflight
+- pushes `main`
+- creates and pushes the release tag
+- publishes the GitHub Release
+- runs published-release smoke
+- runs `bun run maintainer:check`
+- commits and pushes post-release maintainer status refresh if needed
+
+If you need to debug or repair the release flow manually, run these before creating the tag:
 
 ```bash
 bun run maintainer:check
@@ -39,6 +57,14 @@ Run this immediately after the GitHub Release is published:
 Do not treat the release as complete until both commands report `READY`.
 
 ## Publish Steps
+
+For the normal maintainer path, run:
+
+```bash
+./bin/nexus-release-publish
+```
+
+Manual fallback only:
 
 1. Update `VERSION`, `package.json.version`, and `release.json.version` together.
 2. Update `release.json.tag` to `v{version}`.

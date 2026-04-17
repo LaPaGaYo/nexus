@@ -1,11 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  DESIGN_IMPACTS,
   CANONICAL_COMMANDS,
   ACTUAL_ROUTE_TRANSPORTS,
   STAGE_DECISIONS,
   PLACEHOLDER_OUTCOME,
   RUN_STATUSES,
   ROUTE_VALIDATION_TRANSPORTS,
+  type DesignImpact,
+  type DesignIntentRecord,
   WORKSPACE_RETIREMENT_STATES,
   type ActualRouteRecord,
   type ImplementationProvenanceRecord,
@@ -17,6 +20,10 @@ import {
   type StageStatus,
   type WorkspaceRecord,
 } from '../../lib/nexus/types';
+import {
+  frameDesignIntentPath,
+} from '../../lib/nexus/artifacts';
+import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { executionFieldsFromLedger, withExecutionSessionRoot } from '../../lib/nexus/execution-topology';
 
 describe('nexus types', () => {
@@ -30,6 +37,41 @@ describe('nexus types', () => {
 
   test('freezes the run-level status enum', () => {
     expect(RUN_STATUSES).toEqual(['active', 'blocked', 'completed', 'refused']);
+  });
+
+  test('freezes the design impact model', () => {
+    expect(DESIGN_IMPACTS).toEqual(['none', 'touchup', 'material']);
+
+    const impact: DesignImpact = 'material';
+    const intent: DesignIntentRecord = {
+      impact,
+      affected_surfaces: ['apps/web/src/app/page.tsx'],
+      design_system_source: 'design_md',
+      contract_required: true,
+      verification_required: true,
+    };
+
+    const stage: StageStatus = {
+      run_id: 'run-1',
+      stage: 'frame',
+      state: 'in_progress',
+      decision: 'none',
+      ready: false,
+      inputs: [],
+      outputs: [],
+      started_at: '2026-04-13T00:00:00.000Z',
+      completed_at: null,
+      errors: [],
+      design_impact: impact,
+      design_contract_required: intent.contract_required,
+      design_contract_path: '.planning/current/plan/design-contract.md',
+      design_verified: null,
+    };
+
+    expect(stage.design_impact).toBe('material');
+    expect(stage.design_contract_required).toBe(true);
+    expect(stage.design_contract_path).toBe('.planning/current/plan/design-contract.md');
+    expect(stage.design_verified).toBeNull();
   });
 
   test('freezes the workspace retirement states and fresh-run source', () => {
@@ -288,5 +330,21 @@ describe('nexus types', () => {
   test('freezes the governed tail lifecycle decisions', () => {
     expect(STAGE_DECISIONS).toContain('qa_recorded');
     expect(STAGE_DECISIONS).toContain('ship_recorded');
+  });
+
+  test('freezes the design artifact helper paths', () => {
+    expect(frameDesignIntentPath()).toBe('.planning/current/frame/design-intent.json');
+  });
+
+  test('locks the plan manifest input contract', () => {
+    expect(CANONICAL_MANIFEST.plan.required_inputs).toEqual([
+      '.planning/current/frame/status.json',
+    ]);
+  });
+
+  test('locks the frame design-bearing command manifest output', () => {
+    expect(CANONICAL_MANIFEST.frame.durable_outputs).toContain(
+      '.planning/current/frame/design-intent.json',
+    );
   });
 });

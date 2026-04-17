@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# nexus-ledger-doctor — report noncanonical Nexus ledger/audit state without mutating the repo.
+#
+# Usage:
+#   nexus-ledger-doctor [--json]
+#
+# Env overrides (for testing):
+#   NEXUS_DIR                  — override the repo root to inspect
+set -euo pipefail
+
+OUTPUT_MODE="text"
+
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  --json)
+    OUTPUT_MODE="json"
+    shift
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-ledger-doctor [--json]" >&2
+    exit 1
+    ;;
+esac
+
+if [ "${1:-}" != "" ]; then
+  echo "Usage: nexus-ledger-doctor [--json]" >&2
+  exit 1
+fi
+
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NEXUS_DIR="${NEXUS_DIR:-$SCRIPT_ROOT}"
+
+CORE_JS="$(cat <<'EOF'
+const ledgerDoctor = await import(process.env.NEXUS_LEDGER_DOCTOR_PATH);
+
+const report = ledgerDoctor.buildLedgerDoctorReport(process.env.NEXUS_DIR);
+const outputMode = process.env.NEXUS_LEDGER_DOCTOR_OUTPUT_MODE ?? 'text';
+
+if (outputMode === 'json') {
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(report.status === 'clean' ? 0 : 1);
+}
+
+if (report.status === 'clean') {
+  console.log('CLEAN none');
+  process.exit(0);
+}
+
+console.log(`ACTION_REQUIRED ${report.issues.map((issue) => issue.code).join(',')}`);
+for (const issue of report.issues) {
+  console.log(`- [${issue.code}] ${issue.message}`);
+  for (const evidence of issue.evidence) {
+    console.log(`  evidence: ${evidence}`);
+  }
+}
+process.exit(1);
+EOF
+)"
+
+NEXUS_DIR="$NEXUS_DIR" \
+NEXUS_LEDGER_DOCTOR_OUTPUT_MODE="$OUTPUT_MODE" \
+NEXUS_LEDGER_DOCTOR_PATH="$SCRIPT_ROOT/lib/nexus/ledger-doctor.ts" \
+bun -e "$CORE_JS"

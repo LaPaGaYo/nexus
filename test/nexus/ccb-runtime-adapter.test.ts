@@ -116,7 +116,7 @@ describe('nexus runtime ccb adapter', () => {
       const providerStatePath = join(root, '.planning/nexus/providers.json');
       expect(existsSync(providerStatePath)).toBe(true);
       expect(JSON.parse(readFileSync(providerStatePath, 'utf8'))).toMatchObject({
-        schema_version: 1,
+        schema_version: 2,
         providers: {
           codex: {
             provider: 'codex',
@@ -532,7 +532,14 @@ describe('nexus runtime ccb adapter', () => {
         PWD: '/repo/ledger-session',
       },
     });
-    expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
+    expect(calls[1]?.argv).toEqual([
+      '/opt/ccb/bin/ask',
+      'gemini',
+      '--foreground',
+      '--no-wrap',
+      '--timeout',
+      '180',
+    ]);
     expect(calls[1]?.cwd).toBe('/repo/root/.nexus-worktrees/run-owned');
     expect(calls[1]?.env.PWD).toBe('/repo/root/.nexus-worktrees/run-owned');
     expect(result.outcome).toBe('success');
@@ -733,10 +740,19 @@ describe('nexus runtime ccb adapter', () => {
         },
       }));
 
-      expect(calls).toHaveLength(4);
+      expect(calls).toHaveLength(5);
       expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
       expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
-      expect(calls[2]).toMatchObject({
+      expect(calls[2]?.argv).toEqual([
+        '/opt/ccb/bin/ask',
+        'gemini',
+        '--foreground',
+        '--no-wrap',
+        '--timeout',
+        '45',
+      ]);
+      expect(calls[2]?.stdin_text).toContain('exceeded the bounded review soft deadline');
+      expect(calls[3]).toMatchObject({
         argv: ['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`],
         cwd: root,
         env: {
@@ -744,7 +760,7 @@ describe('nexus runtime ccb adapter', () => {
           PWD: root,
         },
       });
-      expect(calls[3]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
+      expect(calls[4]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
       expect(result.outcome).toBe('success');
       expect(result.raw_output).toMatchObject({
         markdown: expect.stringContaining('Result: pass'),
@@ -752,10 +768,11 @@ describe('nexus runtime ccb adapter', () => {
         request_id: '20260415-000000-000-00000-2',
       });
 
-      const dispatchStatePath = join(root, '.planning/nexus/dispatch/20260415-000000-000-00000-2.json');
+      const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
       expect(existsSync(dispatchStatePath)).toBe(true);
       expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
-        schema_version: 1,
+        schema_version: 2,
+        dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
         request_id: '20260415-000000-000-00000-2',
         provider: 'gemini',
         stage: 'review',
@@ -773,8 +790,13 @@ describe('nexus runtime ccb adapter', () => {
             provider: 'gemini',
             session_root: root,
             autonew_ok: true,
+            active_dispatch_id: null,
+            last_dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+            last_dispatch_stage: 'review',
+            last_dispatch_status: 'recovered_late',
             last_request_id: '20260415-000000-000-00000-2',
             last_request_stage: 'review',
+            last_request_status: 'recovered_late',
           },
         },
       });
@@ -856,10 +878,19 @@ describe('nexus runtime ccb adapter', () => {
         },
       }));
 
-      expect(calls).toHaveLength(3);
+      expect(calls).toHaveLength(4);
       expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
       expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
-      expect(calls[2]).toMatchObject({
+      expect(calls[2]?.argv).toEqual([
+        '/opt/ccb/bin/ask',
+        'gemini',
+        '--foreground',
+        '--no-wrap',
+        '--timeout',
+        '45',
+      ]);
+      expect(calls[2]?.stdin_text).toContain('exceeded the bounded review soft deadline');
+      expect(calls[3]).toMatchObject({
         argv: ['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`],
         cwd: root,
         env: {
@@ -872,6 +903,33 @@ describe('nexus runtime ccb adapter', () => {
         markdown: expect.stringContaining('Result: pass'),
         exit_code: 2,
         request_id: null,
+      });
+
+      const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
+      expect(existsSync(dispatchStatePath)).toBe(true);
+      expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
+        schema_version: 2,
+        dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+        request_id: null,
+        provider: 'gemini',
+        stage: 'review',
+        status: 'recovered_late',
+        payload_source: 'pend',
+      });
+
+      const providerStatePath = join(root, '.planning/nexus/providers.json');
+      expect(JSON.parse(readFileSync(providerStatePath, 'utf8'))).toMatchObject({
+        providers: {
+          gemini: {
+            provider: 'gemini',
+            active_dispatch_id: null,
+            last_dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+            last_dispatch_stage: 'review',
+            last_dispatch_status: 'recovered_late',
+            last_request_id: null,
+            last_request_stage: null,
+          },
+        },
       });
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -906,6 +964,293 @@ describe('nexus runtime ccb adapter', () => {
     expect(result.outcome).toBe('blocked');
     expect(result.actual_route).toBeNull();
     expect(result.notices[0]).toContain('could not reset gemini session');
+  });
+
+  test('issues a review finalize nudge and slow-lane pend recovery after a bounded review soft timeout', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-review-watchdog-'));
+    try {
+      const calls: RecordedCommand[] = [];
+      let pendAttempts = 0;
+      const adapter = createRuntimeCcbAdapter({
+        resolveSessionRoot: () => root,
+        resolveToolPaths: () => ({
+          ask_path: '/opt/ccb/bin/ask',
+          ping_path: '/opt/ccb/bin/ccb-ping',
+          mounted_path: '/opt/ccb/bin/ccb-mounted',
+          autonew_path: '/opt/ccb/bin/autonew',
+          pend_path: '/opt/ccb/bin/pend',
+        }),
+        runCommand: async (spec) => {
+          calls.push(spec);
+          if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+            return {
+              exit_code: 0,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === '/opt/ccb/bin/ask' && spec.stdin_text?.includes('Perform the governed Nexus /review audit')) {
+            return {
+              exit_code: 124,
+              stdout: '',
+              stderr: '[TIMEOUT] command exceeded 190000ms',
+            };
+          }
+
+          if (spec.argv[0] === '/opt/ccb/bin/ask') {
+            return {
+              exit_code: 1,
+              stdout: 'I have enough repo-visible evidence and I am finalizing the audit now.',
+              stderr: '',
+            };
+          }
+
+          pendAttempts += 1;
+          if (pendAttempts < 3) {
+            return {
+              exit_code: 2,
+              stdout: '',
+              stderr: 'No reply available yet',
+            };
+          }
+
+          return {
+            exit_code: 0,
+            stdout: [
+              '# Gemini Audit',
+              '',
+              'Result: pass',
+              '',
+              'Findings:',
+              '- none',
+              '',
+              'Advisories:',
+              '- none',
+            ].join('\n'),
+            stderr: '',
+          };
+        },
+        sleep: async () => {},
+        now: () => '2026-04-08T00:00:00.000Z',
+      });
+
+      const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, {
+        mode: 'bounded_fix_cycle',
+        source_stage: 'review',
+        blocking_items: ['Verify the webhook signature fix only.'],
+        advisory_policy: 'out_of_scope_advisory',
+      }, {
+        cwd: root,
+        contextWorkspace: {
+          path: join(root, '.nexus-worktrees/run-123'),
+          kind: 'worktree',
+          branch: 'codex/run-123',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerWorkspace: {
+          path: join(root, '.nexus-worktrees/run-123'),
+          kind: 'worktree',
+          branch: 'codex/run-123',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerSessionRoot: {
+          path: root,
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+      }));
+
+      expect(result.outcome).toBe('success');
+      expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+      expect(calls[1]?.argv).toEqual([
+        '/opt/ccb/bin/ask',
+        'gemini',
+        '--foreground',
+        '--no-wrap',
+        '--timeout',
+        '180',
+      ]);
+      expect(calls[2]?.argv).toEqual([
+        '/opt/ccb/bin/ask',
+        'gemini',
+        '--foreground',
+        '--no-wrap',
+        '--timeout',
+        '45',
+      ]);
+      expect(calls[2]?.stdin_text).toContain('exceeded the bounded review soft deadline');
+      expect(calls[2]?.stdin_text).toContain('Do not restart the investigation or broaden scope.');
+      expect(calls[2]?.stdin_text).toContain('Use the repo-visible evidence already gathered in this session and finalize immediately.');
+      expect(calls[3]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
+      expect(calls[4]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
+      expect(calls[5]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
+      expect(result.raw_output).toMatchObject({
+        markdown: expect.stringContaining('Result: pass'),
+        exit_code: 124,
+      });
+
+      const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
+      expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
+        schema_version: 2,
+        dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+        status: 'recovered_late',
+        payload_source: 'pend',
+      });
+
+      const providerStatePath = join(root, '.planning/nexus/providers.json');
+      expect(JSON.parse(readFileSync(providerStatePath, 'utf8'))).toMatchObject({
+        providers: {
+          gemini: {
+            last_dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+            last_dispatch_status: 'recovered_late',
+          },
+        },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('recovers a successful review audit after a silent nonzero ask exit', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-review-silent-'));
+    try {
+      const calls: RecordedCommand[] = [];
+      let pendAttempts = 0;
+      const adapter = createRuntimeCcbAdapter({
+        resolveSessionRoot: () => root,
+        resolveToolPaths: () => ({
+          ask_path: '/opt/ccb/bin/ask',
+          ping_path: '/opt/ccb/bin/ccb-ping',
+          mounted_path: '/opt/ccb/bin/ccb-mounted',
+          autonew_path: '/opt/ccb/bin/autonew',
+          pend_path: '/opt/ccb/bin/pend',
+        }),
+        runCommand: async (spec) => {
+          calls.push(spec);
+          if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+            return {
+              exit_code: 0,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === '/opt/ccb/bin/ask' && spec.stdin_text?.includes('Perform the governed Nexus /review audit')) {
+            return {
+              exit_code: 1,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === '/opt/ccb/bin/ask') {
+            return {
+              exit_code: 1,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          pendAttempts += 1;
+          if (pendAttempts === 1) {
+            return {
+              exit_code: 2,
+              stdout: '',
+              stderr: 'No reply available yet',
+            };
+          }
+
+          return {
+            exit_code: 0,
+            stdout: [
+              '# Gemini Audit',
+              '',
+              'Result: pass',
+              '',
+              'Findings:',
+              '- none',
+              '',
+              'Advisories:',
+              '- none',
+            ].join('\n'),
+            stderr: '',
+          };
+        },
+        sleep: async () => {},
+        now: () => '2026-04-08T00:00:00.000Z',
+      });
+
+      const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, {
+        mode: 'bounded_fix_cycle',
+        source_stage: 'review',
+        blocking_items: ['Verify the owner mutation serialization fix only.'],
+        advisory_policy: 'out_of_scope_advisory',
+      }, {
+        cwd: root,
+        contextWorkspace: {
+          path: join(root, '.nexus-worktrees/run-123'),
+          kind: 'worktree',
+          branch: 'codex/run-123',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerWorkspace: {
+          path: join(root, '.nexus-worktrees/run-123'),
+          kind: 'worktree',
+          branch: 'codex/run-123',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerSessionRoot: {
+          path: root,
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+      }));
+
+      expect(result.outcome).toBe('success');
+      expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+      expect(calls[1]?.argv).toEqual([
+        '/opt/ccb/bin/ask',
+        'gemini',
+        '--foreground',
+        '--no-wrap',
+        '--timeout',
+        '180',
+      ]);
+      expect(calls[2]?.argv).toEqual([
+        '/opt/ccb/bin/ask',
+        'gemini',
+        '--foreground',
+        '--no-wrap',
+        '--timeout',
+        '45',
+      ]);
+      expect(calls[3]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
+      expect(calls[4]?.argv).toEqual(['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`]);
+      expect(result.raw_output).toMatchObject({
+        markdown: expect.stringContaining('Result: pass'),
+        exit_code: 1,
+        request_id: null,
+      });
+
+      const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
+      expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
+        schema_version: 2,
+        dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+        status: 'recovered_late',
+        payload_source: 'pend',
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('blocks gracefully when the ccb-ping binary is missing instead of throwing', async () => {

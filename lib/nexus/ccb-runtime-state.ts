@@ -2,12 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { ccbDispatchStatePath, ccbProviderStatePath } from './artifacts';
 
-type CcbRuntimeProvider = 'codex' | 'gemini';
-type CcbRuntimeStage = 'handoff' | 'build' | 'review' | 'qa';
-type CcbDispatchStatus = 'dispatched' | 'completed' | 'blocked' | 'recovered_late';
-type CcbPayloadSource = 'ask' | 'pend' | null;
+export type CcbRuntimeProvider = 'codex' | 'gemini';
+export type CcbRuntimeStage = 'handoff' | 'build' | 'review' | 'qa';
+export type CcbDispatchStage = Exclude<CcbRuntimeStage, 'handoff'>;
+export type CcbDispatchStatus = 'dispatched' | 'completed' | 'blocked' | 'recovered_late';
+export type CcbPayloadSource = 'ask' | 'pend' | null;
 
-interface CcbProviderStateEntry {
+export interface CcbProviderStateEntry {
   provider: CcbRuntimeProvider;
   session_root: string | null;
   session_file: string | null;
@@ -20,21 +21,29 @@ interface CcbProviderStateEntry {
   autonew_ok: boolean | null;
   last_autonew_at: string | null;
   last_autonew_output: string | null;
+  active_dispatch_id: string | null;
+  active_dispatch_stage: CcbDispatchStage | null;
+  active_dispatch_status: CcbDispatchStatus | null;
+  last_dispatch_id: string | null;
+  last_dispatch_stage: CcbDispatchStage | null;
+  last_dispatch_status: CcbDispatchStatus | null;
   last_request_id: string | null;
   last_request_stage: CcbRuntimeStage | null;
+  last_request_status: CcbDispatchStatus | null;
 }
 
-interface CcbProviderStateFile {
-  schema_version: 1;
+export interface CcbProviderStateFile {
+  schema_version: 2;
   updated_at: string;
   providers: Record<CcbRuntimeProvider, CcbProviderStateEntry>;
 }
 
-interface CcbDispatchStateRecord {
-  schema_version: 1;
-  request_id: string;
+export interface CcbDispatchStateRecord {
+  schema_version: 2;
+  dispatch_id: string;
+  request_id: string | null;
   provider: CcbRuntimeProvider;
-  stage: Exclude<CcbRuntimeStage, 'handoff'>;
+  stage: CcbDispatchStage;
   status: CcbDispatchStatus;
   payload_source: CcbPayloadSource;
   session_root: string;
@@ -62,14 +71,21 @@ function defaultProviderEntry(provider: CcbRuntimeProvider): CcbProviderStateEnt
     autonew_ok: null,
     last_autonew_at: null,
     last_autonew_output: null,
+    active_dispatch_id: null,
+    active_dispatch_stage: null,
+    active_dispatch_status: null,
+    last_dispatch_id: null,
+    last_dispatch_stage: null,
+    last_dispatch_status: null,
     last_request_id: null,
     last_request_stage: null,
+    last_request_status: null,
   };
 }
 
 function defaultProviderStateFile(now: string): CcbProviderStateFile {
   return {
-    schema_version: 1,
+    schema_version: 2,
     updated_at: now,
     providers: {
       codex: defaultProviderEntry('codex'),
@@ -84,6 +100,14 @@ function providerStateAbsolutePath(repoRoot: string): string {
 
 function dispatchStateAbsolutePath(repoRoot: string, requestId: string): string {
   return join(repoRoot, ccbDispatchStatePath(requestId));
+}
+
+export function createCcbDispatchId(input: {
+  provider: CcbRuntimeProvider;
+  stage: CcbDispatchStage;
+  at: string;
+}): string {
+  return `${input.stage}-${input.provider}-${input.at.replace(/[^0-9A-Za-z]+/g, '-')}`;
 }
 
 function writeJson(absolutePath: string, value: unknown): void {
@@ -104,7 +128,7 @@ function readProviderState(repoRoot: string, now: string): CcbProviderStateFile 
   try {
     const parsed = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<CcbProviderStateFile>;
     return {
-      schema_version: 1,
+      schema_version: 2,
       updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : now,
       providers: {
         codex: {
@@ -126,6 +150,112 @@ function readProviderState(repoRoot: string, now: string): CcbProviderStateFile 
 
 function writeProviderState(repoRoot: string, state: CcbProviderStateFile): void {
   writeJson(providerStateAbsolutePath(repoRoot), state);
+}
+
+export function readCcbProviderState(repoRoot: string, now: string): CcbProviderStateFile {
+  return readProviderState(repoRoot, now);
+}
+
+export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbDispatchStateRecord | null {
+  const absolutePath = dispatchStateAbsolutePath(repoRoot, dispatchId);
+  if (!existsSync(absolutePath)) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<CcbDispatchStateRecord>;
+    if (
+      parsed.schema_version !== 2 ||
+      typeof parsed.dispatch_id !== 'string' ||
+      typeof parsed.provider !== 'string' ||
+      typeof parsed.stage !== 'string' ||
+      typeof parsed.status !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      schema_version: 2,
+      dispatch_id: parsed.dispatch_id,
+      request_id: typeof parsed.request_id === 'string' ? parsed.request_id : null,
+      provider: parsed.provider as CcbRuntimeProvider,
+      stage: parsed.stage as CcbDispatchStage,
+      status: parsed.status as CcbDispatchStatus,
+      payload_source: parsed.payload_source === 'ask' || parsed.payload_source === 'pend' ? parsed.payload_source : null,
+      session_root: typeof parsed.session_root === 'string' ? parsed.session_root : '',
+      session_file: typeof parsed.session_file === 'string' ? parsed.session_file : null,
+      execution_workspace: typeof parsed.execution_workspace === 'string' ? parsed.execution_workspace : '',
+      dispatch_command: typeof parsed.dispatch_command === 'string' ? parsed.dispatch_command : '',
+      dispatched_at: typeof parsed.dispatched_at === 'string' ? parsed.dispatched_at : '',
+      updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : '',
+      ask_exit_code: typeof parsed.ask_exit_code === 'number' ? parsed.ask_exit_code : null,
+      stdout: typeof parsed.stdout === 'string' ? parsed.stdout : '',
+      stderr: typeof parsed.stderr === 'string' ? parsed.stderr : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function readActiveCcbDispatchState(
+  repoRoot: string,
+  provider: CcbRuntimeProvider,
+  now: string,
+): CcbDispatchStateRecord | null {
+  const state = readProviderState(repoRoot, now);
+  const dispatchId = state.providers[provider].active_dispatch_id;
+  if (!dispatchId) {
+    return null;
+  }
+
+  return readCcbDispatchState(repoRoot, dispatchId);
+}
+
+export function startCcbDispatchState(input: {
+  repoRoot: string;
+  dispatchId: string;
+  provider: CcbRuntimeProvider;
+  stage: CcbDispatchStage;
+  sessionRoot: string;
+  sessionFile: string | null;
+  executionWorkspace: string;
+  dispatchCommand: string;
+  dispatchedAt: string;
+}): void {
+  const record: CcbDispatchStateRecord = {
+    schema_version: 2,
+    dispatch_id: input.dispatchId,
+    request_id: null,
+    provider: input.provider,
+    stage: input.stage,
+    status: 'dispatched',
+    payload_source: null,
+    session_root: input.sessionRoot,
+    session_file: input.sessionFile,
+    execution_workspace: input.executionWorkspace,
+    dispatch_command: input.dispatchCommand,
+    dispatched_at: input.dispatchedAt,
+    updated_at: input.dispatchedAt,
+    ask_exit_code: null,
+    stdout: '',
+    stderr: '',
+  };
+  writeJson(dispatchStateAbsolutePath(input.repoRoot, input.dispatchId), record);
+
+  const providerState = readProviderState(input.repoRoot, input.dispatchedAt);
+  providerState.updated_at = input.dispatchedAt;
+  providerState.providers[input.provider] = {
+    ...providerState.providers[input.provider],
+    session_root: input.sessionRoot,
+    session_file: input.sessionFile,
+    active_dispatch_id: input.dispatchId,
+    active_dispatch_stage: input.stage,
+    active_dispatch_status: 'dispatched',
+    last_dispatch_id: input.dispatchId,
+    last_dispatch_stage: input.stage,
+    last_dispatch_status: 'dispatched',
+  };
+  writeProviderState(input.repoRoot, providerState);
 }
 
 export function recordCcbMountedProviderState(input: {
@@ -196,9 +326,10 @@ export function recordCcbAutonewProviderState(input: {
 
 export function recordCcbDispatchState(input: {
   repoRoot: string;
-  requestId: string;
+  dispatchId: string;
+  requestId: string | null;
   provider: CcbRuntimeProvider;
-  stage: Exclude<CcbRuntimeStage, 'handoff'>;
+  stage: CcbDispatchStage;
   status: CcbDispatchStatus;
   payloadSource: CcbPayloadSource;
   sessionRoot: string;
@@ -212,7 +343,8 @@ export function recordCcbDispatchState(input: {
   stderr: string;
 }): void {
   const record: CcbDispatchStateRecord = {
-    schema_version: 1,
+    schema_version: 2,
+    dispatch_id: input.dispatchId,
     request_id: input.requestId,
     provider: input.provider,
     stage: input.stage,
@@ -228,16 +360,25 @@ export function recordCcbDispatchState(input: {
     stdout: input.stdout,
     stderr: input.stderr,
   };
-  writeJson(dispatchStateAbsolutePath(input.repoRoot, input.requestId), record);
+  writeJson(dispatchStateAbsolutePath(input.repoRoot, input.dispatchId), record);
 
   const providerState = readProviderState(input.repoRoot, input.updatedAt);
+  const currentProviderState = providerState.providers[input.provider];
+  const clearActiveDispatch = currentProviderState.active_dispatch_id === input.dispatchId && input.status !== 'dispatched';
   providerState.updated_at = input.updatedAt;
   providerState.providers[input.provider] = {
-    ...providerState.providers[input.provider],
+    ...currentProviderState,
     session_root: input.sessionRoot,
     session_file: input.sessionFile,
-    last_request_id: input.requestId,
-    last_request_stage: input.stage,
+    active_dispatch_id: clearActiveDispatch ? null : currentProviderState.active_dispatch_id,
+    active_dispatch_stage: clearActiveDispatch ? null : currentProviderState.active_dispatch_stage,
+    active_dispatch_status: clearActiveDispatch ? null : currentProviderState.active_dispatch_status,
+    last_dispatch_id: input.dispatchId,
+    last_dispatch_stage: input.stage,
+    last_dispatch_status: input.status,
+    last_request_id: input.requestId ?? currentProviderState.last_request_id,
+    last_request_stage: input.requestId ? input.stage : currentProviderState.last_request_stage,
+    last_request_status: input.requestId ? input.status : currentProviderState.last_request_status,
   };
   writeProviderState(input.repoRoot, providerState);
 }

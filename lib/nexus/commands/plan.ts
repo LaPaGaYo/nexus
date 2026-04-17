@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { stageStatusPath } from '../artifacts';
+import { planDesignContractPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildGsdTraceabilityPayloads, normalizeGsdPlan } from '../normalizers/gsd';
@@ -7,6 +7,7 @@ import { makeRunId, readLedger, startLedger } from '../ledger';
 import type { GsdPlanRaw } from '../adapters/gsd';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { readStageStatus } from '../status';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -32,13 +33,53 @@ function nextLedger(
   };
 }
 
+function designContractPointerFromWrites(writes: Array<{ path: string }>): ArtifactPointer | null {
+  return writes.some((write) => write.path === planDesignContractPath())
+    ? artifactPointerFor(planDesignContractPath())
+    : null;
+}
+
+function buildStatus(
+  ledger: RunLedger,
+  at: string,
+  frameStatus: StageStatus | null,
+  designContractPath: string | null,
+  outputs: ArtifactPointer[],
+  state: StageStatus['state'],
+  decision: StageStatus['decision'],
+  ready: boolean,
+  errors: string[],
+): StageStatus {
+  const designImpact = frameStatus?.design_impact ?? 'none';
+
+  return {
+    run_id: ledger.run_id,
+    stage: 'plan',
+    ...executionFieldsFromLedger(ledger),
+    design_impact: designImpact,
+    design_contract_required: frameStatus?.design_contract_required ?? false,
+    design_contract_path: designContractPath,
+    design_verified: designImpact === 'none' ? null : false,
+    state,
+    decision,
+    ready,
+    inputs: [artifactPointerFor(stageStatusPath('frame'))],
+    outputs,
+    started_at: at,
+    completed_at: at,
+    errors,
+  };
+}
+
 export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
   const existingLedger = readLedger(ctx.cwd);
   const runId = existingLedger?.run_id ?? makeRunId(ctx.clock);
   const ledger = existingLedger ?? startLedger(runId, 'plan', ctx.execution);
   const startedAt = ctx.clock();
   const statusPath = stageStatusPath('plan');
+  const frameStatus = readStageStatus(stageStatusPath('frame'), ctx.cwd);
   const manifest = CANONICAL_MANIFEST.plan;
+  const planInputs = [artifactPointerFor(stageStatusPath('frame'))];
   const result = await ctx.adapters.gsd.plan({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
@@ -46,24 +87,22 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
     stage: 'plan',
     ledger,
     manifest,
-    predecessor_artifacts: [],
+    predecessor_artifacts: planInputs,
     requested_route: null,
   }) as Awaited<ReturnType<typeof ctx.adapters.gsd.plan>> & { raw_output: GsdPlanRaw };
 
   if (result.outcome !== 'success') {
-    const status: StageStatus = {
-      run_id: runId,
-      stage: 'plan',
-      ...executionFieldsFromLedger(ledger),
-      state: result.outcome === 'refused' ? 'refused' : 'blocked',
-      decision: result.outcome === 'refused' ? 'refused' : 'not_ready',
-      ready: false,
-      inputs: [],
-      outputs: [artifactPointerFor(statusPath)],
-      started_at: startedAt,
-      completed_at: startedAt,
-      errors: [result.outcome === 'refused' ? 'GSD planning refused' : 'GSD planning blocked'],
-    };
+    const status = buildStatus(
+      ledger,
+      startedAt,
+      frameStatus,
+      null,
+      [artifactPointerFor(statusPath)],
+      result.outcome === 'refused' ? 'refused' : 'blocked',
+      result.outcome === 'refused' ? 'refused' : 'not_ready',
+      false,
+      [result.outcome === 'refused' ? 'GSD planning refused' : 'GSD planning blocked'],
+    );
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'plan',
@@ -72,7 +111,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
-        [],
+        [stageStatusPath('frame')],
         { adapter: 'gsd', stage: 'plan', contract_outputs: manifest.durable_outputs },
         result,
         {
@@ -89,31 +128,34 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdPlan(result);
-    const status: StageStatus = {
-      run_id: runId,
-      stage: 'plan',
-      ...executionFieldsFromLedger(ledger),
-      state: result.raw_output.ready ? 'completed' : 'blocked',
-      decision: result.raw_output.ready ? 'ready' : 'not_ready',
-      ready: result.raw_output.ready,
-      inputs: [],
-      outputs: [
+    const designContractPointer = designContractPointerFromWrites(normalized.canonicalWrites);
+    const designContractMissing = frameStatus?.design_impact === 'material' && !designContractPointer;
+    const ready = result.raw_output.ready && !designContractMissing;
+    const status = buildStatus(
+      ledger,
+      startedAt,
+      frameStatus,
+      designContractPointer?.path ?? null,
+      [
         artifactPointerFor('.planning/current/plan/execution-readiness-packet.md'),
         artifactPointerFor('.planning/current/plan/sprint-contract.md'),
+        ...(designContractPointer ? [designContractPointer] : []),
         artifactPointerFor(statusPath),
       ],
-      started_at: startedAt,
-      completed_at: startedAt,
-      errors: [],
-    };
+      ready ? 'completed' : 'blocked',
+      ready ? 'ready' : 'not_ready',
+      ready,
+      [],
+    );
 
-    const next = nextLedger(ledger, result.raw_output.ready ? 'active' : 'blocked', startedAt, ctx.via);
+    const next = nextLedger(ledger, ready ? 'active' : 'blocked', startedAt, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
       '.planning/current/plan/execution-readiness-packet.md': artifactPointerFor(
         '.planning/current/plan/execution-readiness-packet.md',
       ),
       '.planning/current/plan/sprint-contract.md': artifactPointerFor('.planning/current/plan/sprint-contract.md'),
+      ...(designContractPointer ? { [designContractPointer.path]: designContractPointer } : {}),
       [statusPath]: artifactPointerFor(statusPath),
     };
 
@@ -125,7 +167,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
-        [],
+        planInputs.map((input) => input.path),
         { adapter: 'gsd', stage: 'plan', contract_outputs: manifest.durable_outputs },
         result,
         {
@@ -139,7 +181,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       ledger: next,
     });
 
-    if (!result.raw_output.ready) {
+    if (!ready) {
       throw new Error('Plan is not ready for execution');
     }
 
@@ -165,19 +207,17 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         '.planning/current/plan/normalization.json',
       ],
     };
-    const status: StageStatus = {
-      run_id: runId,
-      stage: 'plan',
-      ...executionFieldsFromLedger(ledger),
-      state: 'blocked',
-      decision: 'not_ready',
-      ready: false,
-      inputs: [],
-      outputs: [artifactPointerFor(statusPath)],
-      started_at: startedAt,
-      completed_at: startedAt,
-      errors: ['Canonical writeback failed'],
-    };
+    const status = buildStatus(
+      ledger,
+      startedAt,
+      frameStatus,
+      null,
+      [artifactPointerFor(statusPath)],
+      'blocked',
+      'not_ready',
+      false,
+      ['Canonical writeback failed'],
+    );
 
     await applyNormalizationPlan({
       cwd: ctx.cwd,
@@ -187,7 +227,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
-        [],
+        planInputs.map((input) => input.path),
         { adapter: 'gsd', stage: 'plan', contract_outputs: manifest.durable_outputs },
         result,
         {

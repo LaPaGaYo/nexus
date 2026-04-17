@@ -395,6 +395,8 @@ Nexus-owned build guidance for disciplined implementation under governed routing
 
 Writes `.planning/current/build/build-request.json`, `.planning/current/build/build-result.md`, and `.planning/current/build/status.json`.
 
+When `.planning/current/plan/design-contract.md` is present, `/build` treats it as part of the bounded implementation contract, passes it as a predecessor artifact, and records the design-bearing provenance on build status.
+
 ## Routing
 
 Advance to `/review` only after Nexus records a bounded build result with requested and actual route provenance kept distinct.

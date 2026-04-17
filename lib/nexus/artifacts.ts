@@ -22,6 +22,18 @@ export function stageNormalizationPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/normalization.json`;
 }
 
+export function frameDesignIntentPath(): string {
+  return `${CURRENT_ROOT}/frame/design-intent.json`;
+}
+
+export function planDesignContractPath(): string {
+  return `${CURRENT_ROOT}/plan/design-contract.md`;
+}
+
+export function qaDesignVerificationPath(): string {
+  return `${CURRENT_ROOT}/qa/design-verification.md`;
+}
+
 export function qaReportPath(): string {
   return `${CURRENT_ROOT}/qa/qa-report.md`;
 }
@@ -32,6 +44,10 @@ export function shipReleaseGateRecordPath(): string {
 
 export function shipChecklistPath(): string {
   return `${CURRENT_ROOT}/ship/checklist.json`;
+}
+
+export function shipPullRequestPath(): string {
+  return `${CURRENT_ROOT}/ship/pull-request.json`;
 }
 
 export function stageConflictPath(stage: CanonicalCommandId, adapter: string): string {

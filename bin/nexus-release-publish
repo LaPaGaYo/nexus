@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# nexus-release-publish — publish a prepared Nexus release and refresh maintainer status atomically.
+#
+# Usage:
+#   nexus-release-publish
+#
+# Env overrides (for testing):
+#   NEXUS_DIR               — override the Nexus repo root
+#   NEXUS_RELEASE_REPO      — override the GitHub repo slug
+#   NEXUS_GIT_STATUS_LINES  — override git status --short output for release preflight
+#   NEXUS_EXISTING_TAGS     — override git tag --list output for release preflight
+set -euo pipefail
+
+case "${1:-}" in
+  -h|--help)
+    awk '
+      NR == 1 { next }
+      /^set -euo pipefail$/ { exit }
+      /^# / { sub(/^# /, ""); print; next }
+      /^#$/ { print ""; next }
+    ' "$0"
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    echo "Unknown option: ${1}" >&2
+    echo "Usage: nexus-release-publish" >&2
+    exit 1
+    ;;
+esac
+
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NEXUS_DIR="${NEXUS_DIR:-$SCRIPT_ROOT}"
+RELEASE_REPO="${NEXUS_RELEASE_REPO:-LaPaGaYo/nexus}"
+GIT_STATUS_LINES="${NEXUS_GIT_STATUS_LINES:-$(git -C "$NEXUS_DIR" status --short 2>/dev/null || true)}"
+EXISTING_TAGS="${NEXUS_EXISTING_TAGS:-$(git -C "$NEXUS_DIR" tag --list 2>/dev/null || true)}"
+
+CORE_JS="$(cat <<'EOF'
+const releasePublication = await import(process.env.NEXUS_RELEASE_PUBLICATION_PATH);
+
+const rootDir = process.env.NEXUS_DIR;
+const releaseRepo = process.env.NEXUS_RELEASE_REPO;
+
+function runCommand(spec) {
+  const result = Bun.spawnSync(spec.argv, {
+    cwd: spec.cwd,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: {
+      ...process.env,
+      ...(spec.env ?? {}),
+    },
+  });
+
+  return {
+    exitCode: result.exitCode ?? 1,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  };
+}
+
+const report = await releasePublication.executePreparedReleasePublication({
+  rootDir,
+  releaseRepo,
+  gitStatusLines: (process.env.NEXUS_GIT_STATUS_LINES ?? '').split('\n').filter(Boolean),
+  existingTags: (process.env.NEXUS_EXISTING_TAGS ?? '').split('\n').filter(Boolean),
+  runCommand,
+});
+
+if (report.status === 'published') {
+  console.log(`PUBLISHED ${report.version} ${report.tag}`);
+  if (report.post_publish_refresh_commit) {
+    console.log('- Post-release maintainer refresh committed and pushed.');
+  }
+  process.exit(0);
+}
+
+console.log(`BLOCKED ${report.version} ${report.tag}`);
+for (const issue of report.issues) {
+  console.log(`- ${issue}`);
+}
+process.exit(1);
+EOF
+)"
+
+NEXUS_DIR="$NEXUS_DIR" \
+NEXUS_RELEASE_REPO="$RELEASE_REPO" \
+NEXUS_GIT_STATUS_LINES="$GIT_STATUS_LINES" \
+NEXUS_EXISTING_TAGS="$EXISTING_TAGS" \
+NEXUS_RELEASE_PUBLICATION_PATH="$SCRIPT_ROOT/lib/nexus/release-publication.ts" \
+bun -e "$CORE_JS"

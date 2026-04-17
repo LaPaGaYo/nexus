@@ -1,6 +1,8 @@
-import { existsSync, mkdirSync, renameSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { describe, expect, test } from 'bun:test';
+import { buildReviewAuditPrompt } from '../../lib/nexus/adapters/prompt-contracts';
+import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { runReviewWithWriteAtomicFile } from '../../lib/nexus/commands/review';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
@@ -280,6 +282,199 @@ describe('nexus review', () => {
     });
   });
 
+  test('review passes the approved design contract as predecessor provenance when present', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      writeFileSync(
+        join(cwd, '.planning/current/plan/status.json'),
+        JSON.stringify(
+          {
+            ...(await run.readJson('.planning/current/plan/status.json')),
+            design_impact: 'material',
+            design_contract_required: true,
+            design_contract_path: '.planning/current/plan/design-contract.md',
+            design_verified: false,
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+      writeFileSync(
+        join(cwd, '.planning/current/plan/design-contract.md'),
+        '# Design Contract\n\nApproved material UI contract\n',
+      );
+
+      const buildStatusPath = join(cwd, '.planning/current/build/status.json');
+      const buildStatus = JSON.parse(readFileSync(buildStatusPath, 'utf8'));
+      buildStatus.inputs = [
+        ...(buildStatus.inputs ?? []),
+        { kind: 'markdown', path: '.planning/current/plan/design-contract.md' },
+      ];
+      writeFileSync(buildStatusPath, JSON.stringify(buildStatus, null, 2) + '\n');
+
+      const seen: string[][] = [];
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => {
+            seen.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                receipt: 'codex-review-receipt',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/review/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+          execute_audit_b: async (ctx) => {
+            seen.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                receipt: 'gemini-review-receipt',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'gemini',
+                route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/review/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(seen).toHaveLength(2);
+      for (const paths of seen) {
+        expect(paths).toEqual(expect.arrayContaining([
+          '.planning/current/build/status.json',
+          '.planning/current/handoff/governed-handoff.md',
+          '.planning/current/plan/execution-readiness-packet.md',
+          '.planning/current/plan/sprint-contract.md',
+          '.planning/current/plan/design-contract.md',
+        ]));
+      }
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'completed',
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: '.planning/current/plan/design-contract.md',
+        design_verified: false,
+      });
+    });
+  });
+
+  test('design-bearing review prompt requires advisories without broadening into open-ended critique', () => {
+    const prompt = buildReviewAuditPrompt(
+      {
+        cwd: '/repo',
+        workspace: null,
+        run_id: 'run-1',
+        command: 'review',
+        stage: 'review',
+        ledger: {
+          run_id: 'run-1',
+          continuation_mode: 'phase',
+          status: 'active',
+          current_command: 'review',
+          current_stage: 'review',
+          previous_stage: 'build',
+          allowed_next_stages: ['qa', 'ship', 'closeout'],
+          command_history: [],
+          artifact_index: {},
+          execution: {
+            mode: 'governed_ccb',
+            primary_provider: 'codex',
+            provider_topology: 'multi_session',
+            requested_path: 'codex-via-ccb',
+            actual_path: 'codex-via-ccb',
+          },
+          route_intent: {
+            planner: 'claude+pm-gsd',
+            generator: 'codex-via-ccb',
+            evaluator_a: 'codex-via-ccb',
+            evaluator_b: 'gemini-via-ccb',
+            synthesizer: 'claude',
+            substrate: 'superpowers-core',
+            fallback_policy: 'disabled',
+          },
+        },
+        manifest: CANONICAL_MANIFEST.review,
+        predecessor_artifacts: [
+          { kind: 'json', path: '.planning/current/build/status.json' },
+          { kind: 'markdown', path: '.planning/current/handoff/governed-handoff.md' },
+          { kind: 'markdown', path: '.planning/current/plan/execution-readiness-packet.md' },
+          { kind: 'markdown', path: '.planning/current/plan/sprint-contract.md' },
+          { kind: 'markdown', path: '.planning/current/plan/design-contract.md' },
+        ],
+        requested_route: {
+          command: 'build',
+          governed: true,
+          execution_mode: 'governed_ccb',
+          primary_provider: 'codex',
+          provider_topology: 'multi_session',
+          planner: 'claude+pm-gsd',
+          generator: 'codex-via-ccb',
+          evaluator_a: 'codex-via-ccb',
+          evaluator_b: 'gemini-via-ccb',
+          synthesizer: 'claude',
+          substrate: 'superpowers-core',
+          transport: 'ccb',
+          fallback_policy: 'disabled',
+        },
+        review_scope: {
+          mode: 'full_acceptance',
+          source_stage: 'plan',
+          blocking_items: [],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      },
+      'Nexus governed stage',
+      'Perform the governed Nexus /review audit for the gemini path.',
+      '# Gemini Audit',
+    );
+
+    expect(prompt).toContain('This is a design-bearing review. The approved design contract is .planning/current/plan/design-contract.md.');
+    expect(prompt).toContain('Do not turn this review into open-ended design critique.');
+    expect(prompt).toContain('Additional visual concerns are advisories unless they show a clear contract violation.');
+    expect(prompt).toContain('Advisories:');
+  });
+
   test('default review discipline summary carries Nexus-owned absorbed review guidance', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');
@@ -315,6 +510,58 @@ describe('nexus review', () => {
       expect(await run.readFile('.planning/audits/current/gemini.md')).toContain(
         'Superpowers review discipline and CCB dual-audit transport remain subordinate runtime seams and never own lifecycle authority.',
       );
+    });
+  });
+
+  test('blocks material review when required design contract provenance is missing', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      writeFileSync(
+        join(cwd, '.planning/current/plan/status.json'),
+        JSON.stringify(
+          {
+            ...(await run.readJson('.planning/current/plan/status.json')),
+            design_impact: 'material',
+            design_contract_required: true,
+            design_contract_path: '.planning/current/plan/design-contract.md',
+            design_verified: false,
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+      writeFileSync(
+        join(cwd, '.planning/current/plan/design-contract.md'),
+        '# Design Contract\n\nApproved material UI contract\n',
+      );
+
+      const buildStatusPath = join(cwd, '.planning/current/build/status.json');
+      const buildStatus = JSON.parse(readFileSync(buildStatusPath, 'utf8'));
+      buildStatus.inputs = (buildStatus.inputs ?? []).filter(
+        (artifact: { path?: string }) => artifact.path !== '.planning/current/plan/design-contract.md',
+      );
+      writeFileSync(buildStatusPath, JSON.stringify(buildStatus, null, 2) + '\n');
+
+      await expect(run('review')).rejects.toThrow(
+        'Build inputs are missing required design contract provenance for a material design-bearing run',
+      );
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'blocked',
+        ready: false,
+        gate_decision: 'blocked',
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: '.planning/current/plan/design-contract.md',
+        design_verified: false,
+        errors: ['Build inputs are missing required design contract provenance for a material design-bearing run'],
+      });
+      expect(existsSync(join(cwd, '.planning/audits/current/codex.md'))).toBe(false);
+      expect(existsSync(join(cwd, '.planning/audits/current/gemini.md'))).toBe(false);
     });
   });
 

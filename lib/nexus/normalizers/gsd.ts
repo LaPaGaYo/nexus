@@ -1,6 +1,7 @@
 import {
   stageAdapterOutputPath,
   stageAdapterRequestPath,
+  planDesignContractPath,
   stageNormalizationPath,
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
@@ -40,17 +41,26 @@ export function normalizeGsdPlan(
     throw new Error('Canonical writeback failed');
   }
 
+  const canonicalWrites: ArtifactWrite[] = [
+    {
+      path: '.planning/current/plan/execution-readiness-packet.md',
+      content: result.raw_output.execution_readiness_packet,
+    },
+    {
+      path: '.planning/current/plan/sprint-contract.md',
+      content: result.raw_output.sprint_contract,
+    },
+  ];
+
+  if (typeof result.raw_output.design_contract === 'string' && result.raw_output.design_contract.trim()) {
+    canonicalWrites.push({
+      path: planDesignContractPath(),
+      content: result.raw_output.design_contract,
+    });
+  }
+
   return {
-    canonicalWrites: [
-      {
-        path: '.planning/current/plan/execution-readiness-packet.md',
-        content: result.raw_output.execution_readiness_packet,
-      },
-      {
-        path: '.planning/current/plan/sprint-contract.md',
-        content: result.raw_output.sprint_contract,
-      },
-    ],
+    canonicalWrites,
   };
 }
 

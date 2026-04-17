@@ -292,14 +292,16 @@ cd ~/nexus && ./setup --host factory
 | Skill | Role | What it does |
 |-------|------|--------------|
 | `/discover` | PM discovery | Clarify the problem, goals, constraints, and missing context. |
-| `/frame` | PM framing | Lock scope, non-goals, success criteria, and the product brief. |
-| `/plan` | GSD planning | Convert approved framing into execution-ready planning artifacts. |
+| `/frame` | PM framing | Classify design impact, lock scope, non-goals, success criteria, and the product brief. |
+| `/plan` | GSD planning | Convert approved framing into execution-ready planning artifacts and require a design contract for material UI work. |
 | `/handoff` | Governed routing | Record approved provider routing, substrate, provenance intent, and fallback policy. |
 | `/build` | Disciplined execution | Run the bounded implementation contract and persist the build result. |
 | `/review` | Dual audit | Persist the audit set, synthesis, and reviewed provenance. |
-| `/qa` | Validation | Record explicit validation scope, findings, and QA status. |
-| `/ship` | Release gate | Record conservative release readiness and checklist state. |
+| `/qa` | Validation | Record explicit validation scope, findings, and visual verification before `/ship` for design-bearing runs. |
+| `/ship` | Release gate | Record conservative release readiness, checklist state, and PR handoff metadata when available. |
 | `/closeout` | Milestone verification | Verify archive, provenance, legality, and final readiness status. |
+
+For design-bearing runs, `/frame` classifies design impact, `/plan` requires a design contract for material UI work, and `/qa` records visual verification before `/ship` for design-bearing runs.
 
 Legacy aliases remain compatibility-only:
 
