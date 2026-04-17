@@ -97,6 +97,11 @@ Canonical lifecycle:
 
 **Discover → Frame → Plan → Handoff → Build → Review → QA → Ship → Closeout**
 
+A governed run ends at `/closeout`. If `/ship` recorded merge-ready PR handoff
+metadata and you want to merge, deploy, and verify production health, continue
+with `/land-and-deploy` after `/closeout`. `/land-and-deploy` is a support
+workflow, not an additional canonical lifecycle stage.
+
 ## Install
 
 **Base requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or another supported host, [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+, [Node.js](https://nodejs.org/) on Windows
@@ -303,6 +308,16 @@ cd ~/nexus && ./setup --host factory
 
 For design-bearing runs, `/frame` classifies design impact, `/plan` requires a design contract for material UI work, and `/qa` records visual verification before `/ship` for design-bearing runs.
 
+Fresh `/discover` also accepts an explicit continuation hint when you are
+starting the next run:
+
+```bash
+bun run bin/nexus.ts discover --continuation-mode task
+```
+
+Supported values are `task`, `phase`, and `project_reset`. Automation can use
+the same override through `NEXUS_CONTINUATION_MODE`.
+
 Legacy aliases remain compatibility-only:
 
 - `/office-hours -> /discover`
@@ -371,6 +386,20 @@ Claude: verifies archive, provenance, and final work-unit readiness
 
 Deep dives and usage examples live in [docs/skills.md](docs/skills.md).
 
+`/land-and-deploy` is intentionally post-lifecycle: it consumes the PR handoff
+record written by `/ship` and is meant for merge/deploy/production verification
+after the governed run itself has already closed out.
+
+## Maintainer helpers
+
+These are not lifecycle stages, but they are now canonical maintainer and
+repair entrypoints:
+
+- `./bin/nexus-release-publish` or `bun run release:publish`
+  - atomic publish path for a prepared release candidate
+- `./bin/nexus-ledger-doctor` or `bun run ledger:doctor`
+  - report-only diagnosis for noncanonical history and stale current audits
+
 ## Governed truth model
 
 Nexus treats the repository as the system of record.
@@ -406,7 +435,7 @@ The intended usage pattern is:
 | [Architecture](ARCHITECTURE.md) | System structure and implementation notes |
 | [Contributing](CONTRIBUTING.md) | Dev setup, testing, and contributor workflows |
 | [Changelog](CHANGELOG.md) | Version history |
-| [Release Notes](docs/releases/2026-04-12-nexus-v1.0.9.md) | Nexus v1.0.9 release notes |
+| [Release Notes](docs/releases/2026-04-16-nexus-v1.0.32.md) | Nexus v1.0.32 release notes |
 
 ## Troubleshooting
 
@@ -427,6 +456,15 @@ cd ~/.claude/skills/nexus && bun install && bun run build
 Run `/nexus-upgrade` or set `auto_upgrade: true` in `~/.nexus/config.yaml`.
 Upgrade checks follow the configured `release_channel` and published release
 metadata, not upstream repo heads.
+
+**State seems inconsistent after retries or manual intervention?**
+
+```bash
+bun run ledger:doctor
+```
+
+This reports noncanonical closeout history and stale `.planning/audits/current`
+state without mutating the repo.
 
 **Want shorter commands?**
 
