@@ -38,6 +38,9 @@ export function buildNextRunBootstrap(input: {
   qaStatus: StageStatus | null;
   shipStatus: StageStatus | null;
   generatedAt: string;
+  followOnSummaryRecorded?: boolean;
+  canaryEvidencePath?: string | null;
+  documentationSyncPath?: string | null;
 }): NextRunBootstrapRecord {
   const carryForwardArtifacts: ArtifactPointer[] = [
     bootstrapArtifactPointer('docs/product/idea-brief.md'),
@@ -47,11 +50,27 @@ export function buildNextRunBootstrap(input: {
     bootstrapArtifactPointer(`.planning/archive/runs/${input.ledger.run_id}/closeout/CLOSEOUT-RECORD.md`),
   ];
 
+  if (input.followOnSummaryRecorded) {
+    carryForwardArtifacts.push(
+      bootstrapArtifactPointer(`.planning/archive/runs/${input.ledger.run_id}/closeout/FOLLOW-ON-SUMMARY.md`),
+      bootstrapArtifactPointer(`.planning/archive/runs/${input.ledger.run_id}/closeout/follow-on-summary.json`),
+    );
+  }
+
+  if (input.documentationSyncPath) {
+    carryForwardArtifacts.push(
+      bootstrapArtifactPointer(`.planning/archive/runs/${input.ledger.run_id}/closeout/documentation-sync.md`),
+    );
+  }
+
   const summary = [
     `Completed governed run ${input.ledger.run_id} through /closeout.`,
     `Review gate: ${input.reviewStatus.gate_decision ?? 'pass'}.`,
     `QA ready: ${input.qaStatus?.ready === true ? 'yes' : 'not recorded'}.`,
     `Ship ready: ${input.shipStatus?.ready === true ? 'yes' : 'not recorded'}.`,
+    `Follow-on evidence summary recorded: ${input.followOnSummaryRecorded ? 'yes' : 'no'}.`,
+    `Ship canary evidence recorded: ${input.canaryEvidencePath ? 'yes' : 'no'}.`,
+    `Documentation sync recorded: ${input.documentationSyncPath ? 'yes' : 'no'}.`,
     'Start the next run from /discover, but continue from the repo-visible product artifacts and archived closeout record rather than rediscovering blind.',
   ].join(' ');
 
@@ -153,6 +172,28 @@ export function resolveContinuationModeFromBootstrap(cwd: string): ContinuationM
       : 'project_reset';
   } catch {
     return 'project_reset';
+  }
+}
+
+export function discoverBootstrapSupportingContextArtifacts(cwd: string): string[] {
+  const bootstrapPath = join(cwd, discoverBootstrapJsonPath());
+  if (!existsSync(bootstrapPath)) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(bootstrapPath, 'utf8')) as Partial<NextRunBootstrapRecord>;
+    return (parsed.carry_forward_artifacts ?? [])
+      .map((artifact) => artifact.path)
+      .filter((artifactPath): artifactPath is string => (
+        typeof artifactPath === 'string'
+        && (
+          artifactPath.endsWith('/FOLLOW-ON-SUMMARY.md')
+          || artifactPath.endsWith('/follow-on-summary.json')
+        )
+      ));
+  } catch {
+    return [];
   }
 }
 

@@ -1866,6 +1866,8 @@ IMPORTANT:
     // Check if README was updated
     const readme = fs.readFileSync(path.join(docReleaseDir, 'README.md'), 'utf-8');
     const readmeUpdated = readme.includes('Feature C') || readme.includes('feature-c') || readme.includes('feature C');
+    const docSyncPath = path.join(docReleaseDir, '.planning', 'current', 'closeout', 'documentation-sync.md');
+    const skillText = fs.readFileSync(path.join(docReleaseDir, 'document-release', 'SKILL.md'), 'utf-8');
 
     const exitOk = ['success', 'error_max_turns'].includes(result.exitReason);
     recordE2E('/document-release', 'Document-Release skill E2E', result, {
@@ -1877,6 +1879,10 @@ IMPORTANT:
 
     // Accept error_max_turns — thorough doc review is not a failure
     expect(['success', 'error_max_turns']).toContain(result.exitReason);
+
+    // Attached closeout evidence should exist even if the docs were already current.
+    expect(fs.existsSync(docSyncPath)).toBe(true);
+    expect(skillText).toContain('nexus-refresh-follow-on-summary');
 
     // Informational: did it update README?
     if (readmeUpdated) {

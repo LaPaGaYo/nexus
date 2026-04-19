@@ -706,6 +706,7 @@ describe('nexus build routing', () => {
           '.planning/current/handoff/governed-handoff.md',
           '.planning/current/plan/execution-readiness-packet.md',
           '.planning/current/plan/sprint-contract.md',
+          '.planning/current/plan/verification-matrix.json',
         ]));
       }
     });
@@ -809,6 +810,7 @@ describe('nexus build routing', () => {
       expect(seenHandoff).toHaveLength(1);
       expect(seenHandoff[0]).toEqual(expect.arrayContaining([
         '.planning/current/plan/status.json',
+        '.planning/current/plan/verification-matrix.json',
         '.planning/current/plan/design-contract.md',
       ]));
       expect(seenBuild).toHaveLength(2);
@@ -818,6 +820,7 @@ describe('nexus build routing', () => {
           '.planning/current/handoff/governed-handoff.md',
           '.planning/current/plan/execution-readiness-packet.md',
           '.planning/current/plan/sprint-contract.md',
+          '.planning/current/plan/verification-matrix.json',
           '.planning/current/plan/design-contract.md',
         ]));
       }

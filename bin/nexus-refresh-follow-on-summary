@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# nexus-refresh-follow-on-summary — refresh closeout-owned follow-on evidence artifacts after support workflows update evidence.
+#
+# Usage:
+#   nexus-refresh-follow-on-summary
+#
+# Env overrides (for testing):
+#   NEXUS_DIR                  — override the repo root to refresh
+set -euo pipefail
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  awk '
+    NR == 1 { next }
+    /^set -euo pipefail$/ { exit }
+    /^# / { sub(/^# /, ""); print; next }
+    /^#$/ { print ""; next }
+  ' "$0"
+  exit 0
+fi
+
+if [ "${1:-}" != "" ]; then
+  echo "Unknown option: ${1}" >&2
+  echo "Usage: nexus-refresh-follow-on-summary" >&2
+  exit 1
+fi
+
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NEXUS_DIR="${NEXUS_DIR:-$SCRIPT_ROOT}"
+
+CORE_JS="$(cat <<'EOF'
+const moduleNs = await import(process.env.NEXUS_REFRESH_FOLLOW_ON_PATH);
+const result = moduleNs.refreshCurrentCloseoutFollowOnArtifacts(process.env.NEXUS_DIR);
+if (result.status === 'skipped') {
+  console.log(`SKIPPED ${result.reason}`);
+  process.exit(0);
+}
+if (result.written_paths.length > 0) {
+  console.log(`UPDATED ${result.written_paths.join(',')}`);
+} else {
+  console.log('UPDATED none');
+}
+EOF
+)"
+
+NEXUS_DIR="$NEXUS_DIR" \
+NEXUS_REFRESH_FOLLOW_ON_PATH="$SCRIPT_ROOT/lib/nexus/closeout-follow-on-refresh.ts" \
+bun -e "$CORE_JS"

@@ -609,6 +609,12 @@ git log origin/<default> --since="<window>" --oneline --grep="test(qa):" --grep=
 
 # 12. Test files changed in window
 git log origin/<default> --since="<window>" --format="" --name-only | grep -E '\.(test|spec)\.' | sort -u | wc -l
+
+# 13. Archived Nexus closeout records (if present)
+find .planning/archive/runs -path '*/closeout/CLOSEOUT-RECORD.md' 2>/dev/null | sort
+
+# 14. Archived Nexus run learnings (if present)
+find .planning/archive/runs -path '*/closeout/learnings.json' 2>/dev/null | sort
 ```
 
 ### Step 2: Compute Metrics
@@ -820,7 +826,7 @@ Before saving the new snapshot, check for prior retro history:
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
-ls -t .context/retros/*.json 2>/dev/null
+ls -t .planning/archive/retros/*/retro.json 2>/dev/null || ls -t .context/retros/*.json 2>/dev/null
 ```
 
 **If prior retros exist:** Load the most recent one using the Read tool. Calculate deltas for key metrics and include a **Trends vs Last Retro** section:
@@ -841,7 +847,7 @@ Deep sessions:      3      →    5           ↑2
 After computing all metrics (including streak) and loading any prior history for comparison, save a JSON snapshot:
 
 ```bash
-mkdir -p .context/retros
+mkdir -p .planning/archive/retros
 ```
 
 Determine the next sequence number for today (substitute the actual date for `$(date +%Y-%m-%d)`):
@@ -849,16 +855,38 @@ Determine the next sequence number for today (substitute the actual date for `$(
 setopt +o nomatch 2>/dev/null || true  # zsh compat
 # Count existing retros for today to get next sequence number
 today=$(date +%Y-%m-%d)
-existing=$(ls .context/retros/${today}-*.json 2>/dev/null | wc -l | tr -d ' ')
+existing=$(ls .planning/archive/retros/${today}-*/retro.json 2>/dev/null | wc -l | tr -d ' ')
 next=$((existing + 1))
-# Save as .context/retros/${today}-${next}.json
+retro_dir=.planning/archive/retros/${today}-${next}
+mkdir -p "$retro_dir"
+# Save JSON as $retro_dir/retro.json
+# Save Markdown as $retro_dir/RETRO.md
 ```
 
 Use the Write tool to save the JSON file with this schema:
 ```json
 {
+  "schema_version": 1,
+  "retro_id": "2026-03-08-1",
+  "mode": "repo",
   "date": "2026-03-08",
   "window": "7d",
+  "generated_at": "2026-03-08T23:15:00-07:00",
+  "repository_root": "/absolute/path/to/repo",
+  "linked_run_ids": ["run-2026-03-08T10-00-00-000Z"],
+  "source_artifacts": [
+    ".planning/archive/runs/run-2026-03-08T10-00-00-000Z/closeout/CLOSEOUT-RECORD.md",
+    ".planning/archive/runs/run-2026-03-08T10-00-00-000Z/closeout/learnings.json"
+  ],
+  "summary": "This period concentrated on auth hardening and review latency came down after the webhook fix cycle.",
+  "key_findings": [
+    "Auth and workspace work stayed focused in one subsystem.",
+    "Fix-cycle volume dropped after the webhook/security cleanup."
+  ],
+  "recommended_attention_areas": [
+    "carry forward the review latency improvements into the next phase",
+    "keep owner-mutation safeguards covered by regression tests"
+  ],
   "metrics": {
     "commits": 47,
     "contributors": 3,
@@ -895,6 +923,19 @@ Use the Write tool to save the JSON file with this schema:
 ```
 
 **Note:** Only include the `greptile` field if `~/.nexus/greptile-history.md` exists and has entries within the time window. Only include the `backlog` field if `TODOS.md` exists. Only include the `test_health` field if test files were found (command 10 returns > 0). If any has no data, omit the field entirely.
+
+If Nexus archived runs exist, populate:
+- `linked_run_ids` with the archived governed run ids covered by this retro
+- `source_artifacts` with the archived closeout artifacts you actually used
+
+After saving `retro.json`, also save a concise markdown summary to
+`$retro_dir/RETRO.md` with:
+- date
+- window
+- summary
+- key findings
+- recommended attention areas
+- linked run ids
 
 Include test health data in the JSON when test files exist:
 ```json
@@ -1337,7 +1378,7 @@ When the user runs `/retro compare` (or `/retro compare 14d`):
 2. Compute metrics for the immediately prior same-length window using both `--since` and `--until` with midnight-aligned dates to avoid overlap (e.g., for a 7d window starting 2026-03-11: prior window is `--since="2026-03-04T00:00:00" --until="2026-03-11T00:00:00"`)
 3. Show a side-by-side comparison table with deltas and arrows
 4. Write a brief narrative highlighting the biggest improvements and regressions
-5. Save only the current-window snapshot to `.context/retros/` (same as a normal retro run); do **not** persist the prior-window metrics.
+5. Save only the current-window snapshot to `.planning/archive/retros/` (same as a normal retro run); do **not** persist the prior-window metrics.
 
 ## Tone
 
@@ -1350,11 +1391,11 @@ When the user runs `/retro compare` (or `/retro compare 14d`):
 - Never compare teammates against each other negatively. Each person's section stands on its own.
 - Keep total output around 3000-4500 words (slightly longer to accommodate team sections)
 - Use markdown tables and code blocks for data, prose for narrative
-- Output directly to the conversation — do NOT write to filesystem (except the `.context/retros/` JSON snapshot)
+- Output directly to the conversation — do NOT write ad-hoc project files. In repo mode, only write the retrospective archive files under `.planning/archive/retros/`.
 
 ## Important Rules
 
-- ALL narrative output goes directly to the user in the conversation. The ONLY file written is the `.context/retros/` JSON snapshot.
+- ALL narrative output goes directly to the user in the conversation. In repo mode, the ONLY files written are the `.planning/archive/retros/<retro-id>/retro.json` and `.planning/archive/retros/<retro-id>/RETRO.md` archive records.
 - Use `origin/<default>` for all git queries (not local main which may be stale)
 - Display all timestamps in the user's local timezone (do not override `TZ`)
 - If the window has zero commits, say so and suggest a different window
@@ -1362,4 +1403,4 @@ When the user runs `/retro compare` (or `/retro compare 14d`):
 - Treat merge commits as PR boundaries
 - Do not read CLAUDE.md or other docs — this skill is self-contained
 - On first run (no prior retros), skip comparison sections gracefully
-- **Global mode:** Does NOT require being inside a git repo. Saves snapshots to `~/.nexus/retros/` (not `.context/retros/`). Gracefully skip AI tools that aren't installed. Only compare against prior global retros with the same window value. If streak hits 365d cap, display as "365+ days".
+- **Global mode:** Does NOT require being inside a git repo. Saves snapshots to `~/.nexus/retros/` (not `.planning/archive/retros/`). Gracefully skip AI tools that aren't installed. Only compare against prior global retros with the same window value. If streak hits 365d cap, display as "365+ days".

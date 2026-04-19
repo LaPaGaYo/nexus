@@ -3,6 +3,7 @@ import {
   stageAdapterRequestPath,
   stageNormalizationPath,
 } from '../artifacts';
+import type { CcbDispatchLatencySummary } from '../ccb-runtime-state';
 import { localExecutionPath } from '../execution-topology';
 import type { AdapterResult } from '../adapters/types';
 import type { CcbExecuteAuditRaw, CcbExecuteGeneratorRaw, CcbExecuteQaRaw, CcbResolveRouteRaw } from '../adapters/ccb';
@@ -21,6 +22,55 @@ import type {
 interface ArtifactWrite {
   path: string;
   content: string;
+}
+
+export function describeCcbLatencySummary(summary: CcbDispatchLatencySummary | null | undefined): string | null {
+  if (!summary) {
+    return null;
+  }
+
+  const cause = summary.likely_cause === 'provider_slow'
+    ? 'provider slow'
+    : summary.likely_cause === 'orchestration_false_start'
+      ? 'foreground false-start'
+      : summary.likely_cause === 'dispatch_failed'
+        ? 'dispatch failed'
+        : 'normal foreground completion';
+  const path = summary.path === 'watchdog_recovery'
+    ? 'watchdog recovery'
+    : summary.path === 'late_recovery'
+      ? 'late recovery'
+      : summary.path;
+  const details = [
+    `path=${path}`,
+    `cause=${cause}`,
+    `foreground_exit=${summary.foreground_exit}`,
+  ];
+
+  if (summary.finalize_nudge_issued) {
+    details.push('finalize_nudge=yes');
+  }
+  if (summary.pend_attempts > 0) {
+    details.push(`pend_attempts=${summary.pend_attempts}`);
+  }
+  if (summary.recovered_via) {
+    details.push(`recovered_via=${summary.recovered_via}`);
+  }
+
+  return details.join('; ');
+}
+
+function latencySummaryFromAdapterResult(result: AdapterResult<unknown> | null): CcbDispatchLatencySummary | null {
+  if (!result || !result.raw_output || typeof result.raw_output !== 'object') {
+    return null;
+  }
+
+  const candidate = (result.raw_output as { latency_summary?: unknown }).latency_summary;
+  if (!candidate || typeof candidate !== 'object') {
+    return null;
+  }
+
+  return candidate as CcbDispatchLatencySummary;
 }
 
 function buildTraceWrites(
@@ -516,6 +566,10 @@ export function buildReviewTraceabilityPayloads(
           discipline: disciplineResult,
           audit_a: auditAResult,
           audit_b: auditBResult,
+          latency_diagnostics: {
+            audit_a: describeCcbLatencySummary(latencySummaryFromAdapterResult(auditAResult)),
+            audit_b: describeCcbLatencySummary(latencySummaryFromAdapterResult(auditBResult)),
+          },
         },
         null,
         2,
@@ -572,16 +626,35 @@ export function buildQaTraceabilityPayloads(
   result: AdapterResult<CcbExecuteQaRaw | LocalExecuteQaRaw>,
   normalizationPayload: Record<string, unknown>,
 ): ArtifactWrite[] {
-  return buildTraceWrites(
-    'qa',
+  return [
     {
-      run_id: runId,
-      inputs,
-      adapter_chain: [requestedRoute.transport],
-      requested_route: requestedRoute,
-      workspace,
+      path: stageAdapterRequestPath('qa'),
+      content: JSON.stringify(
+        {
+          run_id: runId,
+          inputs,
+          adapter_chain: [requestedRoute.transport],
+          requested_route: requestedRoute,
+          workspace,
+        },
+        null,
+        2,
+      ) + '\n',
     },
-    result,
-    normalizationPayload,
-  );
+    {
+      path: stageAdapterOutputPath('qa'),
+      content: JSON.stringify(
+        {
+          ...result,
+          latency_diagnostic: describeCcbLatencySummary(latencySummaryFromAdapterResult(result)),
+        },
+        null,
+        2,
+      ) + '\n',
+    },
+    {
+      path: stageNormalizationPath('qa'),
+      content: JSON.stringify(normalizationPayload, null, 2) + '\n',
+    },
+  ];
 }

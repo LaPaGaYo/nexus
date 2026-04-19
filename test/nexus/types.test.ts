@@ -4,11 +4,25 @@ import {
   CANONICAL_COMMANDS,
   ACTUAL_ROUTE_TRANSPORTS,
   CONTINUATION_ADVICE_OPTIONS,
+  CANARY_EVIDENCE_STATUSES,
+  DEPLOY_CONFIG_SOURCES,
+  DEPLOY_PLATFORMS,
+  DEPLOY_PROJECT_TYPES,
+  DEPLOY_STATUS_KINDS,
+  DEPLOY_TRIGGER_KINDS,
   LEARNING_SOURCES,
   LEARNING_TYPES,
+  REPO_RETRO_ARCHIVE_MODES,
+  type DeployContractRecord,
+  type DeployResultRecord,
+  type DiscoverRetroContinuityRecord,
+  type DeployReadinessRecord,
+  type FollowOnEvidenceSummaryRecord,
   type LearningCandidate,
+  type RepoRetroArchiveRecord,
   type RunLearningsRecord,
   type StageLearningCandidatesRecord,
+  type VerificationMatrixRecord,
   type SessionContinuationAdviceRecord,
   STAGE_DECISIONS,
   PLACEHOLDER_OUTCOME,
@@ -18,6 +32,7 @@ import {
   type DesignIntentRecord,
   WORKSPACE_RETIREMENT_STATES,
   type ActualRouteRecord,
+  type CanaryStatusRecord,
   type ImplementationProvenanceRecord,
   type RequestedRouteRecord,
   type RouteCheckRecord,
@@ -30,15 +45,30 @@ import {
 import {
   frameDesignIntentPath,
   planDesignContractPath,
+  planVerificationMatrixPath,
+  qaPerfVerificationPath,
   discoverNextRunBootstrapJsonPath,
   discoverNextRunMarkdownPath,
+  discoverRetroContinuityJsonPath,
+  discoverRetroContinuityMarkdownPath,
   discoverSessionContinuationAdvicePath,
   discoverSessionContinuationMarkdownPath,
+  deployContractJsonPath,
+  deployContractMarkdownPath,
+  retroArchiveJsonPath,
+  retroArchiveMarkdownPath,
   reviewLearningCandidatesPath,
   qaLearningCandidatesPath,
+  shipDeployReadinessPath,
+  shipDeployResultPath,
+  shipCanaryStatusPath,
   shipLearningCandidatesPath,
   closeoutLearningsMarkdownPath,
   closeoutLearningsJsonPath,
+  closeoutFollowOnSummaryMarkdownPath,
+  closeoutFollowOnSummaryJsonPath,
+  closeoutDocumentationSyncPath,
+  archivedCurrentArtifactPath,
 } from '../../lib/nexus/artifacts';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { executionFieldsFromLedger, withExecutionSessionRoot } from '../../lib/nexus/execution-topology';
@@ -376,6 +406,36 @@ describe('nexus types', () => {
     expect(shipLearningCandidatesPath()).toBe('.planning/current/ship/learning-candidates.json');
     expect(closeoutLearningsMarkdownPath()).toBe('.planning/current/closeout/LEARNINGS.md');
     expect(closeoutLearningsJsonPath()).toBe('.planning/current/closeout/learnings.json');
+    expect(closeoutFollowOnSummaryMarkdownPath()).toBe('.planning/current/closeout/FOLLOW-ON-SUMMARY.md');
+    expect(closeoutFollowOnSummaryJsonPath()).toBe('.planning/current/closeout/follow-on-summary.json');
+
+    const followOnSummary: FollowOnEvidenceSummaryRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      generated_at: '2026-04-18T00:00:00.000Z',
+      source_artifacts: [
+        '.planning/current/qa/perf-verification.md',
+        '.planning/current/ship/canary-status.json',
+      ],
+      evidence: {
+        qa: {
+          perf_verification_path: '.planning/current/qa/perf-verification.md',
+        },
+        ship: {
+          canary_status_path: '.planning/current/ship/canary-status.json',
+          canary_status: 'healthy',
+          deploy_result_path: '.planning/current/ship/deploy-result.json',
+          deploy_status: 'verified',
+          verification_status: 'healthy',
+          production_url: 'https://example.com',
+        },
+        closeout: {
+          documentation_sync_path: '.planning/current/closeout/documentation-sync.md',
+        },
+      },
+      summary: 'QA performance evidence recorded. Ship canary evidence recorded (healthy).',
+    };
+    expect(followOnSummary.evidence.ship.deploy_status).toBe('verified');
 
     const candidate: LearningCandidate = {
       type: 'pitfall',
@@ -443,6 +503,12 @@ describe('nexus types', () => {
     expect(discoverSessionContinuationMarkdownPath()).toBe(
       '.planning/current/discover/SESSION-CONTINUATION.md',
     );
+    expect(discoverRetroContinuityJsonPath()).toBe(
+      '.planning/current/discover/retro-continuity.json',
+    );
+    expect(discoverRetroContinuityMarkdownPath()).toBe(
+      '.planning/current/discover/RETRO-CONTINUITY.md',
+    );
 
     const record: SessionContinuationAdviceRecord = {
       schema_version: 1,
@@ -461,12 +527,273 @@ describe('nexus types', () => {
         '.planning/current/discover/NEXT-RUN.md',
         '.planning/current/discover/next-run-bootstrap.json',
       ],
+      supporting_context_artifacts: [
+        '.planning/current/discover/retro-continuity.json',
+        '.planning/current/discover/RETRO-CONTINUITY.md',
+      ],
       recommended_next_command: '/frame',
       summary: 'Nexus can continue in this session.',
       generated_at: '2026-04-16T00:00:00.000Z',
     };
 
     expect(record.recommended_option).toBe('compact_then_continue');
+  });
+
+  test('freezes the retro archive schema and artifact helpers', () => {
+    expect(REPO_RETRO_ARCHIVE_MODES).toEqual(['repo', 'compare']);
+    expect(retroArchiveJsonPath('2026-04-17-01')).toBe(
+      '.planning/archive/retros/2026-04-17-01/retro.json',
+    );
+    expect(retroArchiveMarkdownPath('2026-04-17-01')).toBe(
+      '.planning/archive/retros/2026-04-17-01/RETRO.md',
+    );
+
+    const archive: RepoRetroArchiveRecord = {
+      schema_version: 1,
+      retro_id: '2026-04-17-01',
+      mode: 'repo',
+      date: '2026-04-17',
+      window: '7d',
+      generated_at: '2026-04-17T00:00:00.000Z',
+      repository_root: '/tmp/repo',
+      linked_run_ids: ['run-1'],
+      source_artifacts: [
+        '.planning/archive/runs/run-1/closeout/CLOSEOUT-RECORD.md',
+        '.planning/archive/runs/run-1/closeout/learnings.json',
+      ],
+      summary: 'Fresh run should continue with recent retro context.',
+      key_findings: ['Review latency is improving.'],
+      recommended_attention_areas: ['auth boundary cleanup'],
+    };
+    const continuity: DiscoverRetroContinuityRecord = {
+      schema_version: 1,
+      run_id: 'run-2',
+      generated_at: '2026-04-17T00:00:01.000Z',
+      source_retro_artifacts: [
+        '.planning/archive/retros/2026-04-17-01/retro.json',
+      ],
+      recent_findings: ['Review latency is improving.'],
+      recommended_attention_areas: ['auth boundary cleanup'],
+      summary: 'Fresh run is continuing with 1 recent retrospective as historical context.',
+    };
+
+    expect(archive.mode).toBe('repo');
+    expect(continuity.source_retro_artifacts).toContain(
+      '.planning/archive/retros/2026-04-17-01/retro.json',
+    );
+  });
+
+  test('freezes the canonical deploy contract schema and artifact helpers', () => {
+    expect(DEPLOY_PLATFORMS).toEqual([
+      'fly',
+      'render',
+      'vercel',
+      'netlify',
+      'heroku',
+      'railway',
+      'github_actions',
+      'custom',
+      'none',
+      'unknown',
+    ]);
+    expect(DEPLOY_PROJECT_TYPES).toEqual([
+      'web_app',
+      'api',
+      'cli',
+      'library',
+      'service',
+      'unknown',
+    ]);
+    expect(DEPLOY_TRIGGER_KINDS).toEqual(['auto_on_push', 'github_actions', 'command', 'manual', 'none']);
+    expect(DEPLOY_STATUS_KINDS).toEqual(['http', 'command', 'github_actions', 'none']);
+    expect(DEPLOY_CONFIG_SOURCES).toEqual(['canonical_contract', 'legacy_claude', 'none']);
+    expect(deployContractJsonPath()).toBe('.planning/deploy/deploy-contract.json');
+    expect(deployContractMarkdownPath()).toBe('.planning/deploy/DEPLOY-CONTRACT.md');
+    expect(shipDeployReadinessPath()).toBe('.planning/current/ship/deploy-readiness.json');
+    expect(shipDeployResultPath()).toBe('.planning/current/ship/deploy-result.json');
+
+    const contract: DeployContractRecord = {
+      schema_version: 1,
+      configured_at: '2026-04-17T00:00:00.000Z',
+      platform: 'fly',
+      project_type: 'web_app',
+      production: {
+        url: 'https://my-app.fly.dev',
+        health_check: 'https://my-app.fly.dev/health',
+      },
+      staging: {
+        url: 'https://staging.my-app.fly.dev',
+        workflow: '.github/workflows/staging.yml',
+      },
+      deploy_trigger: {
+        kind: 'auto_on_push',
+        details: 'merge to main triggers deploy',
+      },
+      deploy_workflow: '.github/workflows/deploy.yml',
+      deploy_status: {
+        kind: 'command',
+        command: 'fly status --app my-app',
+      },
+      custom_hooks: {
+        pre_merge: ['bun test'],
+        post_merge: [],
+      },
+      notes: ['Custom Fly.io domain configured separately'],
+      sources: ['fly.toml', '.github/workflows/deploy.yml'],
+    };
+    const readiness: DeployReadinessRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      generated_at: '2026-04-17T00:00:00.000Z',
+      configured: true,
+      source: 'canonical_contract',
+      contract_path: deployContractJsonPath(),
+      platform: 'fly',
+      project_type: 'web_app',
+      production_url: 'https://my-app.fly.dev',
+      health_check: 'https://my-app.fly.dev/health',
+      deploy_status_kind: 'command',
+      deploy_status_command: 'fly status --app my-app',
+      deploy_workflow: '.github/workflows/deploy.yml',
+      staging_detected: true,
+      notes: [],
+    };
+
+    expect(contract.platform).toBe('fly');
+    expect(readiness.source).toBe('canonical_contract');
+    expect(readiness.contract_path).toBe('.planning/deploy/deploy-contract.json');
+
+    const deployResult: DeployResultRecord = {
+      schema_version: 1,
+      generated_at: '2026-04-18T00:00:00.000Z',
+      source: 'land-and-deploy',
+      production_url: 'https://my-app.fly.dev',
+      pull_request_path: '.planning/current/ship/pull-request.json',
+      deploy_readiness_path: '.planning/current/ship/deploy-readiness.json',
+      canary_status_path: '.planning/current/ship/canary-status.json',
+      merge_status: 'merged',
+      deploy_status: 'verified',
+      verification_status: 'healthy',
+      report_markdown_path: '.nexus/deploy-reports/2026-04-18-pr42-deploy.md',
+      summary: 'PR #42 merged, deployed, and verified healthy in production.',
+    };
+
+    expect(deployResult.source).toBe('land-and-deploy');
+    expect(deployResult.deploy_status).toBe('verified');
+  });
+
+  test('freezes the verification-matrix schema and artifact helper', () => {
+    expect(planVerificationMatrixPath()).toBe('.planning/current/plan/verification-matrix.json');
+    expect(qaPerfVerificationPath()).toBe('.planning/current/qa/perf-verification.md');
+    expect(shipCanaryStatusPath()).toBe('.planning/current/ship/canary-status.json');
+    expect(closeoutDocumentationSyncPath()).toBe('.planning/current/closeout/documentation-sync.md');
+    expect(archivedCurrentArtifactPath('run-1', qaPerfVerificationPath())).toBe(
+      '.planning/archive/runs/run-1/qa/perf-verification.md',
+    );
+    expect(archivedCurrentArtifactPath('run-1', shipCanaryStatusPath())).toBe(
+      '.planning/archive/runs/run-1/ship/canary-status.json',
+    );
+    expect(CANARY_EVIDENCE_STATUSES).toEqual(['healthy', 'degraded', 'broken']);
+
+    const matrix: VerificationMatrixRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      generated_at: '2026-04-17T00:00:00.000Z',
+      design_impact: 'touchup',
+      verification_required: true,
+      obligations: {
+        build: {
+          owner_stage: 'build',
+          required: true,
+          gate_affecting: true,
+          expected_artifacts: [
+            '.planning/current/build/build-result.md',
+            '.planning/current/build/status.json',
+          ],
+        },
+        review: {
+          owner_stage: 'review',
+          required: true,
+          gate_affecting: true,
+          mode: 'full_acceptance',
+          expected_artifacts: [
+            '.planning/audits/current/codex.md',
+            '.planning/audits/current/gemini.md',
+            '.planning/audits/current/synthesis.md',
+            '.planning/audits/current/gate-decision.md',
+            '.planning/audits/current/meta.json',
+            '.planning/current/review/status.json',
+          ],
+        },
+        qa: {
+          owner_stage: 'qa',
+          required: true,
+          gate_affecting: true,
+          design_verification_required: true,
+          expected_artifacts: [
+            '.planning/current/qa/qa-report.md',
+            '.planning/current/qa/status.json',
+            '.planning/current/qa/design-verification.md',
+          ],
+        },
+        ship: {
+          owner_stage: 'ship',
+          required: true,
+          gate_affecting: true,
+          deploy_readiness_required: true,
+          expected_artifacts: [
+            '.planning/current/ship/release-gate-record.md',
+            '.planning/current/ship/checklist.json',
+            '.planning/current/ship/deploy-readiness.json',
+            '.planning/current/ship/pull-request.json',
+            '.planning/current/ship/status.json',
+          ],
+        },
+      },
+      attached_evidence: {
+        benchmark: {
+          supported: true,
+          required: false,
+        },
+        canary: {
+          supported: true,
+          required: false,
+        },
+        qa_only: {
+          supported: true,
+          required: false,
+        },
+      },
+    };
+
+    expect(matrix.obligations.review.mode).toBe('full_acceptance');
+    expect(matrix.obligations.qa.design_verification_required).toBe(true);
+    expect(matrix.attached_evidence.qa_only.required).toBe(false);
+
+    const canary: CanaryStatusRecord = {
+      schema_version: 1,
+      generated_at: '2026-04-18T00:00:00.000Z',
+      source: 'canary',
+      url: 'https://example.com',
+      duration_minutes: 10,
+      pages_monitored: ['/', '/settings'],
+      status: 'healthy',
+      alerts: {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 1,
+        total: 1,
+      },
+      baseline_path: '.nexus/canary-reports/baseline.json',
+      report_markdown_path: '.nexus/canary-reports/2026-04-18-canary.md',
+      report_json_path: '.nexus/canary-reports/2026-04-18-canary.json',
+      screenshots_dir: '.nexus/canary-reports/screenshots',
+      summary: 'No persistent regressions were observed during the monitoring window.',
+    };
+
+    expect(canary.status).toBe('healthy');
+    expect(canary.source).toBe('canary');
   });
 
   test('locks the plan manifest input contract', () => {
@@ -476,6 +803,7 @@ describe('nexus types', () => {
     expect(CANONICAL_MANIFEST.plan.durable_outputs).toEqual([
       '.planning/current/plan/execution-readiness-packet.md',
       '.planning/current/plan/sprint-contract.md',
+      '.planning/current/plan/verification-matrix.json',
       '.planning/current/plan/status.json',
     ]);
     expect(CANONICAL_MANIFEST.plan.optional_outputs).toEqual([
@@ -509,12 +837,15 @@ describe('nexus types', () => {
     expect(CANONICAL_MANIFEST.ship.durable_outputs).toEqual([
       '.planning/current/ship/release-gate-record.md',
       '.planning/current/ship/checklist.json',
+      '.planning/current/ship/deploy-readiness.json',
       '.planning/current/ship/pull-request.json',
       '.planning/current/ship/status.json',
     ]);
     expect(CANONICAL_MANIFEST.ship.optional_outputs).toBeUndefined();
     expect(CANONICAL_MANIFEST.closeout.durable_outputs).toEqual([
       '.planning/current/closeout/CLOSEOUT-RECORD.md',
+      '.planning/current/closeout/FOLLOW-ON-SUMMARY.md',
+      '.planning/current/closeout/follow-on-summary.json',
       '.planning/current/closeout/NEXT-RUN.md',
       '.planning/current/closeout/next-run-bootstrap.json',
       '.planning/current/closeout/status.json',
@@ -530,6 +861,8 @@ describe('nexus types', () => {
     expect(CANONICAL_MANIFEST.discover.optional_outputs).toEqual([
       '.planning/current/discover/NEXT-RUN.md',
       '.planning/current/discover/next-run-bootstrap.json',
+      '.planning/current/discover/retro-continuity.json',
+      '.planning/current/discover/RETRO-CONTINUITY.md',
       '.planning/current/discover/session-continuation-advice.json',
       '.planning/current/discover/SESSION-CONTINUATION.md',
     ]);

@@ -513,6 +513,7 @@ describe('nexus review', () => {
           '.planning/current/handoff/governed-handoff.md',
           '.planning/current/plan/execution-readiness-packet.md',
           '.planning/current/plan/sprint-contract.md',
+          '.planning/current/plan/verification-matrix.json',
           '.planning/current/plan/design-contract.md',
         ]));
       }
@@ -1267,6 +1268,85 @@ describe('nexus review', () => {
           '.planning/audits/current/codex.md': expect.anything(),
           [reviewLearningCandidatesPath()]: expect.anything(),
         }),
+      });
+    });
+  });
+
+  test('surfaces human-readable latency diagnostics when a CCB review audit blocks', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const blockedReviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'blocked',
+            raw_output: {
+              markdown: '',
+              receipt: '',
+              latency_summary: {
+                path: 'watchdog_recovery',
+                likely_cause: 'provider_slow',
+                foreground_exit: 'timeout',
+                finalize_nudge_issued: true,
+                pend_attempts: 2,
+                recovered_via: null,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['Gemini review timed out'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('review', blockedReviewAdapters)).rejects.toThrow('CCB gemini audit blocked review');
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        state: 'blocked',
+        errors: [
+          expect.stringContaining('cause=provider slow'),
+        ],
+      });
+      expect(await run.readJson('.planning/current/review/adapter-output.json')).toMatchObject({
+        latency_diagnostics: {
+          audit_a: null,
+          audit_b: expect.stringContaining('cause=provider slow'),
+        },
       });
     });
   });

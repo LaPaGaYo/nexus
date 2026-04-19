@@ -137,6 +137,7 @@ describe('nexus discover/frame PM seams', () => {
       available_options: [...CONTINUATION_ADVICE_OPTIONS],
       host_compact_supported: false,
       resume_artifacts: bootstrapResumeArtifacts(),
+      supporting_context_artifacts: [],
       recommended_next_command: '/frame',
       summary: 'Nexus can continue in this session.',
       generated_at: '2026-04-16T00:00:00.000Z',
@@ -192,6 +193,7 @@ describe('nexus discover/frame PM seams', () => {
         ...bootstrapResumeArtifacts(),
         '.ccb/history/<latest>.md',
       ],
+      supporting_context_artifacts: [],
       recommended_next_command: '/frame',
       summary: 'Nexus can continue in this session. Because this is a new phase boundary, compacting first or resuming in a fresh session is recommended.',
       generated_at: '2026-04-16T00:00:01.000Z',
@@ -245,10 +247,32 @@ describe('nexus discover/frame PM seams', () => {
       available_options: [...CONTINUATION_ADVICE_OPTIONS],
       host_compact_supported: false,
       resume_artifacts: bootstrapResumeArtifacts(),
+      supporting_context_artifacts: [],
       recommended_next_command: '/frame',
       summary: 'Nexus can continue in this session. Because this is a new phase boundary and host-managed compact is unavailable, a fresh session is recommended; manual compact remains an option.',
       generated_at: '2026-04-16T00:00:02.000Z',
     });
+  });
+
+  test('renders supporting retro continuity artifacts in continuation advice markdown', () => {
+    const advice = buildSessionContinuationAdvice({
+      runId: 'run-4',
+      boundaryKind: 'fresh_run_phase',
+      continuationMode: 'phase',
+      hostCompactSupported: false,
+      contextTransferArtifactPath: null,
+      supportingContextArtifacts: [
+        '.planning/current/discover/retro-continuity.json',
+        '.planning/current/discover/RETRO-CONTINUITY.md',
+      ],
+      recommendedNextCommand: '/frame',
+      generatedAt: '2026-04-16T00:00:03.000Z',
+    });
+
+    expect(renderSessionContinuationMarkdown(advice)).toContain('## Supporting Context');
+    expect(renderSessionContinuationMarkdown(advice)).toContain(
+      '- .planning/current/discover/retro-continuity.json',
+    );
   });
 
   test('finds the latest context-transfer artifact from the repo history folders', () => {
@@ -542,6 +566,50 @@ describe('nexus discover/frame PM seams', () => {
         design_contract_path: null,
         design_verified: false,
       });
+      expect(await run.readJson('.planning/current/plan/verification-matrix.json')).toMatchObject({
+        run_id: expect.any(String),
+        design_impact: 'material',
+        verification_required: true,
+        obligations: {
+          build: {
+            owner_stage: 'build',
+            required: true,
+            gate_affecting: true,
+          },
+          review: {
+            owner_stage: 'review',
+            required: true,
+            gate_affecting: true,
+            mode: 'full_acceptance',
+          },
+          qa: {
+            owner_stage: 'qa',
+            required: true,
+            gate_affecting: true,
+            design_verification_required: true,
+          },
+          ship: {
+            owner_stage: 'ship',
+            required: true,
+            gate_affecting: true,
+            deploy_readiness_required: true,
+          },
+        },
+        attached_evidence: {
+          benchmark: {
+            supported: true,
+            required: false,
+          },
+          canary: {
+            supported: true,
+            required: false,
+          },
+          qa_only: {
+            supported: true,
+            required: false,
+          },
+        },
+      });
       expect(() => readFileSync(join(cwd, '.planning/current/plan/design-contract.md'), 'utf8')).toThrow();
     });
   });
@@ -612,11 +680,44 @@ describe('nexus discover/frame PM seams', () => {
         design_contract_path: '.planning/current/plan/design-contract.md',
         design_verified: false,
       });
+      expect(await run.readJson('.planning/current/plan/verification-matrix.json')).toMatchObject({
+        run_id: expect.any(String),
+        design_impact: 'material',
+        verification_required: true,
+        obligations: {
+          build: {
+            owner_stage: 'build',
+            required: true,
+            gate_affecting: true,
+          },
+          review: {
+            owner_stage: 'review',
+            required: true,
+            gate_affecting: true,
+            mode: 'full_acceptance',
+          },
+          qa: {
+            owner_stage: 'qa',
+            required: true,
+            gate_affecting: true,
+            design_verification_required: true,
+          },
+          ship: {
+            owner_stage: 'ship',
+            required: true,
+            gate_affecting: true,
+            deploy_readiness_required: true,
+          },
+        },
+      });
       expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Material UI constraints');
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         artifact_index: {
           '.planning/current/plan/design-contract.md': {
             path: '.planning/current/plan/design-contract.md',
+          },
+          '.planning/current/plan/verification-matrix.json': {
+            path: '.planning/current/plan/verification-matrix.json',
           },
         },
       });
@@ -820,6 +921,10 @@ describe('nexus discover/frame PM seams', () => {
         available_options: [...CONTINUATION_ADVICE_OPTIONS],
         host_compact_supported: false,
         resume_artifacts: bootstrapResumeArtifacts(),
+        supporting_context_artifacts: [
+          `.planning/archive/runs/${completedLedger.run_id}/closeout/FOLLOW-ON-SUMMARY.md`,
+          `.planning/archive/runs/${completedLedger.run_id}/closeout/follow-on-summary.json`,
+        ],
         recommended_next_command: '/frame',
         summary: 'Nexus can continue in this session. Because this is a new phase boundary and host-managed compact is unavailable, a fresh session is recommended; manual compact remains an option.',
       });
@@ -862,6 +967,109 @@ describe('nexus discover/frame PM seams', () => {
           ...bootstrapResumeArtifacts(),
           '.ccb/history/phase-3.md',
         ],
+        supporting_context_artifacts: [
+          expect.stringMatching(/\/closeout\/FOLLOW-ON-SUMMARY\.md$/),
+          expect.stringMatching(/\/closeout\/follow-on-summary\.json$/),
+        ],
+      });
+    });
+  });
+
+  test('fresh discover writes retro continuity from recent archived retros', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      const completedLedger = readJson('.planning/nexus/current-run.json');
+      const retroRoot = join(cwd, '.planning/archive/retros/2026-04-17-01');
+      mkdirSync(retroRoot, { recursive: true });
+      writeFileSync(join(retroRoot, 'retro.json'), JSON.stringify({
+        schema_version: 1,
+        retro_id: '2026-04-17-01',
+        mode: 'repo',
+        date: '2026-04-17',
+        window: '7d',
+        generated_at: '2026-04-17T00:00:00.000Z',
+        repository_root: cwd,
+        linked_run_ids: [completedLedger.run_id],
+        source_artifacts: [
+          `.planning/archive/runs/${completedLedger.run_id}/closeout/CLOSEOUT-RECORD.md`,
+        ],
+        summary: 'Recent retro context is available.',
+        key_findings: ['Fix-cycle volume dropped after the auth cleanup.'],
+        recommended_attention_areas: ['shipping cadence'],
+      }, null, 2) + '\n');
+
+      await run('discover');
+
+      const nextLedger = readJson('.planning/nexus/current-run.json');
+      expect(readJson('.planning/current/discover/retro-continuity.json')).toMatchObject({
+        run_id: nextLedger.run_id,
+        source_retro_artifacts: ['.planning/archive/retros/2026-04-17-01/retro.json'],
+        recent_findings: ['Fix-cycle volume dropped after the auth cleanup.'],
+        recommended_attention_areas: ['shipping cadence'],
+      });
+      expect(readFileSync(join(cwd, '.planning/current/discover/RETRO-CONTINUITY.md'), 'utf8')).toContain(
+        'Fix-cycle volume dropped after the auth cleanup.',
+      );
+      expect(readJson('.planning/current/discover/session-continuation-advice.json')).toMatchObject({
+        supporting_context_artifacts: [
+          `.planning/archive/runs/${completedLedger.run_id}/closeout/FOLLOW-ON-SUMMARY.md`,
+          `.planning/archive/runs/${completedLedger.run_id}/closeout/follow-on-summary.json`,
+          '.planning/current/discover/retro-continuity.json',
+          '.planning/current/discover/RETRO-CONTINUITY.md',
+        ],
+      });
+      expect(readJson('.planning/current/discover/status.json')).toMatchObject({
+        inputs: expect.arrayContaining([
+          { kind: 'json', path: '.planning/archive/retros/2026-04-17-01/retro.json' },
+        ]),
+      });
+      expect(nextLedger).toMatchObject({
+        artifact_index: {
+          '.planning/current/discover/retro-continuity.json': {
+            path: '.planning/current/discover/retro-continuity.json',
+          },
+          '.planning/current/discover/RETRO-CONTINUITY.md': {
+            path: '.planning/current/discover/RETRO-CONTINUITY.md',
+          },
+        },
+      });
+    });
+  });
+
+  test('fresh discover falls back to legacy repo retros during migration', async () => {
+    await runInTempGitRepo(async ({ cwd, run, readJson }) => {
+      await run('discover');
+      await run('frame');
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+      await run('closeout');
+
+      const legacyRetroRoot = join(cwd, '.context/retros');
+      mkdirSync(legacyRetroRoot, { recursive: true });
+      writeFileSync(join(legacyRetroRoot, '2026-04-17-1.json'), JSON.stringify({
+        date: '2026-04-17',
+        window: '7d',
+        tweetable: 'Week of Apr 10: review latency dropped and auth work stayed focused.',
+      }, null, 2) + '\n');
+
+      await run('discover');
+
+      expect(readJson('.planning/current/discover/retro-continuity.json')).toMatchObject({
+        source_retro_artifacts: ['.context/retros/2026-04-17-1.json'],
+        recent_findings: ['Week of Apr 10: review latency dropped and auth work stayed focused.'],
       });
     });
   });

@@ -8,6 +8,7 @@ import { runInTempRepo } from './helpers/temp-repo';
 describe('nexus qa', () => {
   test('writes design verification for touchup runs', async () => {
     await runInTempRepo(async ({ run }) => {
+      const seen: string[][] = [];
       const frameAdapters = makeFakeAdapters({
         pm: {
           frame: async () => ({
@@ -59,31 +60,34 @@ describe('nexus qa', () => {
 
       const qaAdapters = makeFakeAdapters({
         ccb: {
-          execute_qa: async (ctx) => ({
-            adapter_id: 'ccb',
-            outcome: 'success',
-            raw_output: {
-              report_markdown: '# QA Report\n\nResult: pass\n',
-              ready: true,
-              findings: [],
-              receipt: 'qa-pass',
-            },
-            requested_route: ctx.requested_route,
-            actual_route: {
-              provider: 'gemini',
-              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
-              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
-              transport: 'ccb',
-              receipt_path: '.planning/current/qa/adapter-output.json',
-            },
-            notices: [],
-            conflict_candidates: [],
-            traceability: {
-              nexus_stage_pack: 'nexus-qa-pack',
-              absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
-            },
-          }),
+          execute_qa: async (ctx) => {
+            seen.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                report_markdown: '# QA Report\n\nResult: pass\n',
+                ready: true,
+                findings: [],
+                receipt: 'qa-pass',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'gemini',
+                route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+                substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/qa/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+              traceability: {
+                nexus_stage_pack: 'nexus-qa-pack',
+                absorbed_capability: 'ccb-qa',
+                source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              },
+            };
+          },
         },
       });
 
@@ -95,6 +99,11 @@ describe('nexus qa', () => {
       await run('review');
       await run('qa', qaAdapters);
 
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toEqual(expect.arrayContaining([
+        '.planning/current/review/status.json',
+        '.planning/current/plan/verification-matrix.json',
+      ]));
       expect(await run.readFile('.planning/current/qa/design-verification.md')).toContain('Design impact: touchup');
       expect(await run.readFile('.planning/current/qa/design-verification.md')).toContain('Result: verified');
       expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
@@ -109,7 +118,7 @@ describe('nexus qa', () => {
     });
   });
 
-  test('clears stale design verification when review provenance becomes non-design', async () => {
+  test('preserves design verification when the verification matrix still requires it', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const frameAdapters = makeFakeAdapters({
         pm: {
@@ -218,14 +227,16 @@ describe('nexus qa', () => {
 
       await run('qa', qaAdapters);
 
-      await expect(run.readFile('.planning/current/qa/design-verification.md')).rejects.toThrow();
+      expect(await run.readFile('.planning/current/qa/design-verification.md')).toContain('Result: verified');
       expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
         design_impact: 'none',
         design_contract_path: null,
-        design_verified: null,
+        design_verified: true,
       });
       const updatedLedger = await run.readJson('.planning/nexus/current-run.json');
-      expect(updatedLedger.artifact_index).not.toHaveProperty('.planning/current/qa/design-verification.md');
+      expect(updatedLedger.artifact_index['.planning/current/qa/design-verification.md']).toMatchObject({
+        path: '.planning/current/qa/design-verification.md',
+      });
     });
   });
 
@@ -807,6 +818,54 @@ describe('nexus qa', () => {
         adapter: 'ccb',
         kind: 'route_mismatch',
         message: 'Requested and actual QA route diverged',
+      });
+    });
+  });
+
+  test('surfaces human-readable latency diagnostics when a CCB QA execution blocks', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const adapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'blocked',
+            raw_output: {
+              report_markdown: '',
+              ready: false,
+              findings: [],
+              receipt: '',
+              latency_summary: {
+                path: 'watchdog_recovery',
+                likely_cause: 'orchestration_false_start',
+                foreground_exit: 'nonzero',
+                finalize_nudge_issued: true,
+                pend_attempts: 1,
+                recovered_via: null,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['QA provider exited early'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('qa', adapters)).rejects.toThrow('CCB QA validation blocked');
+
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        state: 'blocked',
+        errors: [
+          expect.stringContaining('cause=foreground false-start'),
+        ],
+      });
+      expect(await run.readJson('.planning/current/qa/adapter-output.json')).toMatchObject({
+        latency_diagnostic: expect.stringContaining('cause=foreground false-start'),
       });
     });
   });

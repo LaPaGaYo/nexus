@@ -16,6 +16,10 @@ const evalCollector = createEvalCollector('e2e-deploy');
 test('deploy-related generated skills use Nexus report paths and helpers', () => {
   const landAndDeploy = fs.readFileSync(path.join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf-8');
   expect(landAndDeploy).toContain('.nexus/deploy-reports');
+  expect(landAndDeploy).toContain('.planning/current/ship/deploy-readiness.json');
+  expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
+  expect(landAndDeploy).toContain('.planning/current/ship/deploy-result.json');
+  expect(landAndDeploy).toContain('nexus-refresh-follow-on-summary');
   expect(landAndDeploy).toContain('nexus-review-read');
   expect(landAndDeploy).toContain('nexus-diff-scope');
   expect(landAndDeploy).not.toContain('.gstack/deploy-reports');
@@ -24,10 +28,13 @@ test('deploy-related generated skills use Nexus report paths and helpers', () =>
 
   const canary = fs.readFileSync(path.join(ROOT, 'canary', 'SKILL.md'), 'utf-8');
   expect(canary).toContain('.nexus/canary-reports');
+  expect(canary).toContain('.planning/current/ship/canary-status.json');
+  expect(canary).toContain('nexus-refresh-follow-on-summary');
   expect(canary).not.toContain('.gstack/canary-reports');
 
   const benchmark = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
   expect(benchmark).toContain('.nexus/benchmark-reports');
+  expect(benchmark).toContain('.planning/current/qa/perf-verification.md');
   expect(benchmark).not.toContain('.gstack/benchmark-reports');
 
   const setupDeploy = fs.readFileSync(path.join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf-8');
@@ -80,8 +87,11 @@ Instead, simulate the workflow:
 1. Detect the deploy platform from fly.toml (should find Fly.io, app = test-app)
 2. Infer the production URL (https://test-app.fly.dev)
 3. Note the merge method would be squash
-4. Write the deploy configuration to CLAUDE.md
-5. Write a deploy report skeleton to .nexus/deploy-reports/report.md showing the
+4. Write the canonical deploy contract to .planning/deploy/deploy-contract.json
+5. Write .planning/deploy/DEPLOY-CONTRACT.md
+6. Write .planning/current/ship/deploy-result.json tying together deploy-readiness,
+   pull-request, and the simulated production verdict
+7. Write a deploy report skeleton to .nexus/deploy-reports/report.md showing the
    expected report structure (PR number: simulated, timing: simulated, verdict: simulated)
 
 Do NOT use AskUserQuestion. Do NOT run gh or fly commands.`,
@@ -97,15 +107,18 @@ Do NOT use AskUserQuestion. Do NOT run gh or fly commands.`,
     recordE2E(evalCollector, '/land-and-deploy workflow', 'Land-and-Deploy skill E2E', result);
     expect(result.exitReason).toBe('success');
 
-    const claudeMd = path.join(landDir, 'CLAUDE.md');
-    if (fs.existsSync(claudeMd)) {
-      const content = fs.readFileSync(claudeMd, 'utf-8');
+    const contractPath = path.join(landDir, '.planning', 'deploy', 'deploy-contract.json');
+    if (fs.existsSync(contractPath)) {
+      const content = fs.readFileSync(contractPath, 'utf-8');
       const hasFly = content.toLowerCase().includes('fly') || content.toLowerCase().includes('test-app');
       expect(hasFly).toBe(true);
     }
 
     const reportDir = path.join(landDir, '.nexus', 'deploy-reports');
     expect(fs.existsSync(reportDir)).toBe(true);
+
+    const deployResultPath = path.join(landDir, '.planning', 'current', 'ship', 'deploy-result.json');
+    expect(fs.existsSync(deployResultPath)).toBe(true);
   }, 180_000);
 });
 
@@ -425,7 +438,8 @@ This repo has a fly.toml with app = "my-cool-app". Run the /setup-deploy workflo
 2. Extract the app name: my-cool-app
 3. Infer production URL: https://my-cool-app.fly.dev
 4. Set deploy status command: fly status --app my-cool-app
-5. Write the Deploy Configuration section to CLAUDE.md
+5. Write .planning/deploy/deploy-contract.json
+6. Write .planning/deploy/DEPLOY-CONTRACT.md
 
 Do NOT use AskUserQuestion. Do NOT run fly or gh commands.
 Do NOT try to verify the health check URL (there is no network).
@@ -442,13 +456,15 @@ Just detect the platform and write the config.`,
     recordE2E(evalCollector, '/setup-deploy workflow', 'Setup-Deploy skill E2E', result);
     expect(result.exitReason).toBe('success');
 
-    const claudeMd = path.join(setupDir, 'CLAUDE.md');
-    expect(fs.existsSync(claudeMd)).toBe(true);
+    const contractJson = path.join(setupDir, '.planning', 'deploy', 'deploy-contract.json');
+    const contractMd = path.join(setupDir, '.planning', 'deploy', 'DEPLOY-CONTRACT.md');
+    expect(fs.existsSync(contractJson)).toBe(true);
+    expect(fs.existsSync(contractMd)).toBe(true);
 
-    const content = fs.readFileSync(claudeMd, 'utf-8');
+    const content = fs.readFileSync(contractJson, 'utf-8');
     expect(content.toLowerCase()).toContain('fly');
     expect(content).toContain('my-cool-app');
-    expect(content).toContain('Deploy Configuration');
+    expect(content).toContain('deploy_status');
   }, 180_000);
 });
 

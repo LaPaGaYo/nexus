@@ -627,6 +627,27 @@ TREND: Performance degrading. LCP doubled in 8 days.
 
 Write to `.nexus/benchmark-reports/{date}-benchmark.md` and `.nexus/benchmark-reports/{date}-benchmark.json`.
 
+### Phase 10: Attach QA Evidence
+
+After saving the raw benchmark report, also persist a canonical QA-attached
+summary:
+
+```bash
+mkdir -p .planning/current/qa
+```
+
+Write `.planning/current/qa/perf-verification.md` with:
+
+- benchmark target URL and pages covered
+- benchmark mode used (`baseline`, `quick`, `diff`, `trend`, or comparison)
+- whether a baseline existed
+- top-level verdict: `no_regression`, `warning`, or `regression_detected`
+- the most important regressions or warnings, if any
+- pointers to the raw `.nexus/benchmark-reports/*` outputs
+
+This is **attached evidence**, not a lifecycle gate update. Do not rewrite
+`.planning/current/qa/status.json`.
+
 ## Important Rules
 
 - **Measure, don't guess.** Use actual performance.getEntries() data, not estimates.

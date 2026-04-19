@@ -7,6 +7,18 @@ export type CcbRuntimeStage = 'handoff' | 'build' | 'review' | 'qa';
 export type CcbDispatchStage = Exclude<CcbRuntimeStage, 'handoff'>;
 export type CcbDispatchStatus = 'dispatched' | 'completed' | 'blocked' | 'recovered_late';
 export type CcbPayloadSource = 'ask' | 'pend' | null;
+export type CcbDispatchLatencyPath = 'foreground' | 'watchdog_recovery' | 'late_recovery' | 'blocked';
+export type CcbDispatchForegroundExit = 'success' | 'timeout' | 'nonzero';
+export type CcbDispatchLikelyCause = 'normal' | 'provider_slow' | 'orchestration_false_start' | 'dispatch_failed';
+
+export interface CcbDispatchLatencySummary {
+  path: CcbDispatchLatencyPath;
+  likely_cause: CcbDispatchLikelyCause;
+  foreground_exit: CcbDispatchForegroundExit;
+  finalize_nudge_issued: boolean;
+  pend_attempts: number;
+  recovered_via: CcbPayloadSource;
+}
 
 export interface CcbProviderStateEntry {
   provider: CcbRuntimeProvider;
@@ -39,7 +51,7 @@ export interface CcbProviderStateFile {
 }
 
 export interface CcbDispatchStateRecord {
-  schema_version: 2;
+  schema_version: 3;
   dispatch_id: string;
   request_id: string | null;
   provider: CcbRuntimeProvider;
@@ -55,6 +67,7 @@ export interface CcbDispatchStateRecord {
   ask_exit_code: number | null;
   stdout: string;
   stderr: string;
+  latency_summary: CcbDispatchLatencySummary | null;
 }
 
 function defaultProviderEntry(provider: CcbRuntimeProvider): CcbProviderStateEntry {
@@ -165,7 +178,7 @@ export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbD
   try {
     const parsed = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<CcbDispatchStateRecord>;
     if (
-      parsed.schema_version !== 2 ||
+      (parsed.schema_version !== 2 && parsed.schema_version !== 3) ||
       typeof parsed.dispatch_id !== 'string' ||
       typeof parsed.provider !== 'string' ||
       typeof parsed.stage !== 'string' ||
@@ -175,7 +188,7 @@ export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbD
     }
 
     return {
-      schema_version: 2,
+      schema_version: 3,
       dispatch_id: parsed.dispatch_id,
       request_id: typeof parsed.request_id === 'string' ? parsed.request_id : null,
       provider: parsed.provider as CcbRuntimeProvider,
@@ -191,6 +204,20 @@ export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbD
       ask_exit_code: typeof parsed.ask_exit_code === 'number' ? parsed.ask_exit_code : null,
       stdout: typeof parsed.stdout === 'string' ? parsed.stdout : '',
       stderr: typeof parsed.stderr === 'string' ? parsed.stderr : '',
+      latency_summary: parsed.latency_summary && typeof parsed.latency_summary === 'object'
+        ? {
+            path: parsed.latency_summary.path as CcbDispatchLatencyPath,
+            likely_cause: parsed.latency_summary.likely_cause as CcbDispatchLikelyCause,
+            foreground_exit: parsed.latency_summary.foreground_exit as CcbDispatchForegroundExit,
+            finalize_nudge_issued: parsed.latency_summary.finalize_nudge_issued === true,
+            pend_attempts: typeof parsed.latency_summary.pend_attempts === 'number'
+              ? parsed.latency_summary.pend_attempts
+              : 0,
+            recovered_via: parsed.latency_summary.recovered_via === 'ask' || parsed.latency_summary.recovered_via === 'pend'
+              ? parsed.latency_summary.recovered_via
+              : null,
+          }
+        : null,
     };
   } catch {
     return null;
@@ -223,7 +250,7 @@ export function startCcbDispatchState(input: {
   dispatchedAt: string;
 }): void {
   const record: CcbDispatchStateRecord = {
-    schema_version: 2,
+    schema_version: 3,
     dispatch_id: input.dispatchId,
     request_id: null,
     provider: input.provider,
@@ -239,6 +266,7 @@ export function startCcbDispatchState(input: {
     ask_exit_code: null,
     stdout: '',
     stderr: '',
+    latency_summary: null,
   };
   writeJson(dispatchStateAbsolutePath(input.repoRoot, input.dispatchId), record);
 
@@ -341,9 +369,10 @@ export function recordCcbDispatchState(input: {
   askExitCode: number | null;
   stdout: string;
   stderr: string;
+  latencySummary?: CcbDispatchLatencySummary | null;
 }): void {
   const record: CcbDispatchStateRecord = {
-    schema_version: 2,
+    schema_version: 3,
     dispatch_id: input.dispatchId,
     request_id: input.requestId,
     provider: input.provider,
@@ -359,6 +388,7 @@ export function recordCcbDispatchState(input: {
     ask_exit_code: input.askExitCode,
     stdout: input.stdout,
     stderr: input.stderr,
+    latency_summary: input.latencySummary ?? null,
   };
   writeJson(dispatchStateAbsolutePath(input.repoRoot, input.dispatchId), record);
 

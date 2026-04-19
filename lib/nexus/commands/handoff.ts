@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { stageStatusPath } from '../artifacts';
+import { planVerificationMatrixPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
@@ -20,6 +20,7 @@ import type { CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { readVerificationMatrix } from '../verification-matrix';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -138,11 +139,15 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const handoffPath = '.planning/current/handoff/governed-handoff.md';
   const statusPath = stageStatusPath('handoff');
   const designContractPointer = planDesignContractPointer(planStatus);
+  const verificationMatrix = readVerificationMatrix(ctx.cwd);
   const predecessorArtifacts = ledger.current_stage === 'review'
     ? [artifactPointerFor(planStatusPath), artifactPointerFor(reviewStatusPath)]
     : ledger.current_stage === 'handoff' && priorHandoffStatus
       ? [artifactPointerFor(planStatusPath), artifactPointerFor(priorHandoffStatusPath)]
       : [artifactPointerFor(planStatusPath)];
+  if (verificationMatrix) {
+    predecessorArtifacts.push(artifactPointerFor(planVerificationMatrixPath()));
+  }
   if (designContractPointer) {
     predecessorArtifacts.push(designContractPointer);
   }

@@ -1,5 +1,10 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import {
+  planVerificationMatrixPath,
+  qaPerfVerificationPath,
+  shipDeployReadinessPath,
   qaDesignVerificationPath,
   shipLearningCandidatesPath,
   shipChecklistPath,
@@ -7,6 +12,7 @@ import {
   shipReleaseGateRecordPath,
   stageStatusPath,
 } from '../artifacts';
+import { resolveDeployReadiness } from '../deploy-contract';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertCanonicalTailLedger, assertQaReadyForCloseout, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
@@ -27,6 +33,7 @@ import type {
   StageStatus,
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -58,6 +65,25 @@ function designVerificationSummary(
   ].join('\n');
 }
 
+function perfVerificationEvidencePath(cwd: string): string | null {
+  const path = qaPerfVerificationPath();
+  return existsSync(join(cwd, path)) ? path : null;
+}
+
+function perfVerificationSummary(path: string | null): string {
+  if (!path) {
+    return '';
+  }
+
+  return [
+    '',
+    '## Attached Evidence',
+    '',
+    `- QA performance verification: ${path}`,
+    '',
+  ].join('\n');
+}
+
 function isOneOf<T extends readonly string[]>(value: unknown, values: T): value is T[number] {
   return typeof value === 'string' && values.includes(value as T[number]);
 }
@@ -67,6 +93,7 @@ function augmentChecklist(
   designImpact: StageStatus['design_impact'] | null | undefined,
   designContractPath: string | null | undefined,
   designVerified: boolean | null | undefined,
+  perfVerificationPath: string | null,
 ): Record<string, unknown> {
   return {
     ...checklist,
@@ -74,6 +101,7 @@ function augmentChecklist(
     design_contract_path: designContractPath ?? null,
     design_verified: designVerified,
     design_verification_path: designVerified === true ? qaDesignVerificationPath() : null,
+    qa_perf_verification_path: perfVerificationPath,
   };
 }
 
@@ -169,6 +197,9 @@ function shipStatusTracePayload(
     | 'design_impact'
     | 'design_contract_path'
     | 'design_verified'
+    | 'deploy_configured'
+    | 'deploy_config_source'
+    | 'deploy_contract_path'
     | 'learning_candidates_path'
     | 'learnings_recorded'
   >,
@@ -180,6 +211,9 @@ function shipStatusTracePayload(
     design_impact: status.design_impact,
     design_contract_path: status.design_contract_path,
     design_verified: status.design_verified,
+    deploy_configured: status.deploy_configured ?? false,
+    deploy_config_source: status.deploy_config_source ?? null,
+    deploy_contract_path: status.deploy_contract_path ?? null,
     learning_candidates_path: status.learning_candidates_path ?? null,
     learnings_recorded: status.learnings_recorded ?? false,
   };
@@ -249,10 +283,6 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const qaStatusPath = stageStatusPath('qa');
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
   const qaStatus = readStageStatus(qaStatusPath, ctx.cwd);
-  const designImpact = qaStatus?.design_impact ?? reviewStatus?.design_impact ?? 'none';
-  const designContractPath = qaStatus?.design_contract_path ?? reviewStatus?.design_contract_path ?? null;
-  const designIsBearing = designBearing(designImpact);
-  const designVerified = qaStatus?.design_verified ?? null;
 
   if (!ledger || !reviewStatus) {
     throw new Error('Review must be completed before ship');
@@ -270,6 +300,21 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     throw new Error('Review must be completed before ship');
   }
 
+  const startedAt = ctx.clock();
+  const verificationMatrix = resolveVerificationMatrix(ctx.cwd, ledger.run_id, startedAt);
+  const canonicalVerificationMatrix = readVerificationMatrix(ctx.cwd);
+  const designImpact = qaStatus?.design_impact ?? reviewStatus?.design_impact ?? verificationMatrix.design_impact;
+  const designContractPath = qaStatus?.design_contract_path ?? reviewStatus?.design_contract_path ?? null;
+  const designVerified = qaStatus?.design_verified ?? null;
+  const qaRequired = verificationMatrix.obligations.qa.required;
+  const designVerificationRequired = verificationMatrix.obligations.qa.design_verification_required;
+  const designIsBearing = designVerificationRequired || designBearing(designImpact);
+  const perfVerificationPath = perfVerificationEvidencePath(ctx.cwd);
+
+  if (qaRequired && !qaStatus) {
+    throw new Error('QA is required by the verification matrix before ship');
+  }
+
   if (qaStatus) {
     try {
       assertQaReadyForCloseout(qaStatus);
@@ -281,8 +326,6 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   if (designIsBearing && designVerified !== true) {
     throw new Error('Design-bearing runs require QA design verification before ship');
   }
-
-  const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.ship;
   const workspace = resolveExecutionWorkspace(
     ctx.cwd,
@@ -295,12 +338,15 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const releaseGateRecordPath = shipReleaseGateRecordPath();
   const checklistPath = shipChecklistPath();
+  const deployReadinessPath = shipDeployReadinessPath();
   const pullRequestPath = shipPullRequestPath();
   const learningCandidatesPath = shipLearningCandidatesPath();
   const statusPath = stageStatusPath('ship');
   const predecessorArtifacts = [
     artifactPointerFor(reviewStatusPath),
+    ...(canonicalVerificationMatrix ? [artifactPointerFor(planVerificationMatrixPath())] : []),
     ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
+    ...(perfVerificationPath ? [artifactPointerFor(perfVerificationPath)] : []),
   ];
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
   const result = await ctx.adapters.superpowers.ship_discipline({
@@ -440,17 +486,19 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     designImpact,
     designContractPath,
     designVerified,
+    perfVerificationPath,
   );
   const learningCandidatesRecord = buildShipLearningCandidatesRecord(
     ledger.run_id,
     startedAt,
     result.raw_output.learning_candidates,
   );
+  const deployReadiness = resolveDeployReadiness(ctx.cwd, ledger.run_id, startedAt);
   const releaseGateRecord = `${result.raw_output.release_gate_record.trimEnd()}${designVerificationSummary(
     designImpact,
     designContractPath,
     designVerified,
-  )}`;
+  )}${perfVerificationSummary(perfVerificationPath)}`;
   const pullRequest = await resolveShipPullRequest(ctx.cwd, result.raw_output.merge_ready, ctx.run_command);
   const status: StageStatus = {
     run_id: ledger.run_id,
@@ -459,6 +507,9 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     design_impact: designImpact,
     design_contract_path: designContractPath,
     design_verified: designVerified,
+    deploy_configured: deployReadiness.configured,
+    deploy_config_source: deployReadiness.source,
+    deploy_contract_path: deployReadiness.contract_path,
     state: 'completed',
     decision: 'ship_recorded',
     ready: result.raw_output.merge_ready,
@@ -466,6 +517,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     outputs: [
       artifactPointerFor(releaseGateRecordPath),
       artifactPointerFor(checklistPath),
+      artifactPointerFor(deployReadinessPath),
       artifactPointerFor(pullRequestPath),
       ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
       artifactPointerFor(statusPath),
@@ -483,6 +535,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     ...next.artifact_index,
     [releaseGateRecordPath]: artifactPointerFor(releaseGateRecordPath),
     [checklistPath]: artifactPointerFor(checklistPath),
+    [deployReadinessPath]: artifactPointerFor(deployReadinessPath),
     [pullRequestPath]: artifactPointerFor(pullRequestPath),
     ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
     [statusPath]: artifactPointerFor(statusPath),
@@ -498,6 +551,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     canonicalWrites: [
       { path: releaseGateRecordPath, content: `${releaseGateRecord}\n` },
       { path: checklistPath, content: JSON.stringify(checklist, null, 2) + '\n' },
+      { path: deployReadinessPath, content: JSON.stringify(deployReadiness, null, 2) + '\n' },
       { path: pullRequestPath, content: JSON.stringify(pullRequest, null, 2) + '\n' },
       ...(learningCandidatesRecord
         ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
@@ -514,11 +568,14 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         canonical_paths: [
           releaseGateRecordPath,
           checklistPath,
+          deployReadinessPath,
           pullRequestPath,
           ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
         ],
         learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
         learnings_recorded: Boolean(learningCandidatesRecord),
+        deploy_readiness_path: deployReadinessPath,
+        deploy_readiness: deployReadiness,
         status: shipStatusTracePayload(status),
         pull_request: pullRequest,
         checklist,

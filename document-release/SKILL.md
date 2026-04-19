@@ -764,6 +764,39 @@ git diff <base>...HEAD -- VERSION
 
 ---
 
+## Step 8.5: Closeout-Attached Documentation Sync Record
+
+Always write a repo-visible documentation sync summary before the final commit
+decision, even if the docs were already current.
+
+```bash
+mkdir -p .planning/current/closeout
+```
+
+Write `.planning/current/closeout/documentation-sync.md` with:
+
+- base branch reviewed against
+- docs reviewed
+- docs updated
+- whether CHANGELOG was touched
+- VERSION outcome (`already bumped`, `skipped`, or `user decision required`)
+- whether docs were already current or required edits
+
+This is **attached evidence**, not a lifecycle gate change. Do not rewrite
+`.planning/current/closeout/status.json`.
+
+After writing `.planning/current/closeout/documentation-sync.md`, refresh the
+closeout-owned follow-on evidence summary:
+
+```bash
+~/.claude/skills/nexus/bin/nexus-refresh-follow-on-summary
+```
+
+If it prints `SKIPPED no_active_closeout`, continue. That means `/closeout`
+has not been recorded yet, so there is nothing to refresh.
+
+---
+
 ## Step 9: Commit & Output
 
 **Empty check first:** Run `git status` (never use `-uall`). If no documentation files were

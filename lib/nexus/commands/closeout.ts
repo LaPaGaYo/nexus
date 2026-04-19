@@ -2,12 +2,18 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import {
+  closeoutFollowOnSummaryJsonPath,
+  closeoutFollowOnSummaryMarkdownPath,
+  closeoutDocumentationSyncPath,
   closeoutLearningsJsonPath,
   closeoutLearningsMarkdownPath,
   closeoutNextRunBootstrapJsonPath,
   closeoutNextRunMarkdownPath,
+  qaPerfVerificationPath,
   qaLearningCandidatesPath,
   reviewLearningCandidatesPath,
+  shipCanaryStatusPath,
+  shipDeployResultPath,
   shipLearningCandidatesPath,
   stageStatusPath,
 } from '../artifacts';
@@ -28,6 +34,7 @@ import {
   collectValidLearningCandidates,
   renderRunLearningsMarkdown,
 } from '../learnings';
+import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '../follow-on-evidence';
 import { readLedger } from '../ledger';
 import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalizers/gsd';
 import { applyNormalizationPlan } from '../normalizers';
@@ -104,11 +111,39 @@ function clearCloseoutLearningArtifactIndex(ledger: RunLedger): RunLedger {
   const nextArtifactIndex = { ...ledger.artifact_index };
   delete nextArtifactIndex[closeoutLearningsMarkdownPath()];
   delete nextArtifactIndex[closeoutLearningsJsonPath()];
+  delete nextArtifactIndex[closeoutFollowOnSummaryMarkdownPath()];
+  delete nextArtifactIndex[closeoutFollowOnSummaryJsonPath()];
 
   return {
     ...ledger,
     artifact_index: nextArtifactIndex,
   };
+}
+
+function attachedEvidencePathIfPresent(cwd: string, path: string): string | null {
+  return existsSync(join(cwd, path)) ? path : null;
+}
+
+function closeoutAttachedEvidenceSummary(
+  perfVerificationPath: string | null,
+  canaryEvidencePath: string | null,
+  deployResultPath: string | null,
+  documentationSyncPath: string | null,
+): string {
+  if (!perfVerificationPath && !canaryEvidencePath && !deployResultPath && !documentationSyncPath) {
+    return '';
+  }
+
+  return [
+    '',
+    '## Attached Evidence',
+    '',
+    `- QA perf verification: ${perfVerificationPath ?? 'none'}`,
+    `- Ship canary evidence: ${canaryEvidencePath ?? 'none'}`,
+    `- Deploy result evidence: ${deployResultPath ?? 'none'}`,
+    `- Documentation sync evidence: ${documentationSyncPath ?? 'none'}`,
+    '',
+  ].join('\n');
 }
 
 export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
@@ -158,6 +193,10 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     };
   };
   const gateDecisionMarkdown = readFileSync(join(ctx.cwd, gateDecisionPath), 'utf8');
+  const perfVerificationPath = attachedEvidencePathIfPresent(ctx.cwd, qaPerfVerificationPath());
+  const canaryEvidencePath = attachedEvidencePathIfPresent(ctx.cwd, shipCanaryStatusPath());
+  const deployResultPath = attachedEvidencePathIfPresent(ctx.cwd, shipDeployResultPath());
+  const documentationSyncPath = attachedEvidencePathIfPresent(ctx.cwd, closeoutDocumentationSyncPath());
 
   assertSameRunId(ledger.run_id, meta.run_id, 'reviewed provenance');
 
@@ -226,6 +265,10 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     ...closeoutLearningInputs.filter((artifact) => artifact.path === qaLearningCandidatesPath()),
     ...(shipStatus ? [artifactPointerFor(shipStatusPath)] : []),
     ...closeoutLearningInputs.filter((artifact) => artifact.path === shipLearningCandidatesPath()),
+    ...(perfVerificationPath ? [artifactPointerFor(perfVerificationPath)] : []),
+    ...(canaryEvidencePath ? [artifactPointerFor(canaryEvidencePath)] : []),
+    ...(deployResultPath ? [artifactPointerFor(deployResultPath)] : []),
+    ...(documentationSyncPath ? [artifactPointerFor(documentationSyncPath)] : []),
     artifactPointerFor(metaPath),
   ];
   const manifest = CANONICAL_MANIFEST.closeout;
@@ -271,7 +314,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       stage: 'closeout',
       statusPath: closeoutStatusPath,
       canonicalWrites: [],
-      removeWrites: [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()],
+      removeWrites: [
+        closeoutLearningsMarkdownPath(),
+        closeoutLearningsJsonPath(),
+        closeoutFollowOnSummaryMarkdownPath(),
+        closeoutFollowOnSummaryJsonPath(),
+      ],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
@@ -291,14 +339,32 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdCloseout(result);
+    const followOnEvidence = buildFollowOnEvidenceSummary({
+      cwd: ctx.cwd,
+      runId: ledger.run_id,
+      generatedAt: startedAt,
+      perfVerificationPath,
+      canaryEvidencePath,
+      deployResultPath,
+      documentationSyncPath,
+    });
     const bootstrap = buildNextRunBootstrap({
       ledger,
       reviewStatus,
       qaStatus,
       shipStatus,
       generatedAt: startedAt,
+      followOnSummaryRecorded: true,
+      canaryEvidencePath,
+      documentationSyncPath,
     });
     const bootstrapWrites = persistCloseoutBootstrap(ctx.cwd, bootstrap);
+    const closeoutRecord = `${result.raw_output.closeout_record.trimEnd()}${closeoutAttachedEvidenceSummary(
+      perfVerificationPath,
+      canaryEvidencePath,
+      deployResultPath,
+      documentationSyncPath,
+    )}\n`;
     const retiredWorkspace = retireRunWorkspace(ledger.execution.workspace);
     const ledgerWithRetiredWorkspace = retiredWorkspace ? withExecutionWorkspace(ledger, retiredWorkspace) : ledger;
     const status: StageStatus = {
@@ -317,6 +383,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
               artifactPointerFor(closeoutLearningsJsonPath()),
             ]
           : []),
+        artifactPointerFor(closeoutFollowOnSummaryMarkdownPath()),
+        artifactPointerFor(closeoutFollowOnSummaryJsonPath()),
         artifactPointerFor(closeoutBootstrapMarkdown),
         artifactPointerFor(closeoutBootstrapJson),
         artifactPointerFor(closeoutStatusPath),
@@ -346,6 +414,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
               [closeoutLearningsJsonPath()]: artifactPointerFor(closeoutLearningsJsonPath()),
             }
           : {}),
+        [closeoutFollowOnSummaryMarkdownPath()]: artifactPointerFor(closeoutFollowOnSummaryMarkdownPath()),
+        [closeoutFollowOnSummaryJsonPath()]: artifactPointerFor(closeoutFollowOnSummaryJsonPath()),
         [closeoutBootstrapMarkdown]: artifactPointerFor(closeoutBootstrapMarkdown),
         [closeoutBootstrapJson]: artifactPointerFor(closeoutBootstrapJson),
         [closeoutStatusPath]: artifactPointerFor(closeoutStatusPath),
@@ -361,7 +431,11 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       stage: 'closeout',
       statusPath: closeoutStatusPath,
       canonicalWrites: [
-        ...normalized.canonicalWrites,
+        ...normalized.canonicalWrites.map((write) => (
+          write.path === closeoutRecordPath
+            ? { ...write, content: closeoutRecord }
+            : write
+        )),
         ...(closeoutLearningRecord
           ? [
               {
@@ -374,11 +448,22 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
               },
             ]
           : []),
+        {
+          path: closeoutFollowOnSummaryMarkdownPath(),
+          content: renderFollowOnEvidenceMarkdown(followOnEvidence),
+        },
+        {
+          path: closeoutFollowOnSummaryJsonPath(),
+          content: JSON.stringify(followOnEvidence, null, 2) + '\n',
+        },
         ...bootstrapWrites,
       ],
       removeWrites: closeoutLearningRecord
         ? []
-        : [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()],
+        : [
+            closeoutLearningsMarkdownPath(),
+            closeoutLearningsJsonPath(),
+          ],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,
@@ -392,6 +477,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
             ...(closeoutLearningRecord
               ? [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()]
               : []),
+            closeoutFollowOnSummaryMarkdownPath(),
+            closeoutFollowOnSummaryJsonPath(),
           ],
           status: { state: status.state, decision: status.decision, ready: status.ready },
         },
@@ -436,7 +523,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       stage: 'closeout',
       statusPath: closeoutStatusPath,
       canonicalWrites: [],
-      removeWrites: [closeoutLearningsMarkdownPath(), closeoutLearningsJsonPath()],
+      removeWrites: [
+        closeoutLearningsMarkdownPath(),
+        closeoutLearningsJsonPath(),
+        closeoutFollowOnSummaryMarkdownPath(),
+        closeoutFollowOnSummaryJsonPath(),
+      ],
       traceWrites: buildGsdTraceabilityPayloads(
         'closeout',
         ledger.run_id,

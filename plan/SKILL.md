@@ -394,7 +394,7 @@ Nexus-owned planning guidance for execution readiness and bounded scope.
 
 ## Artifact Contract
 
-Writes `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, `.planning/current/plan/design-contract.md` when present, and `.planning/current/plan/status.json`.
+Writes `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, `.planning/current/plan/verification-matrix.json`, `.planning/current/plan/design-contract.md` when present, and `.planning/current/plan/status.json`.
 
 ## Routing
 

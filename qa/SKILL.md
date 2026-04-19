@@ -400,6 +400,10 @@ Writes `.planning/current/qa/qa-report.md`,
 valid reusable learning candidates. `/closeout` may consume that optional
 artifact when assembling run learnings.
 
+Follow-on support workflows may attach additional QA evidence without changing
+canonical QA state, including `.planning/current/qa/perf-verification.md` from
+`/benchmark`.
+
 ## Routing
 
 QA content starts only after completed review. CCB validation transport does not bypass Nexus-owned readiness decisions or advance governed execution outside Nexus.

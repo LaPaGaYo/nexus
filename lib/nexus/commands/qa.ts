@@ -1,11 +1,18 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { qaDesignVerificationPath, qaLearningCandidatesPath, qaReportPath, stageStatusPath } from '../artifacts';
+import {
+  planVerificationMatrixPath,
+  qaDesignVerificationPath,
+  qaLearningCandidatesPath,
+  qaReportPath,
+  stageStatusPath,
+} from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertCanonicalTailLedger, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   buildQaTraceabilityPayloads,
+  describeCcbLatencySummary,
   requestedAndActualRouteMatch,
   requestedQaRouteFromLedger,
 } from '../normalizers/ccb';
@@ -24,6 +31,7 @@ import type {
   StageStatus,
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -215,13 +223,20 @@ function blockedQaStatus(
   };
 }
 
+function blockedQaStatusError(
+  baseMessage: string,
+  rawOutput: CcbExecuteQaRaw | LocalExecuteQaRaw,
+): string {
+  const diagnostic = 'latency_summary' in rawOutput
+    ? describeCcbLatencySummary(rawOutput.latency_summary ?? null)
+    : null;
+  return diagnostic ? `${baseMessage} (${diagnostic})` : baseMessage;
+}
+
 export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const reviewStatusPath = stageStatusPath('review');
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
-  const designImpact = reviewStatus?.design_impact ?? 'none';
-  const designContractPath = reviewStatus?.design_contract_path ?? null;
-  const designIsBearing = designBearing(designImpact);
 
   if (!ledger || !reviewStatus) {
     throw new Error('Review must be completed before QA');
@@ -237,6 +252,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   }
 
   const startedAt = ctx.clock();
+  const verificationMatrix = resolveVerificationMatrix(ctx.cwd, ledger.run_id, startedAt);
+  const canonicalVerificationMatrix = readVerificationMatrix(ctx.cwd);
+  const designImpact = reviewStatus?.design_impact ?? verificationMatrix.design_impact;
+  const designContractPath = reviewStatus?.design_contract_path ?? null;
+  const designIsBearing = verificationMatrix.obligations.qa.design_verification_required || designBearing(designImpact);
   const manifest = CANONICAL_MANIFEST.qa;
   const workspace = resolveExecutionWorkspace(
     ctx.cwd,
@@ -249,7 +269,10 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const statusPath = stageStatusPath('qa');
   const reportPath = qaReportPath();
   const learningCandidatesPath = qaLearningCandidatesPath();
-  const predecessorArtifacts = [artifactPointerFor(reviewStatusPath)];
+  const predecessorArtifacts = [
+    artifactPointerFor(reviewStatusPath),
+    ...(canonicalVerificationMatrix ? [artifactPointerFor(planVerificationMatrixPath())] : []),
+  ];
   const requestedRoute = requestedQaRouteFromLedger(ledgerWithExecution);
   const qaAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
@@ -269,6 +292,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     const message = result.outcome === 'refused'
       ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} QA validation refused`
       : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} QA validation blocked`;
+    const statusMessage = blockedQaStatusError(message, result.raw_output);
     const status = blockedQaStatus(
       ledgerWithExecution,
       startedAt,
@@ -277,7 +301,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       result.actual_route,
       designImpact,
       designContractPath,
-      message,
+      statusMessage,
       result.outcome === 'refused' ? 'refused' : 'blocked',
     );
     const conflict: ConflictRecord = {
@@ -300,7 +324,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
-        [reviewStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         workspace,
       result,
@@ -353,7 +377,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
-        [reviewStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         workspace,
       result,
@@ -406,7 +430,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       canonicalWrites: [],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
-        [reviewStatusPath],
+        predecessorArtifacts.map((artifact) => artifact.path),
         requestedRoute,
         workspace,
       result,
@@ -503,7 +527,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ],
     traceWrites: buildQaTraceabilityPayloads(
       ledger.run_id,
-      [reviewStatusPath],
+      predecessorArtifacts.map((artifact) => artifact.path),
       requestedRoute,
       workspace,
       result,

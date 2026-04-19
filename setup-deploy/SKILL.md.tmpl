@@ -6,7 +6,8 @@ description: |
   Configure deployment settings for /land-and-deploy. Detects your deploy
   platform (Fly.io, Render, Vercel, Netlify, Heroku, GitHub Actions, custom),
   production URL, health check endpoints, and deploy status commands. Writes
-  the configuration to CLAUDE.md so all future deploys are automatic.
+  the canonical deploy contract to `.planning/deploy/` so all future deploys
+  are automatic.
   Use when: "setup deploy", "configure deployment", "set up land-and-deploy",
   "how do I deploy with Nexus", "add deploy config".
 allowed-tools:
@@ -25,9 +26,11 @@ allowed-tools:
 
 You are helping the user configure their deployment so `/land-and-deploy` works
 automatically. Your job is to detect the deploy platform, production URL, health
-checks, and deploy status commands — then persist everything to CLAUDE.md.
+checks, and deploy status commands — then persist everything to
+`.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`.
 
-After this runs once, `/land-and-deploy` reads CLAUDE.md and skips detection entirely.
+After this runs once, `/land-and-deploy` reads the canonical deploy contract first and
+only falls back to legacy `CLAUDE.md` deploy config when migrating an older project.
 
 ## User-invocable
 When the user types `/setup-deploy`, run this skill.
@@ -37,12 +40,12 @@ When the user types `/setup-deploy`, run this skill.
 ### Step 1: Check existing configuration
 
 ```bash
-grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG"
+[ -f .planning/deploy/deploy-contract.json ] && cat .planning/deploy/deploy-contract.json || echo "NO_CONFIG"
 ```
 
 If configuration already exists, show it and ask:
 
-- **Context:** Deploy configuration already exists in CLAUDE.md.
+- **Context:** Deploy configuration already exists in `.planning/deploy/deploy-contract.json`.
 - **RECOMMENDATION:** Choose A to update if your setup changed.
 - A) Reconfigure from scratch (overwrite existing)
 - B) Edit specific fields (show current config, let me change one thing)
@@ -156,24 +159,60 @@ Use AskUserQuestion to gather the information:
 
 ### Step 4: Write configuration
 
-Read CLAUDE.md (or create it). Find and replace the `## Deploy Configuration` section
-if it exists, or append it at the end.
+Write the canonical deploy contract files. Create `.planning/deploy/` if needed.
+
+`deploy-contract.json`:
+
+```json
+{
+  "schema_version": 1,
+  "configured_at": "<ISO>",
+  "platform": "{platform}",
+  "project_type": "{web app | api | cli | library | service | unknown}",
+  "production": {
+    "url": "{url}",
+    "health_check": "{health check URL or null}"
+  },
+  "staging": {
+    "url": "{staging URL or null}",
+    "workflow": "{staging workflow or null}"
+  },
+  "deploy_trigger": {
+    "kind": "{auto_on_push | github_actions | command | manual | none}",
+    "details": "{trigger details}"
+  },
+  "deploy_workflow": "{workflow file or null}",
+  "deploy_status": {
+    "kind": "{http | command | github_actions | none}",
+    "command": "{command or null}"
+  },
+  "custom_hooks": {
+    "pre_merge": ["{command or omit}"],
+    "post_merge": ["{command or omit}"]
+  },
+  "notes": [],
+  "sources": ["{detected files}"]
+}
+```
+
+`DEPLOY-CONTRACT.md`:
 
 ```markdown
-## Deploy Configuration (configured by /setup-deploy)
+# Deploy Contract
+
+- Canonical JSON: `.planning/deploy/deploy-contract.json`
 - Platform: {platform}
 - Production URL: {url}
+- Health check: {health check URL or command}
 - Deploy workflow: {workflow file or "auto-deploy on push"}
-- Deploy status command: {command or "HTTP health check"}
-- Merge method: {squash/merge/rebase}
-- Project type: {web app / API / CLI / library}
-- Post-deploy health check: {health check URL or command}
+- Deploy status command: {command or "none"}
+- Project type: {web app / API / CLI / library / service / unknown}
+- Deploy trigger: {trigger details}
+- Pre-merge hooks: {commands or "none"}
+- Post-merge hooks: {commands or "none"}
 
-### Custom deploy hooks
-- Pre-merge: {command or "none"}
-- Deploy trigger: {command or "automatic on push to main"}
-- Deploy status: {command or "poll production URL"}
-- Health check: {URL or command}
+Legacy note:
+- `CLAUDE.md` is no longer the deploy source of truth.
 ```
 
 ### Step 5: Verify
@@ -202,13 +241,14 @@ Platform:      {platform}
 URL:           {url}
 Health check:  {health check}
 Status cmd:    {status command}
-Merge method:  {merge method}
+Contract:      .planning/deploy/deploy-contract.json
 
-Saved to CLAUDE.md. /land-and-deploy will use these settings automatically.
+Saved to `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`.
+`/land-and-deploy` and `/ship` will use these settings automatically.
 
 Next steps:
 - Run /land-and-deploy to merge and deploy your current PR
-- Edit the "## Deploy Configuration" section in CLAUDE.md to change settings
+- Edit `.planning/deploy/deploy-contract.json` or rerun /setup-deploy to change settings
 - Run /setup-deploy again to reconfigure
 ```
 
@@ -216,6 +256,6 @@ Next steps:
 
 - **Never expose secrets.** Don't print full API keys, tokens, or passwords.
 - **Confirm with the user.** Always show the detected config and ask for confirmation before writing.
-- **CLAUDE.md is the source of truth.** All configuration lives there — not in a separate config file.
+- **The deploy contract is the source of truth.** Persist canonical settings in `.planning/deploy/*`, not `CLAUDE.md`.
 - **Idempotent.** Running /setup-deploy multiple times overwrites the previous config cleanly.
 - **Platform CLIs are optional.** If `fly` or `vercel` CLI isn't installed, fall back to URL-based health checks.

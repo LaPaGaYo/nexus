@@ -151,7 +151,8 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('You:    /handoff');
     expect(readme).toContain('You:    /build');
     expect(readme).toContain('`/frame` classifies design impact');
-    expect(readme).toContain('`/plan` requires a design contract for material UI work');
+    expect(readme).toContain('`/plan` writes the canonical verification matrix');
+    expect(readme).toContain('`/plan` writes the canonical verification matrix and requires a design contract for material UI work');
     expect(readme).toContain('`/qa` records visual verification before `/ship` for design-bearing runs');
     expect(readme).toContain('| `/discover` |');
     expect(readme).toContain('| `/frame` |');
@@ -173,6 +174,7 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| [`/qa`](#qa) |');
     expect(skills).toContain('| [`/ship`](#ship) |');
     expect(skills).toContain('| [`/closeout`](#closeout) |');
+    expect(skills).toContain('.planning/current/plan/verification-matrix.json');
     expect(skills).toContain('| `/design-consultation` | Design-system discovery and visual direction that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
@@ -187,12 +189,35 @@ describe('nexus product surface contract', () => {
   });
 
   test('land-and-deploy consumes ship PR handoff rather than assuming closeout-owned PR creation', () => {
+    const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+    const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
     const landAndDeploy = readFileSync(join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf8');
+    const setupDeploy = readFileSync(join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf8');
     const shipSkill = readFileSync(join(ROOT, 'ship', 'SKILL.md'), 'utf8');
 
     expect(landAndDeploy).toContain('/ship` records merge readiness');
     expect(landAndDeploy).not.toContain('/ship` creates the PR');
+    expect(landAndDeploy).toContain('.planning/deploy/deploy-contract.json');
+    expect(landAndDeploy).not.toContain('CLAUDE.md and skips detection entirely');
+    expect(setupDeploy).toContain('.planning/deploy/deploy-contract.json');
+    expect(setupDeploy).toContain('.planning/deploy/DEPLOY-CONTRACT.md');
+    expect(setupDeploy).not.toContain('CLAUDE.md is the source of truth');
+    expect(landAndDeploy).toContain('.planning/current/ship/deploy-readiness.json');
+    expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
+    expect(landAndDeploy).toContain('.planning/current/ship/canary-status.json');
+    expect(landAndDeploy).toContain('.planning/current/ship/deploy-result.json');
     expect(shipSkill).toContain('.planning/current/ship/pull-request.json');
+    expect(shipSkill).toContain('.planning/current/ship/deploy-readiness.json');
+    expect(shipSkill).toContain('.planning/current/ship/deploy-result.json');
+    expect(readme).toContain('`/document-release` | Sync docs after shipping and attach `.planning/current/closeout/documentation-sync.md`.');
+    expect(readme).toContain('`/benchmark` | Performance baselining and regression checks attached to QA follow-on evidence via `.planning/current/qa/perf-verification.md`.');
+    expect(readme).toContain('`/canary` | Post-deploy health monitoring attached to ship follow-on evidence via `.planning/current/ship/canary-status.json`.');
+    expect(readme).toContain('`/land-and-deploy` | Merge, deploy, and verify production using ship PR/deploy handoff and attach `.planning/current/ship/deploy-result.json`.');
+    expect(readme).toContain('`/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state.');
+    expect(skills).toContain('`/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence and attaches `.planning/current/ship/deploy-result.json`.');
+    expect(skills).toContain('`/benchmark` | Performance regression checks that attach `.planning/current/qa/perf-verification.md` as follow-on QA evidence.');
+    expect(skills).toContain('`/canary` | Post-deploy monitoring that attaches `.planning/current/ship/canary-status.json` as follow-on ship evidence.');
+    expect(skills).toContain('`/document-release` | Release-note and documentation sync that attaches `.planning/current/closeout/documentation-sync.md` as follow-on closeout evidence.');
   });
 
   test('package metadata and setup are Nexus-primary', () => {

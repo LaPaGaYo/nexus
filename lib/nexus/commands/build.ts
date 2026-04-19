@@ -32,6 +32,7 @@ import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { readVerificationMatrix } from '../verification-matrix';
 
 const PLAN_STATUS_PATH = stageStatusPath('plan');
 
@@ -199,17 +200,18 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledgerWithExecution);
   const commandHistoryVia = buildCommandHistoryVia(reviewScope, ctx.via);
   const designContractPointer = planDesignContractPointer(planStatus);
+  const verificationMatrix = readVerificationMatrix(ctx.cwd);
   const predecessorArtifacts = dedupeArtifactPointers(
     fixCycle
       ? [
           artifactPointerFor(HANDOFF_STATUS_PATH),
           artifactPointerFor(REVIEW_STATUS_PATH),
-          ...executionContractArtifacts(),
+          ...executionContractArtifacts(Boolean(verificationMatrix)),
           ...(designContractPointer ? [designContractPointer] : []),
         ]
       : [
           artifactPointerFor(HANDOFF_STATUS_PATH),
-          ...executionContractArtifacts(),
+          ...executionContractArtifacts(Boolean(verificationMatrix)),
           ...(designContractPointer ? [designContractPointer] : []),
         ],
   );

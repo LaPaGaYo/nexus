@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { planDesignContractPath, stageStatusPath } from '../artifacts';
+import { planDesignContractPath, planVerificationMatrixPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildGsdTraceabilityPayloads, normalizeGsdPlan } from '../normalizers/gsd';
@@ -8,6 +8,7 @@ import type { GsdPlanRaw } from '../adapters/gsd';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readStageStatus } from '../status';
+import { buildVerificationMatrix } from '../verification-matrix';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -128,6 +129,11 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdPlan(result);
+    const verificationMatrix = buildVerificationMatrix(ctx.cwd, ledger.run_id, startedAt, 'full_acceptance');
+    normalized.canonicalWrites.push({
+      path: planVerificationMatrixPath(),
+      content: JSON.stringify(verificationMatrix, null, 2) + '\n',
+    });
     const designContractPointer = designContractPointerFromWrites(normalized.canonicalWrites);
     const designContractMissing = frameStatus?.design_impact === 'material' && !designContractPointer;
     const ready = result.raw_output.ready && !designContractMissing;
@@ -139,6 +145,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       [
         artifactPointerFor('.planning/current/plan/execution-readiness-packet.md'),
         artifactPointerFor('.planning/current/plan/sprint-contract.md'),
+        artifactPointerFor(planVerificationMatrixPath()),
         ...(designContractPointer ? [designContractPointer] : []),
         artifactPointerFor(statusPath),
       ],
@@ -155,6 +162,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         '.planning/current/plan/execution-readiness-packet.md',
       ),
       '.planning/current/plan/sprint-contract.md': artifactPointerFor('.planning/current/plan/sprint-contract.md'),
+      [planVerificationMatrixPath()]: artifactPointerFor(planVerificationMatrixPath()),
       ...(designContractPointer ? { [designContractPointer.path]: designContractPointer } : {}),
       [statusPath]: artifactPointerFor(statusPath),
     };
@@ -199,6 +207,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       canonical_paths: [
         '.planning/current/plan/execution-readiness-packet.md',
         '.planning/current/plan/sprint-contract.md',
+        planVerificationMatrixPath(),
         statusPath,
       ],
       trace_paths: [

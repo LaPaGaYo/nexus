@@ -322,6 +322,23 @@ describe('gen-skill-docs', () => {
     expect(content).not.toContain('## Completeness Principle');
   });
 
+  test('generated follow-on skills expose canonical attached-evidence paths', () => {
+    const benchmark = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
+    const canary = fs.readFileSync(path.join(ROOT, 'canary', 'SKILL.md'), 'utf-8');
+    const docRelease = fs.readFileSync(path.join(ROOT, 'document-release', 'SKILL.md'), 'utf-8');
+    const landAndDeploy = fs.readFileSync(path.join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf-8');
+
+    expect(benchmark).toContain('.planning/current/qa/perf-verification.md');
+    expect(canary).toContain('.planning/current/ship/canary-status.json');
+    expect(canary).toContain('nexus-refresh-follow-on-summary');
+    expect(docRelease).toContain('.planning/current/closeout/documentation-sync.md');
+    expect(docRelease).toContain('nexus-refresh-follow-on-summary');
+    expect(landAndDeploy).toContain('.planning/current/ship/deploy-readiness.json');
+    expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
+    expect(landAndDeploy).toContain('.planning/current/ship/deploy-result.json');
+    expect(landAndDeploy).toContain('nexus-refresh-follow-on-summary');
+  });
+
   test('generated SKILL.md does not mention telemetry storage', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     expect(content).not.toContain('skill-usage.jsonl');

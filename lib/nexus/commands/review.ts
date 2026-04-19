@@ -14,6 +14,7 @@ import {
   buildReviewGateDecisionMarkdown,
   buildReviewSynthesisMarkdown,
   buildReviewTraceabilityPayloads,
+  describeCcbLatencySummary,
   requestedAndActualAuditRouteMatch,
   requestedAuditRouteFromBuild,
 } from '../normalizers/ccb';
@@ -40,6 +41,7 @@ import type {
 } from '../types';
 import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { readVerificationMatrix } from '../verification-matrix';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
 const PLAN_STATUS_PATH = stageStatusPath('plan');
@@ -132,6 +134,16 @@ function blockedReviewStatus(
     archive_required: false,
     archive_state: 'not_required',
   };
+}
+
+function blockedReviewStatusError(
+  baseMessage: string,
+  rawOutput: CcbExecuteAuditRaw | LocalExecuteAuditRaw,
+): string {
+  const diagnostic = 'latency_summary' in rawOutput
+    ? describeCcbLatencySummary(rawOutput.latency_summary ?? null)
+    : null;
+  return diagnostic ? `${baseMessage} (${diagnostic})` : baseMessage;
 }
 
 function assertNonEmptyMarkdown(markdown: string, label: string): void {
@@ -279,9 +291,10 @@ export async function runReviewWithWriteAtomicFile(
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.review;
   const designContractPointer = planDesignContractPointer(planStatus);
+  const verificationMatrix = readVerificationMatrix(ctx.cwd);
   const predecessorArtifacts = dedupeArtifactPointers([
     artifactPointerFor(BUILD_STATUS_PATH),
-    ...executionContractArtifacts(),
+    ...executionContractArtifacts(Boolean(verificationMatrix)),
     ...(designContractPointer ? [designContractPointer] : []),
   ]);
   const workspace = resolveExecutionWorkspace(
@@ -555,6 +568,7 @@ export async function runReviewWithWriteAtomicFile(
       const message = result.outcome === 'refused'
         ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} ${label} audit refused review`
         : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} ${label} audit blocked review`;
+      const statusMessage = blockedReviewStatusError(message, result.raw_output);
       const status = blockedReviewStatus(
         ledgerWithExecution,
         startedAt,
@@ -564,7 +578,7 @@ export async function runReviewWithWriteAtomicFile(
         requestedRoute,
         actualRoute,
         inheritedReviewScope,
-        message,
+        statusMessage,
         result.outcome === 'refused' ? 'refused' : 'blocked',
       );
       const conflict: ConflictRecord = {

@@ -35,6 +35,7 @@ export function buildSessionContinuationAdvice(input: {
   continuationMode: ContinuationMode;
   hostCompactSupported: boolean;
   contextTransferArtifactPath: string | null;
+  supportingContextArtifacts?: string[];
   recommendedNextCommand: SessionContinuationAdviceRecord['recommended_next_command'];
   generatedAt: string;
 }): SessionContinuationAdviceRecord {
@@ -54,6 +55,7 @@ export function buildSessionContinuationAdvice(input: {
     available_options: [...CONTINUATION_ADVICE_OPTIONS],
     host_compact_supported: input.hostCompactSupported,
     resume_artifacts: resumeArtifacts,
+    supporting_context_artifacts: input.supportingContextArtifacts ?? [],
     recommended_next_command: input.recommendedNextCommand,
     summary: summaryFor(input.continuationMode, input.hostCompactSupported),
     generated_at: input.generatedAt,
@@ -84,6 +86,7 @@ export function findLatestContextTransferArtifact(cwd: string): string | null {
 
 export function renderSessionContinuationMarkdown(record: SessionContinuationAdviceRecord): string {
   const resumeArtifacts = record.resume_artifacts.map((artifact) => `- ${artifact}`);
+  const supportingArtifacts = record.supporting_context_artifacts.map((artifact) => `- ${artifact}`);
 
   return [
     '# Session Continuation Advisory',
@@ -101,6 +104,14 @@ export function renderSessionContinuationMarkdown(record: SessionContinuationAdv
     '',
     ...resumeArtifacts,
     '',
+    ...(supportingArtifacts.length > 0
+      ? [
+          '## Supporting Context',
+          '',
+          ...supportingArtifacts,
+          '',
+        ]
+      : []),
     '## Available Options',
     '',
     ...record.available_options.map((option) => `- ${option}`),

@@ -1,12 +1,81 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
-import { shipLearningCandidatesPath } from '../../lib/nexus/artifacts';
+import {
+  deployContractJsonPath,
+  qaPerfVerificationPath,
+  shipDeployReadinessPath,
+  shipLearningCandidatesPath,
+} from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 import { resolveInvocation } from '../../lib/nexus/commands';
 
 describe('nexus ship', () => {
+  test('blocks ship when the verification matrix requires QA and no QA stage has been recorded', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const adapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: ship QA matrix gate\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: ship QA matrix gate\n',
+              design_intent: {
+                impact: 'none',
+                affected_surfaces: [],
+                design_system_source: 'none',
+                contract_required: false,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+        gsd: {
+          plan: async () => ({
+            adapter_id: 'gsd',
+            outcome: 'success',
+            raw_output: {
+              execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
+              sprint_contract: '# Sprint Contract\n\nMatrix QA required\n',
+              ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-plan-pack',
+              absorbed_capability: 'gsd-plan',
+              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+            },
+          }),
+        },
+      });
+
+      await run('discover');
+      await run('frame', adapters);
+      await run('plan', adapters);
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      await expect(run('ship')).rejects.toThrow(
+        'QA is required by the verification matrix before ship',
+      );
+    });
+  });
+
   test('blocks design-bearing runs without design verification', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
@@ -90,7 +159,7 @@ describe('nexus ship', () => {
       await run('review');
 
       await expect(run('ship', adapters)).rejects.toThrow(
-        'Design-bearing runs require QA design verification before ship',
+        'QA is required by the verification matrix before ship',
       );
     });
   });
@@ -224,13 +293,143 @@ describe('nexus ship', () => {
         ready: true,
         design_impact: 'none',
         design_contract_path: null,
-        design_verified: null,
+        design_verified: true,
       });
       expect(await run.readJson('.planning/current/ship/checklist.json')).toMatchObject({
         design_impact: 'none',
         design_contract_path: null,
-        design_verified: null,
+        design_verified: true,
+        design_verification_path: '.planning/current/qa/design-verification.md',
       });
+    });
+  });
+
+  test('writes deploy readiness from canonical deploy contract', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const contractPath = deployContractJsonPath();
+      mkdirSync(join(cwd, '.planning/deploy'), { recursive: true });
+      writeFileSync(join(cwd, contractPath), JSON.stringify({
+        schema_version: 1,
+        configured_at: '2026-04-17T00:00:00.000Z',
+        platform: 'fly',
+        project_type: 'web_app',
+        production: {
+          url: 'https://test-app.fly.dev',
+          health_check: 'https://test-app.fly.dev/health',
+        },
+        staging: {
+          url: 'https://staging.test-app.fly.dev',
+          workflow: '.github/workflows/staging.yml',
+        },
+        deploy_trigger: {
+          kind: 'auto_on_push',
+          details: 'merge to main deploys automatically',
+        },
+        deploy_workflow: '.github/workflows/deploy.yml',
+        deploy_status: {
+          kind: 'command',
+          command: 'fly status --app test-app',
+        },
+        custom_hooks: {
+          pre_merge: ['bun test'],
+          post_merge: [],
+        },
+        notes: [],
+        sources: ['fly.toml', '.github/workflows/deploy.yml'],
+      }, null, 2) + '\n');
+
+      await run('ship');
+
+      expect(await run.readJson(shipDeployReadinessPath())).toMatchObject({
+        configured: true,
+        source: 'canonical_contract',
+        contract_path: contractPath,
+        platform: 'fly',
+        project_type: 'web_app',
+        production_url: 'https://test-app.fly.dev',
+        health_check: 'https://test-app.fly.dev/health',
+        deploy_status_kind: 'command',
+        deploy_status_command: 'fly status --app test-app',
+        deploy_workflow: '.github/workflows/deploy.yml',
+        staging_detected: true,
+      });
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        outputs: expect.arrayContaining([
+          expect.objectContaining({ path: shipDeployReadinessPath(), kind: 'json' }),
+        ]),
+      });
+    });
+  });
+
+  test('writes deploy readiness from legacy CLAUDE.md deploy config when canonical contract is absent', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      writeFileSync(join(cwd, 'CLAUDE.md'), `# Project Instructions
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: fly
+- Production URL: https://legacy-app.fly.dev
+- Deploy workflow: auto-deploy on push
+- Deploy status command: fly status --app legacy-app
+- Merge method: squash
+- Project type: web app
+- Post-deploy health check: https://legacy-app.fly.dev/health
+
+### Custom deploy hooks
+- Pre-merge: bun test
+- Deploy trigger: automatic on push to main
+- Deploy status: fly status --app legacy-app
+- Health check: https://legacy-app.fly.dev/health
+`);
+
+      await run('ship');
+
+      expect(await run.readJson(shipDeployReadinessPath())).toMatchObject({
+        configured: true,
+        source: 'legacy_claude',
+        contract_path: null,
+        platform: 'fly',
+        project_type: 'web_app',
+        production_url: 'https://legacy-app.fly.dev',
+        health_check: 'https://legacy-app.fly.dev/health',
+        deploy_status_kind: 'command',
+        deploy_status_command: 'fly status --app legacy-app',
+      });
+    });
+  });
+
+  test('reads attached QA perf verification evidence into ship inputs and release gate record', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+
+      writeFileSync(
+        join(cwd, qaPerfVerificationPath()),
+        '# Perf Verification\n\n- p95 latency regressed: no\n',
+      );
+
+      await run('ship');
+
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        inputs: expect.arrayContaining([
+          expect.objectContaining({ path: qaPerfVerificationPath(), kind: 'markdown' }),
+        ]),
+      });
+      expect(await run.readFile('.planning/current/ship/release-gate-record.md')).toContain(
+        'QA performance verification: .planning/current/qa/perf-verification.md',
+      );
     });
   });
 

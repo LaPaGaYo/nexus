@@ -771,7 +771,7 @@ describe('nexus runtime ccb adapter', () => {
       const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
       expect(existsSync(dispatchStatePath)).toBe(true);
       expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
-        schema_version: 2,
+        schema_version: 3,
         dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
         request_id: '20260415-000000-000-00000-2',
         provider: 'gemini',
@@ -781,6 +781,14 @@ describe('nexus runtime ccb adapter', () => {
         session_root: root,
         session_file: `${root}/.ccb/.gemini-session`,
         execution_workspace: join(root, '.nexus-worktrees/run-123'),
+        latency_summary: {
+          path: 'watchdog_recovery',
+          likely_cause: 'provider_slow',
+          foreground_exit: 'timeout',
+          finalize_nudge_issued: true,
+          pend_attempts: 2,
+          recovered_via: 'pend',
+        },
       });
 
       const providerStatePath = join(root, '.planning/nexus/providers.json');
@@ -908,13 +916,21 @@ describe('nexus runtime ccb adapter', () => {
       const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
       expect(existsSync(dispatchStatePath)).toBe(true);
       expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
-        schema_version: 2,
+        schema_version: 3,
         dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
         request_id: null,
         provider: 'gemini',
         stage: 'review',
         status: 'recovered_late',
         payload_source: 'pend',
+        latency_summary: {
+          path: 'watchdog_recovery',
+          likely_cause: 'orchestration_false_start',
+          foreground_exit: 'nonzero',
+          finalize_nudge_issued: true,
+          pend_attempts: 1,
+          recovered_via: 'pend',
+        },
       });
 
       const providerStatePath = join(root, '.planning/nexus/providers.json');
@@ -1096,10 +1112,18 @@ describe('nexus runtime ccb adapter', () => {
 
       const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
       expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
-        schema_version: 2,
+        schema_version: 3,
         dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
         status: 'recovered_late',
         payload_source: 'pend',
+        latency_summary: {
+          path: 'watchdog_recovery',
+          likely_cause: 'provider_slow',
+          foreground_exit: 'timeout',
+          finalize_nudge_issued: true,
+          pend_attempts: 3,
+          recovered_via: 'pend',
+        },
       });
 
       const providerStatePath = join(root, '.planning/nexus/providers.json');
@@ -1243,10 +1267,18 @@ describe('nexus runtime ccb adapter', () => {
 
       const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
       expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
-        schema_version: 2,
+        schema_version: 3,
         dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
         status: 'recovered_late',
         payload_source: 'pend',
+        latency_summary: {
+          path: 'watchdog_recovery',
+          likely_cause: 'orchestration_false_start',
+          foreground_exit: 'nonzero',
+          finalize_nudge_issued: true,
+          pend_attempts: 2,
+          recovered_via: 'pend',
+        },
       });
     } finally {
       rmSync(root, { recursive: true, force: true });

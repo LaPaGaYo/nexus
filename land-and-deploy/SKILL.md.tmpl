@@ -30,6 +30,18 @@ You are a **Release Engineer** who has deployed to production thousands of times
 
 This skill picks up where `/ship` left off. `/ship` records merge readiness and, when GitHub handoff is available, creates or reuses the PR metadata this workflow consumes. You merge it, wait for deploy, and verify production.
 
+## Canonical handoff and result artifacts
+
+Before merging or deploying, read the canonical ship handoff artifacts when they exist:
+
+- `.planning/current/ship/pull-request.json`
+- `.planning/current/ship/deploy-readiness.json`
+- `.planning/current/ship/canary-status.json` (optional prior ship evidence)
+
+After merge/deploy/verification completes, write the canonical deploy result artifact:
+
+- `.planning/current/ship/deploy-result.json`
+
 ## User-invocable
 When the user types `/land-and-deploy`, run this skill.
 
@@ -112,7 +124,7 @@ if [ ! -f ~/.nexus/projects/$SLUG/land-deploy-confirmed ]; then
 else
   # Check if deploy config has changed since confirmation
   SAVED_HASH=$(cat ~/.nexus/projects/$SLUG/land-deploy-confirmed 2>/dev/null)
-  CURRENT_HASH=$(sed -n '/## Deploy Configuration/,/^## /p' CLAUDE.md 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
+  CURRENT_HASH=$(cat .planning/deploy/deploy-contract.json 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
   # Also hash workflow files that affect deploy behavior
   WORKFLOW_HASH=$(find .github/workflows -maxdepth 1 \( -name '*deploy*' -o -name '*cd*' \) 2>/dev/null | xargs cat 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
   COMBINED_HASH="${CURRENT_HASH}-${WORKFLOW_HASH}"
@@ -152,7 +164,8 @@ Run the deploy configuration bootstrap to detect the platform and settings:
 {{DEPLOY_BOOTSTRAP}}
 
 Parse the output and record: the detected platform, production URL, deploy workflow (if any),
-and any persisted config from CLAUDE.md.
+and any persisted config from `.planning/deploy/deploy-contract.json` first, then
+legacy `CLAUDE.md` only when the canonical contract is absent.
 
 ### 1.5b: Command validation
 
@@ -217,12 +230,13 @@ CLI to verify the deploy worked."
 
 Check for staging environments in this order:
 
-1. **CLAUDE.md persisted config:** Check for a staging URL in the Deploy Configuration section:
+1. **Canonical deploy contract:** Check `.planning/deploy/deploy-contract.json` for a staging URL or workflow.
+2. **Legacy `CLAUDE.md` persisted config:** Check for a staging URL in the Deploy Configuration section only if the canonical contract is absent:
 ```bash
 grep -i "staging" CLAUDE.md 2>/dev/null | head -3
 ```
 
-2. **GitHub Actions staging workflow:** Check for workflow files with "staging" in the name or content:
+3. **GitHub Actions staging workflow:** Check for workflow files with "staging" in the name or content:
 ```bash
 for f in $(find .github/workflows -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null); do
   [ -f "$f" ] && grep -qiE "staging" "$f" 2>/dev/null && echo "STAGING_WORKFLOW:$f"
@@ -268,12 +282,12 @@ Present the full dry-run results to the user via AskUserQuestion:
 - B) Something's off — let me tell you what's wrong (Completeness: 10/10)
 - C) I want to configure this more carefully first (runs /setup-deploy) (Completeness: 10/10)
 
-**If A:** Tell the user: "Great — I've saved this configuration. Next time you run `/land-and-deploy`, I'll skip the dry run and go straight to readiness checks. If your deploy setup changes (new platform, different workflows, updated URLs), I'll automatically re-run the dry run to make sure I still have it right."
+**If A:** Tell the user: "Great — I've saved this configuration. Next time you run `/land-and-deploy`, I'll skip the dry run and go straight to readiness checks. If your canonical deploy contract or deploy workflows change, I'll automatically re-run the dry run to make sure I still have it right."
 
 Save the deploy config fingerprint so we can detect future changes:
 ```bash
 mkdir -p ~/.nexus/projects/$SLUG
-CURRENT_HASH=$(sed -n '/## Deploy Configuration/,/^## /p' CLAUDE.md 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
+CURRENT_HASH=$(cat .planning/deploy/deploy-contract.json 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
 WORKFLOW_HASH=$(find .github/workflows -maxdepth 1 \( -name '*deploy*' -o -name '*cd*' \) 2>/dev/null | xargs cat 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
 echo "${CURRENT_HASH}-${WORKFLOW_HASH}" > ~/.nexus/projects/$SLUG/land-deploy-confirmed
 ```
@@ -281,7 +295,7 @@ Continue to Step 2.
 
 **If B:** **STOP.** "Tell me what's different about your setup and I'll adjust. You can also run `/setup-deploy` to walk through the full configuration."
 
-**If C:** **STOP.** "Running `/setup-deploy` will walk through your deploy platform, production URL, and health checks in detail. It saves everything to CLAUDE.md so I'll know exactly what to do next time. Run `/land-and-deploy` again when that's done."
+**If C:** **STOP.** "Running `/setup-deploy` will walk through your deploy platform, production URL, and health checks in detail. It saves everything to `.planning/deploy/deploy-contract.json` so I'll know exactly what to do next time. Run `/land-and-deploy` again when that's done."
 
 ---
 
@@ -696,7 +710,7 @@ gh run view <run-id> --json status,conclusion
 
 ### Strategy B: Platform CLI (Fly.io, Render, Heroku)
 
-If a deploy status command was configured in CLAUDE.md (e.g., `fly status --app myapp`), use it instead of or in addition to GitHub Actions polling.
+If a deploy status command was configured in the canonical deploy contract (or legacy `CLAUDE.md` fallback), use it instead of or in addition to GitHub Actions polling.
 
 **Fly.io:** After merge, Fly deploys via GitHub Actions or `fly deploy`. Check with:
 ```bash
@@ -721,7 +735,7 @@ Vercel and Netlify deploy automatically on merge. No explicit deploy trigger nee
 
 ### Strategy D: Custom deploy hooks
 
-If CLAUDE.md has a custom deploy status command in the "Custom deploy hooks" section, run that command and check its exit code.
+If the canonical deploy contract has a custom deploy status command, run that command and check its exit code.
 
 ### Common: Timing and failure handling
 
@@ -871,6 +885,38 @@ VERDICT: <DEPLOYED AND VERIFIED / DEPLOYED (UNVERIFIED) / STAGING VERIFIED / REV
 ```
 
 Save report to `.nexus/deploy-reports/{date}-pr{number}-deploy.md`.
+
+Write the canonical deploy result artifact to `.planning/current/ship/deploy-result.json`.
+It should summarize the repo-visible ship handoff inputs and the final merge/deploy verdict, using this shape:
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "<ISO>",
+  "source": "land-and-deploy",
+  "production_url": "<url or null>",
+  "pull_request_path": ".planning/current/ship/pull-request.json",
+  "deploy_readiness_path": ".planning/current/ship/deploy-readiness.json",
+  "canary_status_path": ".planning/current/ship/canary-status.json",
+  "merge_status": "<pending|merged|reverted>",
+  "deploy_status": "<pending|verified|degraded|failed|skipped>",
+  "verification_status": "<healthy|degraded|broken|skipped>",
+  "report_markdown_path": ".nexus/deploy-reports/{date}-pr{number}-deploy.md",
+  "summary": "<one-sentence verdict>"
+}
+```
+
+If no ship canary artifact existed before this run, set `canary_status_path` to `null`.
+
+After writing `.planning/current/ship/deploy-result.json`, refresh the
+closeout-owned follow-on evidence summary:
+
+```bash
+~/.claude/skills/nexus/bin/nexus-refresh-follow-on-summary
+```
+
+If it prints `SKIPPED no_active_closeout`, continue. That means this repo has not
+recorded `/closeout` yet, so there is nothing to refresh.
 
 Log to the review dashboard:
 

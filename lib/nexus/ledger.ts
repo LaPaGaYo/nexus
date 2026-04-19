@@ -1,6 +1,16 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { archivedCloseoutRootFor, archivedRunLedgerPath, stageStatusPath } from './artifacts';
+import {
+  archivedCloseoutRootFor,
+  archivedCurrentArtifactPath,
+  archivedRunLedgerPath,
+  currentAttachedEvidencePaths,
+  qaPerfVerificationPath,
+  shipCanaryStatusPath,
+  shipDeployResultPath,
+  closeoutDocumentationSyncPath,
+  stageStatusPath,
+} from './artifacts';
 import { defaultExecutionSelection, type ExecutionSelection } from './execution-topology';
 import { readStageStatus } from './status';
 import { getAllowedNextStages } from './transitions';
@@ -52,6 +62,40 @@ export function isCompletedCloseoutLedger(ledger: RunLedger, cwd = process.cwd()
   return closeoutReadyForRollover(closeoutStatus, ledger.run_id);
 }
 
+function shouldArchiveAttachedEvidence(
+  currentArtifactPath: string,
+  ledgerRunId: string,
+  cwd: string,
+): boolean {
+  const qaStatus = readStageStatus(stageStatusPath('qa'), cwd);
+  const shipStatus = readStageStatus(stageStatusPath('ship'), cwd);
+  const closeoutStatus = readStageStatus(stageStatusPath('closeout'), cwd);
+
+  if (currentArtifactPath === qaPerfVerificationPath()) {
+    return qaStatus?.run_id === ledgerRunId && qaStatus.stage === 'qa';
+  }
+  if (currentArtifactPath === shipCanaryStatusPath() || currentArtifactPath === shipDeployResultPath()) {
+    return shipStatus?.run_id === ledgerRunId && shipStatus.stage === 'ship';
+  }
+  if (currentArtifactPath === closeoutDocumentationSyncPath()) {
+    return closeoutStatus?.run_id === ledgerRunId && closeoutStatus.stage === 'closeout';
+  }
+  return false;
+}
+
+function syncArchivedCurrentArtifact(runId: string, currentArtifactPath: string, cwd: string): void {
+  const sourcePath = join(cwd, currentArtifactPath);
+  const archivedPath = join(cwd, archivedCurrentArtifactPath(runId, currentArtifactPath));
+
+  if (!shouldArchiveAttachedEvidence(currentArtifactPath, runId, cwd) || !existsSync(sourcePath)) {
+    rmSync(archivedPath, { force: true });
+    return;
+  }
+
+  mkdirSync(dirname(archivedPath), { recursive: true });
+  cpSync(sourcePath, archivedPath, { force: true });
+}
+
 export function archiveCompletedRunLedger(ledger: RunLedger, cwd = process.cwd()): void {
   const archivedLedger = join(cwd, archivedRunLedgerPath(ledger.run_id));
   mkdirSync(dirname(archivedLedger), { recursive: true });
@@ -81,6 +125,10 @@ export function archiveCompletedRunLedger(ledger: RunLedger, cwd = process.cwd()
         ) + '\n',
       );
     }
+  }
+
+  for (const evidencePath of currentAttachedEvidencePaths()) {
+    syncArchivedCurrentArtifact(ledger.run_id, evidencePath, cwd);
   }
 }
 

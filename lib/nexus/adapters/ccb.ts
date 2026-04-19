@@ -12,6 +12,7 @@ import {
   recordCcbPingProviderState,
   startCcbDispatchState,
 } from '../ccb-runtime-state';
+import type { CcbDispatchLatencySummary } from '../ccb-runtime-state';
 import {
   buildBuildExecutionPrompt,
   buildPromptContextPreamble,
@@ -51,6 +52,7 @@ export interface CcbExecuteGeneratorRaw {
   stdout?: string;
   stderr?: string;
   request_id?: string;
+  latency_summary?: CcbDispatchLatencySummary | null;
 }
 
 export interface CcbExecuteAuditRaw {
@@ -62,6 +64,7 @@ export interface CcbExecuteAuditRaw {
   stdout?: string;
   stderr?: string;
   request_id?: string;
+  latency_summary?: CcbDispatchLatencySummary | null;
 }
 
 export interface CcbExecuteQaRaw {
@@ -75,6 +78,7 @@ export interface CcbExecuteQaRaw {
   stdout?: string;
   stderr?: string;
   request_id?: string;
+  latency_summary?: CcbDispatchLatencySummary | null;
 }
 
 export interface CcbToolPaths {
@@ -97,6 +101,10 @@ export interface CcbCommandResult {
   exit_code: number;
   stdout: string;
   stderr: string;
+}
+
+interface CcbDispatchExecution extends CcbCommandResult {
+  latency_summary?: CcbDispatchLatencySummary | null;
 }
 
 export interface CreateRuntimeCcbAdapterOptions {
@@ -634,6 +642,53 @@ function shouldAttemptReviewWatchdog(stdout: string, stderr: string): boolean {
   return shouldAttemptAnonymousLateRecovery('review', stdout, stderr) || /CCB_REQ_ID:\s*[^\s]+/.test(combined);
 }
 
+function foregroundExitKind(exitCode: number, stdout: string, stderr: string): CcbDispatchLatencySummary['foreground_exit'] {
+  if (exitCode === 124 || /\[TIMEOUT\]|command exceeded/i.test(`${stdout}\n${stderr}`)) {
+    return 'timeout';
+  }
+
+  if (exitCode === 0) {
+    return 'success';
+  }
+
+  return 'nonzero';
+}
+
+function buildDispatchLatencySummary(input: {
+  stage: 'handoff' | 'build' | 'review' | 'qa';
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  watchdogEngaged: boolean;
+  finalizeNudgeIssued: boolean;
+  pendAttempts: number;
+  recoveredVia: 'ask' | 'pend' | null;
+}): CcbDispatchLatencySummary {
+  const foregroundExit = foregroundExitKind(input.exitCode, input.stdout, input.stderr);
+  let path: CcbDispatchLatencySummary['path'] = 'blocked';
+  let likelyCause: CcbDispatchLatencySummary['likely_cause'] = 'dispatch_failed';
+
+  if (foregroundExit === 'success' && !input.watchdogEngaged && input.pendAttempts === 0) {
+    path = 'foreground';
+    likelyCause = 'normal';
+  } else if (input.watchdogEngaged) {
+    path = 'watchdog_recovery';
+    likelyCause = foregroundExit === 'timeout' ? 'provider_slow' : 'orchestration_false_start';
+  } else if (input.pendAttempts > 0 || input.recoveredVia !== null) {
+    path = 'late_recovery';
+    likelyCause = 'orchestration_false_start';
+  }
+
+  return {
+    path,
+    likely_cause: likelyCause,
+    foreground_exit: foregroundExit,
+    finalize_nudge_issued: input.finalizeNudgeIssued,
+    pend_attempts: input.pendAttempts,
+    recovered_via: input.recoveredVia,
+  };
+}
+
 async function runRouteVerification(
   ctx: NexusAdapterContext,
   traceability: AdapterTraceability,
@@ -905,7 +960,7 @@ async function runAskDispatch(
   prompt: string,
   traceability: AdapterTraceability,
   options: Required<CreateRuntimeCcbAdapterOptions>,
-): Promise<CcbCommandResult | AdapterResult<any>> {
+): Promise<CcbDispatchExecution | AdapterResult<any>> {
   const toolPaths = options.resolveToolPaths();
   const executionCwd = executionWorkspacePath(ctx);
   const repoRoot = resolveRepositoryRoot(ctx.cwd);
@@ -952,6 +1007,7 @@ async function runAskDispatch(
         stderr: [activeDispatch.stderr, '[SUPERSEDED] replaced by a newer governed dispatch before completion']
           .filter(Boolean)
           .join('\n'),
+        latencySummary: activeDispatch.latency_summary,
       });
     }
 
@@ -997,8 +1053,21 @@ async function runAskDispatch(
 
   if (execution.exit_code !== 0) {
     let requestId = extractRequestId(execution.stdout, execution.stderr);
+    let watchdogEngaged = false;
+    let finalizeNudgeIssued = false;
+    let pendAttempts = 0;
     const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
     if (recoveredPayload !== null) {
+      const latencySummary = buildDispatchLatencySummary({
+        stage,
+        exitCode: execution.exit_code,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+        watchdogEngaged,
+        finalizeNudgeIssued,
+        pendAttempts,
+        recoveredVia: 'ask',
+      });
       if (dispatchId && stage !== 'handoff') {
         recordCcbDispatchState({
           repoRoot,
@@ -1017,11 +1086,13 @@ async function runAskDispatch(
           askExitCode: execution.exit_code,
           stdout: recoveredPayload,
           stderr: execution.stderr,
+          latencySummary,
         });
       }
       return {
         ...execution,
         stdout: recoveredPayload,
+        latency_summary: latencySummary,
       };
     }
 
@@ -1030,6 +1101,7 @@ async function runAskDispatch(
     let recoveryStderr = execution.stderr;
 
     if (stage === 'review' && shouldAttemptReviewWatchdog(execution.stdout, execution.stderr)) {
+      watchdogEngaged = true;
       const nudgeExecution = await runReviewFinalizeNudge(
         ctx,
         provider,
@@ -1038,6 +1110,7 @@ async function runAskDispatch(
         options,
       );
       if (nudgeExecution) {
+        finalizeNudgeIssued = true;
         requestId = requestId ?? extractRequestId(nudgeExecution.stdout, nudgeExecution.stderr);
         recoveryStderr = [recoveryStderr, '[WATCHDOG] finalize nudge issued', nudgeExecution.stderr]
           .filter(Boolean)
@@ -1050,7 +1123,7 @@ async function runAskDispatch(
       }
 
       if (recoveryPayload === null) {
-        recoveryPayload = await recoverLateAskPayload(
+        const lateRecovery = await recoverLateAskPayload(
           ctx,
           provider,
           stage,
@@ -1062,18 +1135,32 @@ async function runAskDispatch(
             pollMs: REVIEW_WATCHDOG_RECOVERY_POLL_MS,
           },
         );
-        if (recoveryPayload !== null) {
+        pendAttempts += lateRecovery.attempts;
+        recoveryPayload = lateRecovery.payload;
+        if (lateRecovery.payload !== null) {
           recoveryPayloadSource = 'pend';
         }
       }
     } else if (requestId || shouldAttemptAnonymousLateRecovery(stage, execution.stdout, execution.stderr)) {
-      recoveryPayload = await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, options);
-      if (recoveryPayload !== null) {
+      const lateRecovery = await recoverLateAskPayload(ctx, provider, stage, sessionRoot, sessionFile, options);
+      pendAttempts += lateRecovery.attempts;
+      recoveryPayload = lateRecovery.payload;
+      if (lateRecovery.payload !== null) {
         recoveryPayloadSource = 'pend';
       }
     }
 
     if (recoveryPayload !== null) {
+      const latencySummary = buildDispatchLatencySummary({
+        stage,
+        exitCode: execution.exit_code,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+        watchdogEngaged,
+        finalizeNudgeIssued,
+        pendAttempts,
+        recoveredVia: recoveryPayloadSource,
+      });
       if (dispatchId && stage !== 'handoff') {
         recordCcbDispatchState({
           repoRoot,
@@ -1092,15 +1179,27 @@ async function runAskDispatch(
           askExitCode: execution.exit_code,
           stdout: recoveryPayload,
           stderr: recoveryStderr,
+          latencySummary,
         });
       }
       return {
         ...execution,
         stdout: recoveryPayload,
         stderr: recoveryStderr,
+        latency_summary: latencySummary,
       };
     }
 
+    const latencySummary = buildDispatchLatencySummary({
+      stage,
+      exitCode: execution.exit_code,
+      stdout: execution.stdout,
+      stderr: recoveryStderr,
+      watchdogEngaged,
+      finalizeNudgeIssued,
+      pendAttempts,
+      recoveredVia: null,
+    });
     if (dispatchId && stage !== 'handoff') {
       recordCcbDispatchState({
         repoRoot,
@@ -1119,6 +1218,7 @@ async function runAskDispatch(
         askExitCode: execution.exit_code,
         stdout: execution.stdout,
         stderr: recoveryStderr,
+        latencySummary,
       });
     }
 
@@ -1132,6 +1232,7 @@ async function runAskDispatch(
         stdout: execution.stdout,
         stderr: recoveryStderr,
         request_id: requestId,
+        latency_summary: latencySummary,
       },
       ctx.requested_route,
       traceability,
@@ -1139,6 +1240,16 @@ async function runAskDispatch(
   }
 
   const requestId = extractRequestId(execution.stdout, execution.stderr);
+  const latencySummary = buildDispatchLatencySummary({
+    stage,
+    exitCode: execution.exit_code,
+    stdout: execution.stdout,
+    stderr: execution.stderr,
+    watchdogEngaged: false,
+    finalizeNudgeIssued: false,
+    pendAttempts: 0,
+    recoveredVia: 'ask',
+  });
   if (dispatchId && stage !== 'handoff') {
     recordCcbDispatchState({
       repoRoot,
@@ -1157,10 +1268,14 @@ async function runAskDispatch(
       askExitCode: execution.exit_code,
       stdout: execution.stdout,
       stderr: execution.stderr,
+      latencySummary,
     });
   }
 
-  return execution;
+  return {
+    ...execution,
+    latency_summary: latencySummary,
+  };
 }
 
 async function recoverLateAskPayload(
@@ -1174,9 +1289,9 @@ async function recoverLateAskPayload(
     attempts?: number;
     pollMs?: number;
   } = {},
-): Promise<string | null> {
+): Promise<{ payload: string | null; attempts: number }> {
   if (stage === 'handoff') {
-    return null;
+    return { payload: null, attempts: 0 };
   }
 
   const toolPaths = options.resolveToolPaths();
@@ -1207,7 +1322,7 @@ async function recoverLateAskPayload(
 
     const payload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
     if (execution.exit_code === 0 && payload !== null) {
-      return payload;
+      return { payload, attempts: attempt + 1 };
     }
 
     if (attempt < attempts - 1) {
@@ -1215,7 +1330,7 @@ async function recoverLateAskPayload(
     }
   }
 
-  return null;
+  return { payload: null, attempts };
 }
 
 async function runReviewFinalizeNudge(
@@ -1469,6 +1584,7 @@ export function createRuntimeCcbAdapter(
           stdout: execution.stdout,
           stderr: execution.stderr,
           request_id: extractRequestId(execution.stdout, execution.stderr),
+          latency_summary: execution.latency_summary ?? null,
         },
         buildActualRoute(provider, ctx.requested_route?.generator ?? null, ctx.requested_route?.substrate ?? null, 'build'),
         ctx.requested_route,
@@ -1510,6 +1626,7 @@ export function createRuntimeCcbAdapter(
           stdout: execution.stdout,
           stderr: execution.stderr,
           request_id: extractRequestId(execution.stdout, execution.stderr),
+          latency_summary: execution.latency_summary ?? null,
         },
         buildActualRoute('codex', ctx.requested_route?.evaluator_a ?? 'codex-via-ccb', ctx.requested_route?.substrate ?? null, 'review'),
         ctx.requested_route,
@@ -1551,6 +1668,7 @@ export function createRuntimeCcbAdapter(
           stdout: execution.stdout,
           stderr: execution.stderr,
           request_id: extractRequestId(execution.stdout, execution.stderr),
+          latency_summary: execution.latency_summary ?? null,
         },
         buildActualRoute('gemini', ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb', ctx.requested_route?.substrate ?? null, 'review'),
         ctx.requested_route,
@@ -1595,6 +1713,7 @@ export function createRuntimeCcbAdapter(
             stdout: execution.stdout,
             stderr: execution.stderr,
             request_id: extractRequestId(execution.stdout, execution.stderr),
+            latency_summary: execution.latency_summary ?? null,
           },
           buildActualRoute('gemini', ctx.requested_route?.generator ?? 'gemini-via-ccb', ctx.requested_route?.substrate ?? null, 'qa'),
           ctx.requested_route,
@@ -1621,6 +1740,7 @@ export function createRuntimeCcbAdapter(
             stdout: execution.stdout,
             stderr: execution.stderr,
             request_id: extractRequestId(execution.stdout, execution.stderr),
+            latency_summary: execution.latency_summary ?? null,
           },
           ctx.requested_route,
           traceability,

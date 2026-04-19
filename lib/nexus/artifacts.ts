@@ -4,7 +4,9 @@ export const CURRENT_ROOT = '.planning/current';
 export const AUDIT_ROOT = '.planning/audits/current';
 export const ARCHIVE_ROOT = '.planning/audits/archive';
 export const RUN_ARCHIVE_ROOT = '.planning/archive/runs';
+export const RETRO_ARCHIVE_ROOT = '.planning/archive/retros';
 export const NEXUS_STATE_ROOT = '.planning/nexus';
+export const DEPLOY_ROOT = '.planning/deploy';
 
 export function stageStatusPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/status.json`;
@@ -30,8 +32,16 @@ export function planDesignContractPath(): string {
   return `${CURRENT_ROOT}/plan/design-contract.md`;
 }
 
+export function planVerificationMatrixPath(): string {
+  return `${CURRENT_ROOT}/plan/verification-matrix.json`;
+}
+
 export function qaDesignVerificationPath(): string {
   return `${CURRENT_ROOT}/qa/design-verification.md`;
+}
+
+export function qaPerfVerificationPath(): string {
+  return `${CURRENT_ROOT}/qa/perf-verification.md`;
 }
 
 export function qaReportPath(): string {
@@ -58,8 +68,28 @@ export function shipPullRequestPath(): string {
   return `${CURRENT_ROOT}/ship/pull-request.json`;
 }
 
+export function shipDeployReadinessPath(): string {
+  return `${CURRENT_ROOT}/ship/deploy-readiness.json`;
+}
+
+export function shipCanaryStatusPath(): string {
+  return `${CURRENT_ROOT}/ship/canary-status.json`;
+}
+
+export function shipDeployResultPath(): string {
+  return `${CURRENT_ROOT}/ship/deploy-result.json`;
+}
+
 export function shipLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/ship/learning-candidates.json`;
+}
+
+export function deployContractJsonPath(): string {
+  return `${DEPLOY_ROOT}/deploy-contract.json`;
+}
+
+export function deployContractMarkdownPath(): string {
+  return `${DEPLOY_ROOT}/DEPLOY-CONTRACT.md`;
 }
 
 export function stageConflictPath(stage: CanonicalCommandId, adapter: string): string {
@@ -91,6 +121,15 @@ export function currentAuditArtifactPaths(): string[] {
   ];
 }
 
+export function currentAttachedEvidencePaths(): string[] {
+  return [
+    qaPerfVerificationPath(),
+    shipCanaryStatusPath(),
+    shipDeployResultPath(),
+    closeoutDocumentationSyncPath(),
+  ];
+}
+
 export function archiveRootFor(runId: string): string {
   return `${ARCHIVE_ROOT}/${runId}`;
 }
@@ -107,6 +146,26 @@ export function archivedCloseoutRootFor(runId: string): string {
   return `${runArchiveRootFor(runId)}/closeout`;
 }
 
+export function archivedCurrentArtifactPath(runId: string, currentArtifactPath: string): string {
+  const prefix = `${CURRENT_ROOT}/`;
+  if (!currentArtifactPath.startsWith(prefix)) {
+    throw new Error(`Expected current-stage artifact path, got: ${currentArtifactPath}`);
+  }
+  return `${runArchiveRootFor(runId)}/${currentArtifactPath.slice(prefix.length)}`;
+}
+
+export function retroArchiveRootPath(): string {
+  return RETRO_ARCHIVE_ROOT;
+}
+
+export function retroArchiveJsonPath(retroId: string): string {
+  return `${retroArchiveRootPath()}/${retroId}/retro.json`;
+}
+
+export function retroArchiveMarkdownPath(retroId: string): string {
+  return `${retroArchiveRootPath()}/${retroId}/RETRO.md`;
+}
+
 export function closeoutNextRunBootstrapJsonPath(): string {
   return `${CURRENT_ROOT}/closeout/next-run-bootstrap.json`;
 }
@@ -121,6 +180,18 @@ export function closeoutLearningsMarkdownPath(): string {
 
 export function closeoutLearningsJsonPath(): string {
   return `${CURRENT_ROOT}/closeout/learnings.json`;
+}
+
+export function closeoutFollowOnSummaryMarkdownPath(): string {
+  return `${CURRENT_ROOT}/closeout/FOLLOW-ON-SUMMARY.md`;
+}
+
+export function closeoutFollowOnSummaryJsonPath(): string {
+  return `${CURRENT_ROOT}/closeout/follow-on-summary.json`;
+}
+
+export function closeoutDocumentationSyncPath(): string {
+  return `${CURRENT_ROOT}/closeout/documentation-sync.md`;
 }
 
 export function discoverNextRunBootstrapJsonPath(): string {
@@ -145,6 +216,14 @@ export function discoverSessionContinuationAdvicePath(): string {
 
 export function discoverSessionContinuationMarkdownPath(): string {
   return `${CURRENT_ROOT}/discover/SESSION-CONTINUATION.md`;
+}
+
+export function discoverRetroContinuityJsonPath(): string {
+  return `${CURRENT_ROOT}/discover/retro-continuity.json`;
+}
+
+export function discoverRetroContinuityMarkdownPath(): string {
+  return `${CURRENT_ROOT}/discover/RETRO-CONTINUITY.md`;
 }
 
 export function ccbProviderStatePath(): string {

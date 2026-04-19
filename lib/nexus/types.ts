@@ -97,6 +97,48 @@ export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
 export const DESIGN_IMPACTS = ['none', 'touchup', 'material'] as const;
 export type DesignImpact = (typeof DESIGN_IMPACTS)[number];
 
+export const DEPLOY_PLATFORMS = [
+  'fly',
+  'render',
+  'vercel',
+  'netlify',
+  'heroku',
+  'railway',
+  'github_actions',
+  'custom',
+  'none',
+  'unknown',
+] as const;
+export type DeployPlatform = (typeof DEPLOY_PLATFORMS)[number];
+
+export const DEPLOY_PROJECT_TYPES = [
+  'web_app',
+  'api',
+  'cli',
+  'library',
+  'service',
+  'unknown',
+] as const;
+export type DeployProjectType = (typeof DEPLOY_PROJECT_TYPES)[number];
+
+export const DEPLOY_TRIGGER_KINDS = [
+  'auto_on_push',
+  'github_actions',
+  'command',
+  'manual',
+  'none',
+] as const;
+export type DeployTriggerKind = (typeof DEPLOY_TRIGGER_KINDS)[number];
+
+export const DEPLOY_STATUS_KINDS = ['http', 'command', 'github_actions', 'none'] as const;
+export type DeployStatusKind = (typeof DEPLOY_STATUS_KINDS)[number];
+
+export const DEPLOY_CONFIG_SOURCES = ['canonical_contract', 'legacy_claude', 'none'] as const;
+export type DeployConfigSource = (typeof DEPLOY_CONFIG_SOURCES)[number];
+
+export const CANARY_EVIDENCE_STATUSES = ['healthy', 'degraded', 'broken'] as const;
+export type CanaryEvidenceStatus = (typeof CANARY_EVIDENCE_STATUSES)[number];
+
 export const LEARNING_TYPES = [
   'pattern',
   'pitfall',
@@ -123,6 +165,86 @@ export const CONTINUATION_ADVICE_OPTIONS = [
   'fresh_session_continue',
 ] as const;
 export type ContinuationAdviceOption = (typeof CONTINUATION_ADVICE_OPTIONS)[number];
+
+export const REPO_RETRO_ARCHIVE_MODES = ['repo', 'compare'] as const;
+export type RepoRetroArchiveMode = (typeof REPO_RETRO_ARCHIVE_MODES)[number];
+
+export interface VerificationMatrixAttachedEvidenceRecord {
+  supported: boolean;
+  required: boolean;
+}
+
+export interface VerificationMatrixBuildObligationRecord {
+  owner_stage: 'build';
+  required: boolean;
+  gate_affecting: boolean;
+  expected_artifacts: string[];
+}
+
+export interface VerificationMatrixReviewObligationRecord {
+  owner_stage: 'review';
+  required: boolean;
+  gate_affecting: boolean;
+  mode: ReviewScopeMode;
+  expected_artifacts: string[];
+}
+
+export interface VerificationMatrixQaObligationRecord {
+  owner_stage: 'qa';
+  required: boolean;
+  gate_affecting: boolean;
+  design_verification_required: boolean;
+  expected_artifacts: string[];
+}
+
+export interface VerificationMatrixShipObligationRecord {
+  owner_stage: 'ship';
+  required: boolean;
+  gate_affecting: boolean;
+  deploy_readiness_required: boolean;
+  expected_artifacts: string[];
+}
+
+export interface VerificationMatrixRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  design_impact: DesignImpact;
+  verification_required: boolean;
+  obligations: {
+    build: VerificationMatrixBuildObligationRecord;
+    review: VerificationMatrixReviewObligationRecord;
+    qa: VerificationMatrixQaObligationRecord;
+    ship: VerificationMatrixShipObligationRecord;
+  };
+  attached_evidence: {
+    benchmark: VerificationMatrixAttachedEvidenceRecord;
+    canary: VerificationMatrixAttachedEvidenceRecord;
+    qa_only: VerificationMatrixAttachedEvidenceRecord;
+  };
+}
+
+export interface CanaryStatusRecord {
+  schema_version: 1;
+  generated_at: string;
+  source: 'canary' | 'land-and-deploy';
+  url: string;
+  duration_minutes: number | null;
+  pages_monitored: string[];
+  status: CanaryEvidenceStatus;
+  alerts: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    total: number;
+  };
+  baseline_path: string | null;
+  report_markdown_path: string | null;
+  report_json_path: string | null;
+  screenshots_dir: string | null;
+  summary: string;
+}
 
 export const COMMAND_HISTORY_VIAS = [
   'office-hours',
@@ -230,6 +352,93 @@ export interface LearningCandidate {
   files: string[];
 }
 
+export interface DeployContractRecord {
+  schema_version: 1;
+  configured_at: string;
+  platform: DeployPlatform;
+  project_type: DeployProjectType;
+  production: {
+    url: string | null;
+    health_check: string | null;
+  };
+  staging: {
+    url: string | null;
+    workflow: string | null;
+  };
+  deploy_trigger: {
+    kind: DeployTriggerKind;
+    details: string | null;
+  };
+  deploy_workflow: string | null;
+  deploy_status: {
+    kind: DeployStatusKind;
+    command: string | null;
+  };
+  custom_hooks: {
+    pre_merge: string[];
+    post_merge: string[];
+  };
+  notes: string[];
+  sources: string[];
+}
+
+export interface DeployReadinessRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  configured: boolean;
+  source: DeployConfigSource;
+  contract_path: string | null;
+  platform: DeployPlatform | null;
+  project_type: DeployProjectType | null;
+  production_url: string | null;
+  health_check: string | null;
+  deploy_status_kind: DeployStatusKind;
+  deploy_status_command: string | null;
+  deploy_workflow: string | null;
+  staging_detected: boolean;
+  notes: string[];
+}
+
+export interface DeployResultRecord {
+  schema_version: 1;
+  generated_at: string;
+  source: 'land-and-deploy';
+  production_url: string | null;
+  pull_request_path: string;
+  deploy_readiness_path: string;
+  canary_status_path: string | null;
+  merge_status: 'pending' | 'merged' | 'reverted';
+  deploy_status: 'pending' | 'verified' | 'degraded' | 'failed' | 'skipped';
+  verification_status: 'healthy' | 'degraded' | 'broken' | 'skipped';
+  report_markdown_path: string | null;
+  summary: string;
+}
+
+export interface FollowOnEvidenceSummaryRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  source_artifacts: string[];
+  evidence: {
+    qa: {
+      perf_verification_path: string | null;
+    };
+    ship: {
+      canary_status_path: string | null;
+      canary_status: CanaryEvidenceStatus | null;
+      deploy_result_path: string | null;
+      deploy_status: DeployResultRecord['deploy_status'] | null;
+      verification_status: DeployResultRecord['verification_status'] | null;
+      production_url: string | null;
+    };
+    closeout: {
+      documentation_sync_path: string | null;
+    };
+  };
+  summary: string;
+}
+
 export interface StageLearningCandidatesRecord {
   schema_version: 1;
   run_id: string;
@@ -244,6 +453,31 @@ export interface RunLearningsRecord {
   generated_at: string;
   source_candidates: string[];
   learnings: Array<LearningCandidate & { origin_stage: 'review' | 'qa' | 'ship' }>;
+}
+
+export interface RepoRetroArchiveRecord {
+  schema_version: 1;
+  retro_id: string;
+  mode: RepoRetroArchiveMode;
+  date: string;
+  window: string;
+  generated_at: string;
+  repository_root: string;
+  linked_run_ids: string[];
+  source_artifacts: string[];
+  summary: string;
+  key_findings: string[];
+  recommended_attention_areas: string[];
+}
+
+export interface DiscoverRetroContinuityRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  source_retro_artifacts: string[];
+  recent_findings: string[];
+  recommended_attention_areas: string[];
+  summary: string;
 }
 
 export interface DesignIntentRecord {
@@ -318,6 +552,7 @@ export interface SessionContinuationAdviceRecord {
   available_options: ContinuationAdviceOption[];
   host_compact_supported: boolean;
   resume_artifacts: string[];
+  supporting_context_artifacts: string[];
   recommended_next_command: '/frame';
   summary: string;
   generated_at: string;
@@ -377,6 +612,9 @@ export interface StageStatus {
   review_complete?: boolean;
   audit_set_complete?: boolean;
   provenance_consistent?: boolean;
+  deploy_configured?: boolean;
+  deploy_config_source?: DeployConfigSource | null;
+  deploy_contract_path?: string | null;
   learning_candidates_path?: string | null;
   learnings_recorded?: boolean | null;
   gate_decision?: 'pass' | 'fail' | 'blocked' | null;

@@ -12,12 +12,15 @@ import { applyNormalizationPlan } from '../normalizers';
 import {
   discoverBootstrapJsonPath,
   discoverBootstrapMarkdownPath,
+  discoverRetroContinuityJsonPath,
+  discoverRetroContinuityMarkdownPath,
   discoverSessionContinuationAdvicePath,
   discoverSessionContinuationMarkdownPath,
   stageStatusPath,
 } from '../artifacts';
 import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
 import {
+  discoverBootstrapSupportingContextArtifacts,
   resolveContinuationModeFromBootstrap,
   resetCurrentPlanningStateForFreshRun,
   seedDiscoverBootstrapFromArchivedRun,
@@ -27,6 +30,10 @@ import {
   findLatestContextTransferArtifact,
   renderSessionContinuationMarkdown,
 } from '../session-continuation-advice';
+import {
+  buildDiscoverRetroContinuity,
+  renderDiscoverRetroContinuityMarkdown,
+} from '../retro-archive';
 import {
   allocateFreshRunWorkspace,
   cleanupRetiredRunWorkspace,
@@ -43,6 +50,10 @@ function artifactPointerFor(path: string): ArtifactPointer {
     kind: path.endsWith('.json') ? 'json' : 'markdown',
     path,
   };
+}
+
+function dedupeArtifacts(artifacts: ArtifactPointer[]): ArtifactPointer[] {
+  return [...new Map(artifacts.map((artifact) => [artifact.path, artifact])).values()];
 }
 
 function nextLedger(
@@ -153,21 +164,24 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       });
     })();
   const at = ctx.clock();
+  const retroContinuity = seededFromArchivedRun
+    ? buildDiscoverRetroContinuity({
+        cwd: repositoryRoot,
+        runId: ledger.run_id,
+        generatedAt: at,
+      })
+    : null;
+  predecessorArtifacts = dedupeArtifacts([
+    ...predecessorArtifacts,
+    ...(retroContinuity?.sourceArtifacts ?? []),
+  ]);
   const manifest = CANONICAL_MANIFEST.discover;
   const contextTransferArtifactPath = seededFromArchivedRun
     ? findLatestContextTransferArtifact(repositoryRoot)
     : null;
-  const continuationAdvice = seededFromArchivedRun
-    ? buildSessionContinuationAdvice({
-        runId: ledger.run_id,
-        boundaryKind: 'fresh_run_phase',
-        continuationMode: ledger.continuation_mode,
-        hostCompactSupported: false,
-        contextTransferArtifactPath,
-        recommendedNextCommand: '/frame',
-        generatedAt: at,
-      })
-    : null;
+  const bootstrapSupportingContextArtifacts = seededFromArchivedRun
+    ? discoverBootstrapSupportingContextArtifacts(repositoryRoot)
+    : [];
   const requestPayload = {
     adapter: 'pm',
     stage: 'discover',
@@ -251,6 +265,27 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     const normalized = normalizePmDiscover(result);
     const status = buildStatus(ledger, at, 'completed', 'ready', true, predecessorArtifacts, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
+    const continuationAdvice = seededFromArchivedRun
+      ? buildSessionContinuationAdvice({
+          runId: ledger.run_id,
+          boundaryKind: 'fresh_run_phase',
+          continuationMode: ledger.continuation_mode,
+          hostCompactSupported: false,
+          contextTransferArtifactPath,
+          supportingContextArtifacts: [
+            ...bootstrapSupportingContextArtifacts,
+            ...(retroContinuity
+              ? [
+                  discoverRetroContinuityJsonPath(),
+                  discoverRetroContinuityMarkdownPath(),
+                ]
+              : []),
+          ],
+          recommendedNextCommand: '/frame',
+          generatedAt: at,
+        })
+      : null;
+    const retroContinuityArtifacts = retroContinuity?.outputArtifacts ?? [];
     const continuationAdviceArtifacts = continuationAdvice
       ? [
           artifactPointerFor(discoverSessionContinuationAdvicePath()),
@@ -261,6 +296,9 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       ...next.artifact_index,
       ...Object.fromEntries(
         predecessorArtifacts.map((artifact) => [artifact.path, artifact]),
+      ),
+      ...Object.fromEntries(
+        retroContinuityArtifacts.map((artifact) => [artifact.path, artifact]),
       ),
       ...Object.fromEntries(
         continuationAdviceArtifacts.map((artifact) => [artifact.path, artifact]),
@@ -275,6 +313,18 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [
         ...normalized.canonicalWrites,
+        ...(retroContinuity
+          ? [
+              {
+                path: discoverRetroContinuityJsonPath(),
+                content: JSON.stringify(retroContinuity.record, null, 2) + '\n',
+              },
+              {
+                path: discoverRetroContinuityMarkdownPath(),
+                content: renderDiscoverRetroContinuityMarkdown(retroContinuity.record),
+              },
+            ]
+          : []),
         ...(continuationAdvice
           ? [
               {

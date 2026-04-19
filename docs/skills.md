@@ -78,6 +78,8 @@ Nexus can continue here even when compaction or a fresh session is
 recommended. The normalized options are `continue_here`,
 `compact_then_continue`, and `fresh_session_continue`. `/continue` remains the
 canonical fresh-session resume path.
+Fresh-run discover may also emit retro continuity artifacts when recent
+repo-scoped retros exist under `.planning/archive/retros/`.
 
 ## `/frame`
 
@@ -92,9 +94,9 @@ The canonical framing command. This is where Nexus converts discovery into scope
 
 The canonical planning command. This is where Nexus turns approved framing into an execution-ready packet.
 
-- Primary purpose: produce readiness, sprint contract, verification path, and explicit ready or blocked status.
+- Primary purpose: produce readiness, sprint contract, the canonical verification matrix, and explicit ready or blocked status.
 - Absorbed capability lineage: GSD planning and readiness methods.
-- Canonical outputs: `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, and `.planning/current/plan/status.json`.
+- Canonical outputs: `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, `.planning/current/plan/verification-matrix.json`, and `.planning/current/plan/status.json`.
 - Legacy compatibility alias: `/autoplan`.
 
 ## `/handoff`
@@ -162,18 +164,21 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/design-review` | Live-site visual audit and polish that feeds canonical lifecycle artifacts for UI-bearing runs. |
 | `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
 | `/qa-only` | Report-only QA pass without fixes. |
-| `/land-and-deploy` | Post-ship merge and deploy workflow. |
-| `/canary` | Post-deploy monitoring. |
-| `/benchmark` | Performance regression checks. |
-| `/document-release` | Release-note and documentation sync. |
-| `/retro` | Engineering retrospective workflow. |
+| `/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence and attaches `.planning/current/ship/deploy-result.json`. |
+| `/canary` | Post-deploy monitoring that attaches `.planning/current/ship/canary-status.json` as follow-on ship evidence. |
+| `/benchmark` | Performance regression checks that attach `.planning/current/qa/perf-verification.md` as follow-on QA evidence. |
+| `/document-release` | Release-note and documentation sync that attaches `.planning/current/closeout/documentation-sync.md` as follow-on closeout evidence. |
+| `/retro` | Engineering retrospective workflow with repo-scoped archive continuity under `.planning/archive/retros/`. |
 | `/learn` | Learned-pattern management. |
 | `/careful`, `/freeze`, `/guard`, `/unfreeze` | Safety and edit-boundary controls. |
-| `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. |
+| `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. `/setup-deploy` authors `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`. |
 | `/nexus-upgrade` | Upgrade Nexus itself through the supported release-based update flow. |
 
 Governed runs may publish canonical learnings at `/closeout`.
 `/learn` surfaces both operational JSONL learnings and canonical run learnings when available.
+`/closeout` also writes `.planning/current/closeout/FOLLOW-ON-SUMMARY.md` and
+`.planning/current/closeout/follow-on-summary.json` as the canonical index for
+attached support evidence.
 
 ## Historical Lineage Note
 

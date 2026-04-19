@@ -394,7 +394,7 @@ Nexus-owned discovery guidance for clarifying the problem before framing.
 
 ## Artifact Contract
 
-Writes `docs/product/idea-brief.md`, `.planning/current/discover/status.json`, and, for fresh runs seeded from archived closeout, `.planning/current/discover/NEXT-RUN.md`, `.planning/current/discover/next-run-bootstrap.json`, `.planning/current/discover/session-continuation-advice.json`, and `.planning/current/discover/SESSION-CONTINUATION.md`.
+Writes `docs/product/idea-brief.md`, `.planning/current/discover/status.json`, and, for fresh runs seeded from archived closeout, `.planning/current/discover/NEXT-RUN.md`, `.planning/current/discover/next-run-bootstrap.json`, `.planning/current/discover/retro-continuity.json`, `.planning/current/discover/RETRO-CONTINUITY.md`, `.planning/current/discover/session-continuation-advice.json`, and `.planning/current/discover/SESSION-CONTINUATION.md`.
 
 ## Routing
 

@@ -1,7 +1,13 @@
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 import { describe, expect, test } from 'bun:test';
-import { buildLedgerDoctorReport } from '../../lib/nexus/ledger-doctor';
+import {
+  closeoutDocumentationSyncPath,
+  qaPerfVerificationPath,
+  shipCanaryStatusPath,
+  shipDeployResultPath,
+} from '../../lib/nexus/artifacts';
+import { applySafeLedgerDoctorFix, buildLedgerDoctorReport } from '../../lib/nexus/ledger-doctor';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus ledger doctor', () => {
@@ -136,6 +142,90 @@ describe('nexus ledger doctor', () => {
         '.planning/audits/current/gate-decision.md',
         '.planning/audits/current/meta.json',
       ]));
+    });
+  });
+
+  test('reports and safely clears stale attached evidence without mutating command history', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const staleEvidence = [
+        {
+          path: qaPerfVerificationPath(),
+          content: '# Perf Verification\n\n- stale\n',
+        },
+        {
+          path: shipCanaryStatusPath(),
+          content: JSON.stringify({ status: 'healthy' }, null, 2) + '\n',
+        },
+        {
+          path: shipDeployResultPath(),
+          content: JSON.stringify({ deploy_status: 'verified' }, null, 2) + '\n',
+        },
+        {
+          path: closeoutDocumentationSyncPath(),
+          content: '# Documentation Sync\n\n- stale\n',
+        },
+      ];
+
+      for (const entry of staleEvidence) {
+        mkdirSync(dirname(join(cwd, entry.path)), { recursive: true });
+        writeFileSync(join(cwd, entry.path), entry.content);
+      }
+
+      const ledgerPath = join(cwd, '.planning/nexus/current-run.json');
+      const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+        command_history: Array<{ command: string; at: string; via: string | null }>;
+        artifact_index: Record<string, unknown>;
+      };
+      const originalHistory = structuredClone(ledger.command_history);
+      ledger.artifact_index = {
+        ...ledger.artifact_index,
+        [qaPerfVerificationPath()]: { kind: 'markdown', path: qaPerfVerificationPath() },
+        [shipCanaryStatusPath()]: { kind: 'json', path: shipCanaryStatusPath() },
+        [shipDeployResultPath()]: { kind: 'json', path: shipDeployResultPath() },
+        [closeoutDocumentationSyncPath()]: { kind: 'markdown', path: closeoutDocumentationSyncPath() },
+      };
+      writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+      expect(buildLedgerDoctorReport(cwd)).toMatchObject({
+        status: 'action_required',
+        issues: [
+          expect.objectContaining({
+            code: 'stale_attached_evidence',
+          }),
+        ],
+      });
+
+      const fix = applySafeLedgerDoctorFix(cwd);
+      expect(fix.fixed_issue_codes).toContain('stale_attached_evidence');
+      expect(fix.fixed_paths).toEqual(expect.arrayContaining([
+        qaPerfVerificationPath(),
+        shipCanaryStatusPath(),
+        shipDeployResultPath(),
+        closeoutDocumentationSyncPath(),
+      ]));
+      expect(buildLedgerDoctorReport(cwd)).toEqual({
+        status: 'clean',
+        issues: [],
+      });
+
+      for (const entry of staleEvidence) {
+        expect(existsSync(join(cwd, entry.path))).toBe(false);
+      }
+
+      const nextLedger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+        command_history: Array<{ command: string; at: string; via: string | null }>;
+        artifact_index: Record<string, unknown>;
+      };
+      expect(nextLedger.command_history).toEqual(originalHistory);
+      expect(nextLedger.artifact_index[qaPerfVerificationPath()]).toBeUndefined();
+      expect(nextLedger.artifact_index[shipCanaryStatusPath()]).toBeUndefined();
+      expect(nextLedger.artifact_index[shipDeployResultPath()]).toBeUndefined();
+      expect(nextLedger.artifact_index[closeoutDocumentationSyncPath()]).toBeUndefined();
     });
   });
 });

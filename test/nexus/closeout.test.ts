@@ -4,10 +4,17 @@ import { join } from 'path';
 import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
 import {
+  archivedCurrentArtifactPath,
+  closeoutDocumentationSyncPath,
+  closeoutFollowOnSummaryJsonPath,
+  closeoutFollowOnSummaryMarkdownPath,
   closeoutLearningsJsonPath,
   closeoutLearningsMarkdownPath,
+  qaPerfVerificationPath,
   qaLearningCandidatesPath,
   reviewLearningCandidatesPath,
+  shipCanaryStatusPath,
+  shipDeployResultPath,
   shipLearningCandidatesPath,
 } from '../../lib/nexus/artifacts';
 import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
@@ -226,6 +233,152 @@ describe('nexus closeout', () => {
       expect(readFileSync(join(cwd, '.planning/audits/archive', closeout.run_id, 'meta.json'), 'utf8')).toContain(
         closeout.run_id,
       );
+    });
+  });
+
+  test('indexes attached evidence into closeout continuity outputs', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+
+      writeFileSync(
+        join(cwd, qaPerfVerificationPath()),
+        '# Perf Verification\n\n- P95 stayed under budget.\n',
+      );
+      writeFileSync(join(cwd, shipCanaryStatusPath()), JSON.stringify({
+        status: 'healthy',
+        summary: 'Canary stayed clean for 10 minutes.',
+      }, null, 2) + '\n');
+      writeFileSync(join(cwd, shipDeployResultPath()), JSON.stringify({
+        source: 'land-and-deploy',
+        deploy_status: 'verified',
+        verification_status: 'healthy',
+        production_url: 'https://example.com',
+        summary: 'Deploy verified healthy in production.',
+      }, null, 2) + '\n');
+      mkdirSync(join(cwd, '.planning/current/closeout'), { recursive: true });
+      writeFileSync(
+        join(cwd, closeoutDocumentationSyncPath()),
+        '# Documentation Sync\n\n- README updated for the shipped flow.\n',
+      );
+
+      await run('closeout');
+
+      expect(await run.readJson('.planning/current/closeout/status.json')).toMatchObject({
+        inputs: expect.arrayContaining([
+          expect.objectContaining({ path: qaPerfVerificationPath(), kind: 'markdown' }),
+          expect.objectContaining({ path: shipCanaryStatusPath(), kind: 'json' }),
+          expect.objectContaining({ path: shipDeployResultPath(), kind: 'json' }),
+          expect.objectContaining({ path: closeoutDocumentationSyncPath(), kind: 'markdown' }),
+        ]),
+      });
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'QA perf verification: .planning/current/qa/perf-verification.md',
+      );
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'Ship canary evidence: .planning/current/ship/canary-status.json',
+      );
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'Deploy result evidence: .planning/current/ship/deploy-result.json',
+      );
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'Documentation sync evidence: .planning/current/closeout/documentation-sync.md',
+      );
+      expect(await run.readJson(closeoutFollowOnSummaryJsonPath())).toMatchObject({
+        source_artifacts: [
+          qaPerfVerificationPath(),
+          shipCanaryStatusPath(),
+          shipDeployResultPath(),
+          closeoutDocumentationSyncPath(),
+        ],
+        evidence: {
+          qa: { perf_verification_path: qaPerfVerificationPath() },
+          ship: {
+            canary_status_path: shipCanaryStatusPath(),
+            canary_status: 'healthy',
+            deploy_result_path: shipDeployResultPath(),
+            deploy_status: 'verified',
+            verification_status: 'healthy',
+            production_url: 'https://example.com',
+          },
+          closeout: { documentation_sync_path: closeoutDocumentationSyncPath() },
+        },
+      });
+      expect(await run.readFile(closeoutFollowOnSummaryMarkdownPath())).toContain(
+        'QA perf verification: .planning/current/qa/perf-verification.md',
+      );
+      expect(await run.readFile(closeoutFollowOnSummaryMarkdownPath())).toContain(
+        'Deploy result: .planning/current/ship/deploy-result.json (verified)',
+      );
+      expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({
+        summary: expect.stringContaining('Follow-on evidence summary recorded: yes.'),
+      });
+      expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({
+        summary: expect.stringContaining('Ship canary evidence recorded: yes.'),
+      });
+      expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({
+        summary: expect.stringContaining('Documentation sync recorded: yes.'),
+      });
+      expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({
+        carry_forward_artifacts: expect.arrayContaining([
+          expect.objectContaining({
+            path: `.planning/archive/runs/${(await run.readJson('.planning/current/closeout/status.json')).run_id}/closeout/FOLLOW-ON-SUMMARY.md`,
+          }),
+          expect.objectContaining({
+            path: `.planning/archive/runs/${(await run.readJson('.planning/current/closeout/status.json')).run_id}/closeout/follow-on-summary.json`,
+          }),
+        ]),
+      });
+    });
+  });
+
+  test('archives raw attached QA and ship evidence into the archived run root', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+
+      writeFileSync(
+        join(cwd, qaPerfVerificationPath()),
+        '# Perf Verification\n\n- P95 stayed under budget.\n',
+      );
+      writeFileSync(join(cwd, shipCanaryStatusPath()), JSON.stringify({
+        status: 'healthy',
+        summary: 'Canary stayed clean for 10 minutes.',
+      }, null, 2) + '\n');
+      writeFileSync(join(cwd, shipDeployResultPath()), JSON.stringify({
+        source: 'land-and-deploy',
+        deploy_status: 'verified',
+        summary: 'Deploy verified healthy in production.',
+      }, null, 2) + '\n');
+
+      await run('closeout');
+      const closeoutStatus = await run.readJson('.planning/current/closeout/status.json');
+      const archivedRunId = closeoutStatus.run_id;
+
+      await run('discover');
+
+      expect(await run.readFile(
+        archivedCurrentArtifactPath(archivedRunId, qaPerfVerificationPath()),
+      )).toContain('P95 stayed under budget.');
+      expect(await run.readJson(
+        archivedCurrentArtifactPath(archivedRunId, shipCanaryStatusPath()),
+      )).toMatchObject({
+        status: 'healthy',
+      });
+      expect(await run.readJson(
+        archivedCurrentArtifactPath(archivedRunId, shipDeployResultPath()),
+      )).toMatchObject({
+        source: 'land-and-deploy',
+        deploy_status: 'verified',
+      });
     });
   });
 

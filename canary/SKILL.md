@@ -723,6 +723,42 @@ VERDICT: [DEPLOY IS HEALTHY / DEPLOY HAS ISSUES — details above]
 
 Save report to `.nexus/canary-reports/{date}-canary.md` and `.nexus/canary-reports/{date}-canary.json`.
 
+Also persist a canonical ship-attached summary:
+
+```bash
+mkdir -p .planning/current/ship
+```
+
+Write `.planning/current/ship/canary-status.json` with:
+
+- `schema_version: 1`
+- `generated_at`
+- `source: "canary"`
+- monitored `url`
+- `duration_minutes`
+- `pages_monitored`
+- overall `status`: `healthy`, `degraded`, or `broken`
+- alert counts by severity plus total
+- `baseline_path`
+- raw report pointers:
+  - markdown report path
+  - json report path
+  - screenshots directory
+- a short summary
+
+This is **attached evidence**, not a ship gate mutation. Do not rewrite
+`.planning/current/ship/status.json`.
+
+After writing `.planning/current/ship/canary-status.json`, refresh the
+closeout-owned follow-on evidence summary:
+
+```bash
+~/.claude/skills/nexus/bin/nexus-refresh-follow-on-summary
+```
+
+If it prints `SKIPPED no_active_closeout`, continue. That means `/closeout`
+has not been recorded yet, so there is nothing to refresh.
+
 Log the result for the review dashboard:
 
 ```bash

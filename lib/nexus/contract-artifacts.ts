@@ -3,6 +3,7 @@ import type { ArtifactPointer } from './types';
 export const PLAN_STATUS_PATH = '.planning/current/plan/status.json';
 export const EXECUTION_READINESS_PACKET_PATH = '.planning/current/plan/execution-readiness-packet.md';
 export const SPRINT_CONTRACT_PATH = '.planning/current/plan/sprint-contract.md';
+export const VERIFICATION_MATRIX_PATH = '.planning/current/plan/verification-matrix.json';
 export const HANDOFF_STATUS_PATH = '.planning/current/handoff/status.json';
 export const GOVERNED_HANDOFF_PATH = '.planning/current/handoff/governed-handoff.md';
 export const BUILD_STATUS_PATH = '.planning/current/build/status.json';
@@ -15,11 +16,12 @@ export function artifactPointerFor(path: string): ArtifactPointer {
   };
 }
 
-export function executionContractArtifacts(): ArtifactPointer[] {
+export function executionContractArtifacts(includeVerificationMatrix = false): ArtifactPointer[] {
   return [
     artifactPointerFor(GOVERNED_HANDOFF_PATH),
     artifactPointerFor(EXECUTION_READINESS_PACKET_PATH),
     artifactPointerFor(SPRINT_CONTRACT_PATH),
+    ...(includeVerificationMatrix ? [artifactPointerFor(VERIFICATION_MATRIX_PATH)] : []),
   ];
 }
 

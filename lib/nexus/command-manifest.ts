@@ -2,8 +2,11 @@ import type { CanonicalCommandId, ImplementationStatus } from './types';
 import {
   frameDesignIntentPath,
   planDesignContractPath,
+  planVerificationMatrixPath,
   discoverNextRunMarkdownPath,
   discoverNextRunBootstrapJsonPath,
+  discoverRetroContinuityJsonPath,
+  discoverRetroContinuityMarkdownPath,
   discoverSessionContinuationAdvicePath,
   discoverSessionContinuationMarkdownPath,
 } from './artifacts';
@@ -42,6 +45,8 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     optional_outputs: [
       discoverNextRunMarkdownPath(),
       discoverNextRunBootstrapJsonPath(),
+      discoverRetroContinuityJsonPath(),
+      discoverRetroContinuityMarkdownPath(),
       discoverSessionContinuationAdvicePath(),
       discoverSessionContinuationMarkdownPath(),
     ],
@@ -72,6 +77,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       '.planning/current/plan/execution-readiness-packet.md',
       '.planning/current/plan/sprint-contract.md',
+      planVerificationMatrixPath(),
       '.planning/current/plan/status.json',
     ],
     optional_outputs: [planDesignContractPath()],
@@ -156,6 +162,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     durable_outputs: [
       '.planning/current/ship/release-gate-record.md',
       '.planning/current/ship/checklist.json',
+      '.planning/current/ship/deploy-readiness.json',
       '.planning/current/ship/pull-request.json',
       '.planning/current/ship/status.json',
     ],
@@ -170,6 +177,8 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     required_inputs: ['.planning/current/review/status.json'],
     durable_outputs: [
       '.planning/current/closeout/CLOSEOUT-RECORD.md',
+      '.planning/current/closeout/FOLLOW-ON-SUMMARY.md',
+      '.planning/current/closeout/follow-on-summary.json',
       '.planning/current/closeout/NEXT-RUN.md',
       '.planning/current/closeout/next-run-bootstrap.json',
       '.planning/current/closeout/status.json',

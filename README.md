@@ -100,7 +100,8 @@ Canonical lifecycle:
 A governed run ends at `/closeout`. If `/ship` recorded merge-ready PR handoff
 metadata and you want to merge, deploy, and verify production health, continue
 with `/land-and-deploy` after `/closeout`. `/land-and-deploy` is a support
-workflow, not an additional canonical lifecycle stage.
+workflow, not an additional canonical lifecycle stage. Deploy assumptions should
+live in `.planning/deploy/`, not in `CLAUDE.md`.
 
 ## Install
 
@@ -298,7 +299,7 @@ cd ~/nexus && ./setup --host factory
 |-------|------|--------------|
 | `/discover` | PM discovery | Clarify the problem, goals, constraints, and missing context. |
 | `/frame` | PM framing | Classify design impact, lock scope, non-goals, success criteria, and the product brief. |
-| `/plan` | GSD planning | Convert approved framing into execution-ready planning artifacts and require a design contract for material UI work. |
+| `/plan` | GSD planning | Convert approved framing into execution-ready planning artifacts, including the canonical verification matrix, and require a design contract for material UI work. |
 | `/handoff` | Governed routing | Record approved provider routing, substrate, provenance intent, and fallback policy. |
 | `/build` | Disciplined execution | Run the bounded implementation contract and persist the build result. |
 | `/review` | Dual audit | Persist the audit set, synthesis, and reviewed provenance. |
@@ -306,7 +307,7 @@ cd ~/nexus && ./setup --host factory
 | `/ship` | Release gate | Record conservative release readiness, checklist state, and PR handoff metadata when available. |
 | `/closeout` | Milestone verification | Verify archive, provenance, legality, and final readiness status. |
 
-For design-bearing runs, `/frame` classifies design impact, `/plan` requires a design contract for material UI work, and `/qa` records visual verification before `/ship` for design-bearing runs.
+For design-bearing runs, `/frame` classifies design impact, `/plan` writes the canonical verification matrix and requires a design contract for material UI work, and `/qa` records visual verification before `/ship` for design-bearing runs.
 
 Fresh `/discover` also accepts an explicit continuation hint when you are
 starting the next run:
@@ -321,6 +322,10 @@ the same override through `NEXUS_CONTINUATION_MODE`.
 Lifecycle continuation does not require a fresh session. Nexus can continue in
 the current session. That is a lifecycle rule, not a session-quality
 guarantee.
+
+When recent repo retros exist under `.planning/archive/retros/`, fresh
+`/discover` may also surface retro continuity context alongside the normal
+next-run bootstrap and session advice.
 
 When setup or a fresh-run discover boundary emits session continuation advice,
 the three user-facing paths are:
@@ -349,7 +354,7 @@ You:    /frame
 Claude: locks scope, non-goals, success criteria, and product shape
 
 You:    /plan
-Claude: writes execution-readiness artifacts and verification intent
+Claude: writes execution-readiness artifacts and the canonical verification matrix
 
 You:    /handoff
 Claude: freezes governed routing, provider intent, and fallback policy
@@ -382,30 +387,36 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/design-html` | Turn approved mockups into production HTML. |
 | `/design-review` | Audit and polish the visual result in code. |
 | `/investigate` | Systematic root-cause debugging. |
-| `/document-release` | Sync docs after shipping. |
-| `/retro` | Project or global retrospective. |
-| `/land-and-deploy` | Merge, deploy, and verify production health. |
-| `/canary` | Post-deploy health monitoring. |
-| `/benchmark` | Performance baselining and regression checks. |
+| `/document-release` | Sync docs after shipping and attach `.planning/current/closeout/documentation-sync.md`. |
+| `/retro` | Project or global retrospective. Repo-scoped retros archive to `.planning/archive/retros/` and can feed fresh-run continuity. |
+| `/land-and-deploy` | Merge, deploy, and verify production using ship PR/deploy handoff and attach `.planning/current/ship/deploy-result.json`. |
+| `/canary` | Post-deploy health monitoring attached to ship follow-on evidence via `.planning/current/ship/canary-status.json`. |
+| `/benchmark` | Performance baselining and regression checks attached to QA follow-on evidence via `.planning/current/qa/perf-verification.md`. |
 | `/cso` | Security review and threat analysis. |
 | `/careful` | Warn before destructive operations. |
 | `/freeze` | Restrict edits to one directory. |
 | `/guard` | Combine destructive-command warnings and edit freeze. |
 | `/unfreeze` | Remove the edit freeze. |
-| `/setup-deploy` | Configure `/land-and-deploy`. |
+| `/setup-deploy` | Author the canonical deploy contract in `.planning/deploy/` for `/ship` and `/land-and-deploy`. |
 | `/nexus-upgrade` | Upgrade Nexus through the supported release-based user-facing update flow. |
 | `/learn` | Manage project learnings across sessions. |
-| `/qa-only` | Run QA in report-only mode. |
+| `/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state. |
 | `/codex` | Independent second-opinion review through Codex. |
 
 Deep dives and usage examples live in [docs/skills.md](docs/skills.md).
 
 Governed runs may publish canonical learnings at `/closeout`.
 `/learn` surfaces both operational JSONL learnings and canonical run learnings when available.
+`/closeout` also assembles `.planning/current/closeout/FOLLOW-ON-SUMMARY.md`
+and `.planning/current/closeout/follow-on-summary.json` so follow-on support
+evidence has a single repo-visible index for archive, discover, retro, and
+learn flows.
 
 `/land-and-deploy` is intentionally post-lifecycle: it consumes the PR handoff
-record written by `/ship` and is meant for merge/deploy/production verification
-after the governed run itself has already closed out.
+record and deploy-readiness record written by `/ship`, optionally reuses prior
+ship canary evidence, plus the canonical deploy contract written by
+`/setup-deploy`, and writes `.planning/current/ship/deploy-result.json` after
+merge/deploy/production verification completes.
 
 ## Maintainer helpers
 
