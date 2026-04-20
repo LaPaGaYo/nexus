@@ -32,7 +32,12 @@ import {
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
+import {
+  ensureFreshRunWorkspaceBaseline,
+  resolveExecutionWorkspace,
+  resolveSessionRootRecord,
+  syncRunWorkspaceArtifacts,
+} from '../workspace-substrate';
 import type { CcbExecuteGeneratorRaw } from '../adapters/ccb';
 import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
@@ -211,7 +216,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.build;
-  const workspace = resolveExecutionWorkspace(
+  const resolvedWorkspace = resolveExecutionWorkspace(
     ctx.cwd,
     ledger.execution.workspace
       ?? (ledger.current_stage === 'qa'
@@ -220,6 +225,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
           ? reviewStatus?.workspace ?? null
           : handoffStatus.workspace ?? null),
   );
+  const workspace = ensureFreshRunWorkspaceBaseline(ctx.cwd, resolvedWorkspace) ?? resolvedWorkspace;
   const sessionRoot = ledger.execution.session_root
     ?? (ledger.current_stage === 'qa'
       ? qaStatus?.session_root ?? reviewStatus?.session_root ?? null

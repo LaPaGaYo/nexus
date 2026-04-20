@@ -11,6 +11,7 @@ import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
 import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
 import { resolveInvocation } from '../../lib/nexus/commands/index';
+import { allocateFreshRunWorkspace } from '../../lib/nexus/workspace-substrate';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
@@ -54,6 +55,37 @@ function createLinkedWorktree(
   }
 
   return worktreePath;
+}
+
+function attachOriginRemote(repoRoot: string): string {
+  const remoteRoot = mkdtempSync(join(tmpdir(), 'nexus-build-routing-remote-'));
+  spawnSync('git', ['init', '--bare', remoteRoot], { stdio: 'pipe' });
+  spawnSync('git', ['-C', remoteRoot, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { stdio: 'pipe' });
+  spawnSync('git', ['remote', 'add', 'origin', remoteRoot], { cwd: repoRoot, stdio: 'pipe' });
+  spawnSync('git', ['push', '-u', 'origin', 'main'], { cwd: repoRoot, stdio: 'pipe' });
+  spawnSync('git', ['remote', 'set-head', 'origin', '-a'], { cwd: repoRoot, stdio: 'pipe' });
+  return remoteRoot;
+}
+
+function pushCommitToRemote(
+  remoteRoot: string,
+  relativePath: string,
+  content: string,
+  message: string,
+): void {
+  const cloneRoot = mkdtempSync(join(tmpdir(), 'nexus-build-routing-remote-clone-'));
+  const cloneResult = spawnSync('git', ['clone', remoteRoot, cloneRoot], { stdio: 'pipe' });
+  if (cloneResult.status !== 0) {
+    throw new Error(cloneResult.stderr.toString() || cloneResult.stdout.toString() || 'failed to clone remote');
+  }
+
+  spawnSync('git', ['config', 'user.email', 'test@example.com'], { cwd: cloneRoot, stdio: 'pipe' });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: cloneRoot, stdio: 'pipe' });
+  writeFileSync(join(cloneRoot, relativePath), content);
+  spawnSync('git', ['add', relativePath], { cwd: cloneRoot, stdio: 'pipe' });
+  spawnSync('git', ['commit', '-m', message], { cwd: cloneRoot, stdio: 'pipe' });
+  spawnSync('git', ['push', 'origin', 'main'], { cwd: cloneRoot, stdio: 'pipe' });
+  rmSync(cloneRoot, { recursive: true, force: true });
 }
 
 async function runInTempGitRepo(
@@ -620,6 +652,54 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('handoff refreshes a stale fresh-run workspace from the remote default branch before route validation', async () => {
+    await runInTempGitRepo(async ({ cwd, run }) => {
+      const remoteRoot = attachOriginRemote(cwd);
+      const workspace = allocateFreshRunWorkspace(cwd, 'run-2026-04-19T08-27-58-235Z');
+
+      pushCommitToRemote(remoteRoot, 'README.md', '# updated remote baseline\n', 'remote update');
+
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => {
+            const workspaceReadme = readFileSync(join(ctx.workspace!.path, 'README.md'), 'utf8');
+            expect(workspaceReadme).toContain('updated remote baseline');
+
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                available: true,
+                provider: 'codex',
+                providers: ['codex', 'gemini'],
+                mounted: ['codex', 'gemini'],
+                provider_checks: [
+                  { provider: 'codex', ping_command: 'ccb-ping codex', ping_output: 'ok' },
+                  { provider: 'gemini', ping_command: 'ccb-ping gemini', ping_output: 'ok' },
+                ],
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/handoff/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('plan');
+      await run('handoff', adapters);
+
+      expect(readFileSync(join(workspace.path, 'README.md'), 'utf8')).toContain('updated remote baseline');
+    });
+  });
+
   test('build passes the governed handoff and plan contract artifacts to discipline and generator', async () => {
     await runInTempRepo(async ({ run }) => {
       const seen: string[][] = [];
@@ -709,6 +789,90 @@ describe('nexus build routing', () => {
           '.planning/current/plan/verification-matrix.json',
         ]));
       }
+    });
+  });
+
+  test('build refreshes a stale fresh-run workspace from the remote default branch after handoff', async () => {
+    await runInTempGitRepo(async ({ cwd, run }) => {
+      const remoteRoot = attachOriginRemote(cwd);
+      const workspace = allocateFreshRunWorkspace(cwd, 'run-2026-04-19T08-27-58-236Z');
+
+      const adapters = makeFakeAdapters({
+        ccb: {
+          resolve_route: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              available: true,
+              provider: 'codex',
+              providers: ['codex', 'gemini'],
+              mounted: ['codex', 'gemini'],
+              provider_checks: [
+                { provider: 'codex', ping_command: 'ccb-ping codex', ping_output: 'ok' },
+                { provider: 'gemini', ping_command: 'ccb-ping gemini', ping_output: 'ok' },
+              ],
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/handoff/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => {
+            const workspaceReadme = readFileSync(join(ctx.workspace!.path, 'README.md'), 'utf8');
+            expect(workspaceReadme).toContain('updated remote baseline after handoff');
+
+            return {
+              adapter_id: 'ccb',
+              outcome: 'success',
+              raw_output: {
+                receipt: 'ccb-build-refreshed-workspace',
+                summary_markdown: '# Build Execution Summary\n\n- Status: completed\n- Actions: refreshed the fresh-run workspace before implementation\n- Files touched: README.md\n- Verification: ok\n',
+              },
+              requested_route: ctx.requested_route,
+              actual_route: {
+                provider: 'codex',
+                route: 'codex-via-ccb',
+                substrate: 'superpowers-core',
+                transport: 'ccb',
+                receipt_path: '.planning/current/build/adapter-output.json',
+              },
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+        superpowers: {
+          build_discipline: async (ctx) => {
+            const workspaceReadme = readFileSync(join(ctx.workspace!.path, 'README.md'), 'utf8');
+            expect(workspaceReadme).toContain('updated remote baseline after handoff');
+
+            return {
+              adapter_id: 'superpowers',
+              outcome: 'success',
+              raw_output: { verification_summary: 'refreshed workspace before build' },
+              requested_route: null,
+              actual_route: null,
+              notices: [],
+              conflict_candidates: [],
+            };
+          },
+        },
+      });
+
+      await run('plan');
+      await run('handoff', adapters);
+
+      pushCommitToRemote(remoteRoot, 'README.md', '# updated remote baseline after handoff\n', 'remote update after handoff');
+
+      await run('build', adapters);
+
+      expect(readFileSync(join(workspace.path, 'README.md'), 'utf8')).toContain('updated remote baseline after handoff');
     });
   });
 

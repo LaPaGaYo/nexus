@@ -15,7 +15,12 @@ import {
 import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
+import {
+  ensureFreshRunWorkspaceBaseline,
+  resolveExecutionWorkspace,
+  resolveSessionRootRecord,
+  syncRunWorkspaceArtifacts,
+} from '../workspace-substrate';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
@@ -98,12 +103,13 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
 
   const startedAt = ctx.clock();
   const manifest = CANONICAL_MANIFEST.handoff;
-  const workspace = resolveExecutionWorkspace(
+  const resolvedWorkspace = resolveExecutionWorkspace(
     ctx.cwd,
     ledger.execution.workspace
       ?? (ledger.current_stage === 'review' ? reviewStatus?.workspace ?? null : null)
       ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.workspace ?? null : null),
   );
+  const workspace = ensureFreshRunWorkspaceBaseline(ctx.cwd, resolvedWorkspace) ?? resolvedWorkspace;
   const sessionRoot = ledger.execution.session_root
     ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root ?? null : null)
     ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.session_root ?? null : null)

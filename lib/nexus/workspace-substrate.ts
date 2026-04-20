@@ -21,6 +21,12 @@ type GitStatusEntry = {
   path: string;
 };
 
+type RemotePrimaryBranch = {
+  remote: string;
+  branch: string;
+  ref: string;
+};
+
 function gitStdout(cwd: string, args: string[]): string | null {
   const result = spawnSync('git', ['-C', cwd, ...args], {
     stdio: 'pipe',
@@ -46,6 +52,13 @@ function gitSucceeds(cwd: string, args: string[]): boolean {
   return gitExitCode(cwd, args) === 0;
 }
 
+function gitResult(cwd: string, args: string[]) {
+  return spawnSync('git', ['-C', cwd, ...args], {
+    stdio: 'pipe',
+    timeout: 15_000,
+  });
+}
+
 function normalizeBranch(value: string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -60,6 +73,36 @@ function normalizeBranch(value: string | null | undefined): string | null {
 
 function currentBranch(cwd: string): string | null {
   return normalizeBranch(gitStdout(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])?.trim() ?? null);
+}
+
+function parseRemotePrimaryBranch(repoRoot: string): RemotePrimaryBranch | null {
+  const raw = gitStdout(repoRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD'])?.trim() ?? null;
+  if (!raw) {
+    return null;
+  }
+
+  const match = raw.match(/^refs\/remotes\/([^/]+)\/(.+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    remote: match[1]!,
+    branch: match[2]!,
+    ref: raw,
+  };
+}
+
+function fetchRemotePrimaryBranch(repoRoot: string, remotePrimary: RemotePrimaryBranch): void {
+  gitResult(repoRoot, ['fetch', '--quiet', remotePrimary.remote, remotePrimary.branch]);
+}
+
+function gitRevision(cwd: string, ref: string): string | null {
+  return gitStdout(cwd, ['rev-parse', ref])?.trim() ?? null;
+}
+
+function gitRefIsAncestor(cwd: string, left: string, right: string): boolean {
+  return gitSucceeds(cwd, ['merge-base', '--is-ancestor', left, right]);
 }
 
 function gitCommonDir(cwd: string): string | null {
@@ -319,6 +362,15 @@ function freshRunBranch(runId: string): string {
   return `codex/${runId}`;
 }
 
+function isRunOwnedWorkspace(workspace: WorkspaceRecord): boolean {
+  return workspace.kind === 'worktree'
+    && (
+      workspace.source === 'allocated:fresh_run'
+      || workspace.run_id !== undefined
+      || workspace.branch?.startsWith('codex/run-') === true
+    );
+}
+
 function isGitRepository(repoRoot: string): boolean {
   const resolvedRoot = gitStdout(repoRoot, ['rev-parse', '--show-toplevel'])?.trim() ?? null;
   return resolvedRoot !== null;
@@ -338,6 +390,87 @@ function allocatedWorkspace(repoRoot: string, worktreePath: string, runId: strin
 export function resolveRepositoryPrimaryBranch(repoRoot: string): string {
   const remoteHead = normalizeBranch(gitStdout(repoRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD'])?.trim() ?? null);
   return remoteHead ?? currentBranch(repoRoot) ?? 'main';
+}
+
+export function ensureFreshRunWorkspaceBaseline(
+  repoRoot: string,
+  workspace?: WorkspaceRecord | null,
+): WorkspaceRecord | null {
+  if (!workspace) {
+    return null;
+  }
+
+  const resolvedRepoRoot = resolveRepositoryRoot(repoRoot);
+  const normalizedWorkspace: WorkspaceRecord = {
+    ...workspace,
+    path: canonicalPath(workspace.path),
+    branch: currentBranch(workspace.path) ?? workspace.branch,
+  };
+
+  if (
+    !isRunOwnedWorkspace(normalizedWorkspace)
+    || !isWorkspaceUsable(resolvedRepoRoot, normalizedWorkspace.path)
+  ) {
+    return normalizedWorkspace;
+  }
+
+  const remotePrimary = parseRemotePrimaryBranch(resolvedRepoRoot);
+  if (remotePrimary) {
+    fetchRemotePrimaryBranch(resolvedRepoRoot, remotePrimary);
+  }
+
+  const targetRef = remotePrimary?.ref ?? resolveRepositoryPrimaryBranch(resolvedRepoRoot);
+  const workspaceHead = gitRevision(normalizedWorkspace.path, 'HEAD');
+  const targetHead = gitRevision(resolvedRepoRoot, targetRef);
+  if (!workspaceHead || !targetHead || workspaceHead === targetHead) {
+    return {
+      ...normalizedWorkspace,
+      branch: currentBranch(normalizedWorkspace.path) ?? normalizedWorkspace.branch,
+    };
+  }
+
+  if (gitRefIsAncestor(normalizedWorkspace.path, targetRef, 'HEAD')) {
+    return {
+      ...normalizedWorkspace,
+      branch: currentBranch(normalizedWorkspace.path) ?? normalizedWorkspace.branch,
+    };
+  }
+
+  if (!gitRefIsAncestor(normalizedWorkspace.path, 'HEAD', targetRef)) {
+    throw new Error(
+      `Fresh run workspace diverged from ${targetRef}; refresh the run workspace from the default branch before governed execution.`,
+    );
+  }
+
+  if (!isCleanWorktree(normalizedWorkspace.path)) {
+    if (!hasOnlyMirroredRunArtifactsDirty(normalizedWorkspace.path)) {
+      throw new Error(
+        `Fresh run workspace is behind ${targetRef} and has local changes outside mirrored run artifacts; sync the branch before governed execution.`,
+      );
+    }
+
+    clearMirroredRunArtifacts(normalizedWorkspace.path);
+  }
+
+  if (!isCleanWorktree(normalizedWorkspace.path)) {
+    throw new Error(
+      `Fresh run workspace could not be cleaned for a fast-forward refresh from ${targetRef}; resolve local changes before governed execution.`,
+    );
+  }
+
+  const mergeResult = gitResult(normalizedWorkspace.path, ['merge', '--ff-only', targetRef]);
+  if ((mergeResult.status ?? 1) !== 0) {
+    const stderr = mergeResult.stderr.toString('utf8').trim();
+    const stdout = mergeResult.stdout.toString('utf8').trim();
+    throw new Error(
+      stderr || stdout || `Fresh run workspace could not fast-forward to ${targetRef} before governed execution.`,
+    );
+  }
+
+  return {
+    ...normalizedWorkspace,
+    branch: currentBranch(normalizedWorkspace.path) ?? normalizedWorkspace.branch,
+  };
 }
 
 export function resolveSessionRootRecord(repoRoot: string): SessionRootRecord {
