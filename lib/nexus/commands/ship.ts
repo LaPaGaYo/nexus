@@ -529,7 +529,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     designContractPath,
     designVerified,
   )}${perfVerificationSummary(perfVerificationPath)}`;
-  const pullRequest = await resolveShipPullRequest(ctx.cwd, result.raw_output.merge_ready, ctx.run_command);
+  const pullRequest = await resolveShipPullRequest(workspace.path, result.raw_output.merge_ready, ctx.run_command);
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'ship',

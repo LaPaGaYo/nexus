@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import {
@@ -585,6 +586,155 @@ describe('nexus ship', () => {
         'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
         'gh pr create --base main --head feature/phase-2-auth --fill',
         'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
+      ]);
+    });
+  });
+
+  test('creates pull request handoff from the execution workspace instead of the repo root', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      writeFileSync(join(cwd, 'README.md'), '# temp repo\n');
+      expect(spawnSync('git', ['init', '-b', 'main'], { cwd, stdio: 'pipe' }).status).toBe(0);
+      expect(spawnSync('git', ['config', 'user.email', 'test@example.com'], { cwd, stdio: 'pipe' }).status).toBe(0);
+      expect(spawnSync('git', ['config', 'user.name', 'Nexus Test'], { cwd, stdio: 'pipe' }).status).toBe(0);
+      expect(spawnSync('git', ['add', 'README.md'], { cwd, stdio: 'pipe' }).status).toBe(0);
+      expect(spawnSync('git', ['commit', '-m', 'init'], { cwd, stdio: 'pipe' }).status).toBe(0);
+
+      const workspacePath = join(cwd, '.nexus-worktrees/run-ship-workspace');
+      expect(
+        spawnSync('git', ['worktree', 'add', workspacePath, '-b', 'codex/run-phase-4'], {
+          cwd,
+          stdio: 'pipe',
+        }).status,
+      ).toBe(0);
+      const canonicalWorkspacePath = realpathSync.native(workspacePath);
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const reviewStatusPath = join(cwd, '.planning/current/review/status.json');
+      const reviewStatus = JSON.parse(readFileSync(reviewStatusPath, 'utf8'));
+      writeFileSync(
+        reviewStatusPath,
+        JSON.stringify(
+          {
+            ...reviewStatus,
+            workspace: {
+              path: canonicalWorkspacePath,
+              kind: 'worktree',
+              branch: 'codex/run-phase-4',
+              source: 'existing:nexus_worktree',
+            },
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      const commands: Array<{ cwd: string; argv: string[] }> = [];
+      let prViewCount = 0;
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      const invocation = resolveInvocation('ship');
+      await invocation.handler({
+        cwd,
+        clock: () => new Date().toISOString(),
+        via: invocation.via,
+        adapters,
+        execution: {
+          mode: 'governed_ccb',
+          primary_provider: 'codex',
+          provider_topology: 'multi_session',
+          requested_execution_path: 'codex-via-ccb',
+        },
+        run_command: async (spec) => {
+          commands.push({ cwd: spec.cwd, argv: spec.argv });
+
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'branch') {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            return { exitCode: 0, stdout: 'codex/run-phase-4\n', stderr: '' };
+          }
+
+          if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            prViewCount += 1;
+            if (prViewCount === 1) {
+              return { exitCode: 1, stdout: '', stderr: 'no pull requests found for branch "codex/run-phase-4"\n' };
+            }
+
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({
+                number: 456,
+                url: 'https://github.com/LaPaGaYo/project-tracker/pull/456',
+                state: 'OPEN',
+                headRefName: 'codex/run-phase-4',
+                headRefOid: 'runworkspace123',
+                baseRefName: 'main',
+              }),
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === 'gh' && spec.argv[1] === 'repo' && spec.argv[2] === 'view') {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            return { exitCode: 0, stdout: 'main\n', stderr: '' };
+          }
+
+          if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'create') {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/LaPaGaYo/project-tracker/pull/456\n',
+              stderr: '',
+            };
+          }
+
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      expect(await run.readJson('.planning/current/ship/pull-request.json')).toMatchObject({
+        status: 'created',
+        provider: 'github',
+        number: 456,
+        url: 'https://github.com/LaPaGaYo/project-tracker/pull/456',
+        head_branch: 'codex/run-phase-4',
+        head_sha: 'runworkspace123',
+        base_branch: 'main',
+      });
+      expect(commands.map((command) => `${command.cwd}::${command.argv.join(' ')}`)).toEqual([
+        `${canonicalWorkspacePath}::git branch --show-current`,
+        `${canonicalWorkspacePath}::gh pr view --json number,url,state,headRefName,headRefOid,baseRefName`,
+        `${canonicalWorkspacePath}::gh repo view --json defaultBranchRef -q .defaultBranchRef.name`,
+        `${canonicalWorkspacePath}::gh pr create --base main --head codex/run-phase-4 --fill`,
+        `${canonicalWorkspacePath}::gh pr view --json number,url,state,headRefName,headRefOid,baseRefName`,
       ]);
     });
   });
