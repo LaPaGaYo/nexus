@@ -643,5 +643,5 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ledger: next,
   });
 
-  return { command: 'qa', status };
+  return { command: 'qa', status, completion_advisor: completionAdvisor };
 }

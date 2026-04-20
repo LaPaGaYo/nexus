@@ -488,18 +488,24 @@ describe('gen-skill-docs', () => {
     const planContent = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
 
     expect(frameContent).toContain('.planning/current/frame/completion-advisor.json');
+    expect(frameContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(frameContent).toContain('completion_context.completion_advisor');
     expect(frameContent).toContain('interaction_mode');
     expect(frameContent).toContain('stop_action');
-    expect(frameContent).toContain('Always use AskUserQuestion');
+    expect(frameContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(frameContent).toContain('If the session is interactive and `interaction_mode` is not `summary_only`');
     expect(frameContent).toContain('/plan-design-review');
     expect(frameContent).toContain('/design-consultation');
     expect(frameContent).toContain('suppressed_surfaces');
     expect(frameContent).toContain('Keep the canonical path anchored on');
 
     expect(planContent).toContain('.planning/current/plan/completion-advisor.json');
+    expect(planContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(planContent).toContain('completion_context.completion_advisor');
     expect(planContent).toContain('interaction_mode');
     expect(planContent).toContain('stop_action');
-    expect(planContent).toContain('Always use AskUserQuestion');
+    expect(planContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(planContent).toContain('If the session is interactive and `interaction_mode` is not `summary_only`');
     expect(planContent).toContain('/plan-design-review');
     expect(planContent).toContain('design_impact');
     expect(planContent).toContain('verification matrix');
@@ -509,11 +515,14 @@ describe('gen-skill-docs', () => {
     const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
     expect(reviewContent).toContain('## Completion Advisor');
     expect(reviewContent).toContain('.planning/current/review/completion-advisor.json');
+    expect(reviewContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(reviewContent).toContain('completion_context.completion_advisor');
     expect(reviewContent).toContain('interaction_mode');
     expect(reviewContent).toContain('stop_action');
-    expect(reviewContent).toContain('Always use AskUserQuestion');
+    expect(reviewContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(reviewContent).toContain('Do not reconstruct advisory logic from `status.json`.');
     expect(reviewContent).toContain('AskUserQuestion');
+    expect(reviewContent).toContain('/cso');
   });
 
   test('review SKILL.md maps each advisory choice to an exact Nexus command', () => {
@@ -527,6 +536,8 @@ describe('gen-skill-docs', () => {
     const buildContent = fs.readFileSync(path.join(ROOT, 'build', 'SKILL.md'), 'utf-8');
     expect(buildContent).toContain('## Completion Advisor');
     expect(buildContent).toContain('.planning/current/build/completion-advisor.json');
+    expect(buildContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(buildContent).toContain('completion_context.completion_advisor');
     expect(buildContent).toContain('AskUserQuestion');
     expect(buildContent).toContain('/review');
     expect(buildContent).toContain('/design-review');
@@ -537,12 +548,17 @@ describe('gen-skill-docs', () => {
     const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
     expect(qaContent).toContain('## Completion Advisor');
     expect(qaContent).toContain('.planning/current/qa/completion-advisor.json');
+    expect(qaContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(qaContent).toContain('completion_context.completion_advisor');
     expect(qaContent).toContain('interaction_mode');
     expect(qaContent).toContain('stop_action');
-    expect(qaContent).toContain('Always use AskUserQuestion');
+    expect(qaContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(qaContent).toContain('/design-review');
     expect(qaContent).toContain('/benchmark');
     expect(qaContent).toContain('/browse');
+    expect(qaContent).toContain('/connect-chrome');
+    expect(qaContent).toContain('/setup-browser-cookies');
+    expect(qaContent).toContain('/cso');
     expect(qaContent).toContain('/ship');
   });
 
@@ -550,9 +566,11 @@ describe('gen-skill-docs', () => {
     const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
     expect(shipContent).toContain('## Completion Advisor');
     expect(shipContent).toContain('.planning/current/ship/completion-advisor.json');
+    expect(shipContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(shipContent).toContain('completion_context.completion_advisor');
     expect(shipContent).toContain('interaction_mode');
     expect(shipContent).toContain('stop_action');
-    expect(shipContent).toContain('Always use AskUserQuestion');
+    expect(shipContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(shipContent).toContain('/closeout');
     expect(shipContent).toContain('/land-and-deploy');
     expect(shipContent).toContain('/setup-deploy');
@@ -562,9 +580,11 @@ describe('gen-skill-docs', () => {
     const closeoutContent = fs.readFileSync(path.join(ROOT, 'closeout', 'SKILL.md'), 'utf-8');
     expect(closeoutContent).toContain('## Completion Advisor');
     expect(closeoutContent).toContain('.planning/current/closeout/completion-advisor.json');
+    expect(closeoutContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(closeoutContent).toContain('completion_context.completion_advisor');
     expect(closeoutContent).toContain('interaction_mode');
     expect(closeoutContent).toContain('stop_action');
-    expect(closeoutContent).toContain('Always use AskUserQuestion');
+    expect(closeoutContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(closeoutContent).toContain('/discover');
     expect(closeoutContent).toContain('/land-and-deploy');
     expect(closeoutContent).toContain('/retro');

@@ -56,6 +56,20 @@ function suppressedSurfaces(): string[] {
   return [...HIDDEN_COMPAT_ALIASES, ...HIDDEN_UTILITY_SKILLS];
 }
 
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    output.push(normalized);
+  }
+  return output;
+}
+
 function outcomeForStatus(status: Pick<StageStatus, 'state' | 'ready'>): CompletionAdvisorRecord['stage_outcome'] {
   if (status.state === 'refused') {
     return 'refused';
@@ -64,6 +78,14 @@ function outcomeForStatus(status: Pick<StageStatus, 'state' | 'ready'>): Complet
     return 'blocked';
   }
   return 'ready';
+}
+
+function suggestedSkillSignal(
+  verificationMatrix: VerificationMatrixRecord | null | undefined,
+  key: keyof VerificationMatrixRecord['support_skill_signals'],
+): VerificationMatrixRecord['support_skill_signals'][typeof key] | null {
+  const signal = verificationMatrix?.support_skill_signals?.[key];
+  return signal?.suggested ? signal : null;
 }
 
 function baseAdvisor(
@@ -141,6 +163,22 @@ export function buildFrameCompletionAdvisor(
     );
   }
 
+  if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    return baseAdvisor(
+      status,
+      generatedAt,
+      status.state === 'refused'
+        ? 'Framing was refused. Resolve the refusal before trying again.'
+        : 'Framing is blocked. Resolve the blocking condition before planning.',
+      {
+        interaction_mode: 'summary_only',
+        default_action_id: null,
+        stop_action: stopAction('frame'),
+        project_setup_gaps: uniqueStrings([...setupGaps, ...status.errors]),
+      },
+    );
+  }
+
   return baseAdvisor(
     status,
     generatedAt,
@@ -193,6 +231,22 @@ export function buildPlanCompletionAdvisor(
     setupGaps.push('Design verification is still expected before handoff on this run.');
   }
 
+  if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    return baseAdvisor(
+      status,
+      generatedAt,
+      status.state === 'refused'
+        ? 'Planning was refused. Resolve the refusal before trying handoff.'
+        : 'Planning is blocked. Resolve readiness and setup gaps before handoff.',
+      {
+        interaction_mode: 'summary_only',
+        default_action_id: null,
+        stop_action: stopAction('plan'),
+        project_setup_gaps: uniqueStrings([...setupGaps, ...status.errors]),
+      },
+    );
+  }
+
   return baseAdvisor(
     status,
     generatedAt,
@@ -212,6 +266,33 @@ export function buildHandoffCompletionAdvisor(
   status: StageStatus,
   generatedAt: string,
 ): CompletionAdvisorRecord {
+  if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    const retry = action(
+      'retry_handoff',
+      'canonical_stage',
+      '/handoff',
+      '/handoff',
+      'Retry `/handoff`',
+      'Re-run governed route validation after resolving route, session, or provenance issues.',
+      true,
+      'Governed handoff is the only legal retry path before build can resume.',
+    );
+
+    return baseAdvisor(
+      status,
+      generatedAt,
+      status.state === 'refused'
+        ? 'Governed handoff was refused. Retry handoff after resolving the refusal.'
+        : 'Governed handoff is blocked. Resolve route approval before build.',
+      {
+        default_action_id: retry.id,
+        primary_next_actions: [retry],
+        stop_action: stopAction('handoff'),
+        project_setup_gaps: uniqueStrings(status.errors),
+      },
+    );
+  }
+
   const primary = action(
     'run_build',
     'canonical_stage',
@@ -281,7 +362,9 @@ export function buildBuildCompletionAdvisor(
     'Build completed successfully and review is the canonical next stage.',
   );
   const sideSkills: CompletionAdvisorActionRecord[] = [];
-  if (designBearing(verificationMatrix?.design_impact ?? status.design_impact)) {
+  const designReviewSignal = suggestedSkillSignal(verificationMatrix, 'design_review');
+  const browseSignal = suggestedSkillSignal(verificationMatrix, 'browse');
+  if (designReviewSignal) {
     sideSkills.push(
       action(
         'run_design_review',
@@ -291,8 +374,12 @@ export function buildBuildCompletionAdvisor(
         'Run `/design-review`',
         'Do a focused visual audit on a design-bearing implementation before formal review.',
         false,
-        'Design-bearing runs benefit from a visual pass before the governed audit.',
+        designReviewSignal.reason,
       ),
+    );
+  }
+  if (browseSignal) {
+    sideSkills.push(
       action(
         'run_browse',
         'support_skill',
@@ -301,7 +388,7 @@ export function buildBuildCompletionAdvisor(
         'Run `/browse`',
         'Check the browser-facing surface directly before the governed audit.',
         false,
-        'This run changes browser-facing surfaces and should be checked in the browser.',
+        browseSignal.reason,
       ),
     );
   }
@@ -424,7 +511,10 @@ export function buildReviewCompletionAdvisor(
     ),
   ];
   const sideSkills: CompletionAdvisorActionRecord[] = [];
-  if (verificationMatrix?.attached_evidence.benchmark.supported) {
+  const benchmarkSignal = suggestedSkillSignal(verificationMatrix, 'benchmark');
+  const designReviewSignal = suggestedSkillSignal(verificationMatrix, 'design_review');
+  const csoSignal = suggestedSkillSignal(verificationMatrix, 'cso');
+  if (benchmarkSignal) {
     sideSkills.push(
       action(
         'run_benchmark',
@@ -434,11 +524,11 @@ export function buildReviewCompletionAdvisor(
         'Run `/benchmark`',
         'Attach performance evidence before the release gate if this change is perf-sensitive.',
         false,
-        'The verification matrix says benchmark evidence is supported for this run.',
+        benchmarkSignal.reason,
       ),
     );
   }
-  if (designBearing(verificationMatrix?.design_impact ?? status.design_impact)) {
+  if (designReviewSignal) {
     sideSkills.push(
       action(
         'run_design_review',
@@ -448,7 +538,21 @@ export function buildReviewCompletionAdvisor(
         'Run `/design-review`',
         'Polish the visual result before QA on a design-bearing run.',
         false,
-        'Design-bearing runs should get a visual pass before QA or release gating.',
+        designReviewSignal.reason,
+      ),
+    );
+  }
+  if (csoSignal) {
+    sideSkills.push(
+      action(
+        'run_cso',
+        'support_skill',
+        '/cso',
+        '/cso',
+        'Run `/cso`',
+        'Audit security-sensitive changes before the release gate advances.',
+        false,
+        csoSignal.reason,
       ),
     );
   }
@@ -510,7 +614,13 @@ export function buildQaCompletionAdvisor(
     'QA passed and ship is the canonical next governed step.',
   );
   const sideSkills: CompletionAdvisorActionRecord[] = [];
-  if (verificationMatrix?.attached_evidence.benchmark.supported) {
+  const benchmarkSignal = suggestedSkillSignal(verificationMatrix, 'benchmark');
+  const designReviewSignal = suggestedSkillSignal(verificationMatrix, 'design_review');
+  const browseSignal = suggestedSkillSignal(verificationMatrix, 'browse');
+  const connectChromeSignal = suggestedSkillSignal(verificationMatrix, 'connect_chrome');
+  const setupBrowserCookiesSignal = suggestedSkillSignal(verificationMatrix, 'setup_browser_cookies');
+  const csoSignal = suggestedSkillSignal(verificationMatrix, 'cso');
+  if (benchmarkSignal) {
     sideSkills.push(
       action(
         'run_benchmark',
@@ -520,11 +630,11 @@ export function buildQaCompletionAdvisor(
         'Run `/benchmark`',
         'Attach performance evidence before the release gate.',
         false,
-        'The verification matrix says benchmark evidence is supported for this run.',
+        benchmarkSignal.reason,
       ),
     );
   }
-  if (designBearing(verificationMatrix?.design_impact ?? status.design_impact)) {
+  if (designReviewSignal) {
     sideSkills.push(
       action(
         'run_design_review',
@@ -534,8 +644,12 @@ export function buildQaCompletionAdvisor(
         'Run `/design-review`',
         'Audit the visual result after QA on a design-bearing run.',
         false,
-        'Design-bearing runs should get a final visual audit before the release gate.',
+        designReviewSignal.reason,
       ),
+    );
+  }
+  if (browseSignal) {
+    sideSkills.push(
       action(
         'run_browse',
         'support_skill',
@@ -544,7 +658,49 @@ export function buildQaCompletionAdvisor(
         'Run `/browse`',
         'Use the browser to verify the shipped UI path directly.',
         false,
-        'This run changes browser-facing surfaces and should be checked in the browser.',
+        browseSignal.reason,
+      ),
+    );
+  }
+  if (connectChromeSignal) {
+    sideSkills.push(
+      action(
+        'run_connect_chrome',
+        'support_skill',
+        '/connect-chrome',
+        '/connect-chrome',
+        'Run `/connect-chrome`',
+        'Launch a real browser session for live verification instead of relying only on headless checks.',
+        false,
+        connectChromeSignal.reason,
+      ),
+    );
+  }
+  if (setupBrowserCookiesSignal) {
+    sideSkills.push(
+      action(
+        'run_setup_browser_cookies',
+        'support_skill',
+        '/setup-browser-cookies',
+        '/setup-browser-cookies',
+        'Run `/setup-browser-cookies`',
+        'Import authenticated browser sessions before testing protected flows.',
+        false,
+        setupBrowserCookiesSignal.reason,
+      ),
+    );
+  }
+  if (csoSignal) {
+    sideSkills.push(
+      action(
+        'run_cso',
+        'support_skill',
+        '/cso',
+        '/cso',
+        'Run `/cso`',
+        'Audit security-sensitive changes before the release gate advances.',
+        false,
+        csoSignal.reason,
       ),
     );
   }
@@ -620,6 +776,22 @@ export function buildShipCompletionAdvisor(
     );
   }
 
+  if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    return baseAdvisor(
+      status,
+      generatedAt,
+      status.state === 'refused'
+        ? 'Ship was refused. Resolve the refusal before trying to record the release gate again.'
+        : 'Ship is blocked. Resolve the release-gate blockers before closeout or landing.',
+      {
+        interaction_mode: 'summary_only',
+        default_action_id: null,
+        stop_action: stopAction('ship'),
+        project_setup_gaps: uniqueStrings([...setupGaps, ...status.errors]),
+      },
+    );
+  }
+
   return baseAdvisor(
     status,
     generatedAt,
@@ -643,6 +815,22 @@ export function buildCloseoutCompletionAdvisor(
   canaryAttached: boolean,
   generatedAt: string,
 ): CompletionAdvisorRecord {
+  if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    return baseAdvisor(
+      status,
+      generatedAt,
+      status.state === 'refused'
+        ? 'Closeout was refused. Resolve the refusal before concluding the governed run.'
+        : 'Closeout is blocked. Resolve archive or provenance issues before concluding the run.',
+      {
+        interaction_mode: 'summary_only',
+        default_action_id: null,
+        stop_action: stopAction('closeout'),
+        project_setup_gaps: uniqueStrings(status.errors),
+      },
+    );
+  }
+
   const primary = action(
     'run_discover',
     'canonical_stage',

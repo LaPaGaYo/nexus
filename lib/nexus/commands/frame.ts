@@ -207,7 +207,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       ledger: next,
     });
 
-    return { command: 'frame', status };
+    return { command: 'frame', status, completion_advisor: completionAdvisor };
   } catch (error) {
     const conflict: ConflictRecord = {
       stage: 'frame',

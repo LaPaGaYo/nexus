@@ -411,8 +411,10 @@ cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts handoff
 
 ## Completion Advisor
 
-After `/handoff` returns, treat `.planning/current/handoff/completion-advisor.json` as the
-canonical next-step contract.
+After `/handoff` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
+filesystem access, or the field is absent, fall back to `.planning/current/handoff/completion-advisor.json`.
+If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
+envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
 
 Read and summarize:
 

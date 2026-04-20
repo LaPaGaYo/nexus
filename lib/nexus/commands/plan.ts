@@ -203,7 +203,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       throw new Error('Plan is not ready for execution');
     }
 
-    return { command: 'plan', status };
+    return { command: 'plan', status, completion_advisor: completionAdvisor };
   } catch (error) {
     if (error instanceof Error && error.message === 'Plan is not ready for execution') {
       throw error;

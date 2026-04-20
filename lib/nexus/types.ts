@@ -230,6 +230,11 @@ export interface VerificationMatrixAttachedEvidenceRecord {
   required: boolean;
 }
 
+export interface VerificationMatrixSupportSkillSignalRecord {
+  suggested: boolean;
+  reason: string | null;
+}
+
 export interface VerificationMatrixBuildObligationRecord {
   owner_stage: 'build';
   required: boolean;
@@ -277,6 +282,14 @@ export interface VerificationMatrixRecord {
     benchmark: VerificationMatrixAttachedEvidenceRecord;
     canary: VerificationMatrixAttachedEvidenceRecord;
     qa_only: VerificationMatrixAttachedEvidenceRecord;
+  };
+  support_skill_signals: {
+    design_review: VerificationMatrixSupportSkillSignalRecord;
+    browse: VerificationMatrixSupportSkillSignalRecord;
+    benchmark: VerificationMatrixSupportSkillSignalRecord;
+    cso: VerificationMatrixSupportSkillSignalRecord;
+    connect_chrome: VerificationMatrixSupportSkillSignalRecord;
+    setup_browser_cookies: VerificationMatrixSupportSkillSignalRecord;
   };
 }
 

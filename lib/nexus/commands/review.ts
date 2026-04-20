@@ -1015,7 +1015,7 @@ export async function runReviewWithWriteAtomicFile(
     writeAtomicFile,
   });
 
-  return { command: 'review', status };
+  return { command: 'review', status, completion_advisor: completionAdvisor };
 }
 
 export async function runReview(ctx: CommandContext): Promise<CommandResult> {

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildCloseoutCompletionAdvisor,
   buildFrameCompletionAdvisor,
+  buildHandoffCompletionAdvisor,
   buildPlanCompletionAdvisor,
   buildQaCompletionAdvisor,
   buildReviewCompletionAdvisor,
@@ -85,6 +86,38 @@ function verificationMatrix(designImpact: VerificationMatrixRecord['design_impac
       benchmark: { supported: true, required: false },
       canary: { supported: true, required: false },
       qa_only: { supported: true, required: false },
+    },
+    support_skill_signals: {
+      design_review: {
+        suggested: designImpact !== 'none',
+        reason: designImpact !== 'none'
+          ? 'Design-bearing work should expose `/design-review` as a first-class follow-on.'
+          : null,
+      },
+      browse: {
+        suggested: designImpact !== 'none',
+        reason: designImpact !== 'none'
+          ? 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.'
+          : null,
+      },
+      benchmark: {
+        suggested: true,
+        reason: 'The verification matrix supports benchmark evidence for this run.',
+      },
+      cso: {
+        suggested: false,
+        reason: null,
+      },
+      connect_chrome: {
+        suggested: designImpact !== 'none',
+        reason: designImpact !== 'none'
+          ? 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.'
+          : null,
+      },
+      setup_browser_cookies: {
+        suggested: false,
+        reason: null,
+      },
     },
   };
 }
@@ -171,6 +204,57 @@ describe('nexus completion advisor', () => {
     ]);
   });
 
+  test('blocked front-half advisors do not surface ready-path actions', () => {
+    const frameBlocked = buildFrameCompletionAdvisor({
+      ...readyStatus('frame'),
+      state: 'blocked',
+      decision: 'not_ready',
+      ready: false,
+      errors: ['Missing required input artifact: docs/product/idea-brief.md'],
+    }, '2026-04-20T00:00:00.000Z');
+    expect(frameBlocked).toMatchObject({
+      interaction_mode: 'summary_only',
+      stage_outcome: 'blocked',
+      default_action_id: null,
+      primary_next_actions: [],
+    });
+    expect(frameBlocked.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
+
+    const planBlocked = buildPlanCompletionAdvisor({
+      ...readyStatus('plan'),
+      state: 'blocked',
+      decision: 'not_ready',
+      ready: false,
+      design_impact: 'material',
+      design_verified: false,
+      errors: ['Plan is not ready for execution'],
+    }, verificationMatrix('material'), '2026-04-20T00:00:00.000Z');
+    expect(planBlocked).toMatchObject({
+      interaction_mode: 'summary_only',
+      stage_outcome: 'blocked',
+      default_action_id: null,
+      primary_next_actions: [],
+    });
+    expect(planBlocked.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
+
+    const handoffBlocked = buildHandoffCompletionAdvisor({
+      ...readyStatus('handoff'),
+      state: 'blocked',
+      ready: false,
+      errors: ['Governed route is not approved by Nexus'],
+    }, '2026-04-20T00:00:00.000Z');
+    expect(handoffBlocked).toMatchObject({
+      stage_outcome: 'blocked',
+      default_action_id: 'retry_handoff',
+      primary_next_actions: [
+        expect.objectContaining({
+          surface: '/handoff',
+          invocation: '/handoff',
+        }),
+      ],
+    });
+  });
+
   test('review advisor makes advisory disposition a required runtime-owned choice', () => {
     const status: StageStatus = {
       ...readyStatus('review'),
@@ -223,11 +307,15 @@ describe('nexus completion advisor', () => {
     expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
       expect.objectContaining({
         surface: '/design-review',
-        visibility_reason: 'Design-bearing runs should get a final visual audit before the release gate.',
+        visibility_reason: 'Design-bearing work should expose `/design-review` as a first-class follow-on.',
       }),
       expect.objectContaining({
         surface: '/browse',
-        visibility_reason: 'This run changes browser-facing surfaces and should be checked in the browser.',
+        visibility_reason: 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.',
+      }),
+      expect.objectContaining({
+        surface: '/connect-chrome',
+        visibility_reason: 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.',
       }),
     ]));
   });
@@ -325,6 +413,38 @@ describe('nexus completion advisor', () => {
       '/document-release',
     ]);
     expect(closeoutAdvisor.hidden_utility_skills).toContain('/nexus-upgrade');
+  });
+
+  test('blocked tail advisors do not surface forward lifecycle actions', () => {
+    const shipBlocked = buildShipCompletionAdvisor({
+      ...readyStatus('ship'),
+      state: 'blocked',
+      ready: false,
+      decision: 'ship_recorded',
+      errors: ['Merge is not ready'],
+    }, verificationMatrix('none'), null, '2026-04-20T00:00:00.000Z');
+    expect(shipBlocked).toMatchObject({
+      interaction_mode: 'summary_only',
+      stage_outcome: 'blocked',
+      default_action_id: null,
+      primary_next_actions: [],
+    });
+    expect(shipBlocked.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
+
+    const closeoutBlocked = buildCloseoutCompletionAdvisor({
+      ...readyStatus('closeout'),
+      state: 'blocked',
+      ready: false,
+      decision: 'closeout_recorded',
+      errors: ['Archive is required but missing'],
+    }, null, null, false, false, '2026-04-20T00:00:00.000Z');
+    expect(closeoutBlocked).toMatchObject({
+      interaction_mode: 'summary_only',
+      stage_outcome: 'blocked',
+      default_action_id: null,
+      primary_next_actions: [],
+    });
+    expect(closeoutBlocked.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
   });
 
   test('commands persist completion-advisor artifacts with design-aware recommendations', async () => {
@@ -461,16 +581,25 @@ describe('nexus completion advisor', () => {
       });
 
       await run('discover', adapters);
-      await run('frame', adapters);
-      await run('plan', adapters);
-      await run('handoff');
-      await run('build');
-      await run('review', adapters);
-      await run('qa', adapters, undefined, {
+      const frameResult = await run('frame', adapters);
+      const planResult = await run('plan', adapters);
+      const handoffResult = await run('handoff');
+      const buildResult = await run('build');
+      const reviewResult = await run('review', adapters);
+      const qaResult = await run('qa', adapters, undefined, {
         reviewAdvisoryDispositionOverride: 'continue_to_qa',
       });
-      await run('ship', adapters);
-      await run('closeout', adapters);
+      const shipResult = await run('ship', adapters);
+      const closeoutResult = await run('closeout', adapters);
+
+      expect(frameResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'frame' }));
+      expect(planResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'plan' }));
+      expect(handoffResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'handoff' }));
+      expect(buildResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'build' }));
+      expect(reviewResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'review' }));
+      expect(qaResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'qa' }));
+      expect(shipResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'ship' }));
+      expect(closeoutResult.completion_advisor).toEqual(expect.objectContaining({ stage: 'closeout' }));
 
       const frameAdvisor = await run.readJson(stageCompletionAdvisorPath('frame')) as CompletionAdvisorRecord;
       expect(frameAdvisor.recommended_side_skills).toEqual(expect.arrayContaining([

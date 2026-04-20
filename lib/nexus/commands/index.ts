@@ -5,6 +5,7 @@ import type { ExecutionSelection } from '../execution-topology';
 import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
 import type {
   CanonicalCommandId,
+  CompletionAdvisorRecord,
   ContinuationMode,
   ReviewAdvisoryDisposition,
   StageStatus,
@@ -34,6 +35,7 @@ export interface CommandContext {
 export interface CommandResult {
   command: CanonicalCommandId;
   status: StageStatus;
+  completion_advisor?: CompletionAdvisorRecord | null;
 }
 
 interface CommandInvocation {

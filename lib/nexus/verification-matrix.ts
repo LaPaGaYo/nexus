@@ -48,6 +48,18 @@ function normalizeReviewMode(value: unknown): ReviewScopeMode {
   return value === 'bounded_fix_cycle' ? 'bounded_fix_cycle' : 'full_acceptance';
 }
 
+function browserFacingSurface(surface: string): boolean {
+  return /(apps\/web|src\/app|src\/components|page\.(tsx|jsx|ts|js)|layout\.(tsx|jsx|ts|js))/i.test(surface);
+}
+
+function authFacingSurface(surface: string): boolean {
+  return /(auth|login|signup|session|middleware|clerk|oauth)/i.test(surface);
+}
+
+function securitySensitiveSurface(surface: string): boolean {
+  return /(auth|rbac|permission|permissions|middleware|webhook|session|token|secret|oauth|clerk|login|signup|api\/admin|server\/api)/i.test(surface);
+}
+
 function buildDefaultVerificationMatrix(
   runId: string,
   generatedAt: string,
@@ -58,6 +70,9 @@ function buildDefaultVerificationMatrix(
   const verificationRequired = designIntent.verification_required;
   const qaRequired = verificationRequired || designImpact !== 'none';
   const designVerificationRequired = designImpact !== 'none';
+  const browserFacing = designImpact !== 'none' || designIntent.affected_surfaces.some(browserFacingSurface);
+  const authFacing = designIntent.affected_surfaces.some(authFacingSurface);
+  const securitySensitive = designIntent.affected_surfaces.some(securitySensitiveSurface);
 
   return {
     schema_version: 1,
@@ -128,6 +143,42 @@ function buildDefaultVerificationMatrix(
         required: false,
       },
     },
+    support_skill_signals: {
+      design_review: {
+        suggested: designImpact !== 'none',
+        reason: designImpact !== 'none'
+          ? 'Design-bearing work should expose `/design-review` as a first-class follow-on.'
+          : null,
+      },
+      browse: {
+        suggested: browserFacing,
+        reason: browserFacing
+          ? 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.'
+          : null,
+      },
+      benchmark: {
+        suggested: true,
+        reason: 'The verification matrix supports benchmark evidence for this run.',
+      },
+      cso: {
+        suggested: securitySensitive,
+        reason: securitySensitive
+          ? 'Auth, permission, webhook, or security-sensitive surfaces changed, so `/cso` should be available.'
+          : null,
+      },
+      connect_chrome: {
+        suggested: browserFacing,
+        reason: browserFacing
+          ? 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.'
+          : null,
+      },
+      setup_browser_cookies: {
+        suggested: browserFacing && authFacing,
+        reason: browserFacing && authFacing
+          ? 'Authenticated browser verification is likely relevant, so `/setup-browser-cookies` should be available.'
+          : null,
+      },
+    },
   };
 }
 
@@ -169,6 +220,18 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
   const qa = isObject(obligations.qa) ? obligations.qa : {};
   const ship = isObject(obligations.ship) ? obligations.ship : {};
   const attachedEvidence = isObject(raw.attached_evidence) ? raw.attached_evidence : {};
+  const supportSkillSignals = isObject(raw.support_skill_signals) ? raw.support_skill_signals : {};
+
+  function normalizeSkillSignal(
+    value: unknown,
+    fallbackSignal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
+  ) {
+    const signal = isObject(value) ? value : {};
+    return {
+      suggested: normalizeBoolean(signal.suggested, fallbackSignal.suggested),
+      reason: typeof signal.reason === 'string' ? signal.reason : fallbackSignal.reason,
+    };
+  }
 
   return {
     schema_version: 1,
@@ -242,6 +305,20 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
           fallback.attached_evidence.qa_only.required,
         ),
       },
+    },
+    support_skill_signals: {
+      design_review: normalizeSkillSignal(supportSkillSignals.design_review, fallback.support_skill_signals.design_review),
+      browse: normalizeSkillSignal(supportSkillSignals.browse, fallback.support_skill_signals.browse),
+      benchmark: normalizeSkillSignal(supportSkillSignals.benchmark, fallback.support_skill_signals.benchmark),
+      cso: normalizeSkillSignal(supportSkillSignals.cso, fallback.support_skill_signals.cso),
+      connect_chrome: normalizeSkillSignal(
+        supportSkillSignals.connect_chrome,
+        fallback.support_skill_signals.connect_chrome,
+      ),
+      setup_browser_cookies: normalizeSkillSignal(
+        supportSkillSignals.setup_browser_cookies,
+        fallback.support_skill_signals.setup_browser_cookies,
+      ),
     },
   };
 }

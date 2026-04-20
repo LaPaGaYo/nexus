@@ -415,8 +415,10 @@ cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts review
 
 ## Completion Advisor
 
-After `/review` returns, treat `.planning/current/review/completion-advisor.json` as the canonical
-next-step contract.
+After `/review` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
+filesystem access, or the field is absent, fall back to `.planning/current/review/completion-advisor.json`.
+If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
+envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
 
 Read and summarize:
 
@@ -433,7 +435,11 @@ Read and summarize:
 - `suppressed_surfaces`
 - `default_action_id`
 
-If the session is interactive, Always use AskUserQuestion for `/review` completion.
+If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
+`summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
+
+If the session is interactive and `interaction_mode` is not `summary_only`, Always use
+AskUserQuestion for `/review` completion.
 
 If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
 
@@ -456,8 +462,9 @@ the exact governed choices, including:
 - `/qa --review-advisory-disposition continue_to_qa`
 - `/qa --review-advisory-disposition defer_to_follow_on`
 
-If the advisor recommends `/design-review`, that came from design-bearing verification context and
-should be offered as a side skill after the canonical governed action.
+If the advisor recommends `/design-review`, `/benchmark`, or `/cso`, those came from structured
+verification-matrix support skill signals and should be offered as side skills after the canonical
+governed action.
 
 If the session is non-interactive, print the advisor `summary` and the invocation for the
-`default_action_id`.
+`default_action_id` when one exists.

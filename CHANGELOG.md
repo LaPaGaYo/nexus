@@ -9,6 +9,8 @@ patch releases ship as standalone release notes under `docs/releases/`; this
 index gives the quick user-facing delta without forcing users to hunt through
 tags.
 
+- **[v1.0.41](docs/releases/2026-04-20-nexus-v1.0.41.md)** — verification matrices now expose structured support-skill signals for design, browser, benchmark, security, and authenticated QA flows; stage advisors consume those signals; and `bin/nexus.ts` now supports standardized `json-with-advisor`, `json`, and `human` output modes.
+- **[v1.0.40](docs/releases/2026-04-20-nexus-v1.0.40.md)** — governed review retries now bind attempt/request identity, late stale audit replies no longer pollute current truth, and CCB dispatch recovery records superseded state plus retry provenance for Codex and Gemini false-starts.
 - **[v1.0.39](docs/releases/2026-04-20-nexus-v1.0.39.md)** — canonical stages now emit runtime-owned `completion-advisor.json` artifacts, stage skills consume those advisor contracts for interaction text, and design-bearing runs surface `/plan-design-review`, `/design-review`, and `/browse` through the same governed next-step layer.
 - **[v1.0.38](docs/releases/2026-04-20-nexus-v1.0.38.md)** — `/ship` now creates GitHub PR handoff metadata from the governed execution workspace rather than the repo root, so run-owned worktrees stop opening PRs from the wrong branch direction.
 - **[v1.0.37](docs/releases/2026-04-20-nexus-v1.0.37.md)** — QA fix-cycle `/build` now preserves canonical build routing instead of inheriting QA routing, and `/review` can recover the canonical requested audit route when older poisoned build artifacts would otherwise false-block on route divergence.

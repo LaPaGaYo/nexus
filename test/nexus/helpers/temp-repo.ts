@@ -4,6 +4,7 @@ import { join } from 'path';
 import { getDefaultNexusAdapters } from '../../../lib/nexus/adapters/registry';
 import type { NexusAdapters } from '../../../lib/nexus/adapters/types';
 import { resolveInvocation } from '../../../lib/nexus/commands/index';
+import type { CommandResult } from '../../../lib/nexus/commands/index';
 import type { ExecutionSelection } from '../../../lib/nexus/execution-topology';
 import type { ReviewAdvisoryDisposition } from '../../../lib/nexus/types';
 
@@ -17,7 +18,7 @@ interface TempRepoRun {
     adapters?: NexusAdapters,
     execution?: ExecutionSelection,
     options?: TempRepoInvocationOptions,
-  ): Promise<void>;
+  ): Promise<CommandResult>;
   readJson: (path: string) => Promise<any>;
   readFile: (path: string) => Promise<string>;
 }
@@ -41,7 +42,7 @@ export async function runInTempRepo(
       options: TempRepoInvocationOptions = {},
     ) => {
       const invocation = resolveInvocation(command);
-      await invocation.handler({
+      return await invocation.handler({
         cwd,
         clock: () => new Date().toISOString(),
         via: invocation.via,

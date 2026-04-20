@@ -903,11 +903,38 @@ describe('nexus types', () => {
           required: false,
         },
       },
+      support_skill_signals: {
+        design_review: {
+          suggested: true,
+          reason: 'Design-bearing work should expose `/design-review` as a first-class follow-on.',
+        },
+        browse: {
+          suggested: true,
+          reason: 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.',
+        },
+        benchmark: {
+          suggested: true,
+          reason: 'The verification matrix supports benchmark evidence for this run.',
+        },
+        cso: {
+          suggested: true,
+          reason: 'Auth, permission, webhook, or security-sensitive surfaces changed, so `/cso` should be available.',
+        },
+        connect_chrome: {
+          suggested: true,
+          reason: 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.',
+        },
+        setup_browser_cookies: {
+          suggested: true,
+          reason: 'Authenticated browser verification is likely relevant, so `/setup-browser-cookies` should be available.',
+        },
+      },
     };
 
     expect(matrix.obligations.review.mode).toBe('full_acceptance');
     expect(matrix.obligations.qa.design_verification_required).toBe(true);
     expect(matrix.attached_evidence.qa_only.required).toBe(false);
+    expect(matrix.support_skill_signals.cso.suggested).toBe(true);
 
     const canary: CanaryStatusRecord = {
       schema_version: 1,

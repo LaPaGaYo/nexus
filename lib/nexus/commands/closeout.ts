@@ -575,7 +575,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       ledger: nextLedger,
     });
 
-    return { command: 'closeout', status };
+    return { command: 'closeout', status, completion_advisor: completionAdvisor };
   } catch (error) {
     const conflict: ConflictRecord = {
       stage: 'closeout',

@@ -634,5 +634,5 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     ledger: next,
   });
 
-  return { command: 'ship', status };
+  return { command: 'ship', status, completion_advisor: completionAdvisor };
 }

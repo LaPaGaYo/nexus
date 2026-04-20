@@ -38,8 +38,10 @@ Run:
 
 ## Completion Advisor
 
-After `/ship` returns, treat `.planning/current/ship/completion-advisor.json` as the canonical
-next-step contract.
+After `/ship` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
+filesystem access, or the field is absent, fall back to `.planning/current/ship/completion-advisor.json`.
+If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
+envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
 
 Read and summarize:
 
@@ -55,7 +57,11 @@ Read and summarize:
 - `suppressed_surfaces`
 - `default_action_id`
 
-If the session is interactive, Always use AskUserQuestion for `/ship` completion.
+If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
+`summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
+
+If the session is interactive and `interaction_mode` is not `summary_only`, Always use
+AskUserQuestion for `/ship` completion.
 
 If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
 
@@ -78,4 +84,4 @@ The advisor is where ship-level deploy awareness now lives. Use it to surface:
 - `/document-release` as follow-on release hygiene
 
 If the session is non-interactive, print the advisor `summary` and the invocation for the
-`default_action_id`.
+`default_action_id` when one exists.

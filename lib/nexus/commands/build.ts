@@ -979,5 +979,5 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     ledger: next,
   });
 
-  return { command: 'build', status };
+  return { command: 'build', status, completion_advisor: completionAdvisor };
 }

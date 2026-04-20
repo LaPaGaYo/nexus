@@ -37,8 +37,10 @@ Run:
 
 ## Completion Advisor
 
-After `/qa` returns, treat `.planning/current/qa/completion-advisor.json` as the canonical
-next-step contract.
+After `/qa` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
+filesystem access, or the field is absent, fall back to `.planning/current/qa/completion-advisor.json`.
+If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
+envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
 
 Read and summarize:
 
@@ -54,7 +56,11 @@ Read and summarize:
 - `suppressed_surfaces`
 - `default_action_id`
 
-If the session is interactive, Always use AskUserQuestion for `/qa` completion.
+If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
+`summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
+
+If the session is interactive and `interaction_mode` is not `summary_only`, Always use
+AskUserQuestion for `/qa` completion.
 
 If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
 
@@ -69,11 +75,12 @@ If `interaction_mode` is `recommended_choice`, present:
 Use each action's `label` and `description`. If an action has `visibility_reason`, include it in
 the explanation so the user sees why it is showing up now.
 
-For design-bearing runs, or when the verification matrix supports additional evidence, the advisor
-may surface `/design-review`, `/browse`, and `/benchmark`. Keep `/ship` first when QA is ready.
+For design-bearing runs, browser-facing runs, or when the verification matrix surfaces additional
+support skill signals, the advisor may surface `/design-review`, `/browse`, `/benchmark`,
+`/connect-chrome`, `/setup-browser-cookies`, and `/cso`. Keep `/ship` first when QA is ready.
 
 If QA is not ready, do not improvise. Follow the advisor back into the bounded fix cycle through
 `/build`.
 
 If the session is non-interactive, print the advisor `summary` and the invocation for the
-`default_action_id`.
+`default_action_id` when one exists.

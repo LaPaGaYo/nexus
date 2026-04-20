@@ -334,5 +334,5 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     ledger: next,
   });
 
-  return { command: 'handoff', status };
+  return { command: 'handoff', status, completion_advisor: completionAdvisor };
 }

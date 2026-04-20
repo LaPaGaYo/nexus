@@ -5,6 +5,9 @@ import {
   type ReviewAdvisoryDisposition,
 } from './types';
 
+export const RUNTIME_OUTPUT_MODES = ['json-with-advisor', 'json', 'human'] as const;
+export type RuntimeOutputMode = (typeof RUNTIME_OUTPUT_MODES)[number];
+
 function parseContinuationMode(value: string | undefined | null): ContinuationMode | null {
   const normalized = value?.trim();
   if (!normalized) {
@@ -35,10 +38,26 @@ function parseReviewAdvisoryDisposition(value: string | undefined | null): Revie
   );
 }
 
+function parseOutputMode(value: string | undefined | null): RuntimeOutputMode | null {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if ((RUNTIME_OUTPUT_MODES as readonly string[]).includes(normalized)) {
+    return normalized as RuntimeOutputMode;
+  }
+
+  throw new Error(
+    `Invalid output mode "${normalized}". Expected one of: ${RUNTIME_OUTPUT_MODES.join(', ')}`,
+  );
+}
+
 export interface RuntimeInvocation {
   command: string;
   continuationModeOverride: ContinuationMode | null;
   reviewAdvisoryDispositionOverride: ReviewAdvisoryDisposition | null;
+  outputMode: RuntimeOutputMode;
 }
 
 export function resolveRuntimeInvocation(
@@ -52,6 +71,7 @@ export function resolveRuntimeInvocation(
 
   let cliContinuationMode: ContinuationMode | null = null;
   let cliReviewAdvisoryDisposition: ReviewAdvisoryDisposition | null = null;
+  let cliOutputMode: RuntimeOutputMode | null = null;
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
     if (arg === '--continuation-mode') {
@@ -70,14 +90,24 @@ export function resolveRuntimeInvocation(
       index += 1;
       continue;
     }
+    if (arg === '--output') {
+      cliOutputMode = parseOutputMode(rest[index + 1] ?? null);
+      if (!cliOutputMode) {
+        throw new Error('--output requires a value');
+      }
+      index += 1;
+      continue;
+    }
 
     throw new Error(`Unknown Nexus argument: ${arg}`);
   }
 
   const envContinuationMode = parseContinuationMode(env.NEXUS_CONTINUATION_MODE ?? null);
   const envReviewAdvisoryDisposition = parseReviewAdvisoryDisposition(env.NEXUS_REVIEW_ADVISORY_DISPOSITION ?? null);
+  const envOutputMode = parseOutputMode(env.NEXUS_OUTPUT_MODE ?? null);
   const continuationModeOverride = cliContinuationMode ?? envContinuationMode;
   const reviewAdvisoryDispositionOverride = cliReviewAdvisoryDisposition ?? envReviewAdvisoryDisposition;
+  const outputMode = cliOutputMode ?? envOutputMode ?? 'json-with-advisor';
 
   if (continuationModeOverride && command !== 'discover') {
     throw new Error('Continuation mode override is only supported for discover');
@@ -93,5 +123,6 @@ export function resolveRuntimeInvocation(
     command,
     continuationModeOverride,
     reviewAdvisoryDispositionOverride,
+    outputMode,
   };
 }

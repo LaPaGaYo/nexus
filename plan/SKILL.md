@@ -412,8 +412,10 @@ cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts plan
 
 ## Completion Advisor
 
-After `/plan` returns, treat `.planning/current/plan/completion-advisor.json` as the canonical
-next-step contract.
+After `/plan` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
+filesystem access, or the field is absent, fall back to `.planning/current/plan/completion-advisor.json`.
+If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
+envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
 
 Read and summarize:
 
@@ -428,7 +430,11 @@ Read and summarize:
 - `suppressed_surfaces`
 - `default_action_id`
 
-If the session is interactive, Always use AskUserQuestion for `/plan` completion.
+If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
+`summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
+
+If the session is interactive and `interaction_mode` is not `summary_only`, Always use
+AskUserQuestion for `/plan` completion.
 
 If `interaction_mode` is `recommended_choice`, present:
 
@@ -448,4 +454,4 @@ If the advisor surfaces `/plan-design-review`, that is design-driven follow-on w
 `/handoff`.
 
 If the session is non-interactive, do not call AskUserQuestion. Print the advisor `summary` and
-the invocation for the `default_action_id`.
+the invocation for the `default_action_id` when one exists.

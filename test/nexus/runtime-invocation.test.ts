@@ -38,6 +38,27 @@ describe('resolveRuntimeInvocation', () => {
     expect(resolved.reviewAdvisoryDispositionOverride).toBe('defer_to_follow_on');
   });
 
+  test('parses output mode from the CLI flag', () => {
+    const resolved = resolveRuntimeInvocation(['qa', '--output', 'human'], {});
+
+    expect(resolved.outputMode).toBe('human');
+  });
+
+  test('prefers the CLI output mode over NEXUS_OUTPUT_MODE', () => {
+    const resolved = resolveRuntimeInvocation(
+      ['qa', '--output', 'json'],
+      { NEXUS_OUTPUT_MODE: 'human' },
+    );
+
+    expect(resolved.outputMode).toBe('json');
+  });
+
+  test('uses NEXUS_OUTPUT_MODE when the CLI flag is absent', () => {
+    const resolved = resolveRuntimeInvocation(['qa'], { NEXUS_OUTPUT_MODE: 'human' });
+
+    expect(resolved.outputMode).toBe('human');
+  });
+
   test('rejects invalid continuation modes', () => {
     expect(() => resolveRuntimeInvocation(['discover', '--continuation-mode', 'milestone'], {})).toThrow(
       /Invalid continuation mode/i,
@@ -47,6 +68,12 @@ describe('resolveRuntimeInvocation', () => {
   test('rejects invalid review advisory dispositions', () => {
     expect(() => resolveRuntimeInvocation(['qa', '--review-advisory-disposition', 'later'], {})).toThrow(
       /Invalid review advisory disposition/i,
+    );
+  });
+
+  test('rejects invalid output modes', () => {
+    expect(() => resolveRuntimeInvocation(['qa', '--output', 'pretty'], {})).toThrow(
+      /Invalid output mode/i,
     );
   });
 
