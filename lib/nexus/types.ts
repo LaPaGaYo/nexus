@@ -119,6 +119,13 @@ export const COMPLETION_ADVISOR_ACTION_KINDS = [
 ] as const;
 export type CompletionAdvisorActionKind = (typeof COMPLETION_ADVISOR_ACTION_KINDS)[number];
 
+export const COMPLETION_ADVISOR_INTERACTION_MODES = [
+  'required_choice',
+  'recommended_choice',
+  'summary_only',
+] as const;
+export type CompletionAdvisorInteractionMode = (typeof COMPLETION_ADVISOR_INTERACTION_MODES)[number];
+
 export const DESIGN_IMPACTS = ['none', 'touchup', 'material'] as const;
 export type DesignImpact = (typeof DESIGN_IMPACTS)[number];
 
@@ -660,6 +667,7 @@ export interface CompletionAdvisorActionRecord {
   label: string;
   description: string;
   recommended: boolean;
+  visibility_reason: string | null;
 }
 
 export interface CompletionAdvisorRecord {
@@ -668,6 +676,7 @@ export interface CompletionAdvisorRecord {
   stage: CanonicalCommandId;
   generated_at: string;
   stage_outcome: CompletionAdvisorOutcome;
+  interaction_mode: CompletionAdvisorInteractionMode;
   summary: string;
   requires_user_choice: boolean;
   choice_reason: string | null;
@@ -675,8 +684,11 @@ export interface CompletionAdvisorRecord {
   primary_next_actions: CompletionAdvisorActionRecord[];
   alternative_next_actions: CompletionAdvisorActionRecord[];
   recommended_side_skills: CompletionAdvisorActionRecord[];
+  stop_action: CompletionAdvisorActionRecord | null;
+  project_setup_gaps: string[];
   hidden_compat_aliases: string[];
   hidden_utility_skills: string[];
+  suppressed_surfaces: string[];
 }
 
 export interface SessionContinuationAdviceRecord {

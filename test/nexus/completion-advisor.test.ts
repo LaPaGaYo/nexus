@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildCloseoutCompletionAdvisor,
   buildFrameCompletionAdvisor,
+  buildPlanCompletionAdvisor,
+  buildQaCompletionAdvisor,
   buildReviewCompletionAdvisor,
   buildShipCompletionAdvisor,
 } from '../../lib/nexus/completion-advisor';
@@ -102,10 +104,18 @@ describe('nexus completion advisor', () => {
       schema_version: 1,
       run_id: 'run-1',
       stage: 'frame',
+      interaction_mode: 'recommended_choice',
       requires_user_choice: false,
       default_action_id: 'run_plan',
       hidden_compat_aliases: ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'],
       hidden_utility_skills: ['/careful', '/freeze', '/guard', '/unfreeze', '/nexus-upgrade'],
+      stop_action: expect.objectContaining({
+        kind: 'stop',
+        label: 'Stop here',
+      }),
+      project_setup_gaps: [
+        'Design work is in scope, but no design contract artifact is attached yet.',
+      ],
     });
     expect(advisor.primary_next_actions).toEqual([
       expect.objectContaining({
@@ -114,9 +124,49 @@ describe('nexus completion advisor', () => {
         invocation: '/plan',
       }),
     ]);
+    expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        surface: '/plan-design-review',
+        visibility_reason: 'The run is design-bearing and should tighten the design contract before execution.',
+      }),
+      expect.objectContaining({
+        surface: '/design-consultation',
+        visibility_reason: 'Design work is in scope but no design contract artifact has been recorded yet.',
+      }),
+    ]));
+    expect(advisor.suppressed_surfaces).toContain('/plan-ceo-review');
+  });
+
+  test('plan advisor is always interactive and carries design-aware setup gaps forward', () => {
+    const status: StageStatus = {
+      ...readyStatus('plan'),
+      design_impact: 'material',
+      design_contract_required: true,
+      design_contract_path: null,
+      design_verified: false,
+    };
+
+    const advisor = buildPlanCompletionAdvisor(
+      status,
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    expect(advisor).toMatchObject({
+      interaction_mode: 'recommended_choice',
+      requires_user_choice: false,
+      stop_action: expect.objectContaining({
+        kind: 'stop',
+        label: 'Stop here',
+      }),
+      project_setup_gaps: [
+        'Design verification is still expected before handoff on this run.',
+      ],
+    });
     expect(advisor.recommended_side_skills).toEqual([
       expect.objectContaining({
         surface: '/plan-design-review',
+        visibility_reason: 'The verification matrix marks this run as design-bearing.',
       }),
     ]);
   });
@@ -139,13 +189,47 @@ describe('nexus completion advisor', () => {
     );
 
     expect(advisor.requires_user_choice).toBe(true);
+    expect(advisor.interaction_mode).toBe('required_choice');
     expect(advisor.choice_reason).toContain('advisories');
+    expect(advisor.stop_action).toBeNull();
     expect(advisor.primary_next_actions.map((action) => action.invocation)).toEqual([
       '/build --review-advisory-disposition fix_before_qa',
       '/qa --review-advisory-disposition continue_to_qa',
       '/qa --review-advisory-disposition defer_to_follow_on',
     ]);
     expect(advisor.recommended_side_skills).toEqual([]);
+  });
+
+  test('qa advisor always offers a stop path when ready and keeps design support in the surfaced options', () => {
+    const status: StageStatus = {
+      ...readyStatus('qa'),
+      design_impact: 'material',
+    };
+
+    const advisor = buildQaCompletionAdvisor(
+      status,
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    expect(advisor).toMatchObject({
+      interaction_mode: 'recommended_choice',
+      requires_user_choice: false,
+      stop_action: expect.objectContaining({
+        kind: 'stop',
+        label: 'Stop here',
+      }),
+    });
+    expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        surface: '/design-review',
+        visibility_reason: 'Design-bearing runs should get a final visual audit before the release gate.',
+      }),
+      expect.objectContaining({
+        surface: '/browse',
+        visibility_reason: 'This run changes browser-facing surfaces and should be checked in the browser.',
+      }),
+    ]));
   });
 
   test('ship and closeout advisors surface deploy and follow-on work without exposing utilities', () => {
@@ -192,6 +276,16 @@ describe('nexus completion advisor', () => {
       deployReadiness,
       '2026-04-20T00:00:00.000Z',
     );
+    expect(shipAdvisor).toMatchObject({
+      interaction_mode: 'recommended_choice',
+      stop_action: expect.objectContaining({
+        kind: 'stop',
+        label: 'Stop here',
+      }),
+      project_setup_gaps: [
+        'Deploy contract is not configured for the primary surface yet.',
+      ],
+    });
     expect(shipAdvisor.primary_next_actions.map((action) => action.surface)).toEqual([
       '/closeout',
       '/land-and-deploy',
@@ -216,6 +310,13 @@ describe('nexus completion advisor', () => {
       false,
       '2026-04-20T00:00:00.000Z',
     );
+    expect(closeoutAdvisor).toMatchObject({
+      interaction_mode: 'recommended_choice',
+      stop_action: expect.objectContaining({
+        kind: 'stop',
+        label: 'Stop here',
+      }),
+    });
     expect(closeoutAdvisor.primary_next_actions.map((action) => action.surface)).toEqual(['/discover']);
     expect(closeoutAdvisor.recommended_side_skills.map((action) => action.surface)).toEqual([
       '/land-and-deploy',
@@ -372,14 +473,19 @@ describe('nexus completion advisor', () => {
       await run('closeout', adapters);
 
       const frameAdvisor = await run.readJson(stageCompletionAdvisorPath('frame')) as CompletionAdvisorRecord;
-      expect(frameAdvisor.recommended_side_skills).toEqual([
+      expect(frameAdvisor.recommended_side_skills).toEqual(expect.arrayContaining([
         expect.objectContaining({ surface: '/plan-design-review' }),
-      ]);
+        expect.objectContaining({ surface: '/design-consultation' }),
+      ]));
+      expect(frameAdvisor.interaction_mode).toBe('recommended_choice');
+      expect(frameAdvisor.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
 
       const planAdvisor = await run.readJson(stageCompletionAdvisorPath('plan')) as CompletionAdvisorRecord;
       expect(planAdvisor.primary_next_actions).toEqual([
         expect.objectContaining({ surface: '/handoff' }),
       ]);
+      expect(planAdvisor.interaction_mode).toBe('recommended_choice');
+      expect(planAdvisor.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
 
       const handoffAdvisor = await run.readJson(stageCompletionAdvisorPath('handoff')) as CompletionAdvisorRecord;
       expect(handoffAdvisor.primary_next_actions).toEqual([
@@ -393,11 +499,15 @@ describe('nexus completion advisor', () => {
         '/qa --review-advisory-disposition continue_to_qa',
         '/qa --review-advisory-disposition defer_to_follow_on',
       ]);
+      expect(reviewAdvisor.interaction_mode).toBe('required_choice');
+      expect(reviewAdvisor.stop_action).toBeNull();
 
       const qaAdvisor = await run.readJson(stageCompletionAdvisorPath('qa')) as CompletionAdvisorRecord;
       expect(qaAdvisor.primary_next_actions).toEqual([
         expect.objectContaining({ surface: '/ship' }),
       ]);
+      expect(qaAdvisor.interaction_mode).toBe('recommended_choice');
+      expect(qaAdvisor.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
       expect(qaAdvisor.recommended_side_skills).toEqual(expect.arrayContaining([
         expect.objectContaining({ surface: '/benchmark' }),
         expect.objectContaining({ surface: '/design-review' }),
@@ -409,6 +519,8 @@ describe('nexus completion advisor', () => {
         expect.objectContaining({ surface: '/closeout' }),
         expect.objectContaining({ surface: '/land-and-deploy' }),
       ]));
+      expect(shipAdvisor.interaction_mode).toBe('recommended_choice');
+      expect(shipAdvisor.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
       expect(shipAdvisor.recommended_side_skills).toEqual(expect.arrayContaining([
         expect.objectContaining({ surface: '/setup-deploy' }),
         expect.objectContaining({ surface: '/document-release' }),
@@ -418,6 +530,8 @@ describe('nexus completion advisor', () => {
       expect(closeoutAdvisor.primary_next_actions).toEqual([
         expect.objectContaining({ surface: '/discover' }),
       ]);
+      expect(closeoutAdvisor.interaction_mode).toBe('recommended_choice');
+      expect(closeoutAdvisor.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
       expect(closeoutAdvisor.recommended_side_skills).toEqual(expect.arrayContaining([
         expect.objectContaining({ surface: '/retro' }),
         expect.objectContaining({ surface: '/learn' }),

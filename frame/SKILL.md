@@ -418,24 +418,34 @@ next-step contract.
 Read and summarize:
 
 - `summary`
+- `interaction_mode`
 - `requires_user_choice`
 - `primary_next_actions`
 - `alternative_next_actions`
 - `recommended_side_skills`
+- `stop_action`
+- `project_setup_gaps`
+- `suppressed_surfaces`
 - `default_action_id`
 
-If the session is interactive and the advisor exposes multiple meaningful next actions, use
-AskUserQuestion. Present each option using the advisor action's `label` and `description`.
-Order options by:
+If the session is interactive, Always use AskUserQuestion for `/frame` completion.
+
+If `interaction_mode` is `recommended_choice`, present:
 
 1. recommended primary action
 2. other primary actions
 3. alternatives
 4. recommended side skills
+5. `stop_action`
 
-If the advisor surfaces `/plan-design-review`, that means the run is design-bearing. Keep the
-canonical path anchored on `/plan`; do not surface compatibility aliases like `/plan-ceo-review`
-or `/plan-eng-review`.
+If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
+
+Use each action's `label` and `description`. If an action has `visibility_reason`, include it in
+the explanation so the user sees why it is showing up now.
+
+If the advisor surfaces `/plan-design-review` or `/design-consultation`, that means the run is
+design-bearing or still lacks a stable design contract. Keep the canonical path anchored on
+`/plan`.
 
 If the session is non-interactive, do not call AskUserQuestion. Print the advisor `summary` and
 the invocation for the `default_action_id`.

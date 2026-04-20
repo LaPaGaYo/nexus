@@ -25,6 +25,7 @@ function action(
   label: string,
   description: string,
   recommended = false,
+  visibilityReason: string | null = null,
 ): CompletionAdvisorActionRecord {
   return {
     id,
@@ -34,7 +35,25 @@ function action(
     label,
     description,
     recommended,
+    visibility_reason: visibilityReason,
   };
+}
+
+function stopAction(stage: StageStatus['stage']): CompletionAdvisorActionRecord {
+  return action(
+    `stop_after_${stage}`,
+    'stop',
+    'stop',
+    null,
+    'Stop here',
+    'Do not advance yet. Keep the current artifacts as-is and decide on the next step later.',
+    false,
+    'Always available as the minimal non-advancing choice after a completed stage.',
+  );
+}
+
+function suppressedSurfaces(): string[] {
+  return [...HIDDEN_COMPAT_ALIASES, ...HIDDEN_UTILITY_SKILLS];
 }
 
 function outcomeForStatus(status: Pick<StageStatus, 'state' | 'ready'>): CompletionAdvisorRecord['stage_outcome'] {
@@ -59,6 +78,7 @@ function baseAdvisor(
     stage: status.stage,
     generated_at: generatedAt,
     stage_outcome: outcomeForStatus(status),
+    interaction_mode: 'summary_only',
     summary,
     requires_user_choice: false,
     choice_reason: null,
@@ -66,8 +86,11 @@ function baseAdvisor(
     primary_next_actions: [],
     alternative_next_actions: [],
     recommended_side_skills: [],
+    stop_action: null,
+    project_setup_gaps: [],
     hidden_compat_aliases: [...HIDDEN_COMPAT_ALIASES],
     hidden_utility_skills: [...HIDDEN_UTILITY_SKILLS],
+    suppressed_surfaces: suppressedSurfaces(),
     ...overrides,
   };
 }
@@ -76,6 +99,8 @@ export function buildFrameCompletionAdvisor(
   status: StageStatus,
   generatedAt: string,
 ): CompletionAdvisorRecord {
+  const setupGaps: string[] = [];
+  const sideSkills: CompletionAdvisorActionRecord[] = [];
   const primary = action(
     'run_plan',
     'canonical_stage',
@@ -84,28 +109,49 @@ export function buildFrameCompletionAdvisor(
     'Run `/plan`',
     'Turn framing into an execution-ready packet.',
     true,
+    'Framing is complete and planning is the canonical next lifecycle step.',
   );
-  const sideSkills = designBearing(status.design_impact)
-    ? [
-        action(
-          'run_plan_design_review',
-          'support_skill',
-          '/plan-design-review',
-          '/plan-design-review',
-          'Run `/plan-design-review`',
-          'Tighten the design contract before execution on a design-bearing run.',
-        ),
-      ]
-    : [];
+  if (designBearing(status.design_impact)) {
+    sideSkills.push(
+      action(
+        'run_plan_design_review',
+        'support_skill',
+        '/plan-design-review',
+        '/plan-design-review',
+        'Run `/plan-design-review`',
+        'Tighten the design contract before execution on a design-bearing run.',
+        false,
+        'The run is design-bearing and should tighten the design contract before execution.',
+      ),
+    );
+  }
+  if (status.design_contract_required && !status.design_contract_path) {
+    setupGaps.push('Design work is in scope, but no design contract artifact is attached yet.');
+    sideSkills.push(
+      action(
+        'run_design_consultation',
+        'support_skill',
+        '/design-consultation',
+        '/design-consultation',
+        'Run `/design-consultation`',
+        'Create or tighten the design system before planning moves deeper into execution.',
+        false,
+        'Design work is in scope but no design contract artifact has been recorded yet.',
+      ),
+    );
+  }
 
   return baseAdvisor(
     status,
     generatedAt,
     'Framing is complete. The canonical next step is planning.',
     {
+      interaction_mode: 'recommended_choice',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       recommended_side_skills: sideSkills,
+      stop_action: stopAction('frame'),
+      project_setup_gaps: setupGaps,
     },
   );
 }
@@ -115,6 +161,7 @@ export function buildPlanCompletionAdvisor(
   verificationMatrix: VerificationMatrixRecord | null,
   generatedAt: string,
 ): CompletionAdvisorRecord {
+  const setupGaps: string[] = [];
   const primary = action(
     'run_handoff',
     'canonical_stage',
@@ -123,6 +170,7 @@ export function buildPlanCompletionAdvisor(
     'Run `/handoff`',
     'Freeze governed routing and provider intent before bounded execution.',
     true,
+    'Planning is complete and governed handoff is the canonical next lifecycle step.',
   );
   const sideSkills = designBearing(verificationMatrix?.design_impact ?? status.design_impact)
     ? [
@@ -133,18 +181,29 @@ export function buildPlanCompletionAdvisor(
           '/plan-design-review',
           'Run `/plan-design-review`',
           'Review the execution packet from a design perspective before handoff.',
+          false,
+          'The verification matrix marks this run as design-bearing.',
         ),
       ]
     : [];
+  if (!verificationMatrix) {
+    setupGaps.push('Verification matrix is missing from the planning artifacts.');
+  }
+  if (designBearing(verificationMatrix?.design_impact ?? status.design_impact) && status.design_verified !== true) {
+    setupGaps.push('Design verification is still expected before handoff on this run.');
+  }
 
   return baseAdvisor(
     status,
     generatedAt,
     'Planning is complete. Governed routing is the next canonical step.',
     {
+      interaction_mode: 'recommended_choice',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       recommended_side_skills: sideSkills,
+      stop_action: stopAction('plan'),
+      project_setup_gaps: setupGaps,
     },
   );
 }
@@ -161,6 +220,7 @@ export function buildHandoffCompletionAdvisor(
     'Run `/build`',
     'Execute the bounded governed implementation contract.',
     true,
+    'Governed handoff is complete and build is the canonical continuation.',
   );
 
   return baseAdvisor(
@@ -193,6 +253,9 @@ export function buildBuildCompletionAdvisor(
         ? 'Refresh governed routing before retrying the build.'
         : 'Investigate the blocking condition before retrying execution.',
       true,
+      recoverySurface === '/handoff'
+        ? 'The blocking errors point at route or handoff provenance problems.'
+        : 'The blocking errors need investigation before another bounded build attempt.',
     );
 
     return baseAdvisor(
@@ -215,6 +278,7 @@ export function buildBuildCompletionAdvisor(
     'Run `/review`',
     'Persist the formal audit set before moving deeper into the governed tail.',
     true,
+    'Build completed successfully and review is the canonical next stage.',
   );
   const sideSkills: CompletionAdvisorActionRecord[] = [];
   if (designBearing(verificationMatrix?.design_impact ?? status.design_impact)) {
@@ -226,6 +290,8 @@ export function buildBuildCompletionAdvisor(
         '/design-review',
         'Run `/design-review`',
         'Do a focused visual audit on a design-bearing implementation before formal review.',
+        false,
+        'Design-bearing runs benefit from a visual pass before the governed audit.',
       ),
       action(
         'run_browse',
@@ -234,6 +300,8 @@ export function buildBuildCompletionAdvisor(
         '/browse',
         'Run `/browse`',
         'Check the browser-facing surface directly before the governed audit.',
+        false,
+        'This run changes browser-facing surfaces and should be checked in the browser.',
       ),
     );
   }
@@ -260,6 +328,7 @@ function reviewDispositionActions(): CompletionAdvisorActionRecord[] {
       'Fix advisories before QA',
       'Run a bounded fix cycle now, then return through `/review` before QA.',
       true,
+      'Use this when you want to tighten non-blocking findings before formal QA.',
     ),
     action(
       'continue_to_qa',
@@ -268,6 +337,8 @@ function reviewDispositionActions(): CompletionAdvisorActionRecord[] {
       '/qa --review-advisory-disposition continue_to_qa',
       'Continue to `/qa`',
       'Carry the advisories forward as non-blocking context and proceed into QA.',
+      false,
+      'Use this when the advisories are acknowledged but not worth fixing before QA.',
     ),
     action(
       'defer_to_follow_on',
@@ -276,6 +347,8 @@ function reviewDispositionActions(): CompletionAdvisorActionRecord[] {
       '/qa --review-advisory-disposition defer_to_follow_on',
       'Defer to follow-on work',
       'Keep the mainline moving and record the advisories for `/ship`, `/closeout`, and follow-on work.',
+      false,
+      'Use this when the advisories should stay visible but move out of the critical path.',
     ),
   ];
 }
@@ -294,6 +367,7 @@ export function buildReviewCompletionAdvisor(
       'Run `/build`',
       'The review failed. A bounded fix cycle is required before QA.',
       true,
+      'A failing review cannot advance until the bounded fix cycle is complete.',
     );
     return baseAdvisor(
       status,
@@ -301,6 +375,7 @@ export function buildReviewCompletionAdvisor(
       'Review failed. The canonical next step is a bounded fix cycle through `/build`.',
       {
         stage_outcome: 'requires_choice',
+        interaction_mode: 'required_choice',
         requires_user_choice: true,
         choice_reason: 'review failed',
         default_action_id: primary.id,
@@ -317,6 +392,7 @@ export function buildReviewCompletionAdvisor(
       'Review passed with advisories. Choose whether to fix them now or carry them forward.',
       {
         stage_outcome: 'requires_choice',
+        interaction_mode: 'required_choice',
         requires_user_choice: true,
         choice_reason: 'review advisories require an explicit disposition',
         default_action_id: actions[0]?.id ?? null,
@@ -333,6 +409,7 @@ export function buildReviewCompletionAdvisor(
     'Run `/qa`',
     'Record governed QA validation before the release gate.',
     true,
+    'Review passed cleanly and QA is the recommended governed continuation.',
   );
   const alternatives = [
     action(
@@ -342,9 +419,25 @@ export function buildReviewCompletionAdvisor(
       '/ship',
       'Run `/ship`',
       'Skip directly to the release gate when that is the intended governed path.',
+      false,
+      'QA is usually next, but the lifecycle still permits an intentional direct move to ship.',
     ),
   ];
   const sideSkills: CompletionAdvisorActionRecord[] = [];
+  if (verificationMatrix?.attached_evidence.benchmark.supported) {
+    sideSkills.push(
+      action(
+        'run_benchmark',
+        'support_skill',
+        '/benchmark',
+        '/benchmark',
+        'Run `/benchmark`',
+        'Attach performance evidence before the release gate if this change is perf-sensitive.',
+        false,
+        'The verification matrix says benchmark evidence is supported for this run.',
+      ),
+    );
+  }
   if (designBearing(verificationMatrix?.design_impact ?? status.design_impact)) {
     sideSkills.push(
       action(
@@ -354,6 +447,8 @@ export function buildReviewCompletionAdvisor(
         '/design-review',
         'Run `/design-review`',
         'Polish the visual result before QA on a design-bearing run.',
+        false,
+        'Design-bearing runs should get a visual pass before QA or release gating.',
       ),
     );
   }
@@ -363,10 +458,12 @@ export function buildReviewCompletionAdvisor(
     generatedAt,
     'Review passed cleanly. QA is the recommended governed next step.',
     {
+      interaction_mode: 'recommended_choice',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       alternative_next_actions: alternatives,
       recommended_side_skills: sideSkills,
+      stop_action: stopAction('review'),
     },
   );
 }
@@ -385,6 +482,7 @@ export function buildQaCompletionAdvisor(
       'Run `/build`',
       'QA failed. A bounded fix cycle is required before ship.',
       true,
+      'A failing QA result cannot advance until the bounded fix cycle is complete.',
     );
     return baseAdvisor(
       status,
@@ -392,6 +490,7 @@ export function buildQaCompletionAdvisor(
       'QA failed. The canonical next step is a fix cycle through `/build`.',
       {
         stage_outcome: 'requires_choice',
+        interaction_mode: 'required_choice',
         requires_user_choice: true,
         choice_reason: 'qa failed',
         default_action_id: primary.id,
@@ -408,6 +507,7 @@ export function buildQaCompletionAdvisor(
     'Run `/ship`',
     'Record the release-gate decision and PR/deploy handoff.',
     true,
+    'QA passed and ship is the canonical next governed step.',
   );
   const sideSkills: CompletionAdvisorActionRecord[] = [];
   if (verificationMatrix?.attached_evidence.benchmark.supported) {
@@ -419,6 +519,8 @@ export function buildQaCompletionAdvisor(
         '/benchmark',
         'Run `/benchmark`',
         'Attach performance evidence before the release gate.',
+        false,
+        'The verification matrix says benchmark evidence is supported for this run.',
       ),
     );
   }
@@ -431,6 +533,8 @@ export function buildQaCompletionAdvisor(
         '/design-review',
         'Run `/design-review`',
         'Audit the visual result after QA on a design-bearing run.',
+        false,
+        'Design-bearing runs should get a final visual audit before the release gate.',
       ),
       action(
         'run_browse',
@@ -439,6 +543,8 @@ export function buildQaCompletionAdvisor(
         '/browse',
         'Run `/browse`',
         'Use the browser to verify the shipped UI path directly.',
+        false,
+        'This run changes browser-facing surfaces and should be checked in the browser.',
       ),
     );
   }
@@ -448,9 +554,11 @@ export function buildQaCompletionAdvisor(
     generatedAt,
     'QA is complete. Ship is the next governed step.',
     {
+      interaction_mode: 'recommended_choice',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       recommended_side_skills: sideSkills,
+      stop_action: stopAction('qa'),
     },
   );
 }
@@ -461,6 +569,7 @@ export function buildShipCompletionAdvisor(
   deployReadiness: DeployReadinessRecord | null,
   generatedAt: string,
 ): CompletionAdvisorRecord {
+  const setupGaps: string[] = [];
   const primary = [
     action(
       'run_closeout',
@@ -470,6 +579,7 @@ export function buildShipCompletionAdvisor(
       'Run `/closeout`',
       'Conclude the governed run and archive its canonical artifacts.',
       true,
+      'Closeout is the canonical next lifecycle step after ship records the release gate.',
     ),
     action(
       'run_land_and_deploy',
@@ -478,6 +588,8 @@ export function buildShipCompletionAdvisor(
       '/land-and-deploy',
       'Run `/land-and-deploy`',
       'Merge, deploy, and verify the primary deploy surface using the ship handoff.',
+      false,
+      'Landing and deployment is available now that ship has recorded PR and deploy handoff artifacts.',
     ),
   ];
   const sideSkills: CompletionAdvisorActionRecord[] = [
@@ -488,9 +600,12 @@ export function buildShipCompletionAdvisor(
       '/document-release',
       'Run `/document-release`',
       'Sync release notes and docs to the shipped surface.',
+      false,
+      'Release hygiene often continues immediately after ship records the gate.',
     ),
   ];
   if (!deployReadiness?.configured && verificationMatrix?.obligations.ship.deploy_readiness_required !== false) {
+    setupGaps.push('Deploy contract is not configured for the primary surface yet.');
     sideSkills.unshift(
       action(
         'run_setup_deploy',
@@ -499,6 +614,8 @@ export function buildShipCompletionAdvisor(
         '/setup-deploy',
         'Run `/setup-deploy`',
         'Author the canonical deploy contract before landing and deployment.',
+        false,
+        'Landing should not rely on inferred deploy behavior when the primary deploy contract is still missing.',
       ),
     );
   }
@@ -508,9 +625,12 @@ export function buildShipCompletionAdvisor(
     generatedAt,
     'Ship recorded the release gate. Close out the governed run or move into landing and deployment.',
     {
+      interaction_mode: 'recommended_choice',
       default_action_id: primary[0]?.id ?? null,
       primary_next_actions: primary,
       recommended_side_skills: sideSkills,
+      stop_action: stopAction('ship'),
+      project_setup_gaps: setupGaps,
     },
   );
 }
@@ -531,6 +651,7 @@ export function buildCloseoutCompletionAdvisor(
     'Run `/discover`',
     'Start the next governed run from the archived closeout context.',
     true,
+    'Closeout completed successfully and a fresh discover is the canonical way to start the next governed run.',
   );
   const sideSkills: CompletionAdvisorActionRecord[] = [];
   if (shipPullRequest?.status === 'created' || shipPullRequest?.status === 'reused') {
@@ -543,6 +664,8 @@ export function buildCloseoutCompletionAdvisor(
           '/land-and-deploy',
           'Run `/land-and-deploy`',
           'Use the ship handoff to merge and verify the primary deploy surface.',
+          false,
+          'Landing is still pending for the shipped PR handoff.',
         ),
       );
     }
@@ -556,6 +679,8 @@ export function buildCloseoutCompletionAdvisor(
         '/canary',
         'Run `/canary`',
         'Add post-deploy health evidence after landing the change.',
+        false,
+        'The change is landed, but post-deploy canary evidence has not been attached yet.',
       ),
     );
   }
@@ -567,6 +692,8 @@ export function buildCloseoutCompletionAdvisor(
       '/retro',
       'Run `/retro`',
       'Capture retrospective findings from this completed run.',
+      false,
+      'This run is complete and ready for retrospective capture.',
     ),
     action(
       'run_learn',
@@ -575,6 +702,8 @@ export function buildCloseoutCompletionAdvisor(
       '/learn',
       'Run `/learn`',
       'Review or export durable learnings from this run.',
+      false,
+      'The canonical learnings have been written and can now be reviewed or exported.',
     ),
   );
   if (!documentationSynced) {
@@ -586,6 +715,8 @@ export function buildCloseoutCompletionAdvisor(
         '/document-release',
         'Run `/document-release`',
         'Sync docs to match what was just shipped before the next cycle starts.',
+        false,
+        'Documentation has not yet been synchronized for this completed run.',
       ),
     );
   }
@@ -595,9 +726,11 @@ export function buildCloseoutCompletionAdvisor(
     generatedAt,
     'Closeout is complete. Start the next run or continue with follow-on work from the archived context.',
     {
+      interaction_mode: 'recommended_choice',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       recommended_side_skills: sideSkills,
+      stop_action: stopAction('closeout'),
     },
   );
 }

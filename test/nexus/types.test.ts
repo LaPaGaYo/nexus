@@ -5,6 +5,7 @@ import {
   ACTUAL_ROUTE_TRANSPORTS,
   CONTINUATION_ADVICE_OPTIONS,
   CANARY_EVIDENCE_STATUSES,
+  COMPLETION_ADVISOR_INTERACTION_MODES,
   DEPLOY_CONFIG_SOURCES,
   DEPLOY_RESULT_CI_STATUSES,
   DEPLOY_RESULT_FAILURE_KINDS,
@@ -18,6 +19,7 @@ import {
   LEARNING_TYPES,
   REPO_RETRO_ARCHIVE_MODES,
   type DeployContractRecord,
+  type CompletionAdvisorRecord,
   type DeployResultRecord,
   type DiscoverRetroContinuityRecord,
   type DeployReadinessRecord,
@@ -389,6 +391,60 @@ describe('nexus types', () => {
 
   test('freezes the design artifact helper paths', () => {
     expect(frameDesignIntentPath()).toBe('.planning/current/frame/design-intent.json');
+  });
+
+  test('freezes the completion-advisor interaction contract', () => {
+    expect(COMPLETION_ADVISOR_INTERACTION_MODES).toEqual([
+      'required_choice',
+      'recommended_choice',
+      'summary_only',
+    ]);
+    expect(stageCompletionAdvisorPath('review')).toBe('.planning/current/review/completion-advisor.json');
+
+    const advisor: CompletionAdvisorRecord = {
+      schema_version: 1,
+      run_id: 'run-1',
+      stage: 'review',
+      generated_at: '2026-04-20T00:00:00.000Z',
+      stage_outcome: 'requires_choice',
+      interaction_mode: 'required_choice',
+      summary: 'Review passed with advisories. Choose a disposition before QA.',
+      requires_user_choice: true,
+      choice_reason: 'review advisories require an explicit disposition',
+      default_action_id: 'fix_before_qa',
+      primary_next_actions: [
+        {
+          id: 'fix_before_qa',
+          kind: 'disposition',
+          surface: '/build',
+          invocation: '/build --review-advisory-disposition fix_before_qa',
+          label: 'Fix advisories before QA',
+          description: 'Run a bounded fix cycle now, then return through `/review` before QA.',
+          recommended: true,
+          visibility_reason: 'Use this when you want to tighten non-blocking findings before formal QA.',
+        },
+      ],
+      alternative_next_actions: [],
+      recommended_side_skills: [],
+      stop_action: null,
+      project_setup_gaps: [],
+      hidden_compat_aliases: ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'],
+      hidden_utility_skills: ['/careful', '/freeze', '/guard', '/unfreeze', '/nexus-upgrade'],
+      suppressed_surfaces: [
+        '/office-hours',
+        '/autoplan',
+        '/plan-ceo-review',
+        '/plan-eng-review',
+        '/careful',
+        '/freeze',
+        '/guard',
+        '/unfreeze',
+        '/nexus-upgrade',
+      ],
+    };
+
+    expect(advisor.stop_action).toBeNull();
+    expect(advisor.primary_next_actions[0]?.visibility_reason).toContain('formal QA');
   });
 
   test('freezes the learning schema and artifact helpers', () => {

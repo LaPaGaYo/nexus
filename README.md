@@ -315,13 +315,17 @@ For design-bearing runs, `/frame` classifies design impact, `/plan` writes the c
 Each canonical stage from `/frame` through `/closeout` now also writes
 `.planning/current/<stage>/completion-advisor.json`. That advisor is the
 runtime-owned next-step contract for interactive hosts: it carries the primary
-next action, any required user choice, recommended side skills, and the short
-descriptions that should back stage-completion prompts.
+next action, `interaction_mode`, any required user choice, a `stop_action`,
+project setup gaps, recommended side skills, and the short descriptions that
+should back stage-completion prompts.
 
 Design-bearing runs use that advisor to surface design-aware follow-on work.
 That means `/plan-design-review`, `/design-review`, and `/browse` appear when
 `design_impact` and the verification matrix say they matter, while compatibility
 aliases and session utility skills stay hidden from stage-completion prompts.
+Each surfaced action also carries a `visibility_reason`, so the host can explain
+why that support skill is being recommended now instead of treating it like a
+flat menu.
 
 Fresh `/discover` also accepts an explicit continuation hint when you are
 starting the next run:

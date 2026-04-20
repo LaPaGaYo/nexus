@@ -44,15 +44,31 @@ Read and summarize:
 
 - `summary`
 - `stage_outcome`
+- `interaction_mode`
 - `requires_user_choice`
 - `choice_reason`
 - `primary_next_actions`
 - `alternative_next_actions`
 - `recommended_side_skills`
+- `stop_action`
+- `project_setup_gaps`
+- `suppressed_surfaces`
 - `default_action_id`
 
-If the session is interactive and the advisor exposes multiple meaningful next actions, use
-AskUserQuestion. Present each option using the advisor action's `label` and `description`.
+If the session is interactive, Always use AskUserQuestion for `/review` completion.
+
+If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
+
+If `interaction_mode` is `recommended_choice`, present:
+
+1. recommended primary action
+2. other primary actions
+3. alternatives
+4. recommended side skills
+5. `stop_action`
+
+Use each action's `label` and `description`. If an action has `visibility_reason`, include it in
+the explanation so the user sees why it is showing up now.
 
 Do not reconstruct advisory logic from `status.json`. Review advisory disposition is runtime-owned
 through the advisor actions themselves. If `/review` passed with advisories, the advisor will emit

@@ -488,11 +488,18 @@ describe('gen-skill-docs', () => {
     const planContent = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
 
     expect(frameContent).toContain('.planning/current/frame/completion-advisor.json');
+    expect(frameContent).toContain('interaction_mode');
+    expect(frameContent).toContain('stop_action');
+    expect(frameContent).toContain('Always use AskUserQuestion');
     expect(frameContent).toContain('/plan-design-review');
-    expect(frameContent).toContain('/plan-ceo-review');
-    expect(frameContent).toContain('/plan-eng-review');
+    expect(frameContent).toContain('/design-consultation');
+    expect(frameContent).toContain('suppressed_surfaces');
+    expect(frameContent).toContain('Keep the canonical path anchored on');
 
     expect(planContent).toContain('.planning/current/plan/completion-advisor.json');
+    expect(planContent).toContain('interaction_mode');
+    expect(planContent).toContain('stop_action');
+    expect(planContent).toContain('Always use AskUserQuestion');
     expect(planContent).toContain('/plan-design-review');
     expect(planContent).toContain('design_impact');
     expect(planContent).toContain('verification matrix');
@@ -502,6 +509,9 @@ describe('gen-skill-docs', () => {
     const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
     expect(reviewContent).toContain('## Completion Advisor');
     expect(reviewContent).toContain('.planning/current/review/completion-advisor.json');
+    expect(reviewContent).toContain('interaction_mode');
+    expect(reviewContent).toContain('stop_action');
+    expect(reviewContent).toContain('Always use AskUserQuestion');
     expect(reviewContent).toContain('Do not reconstruct advisory logic from `status.json`.');
     expect(reviewContent).toContain('AskUserQuestion');
   });
@@ -527,6 +537,9 @@ describe('gen-skill-docs', () => {
     const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
     expect(qaContent).toContain('## Completion Advisor');
     expect(qaContent).toContain('.planning/current/qa/completion-advisor.json');
+    expect(qaContent).toContain('interaction_mode');
+    expect(qaContent).toContain('stop_action');
+    expect(qaContent).toContain('Always use AskUserQuestion');
     expect(qaContent).toContain('/design-review');
     expect(qaContent).toContain('/benchmark');
     expect(qaContent).toContain('/browse');
@@ -537,6 +550,9 @@ describe('gen-skill-docs', () => {
     const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
     expect(shipContent).toContain('## Completion Advisor');
     expect(shipContent).toContain('.planning/current/ship/completion-advisor.json');
+    expect(shipContent).toContain('interaction_mode');
+    expect(shipContent).toContain('stop_action');
+    expect(shipContent).toContain('Always use AskUserQuestion');
     expect(shipContent).toContain('/closeout');
     expect(shipContent).toContain('/land-and-deploy');
     expect(shipContent).toContain('/setup-deploy');
@@ -546,6 +562,9 @@ describe('gen-skill-docs', () => {
     const closeoutContent = fs.readFileSync(path.join(ROOT, 'closeout', 'SKILL.md'), 'utf-8');
     expect(closeoutContent).toContain('## Completion Advisor');
     expect(closeoutContent).toContain('.planning/current/closeout/completion-advisor.json');
+    expect(closeoutContent).toContain('interaction_mode');
+    expect(closeoutContent).toContain('stop_action');
+    expect(closeoutContent).toContain('Always use AskUserQuestion');
     expect(closeoutContent).toContain('/discover');
     expect(closeoutContent).toContain('/land-and-deploy');
     expect(closeoutContent).toContain('/retro');
