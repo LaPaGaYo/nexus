@@ -39,6 +39,14 @@ import { readLedger } from '../ledger';
 import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalizers/gsd';
 import { applyNormalizationPlan } from '../normalizers';
 import {
+  advisoryDispositionPermitsStage,
+  buildReviewAdvisoryDispositionRecord,
+  effectiveReviewAdvisoryDisposition,
+  persistReviewAdvisoryDisposition,
+  requiredReviewAdvisoryDispositionError,
+  reviewHasAdvisories,
+} from '../review-advisories';
+import {
   buildNextRunBootstrap,
   persistCloseoutBootstrap,
 } from '../run-bootstrap';
@@ -194,8 +202,28 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   assertLegalTransition(ledger.current_stage, 'closeout');
   assertCloseoutHistory(ledger, { qaRecorded: Boolean(qaStatus), shipRecorded: Boolean(shipStatus) });
   assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
+  const reviewAdvisoryDisposition = effectiveReviewAdvisoryDisposition(
+    ctx.cwd,
+    reviewStatus,
+    ctx.review_advisory_disposition_override,
+  );
+  const reviewHasPendingAdvisories = reviewHasAdvisories(reviewStatus);
+  if (reviewHasPendingAdvisories && !advisoryDispositionPermitsStage('closeout', reviewAdvisoryDisposition)) {
+    throw new Error(requiredReviewAdvisoryDispositionError('closeout'));
+  }
   assertQaReadyForCloseout(qaStatus);
   assertShipReadyForCloseout(shipStatus);
+  if (reviewHasPendingAdvisories && ctx.review_advisory_disposition_override) {
+    persistReviewAdvisoryDisposition(
+      ctx.cwd,
+      buildReviewAdvisoryDispositionRecord(
+        ledger.run_id,
+        reviewStatus.advisory_count ?? 0,
+        reviewAdvisoryDisposition,
+        ctx.clock(),
+      ),
+    );
+  }
 
   const metaPath = '.planning/audits/current/meta.json';
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';

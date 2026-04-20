@@ -1705,6 +1705,116 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('allows advisory-scoped build when review passed with advisories and the user chooses fix_before_qa', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Identifier column should be clickable.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Build warning about multiple lockfiles.\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_generator: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              receipt: 'ccb-build-advisory-fix',
+              summary_markdown: [
+                '# Build Execution Summary',
+                '',
+                '- Status: completed',
+                '- Actions: Applied the bounded advisory fixes before QA.',
+                '- Files touched: apps/web/src/components/list-view.tsx, apps/web/next.config.ts',
+                '- Verification: Verified the advisory fixes against the current execution packet.',
+              ].join('\n'),
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.generator ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', reviewAdapters);
+
+      await expect(run('build', reviewAdapters)).rejects.toThrow(/Review advisories require an explicit fix decision before build/i);
+
+      await run('build', reviewAdapters, undefined, { reviewAdvisoryDispositionOverride: 'fix_before_qa' });
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'completed',
+        ready: true,
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'review',
+          blocking_items: [
+            'Identifier column should be clickable.',
+            'Build warning about multiple lockfiles.',
+          ],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      });
+      expect(await run.readJson('.planning/current/review/advisory-disposition.json')).toMatchObject({
+        selected: 'fix_before_qa',
+      });
+    });
+  });
+
   test('allows fix-cycle build from a completed failing QA gate', async () => {
     await runInTempRepo(async ({ run }) => {
       const qaAdapters = makeFakeAdapters({

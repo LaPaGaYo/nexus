@@ -106,6 +106,21 @@ function extractFindingsSection(markdown: string): string[] {
     .filter((line) => line.length > 0 && line.toLowerCase() !== 'none');
 }
 
+export function extractAdvisoriesSection(markdown: string): string[] {
+  const normalized = markdown.replace(/\r\n/g, '\n');
+  const sectionMatch = normalized.match(/(?:^|\n)Advisories:\s*\n([\s\S]*?)(?:\n[A-Z][A-Za-z ]+:\s*\n|$)/);
+  if (!sectionMatch) {
+    return [];
+  }
+
+  return sectionMatch[1]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .map((line) => normalizeLine(line.slice(2)))
+    .filter((line) => line.length > 0 && line.toLowerCase() !== 'none');
+}
+
 export function boundedFixCycleReviewScopeFromAudits(codexMarkdown: string, geminiMarkdown: string): ReviewScopeRecord {
   const blockingItems = dedupeBlockingItems([
     ...extractFindingsSection(codexMarkdown),
@@ -127,6 +142,20 @@ export function boundedFixCycleReviewScopeFromQaFindings(findings: string[]): Re
     mode: 'bounded_fix_cycle',
     source_stage: 'qa',
     blocking_items: blockingItems.length > 0 ? blockingItems : [GENERIC_QA_FIX_CYCLE_ITEM],
+    advisory_policy: 'out_of_scope_advisory',
+  });
+}
+
+export function boundedFixCycleReviewScopeFromAdvisories(codexMarkdown: string, geminiMarkdown: string): ReviewScopeRecord {
+  const advisoryItems = dedupeBlockingItems([
+    ...extractAdvisoriesSection(codexMarkdown),
+    ...extractAdvisoriesSection(geminiMarkdown),
+  ]);
+
+  return normalizeReviewScopeRecord({
+    mode: 'bounded_fix_cycle',
+    source_stage: 'review',
+    blocking_items: advisoryItems.length > 0 ? advisoryItems : [GENERIC_FIX_CYCLE_ITEM],
     advisory_policy: 'out_of_scope_advisory',
   });
 }
@@ -153,4 +182,13 @@ export function resolveFixCycleReviewScope(cwd: string, reviewStatus: StageStatu
   const geminiMarkdown = existsSync(geminiPath) ? readFileSync(geminiPath, 'utf8') : '';
 
   return boundedFixCycleReviewScopeFromAudits(codexMarkdown, geminiMarkdown);
+}
+
+export function resolveAdvisoryFixReviewScope(cwd: string): ReviewScopeRecord {
+  const codexPath = join(cwd, '.planning/audits/current/codex.md');
+  const geminiPath = join(cwd, '.planning/audits/current/gemini.md');
+  const codexMarkdown = existsSync(codexPath) ? readFileSync(codexPath, 'utf8') : '';
+  const geminiMarkdown = existsSync(geminiPath) ? readFileSync(geminiPath, 'utf8') : '';
+
+  return boundedFixCycleReviewScopeFromAdvisories(codexMarkdown, geminiMarkdown);
 }

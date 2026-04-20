@@ -482,6 +482,59 @@ describe('gen-skill-docs', () => {
       expect(qaContent).toContain('WTF');
     }
   });
+
+  test('review SKILL.md gates passed advisories behind an explicit user choice', () => {
+    const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    expect(reviewContent).toContain('## Advisory Disposition Gate');
+    expect(reviewContent).toContain('status.gate_decision = "pass"');
+    expect(reviewContent).toContain('status.advisory_count > 0');
+    expect(reviewContent).toContain('status.advisory_disposition = null');
+    expect(reviewContent).toContain('AskUserQuestion');
+  });
+
+  test('review SKILL.md maps each advisory choice to an exact Nexus command', () => {
+    const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    expect(reviewContent).toContain('bun run bin/nexus.ts build --review-advisory-disposition fix_before_qa');
+    expect(reviewContent).toContain('bun run bin/nexus.ts qa --review-advisory-disposition continue_to_qa');
+    expect(reviewContent).toContain('bun run bin/nexus.ts qa --review-advisory-disposition defer_to_follow_on');
+  });
+
+  test('build SKILL.md offers an explicit completion interaction into review', () => {
+    const buildContent = fs.readFileSync(path.join(ROOT, 'build', 'SKILL.md'), 'utf-8');
+    expect(buildContent).toContain('## Completion Interaction');
+    expect(buildContent).toContain('/build` completed and the governed run is ready for `/review`');
+    expect(buildContent).toContain('AskUserQuestion');
+    expect(buildContent).toContain('bun run bin/nexus.ts review');
+  });
+
+  test('qa SKILL.md offers next-step interaction and side-skill entrypoints', () => {
+    const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
+    expect(qaContent).toContain('## Completion Interaction');
+    expect(qaContent).toContain('/qa` passed. Choose the next step.');
+    expect(qaContent).toContain('/design-review');
+    expect(qaContent).toContain('/benchmark');
+    expect(qaContent).toContain('bun run bin/nexus.ts ship');
+  });
+
+  test('ship SKILL.md offers closeout and deploy-facing follow-on interaction', () => {
+    const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    expect(shipContent).toContain('## Completion Interaction');
+    expect(shipContent).toContain('/ship` recorded a merge-ready handoff. Choose what to do next.');
+    expect(shipContent).toContain('/closeout');
+    expect(shipContent).toContain('/land-and-deploy');
+    expect(shipContent).toContain('/setup-deploy');
+  });
+
+  test('closeout SKILL.md offers next-run and follow-on side-skill interaction', () => {
+    const closeoutContent = fs.readFileSync(path.join(ROOT, 'closeout', 'SKILL.md'), 'utf-8');
+    expect(closeoutContent).toContain('## Completion Interaction');
+    expect(closeoutContent).toContain('/closeout` completed. Choose the next step.');
+    expect(closeoutContent).toContain('/discover');
+    expect(closeoutContent).toContain('/land-and-deploy');
+    expect(closeoutContent).toContain('/retro');
+    expect(closeoutContent).toContain('/learn');
+    expect(closeoutContent).toContain('/document-release');
+  });
 });
 
 describe('nexus wrapper generation', () => {

@@ -1,7 +1,7 @@
 import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
-import { qaLearningCandidatesPath } from '../../lib/nexus/artifacts';
+import { qaLearningCandidatesPath, reviewAdvisoryDispositionPath } from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
@@ -761,12 +761,131 @@ describe('nexus qa', () => {
     });
   });
 
-  test('records advisories without blocking QA readiness', async () => {
+  test('blocks qa when review advisories require an explicit disposition', async () => {
     await runInTempRepo(async ({ run }) => {
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Identifier column should be clickable.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Build warning about multiple lockfiles.\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
       await run('plan');
       await run('handoff');
       await run('build');
-      await run('review');
+      await run('review', reviewAdapters);
+
+      await expect(run('qa')).rejects.toThrow(/Review advisories require an explicit disposition before qa/i);
+    });
+  });
+
+  test('records advisories without blocking QA readiness', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const reviewAdapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- WorkspaceError is duplicated across module boundaries.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review', reviewAdapters);
 
       const adapters = makeFakeAdapters({
         ccb: {
@@ -809,7 +928,7 @@ describe('nexus qa', () => {
         },
       });
 
-      await run('qa', adapters);
+      await run('qa', adapters, undefined, { reviewAdvisoryDispositionOverride: 'continue_to_qa' });
 
       expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
         stage: 'qa',
@@ -824,6 +943,9 @@ describe('nexus qa', () => {
         status: 'active',
         current_stage: 'qa',
         allowed_next_stages: ['ship', 'closeout'],
+      });
+      expect(await run.readJson(reviewAdvisoryDispositionPath())).toMatchObject({
+        selected: 'continue_to_qa',
       });
       expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('Advisories:');
       expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('WorkspaceError is duplicated across module boundaries.');

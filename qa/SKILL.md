@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -416,3 +417,41 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts qa
 ```
+
+## Completion Interaction
+
+After the command returns, inspect the JSON `status` object and summarize:
+
+- `status.state`
+- `status.ready`
+- `status.design_impact`
+- `status.design_verified`
+- `status.advisory_count`
+- `status.errors`
+
+If `status.state = "completed"` and `status.ready = true`, the canonical next stage is `/ship`.
+
+If the session is interactive, use AskUserQuestion:
+
+> `/qa` passed. Choose the next step.
+
+- A) Run `/ship` now (recommended)
+- B) Run a side skill first (`/design-review` for design-bearing runs, otherwise `/benchmark`)
+- C) Stop here
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, print the recommended next command:
+
+```bash
+_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+_NEXUS_ROOT="~/.claude/skills/nexus"
+[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ship
+```
+
+If `status.ready = false`, do not continue to `/ship`. Summarize the QA findings and, if interactive,
+use AskUserQuestion:
+
+> `/qa` is not ready. The canonical next step is a bounded fix cycle through `/build`.
+
+- A) Run `/build` now (recommended)
+- B) Stop here

@@ -4,7 +4,11 @@ import { describe, expect, test } from 'bun:test';
 import { buildReviewAuditPrompt } from '../../lib/nexus/adapters/prompt-contracts';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { runReviewWithWriteAtomicFile } from '../../lib/nexus/commands/review';
-import { reviewLearningCandidatesPath } from '../../lib/nexus/artifacts';
+import {
+  reviewAdvisoriesPath,
+  reviewAdvisoryDispositionPath,
+  reviewLearningCandidatesPath,
+} from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
@@ -602,6 +606,89 @@ describe('nexus review', () => {
     expect(prompt).toContain('Do not turn this review into open-ended design critique.');
     expect(prompt).toContain('Additional visual concerns are advisories unless they show a clear contract violation.');
     expect(prompt).toContain('Advisories:');
+  });
+
+  test('writes review advisories and an unresolved disposition record when review passes with advisories', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Identifier is not visibly sortable.\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Build warning about multiple lockfiles.\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        gate_decision: 'pass',
+        ready: true,
+        advisory_count: 2,
+        advisories_path: reviewAdvisoriesPath(),
+        advisory_disposition: null,
+        advisory_disposition_path: reviewAdvisoryDispositionPath(),
+      });
+      expect(await run.readJson(reviewAdvisoriesPath())).toMatchObject({
+        advisories: [
+          'Identifier is not visibly sortable.',
+          'Build warning about multiple lockfiles.',
+        ],
+      });
+      expect(await run.readJson(reviewAdvisoryDispositionPath())).toMatchObject({
+        selected: null,
+        advisory_count: 2,
+      });
+    });
   });
 
   test('default review discipline summary carries Nexus-owned absorbed review guidance', async () => {
@@ -1651,6 +1738,87 @@ describe('nexus review', () => {
         ready: true,
         gate_decision: 'pass',
       });
+    });
+  });
+
+  test('uses the final canonical review verdict when audit markdown contains an earlier misleading Result line', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: [
+                'I initially thought the build looked healthy.',
+                'Result: pass',
+                '',
+                '# Codex Audit',
+                '',
+                'Result: fail',
+                '',
+                'Findings:',
+                '- Identifier column is not sortable.',
+              ].join('\n'),
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        gate_decision: 'fail',
+        ready: false,
+      });
+      expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain('Codex audit result: fail');
+      expect(await run.readFile('.planning/audits/current/gate-decision.md')).toContain('Gate: fail');
     });
   });
 

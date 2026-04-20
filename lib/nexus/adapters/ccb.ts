@@ -391,6 +391,44 @@ function normalizedExecutionContext(ctx: NexusAdapterContext): NexusAdapterConte
   };
 }
 
+function auditHeaderForProvider(provider: 'codex' | 'gemini'): string {
+  return provider === 'codex' ? '# Codex Audit' : '# Gemini Audit';
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractCanonicalReviewAuditMarkdown(
+  text: string,
+  provider: 'codex' | 'gemini',
+): string | null {
+  const trimmed = text.trim();
+  const header = auditHeaderForProvider(provider);
+  const headerIndex = trimmed.lastIndexOf(header);
+
+  if (headerIndex === -1) {
+    return null;
+  }
+
+  const candidate = trimmed.slice(headerIndex).trim();
+  const headerPattern = new RegExp(`^${escapeRegExp(header)}\\s*$`, 'm');
+
+  if (!headerPattern.test(candidate)) {
+    return null;
+  }
+
+  if (!/^\s*Result:\s*(pass|fail)\s*$/mi.test(candidate)) {
+    return null;
+  }
+
+  if (!/^Findings:\s*$/mi.test(candidate)) {
+    return null;
+  }
+
+  return candidate;
+}
+
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
   return buildBuildExecutionPrompt(normalizedExecutionContext(ctx), 'Nexus governed stage');
 }
@@ -399,7 +437,7 @@ function buildAuditPrompt(
   ctx: NexusAdapterContext,
   provider: 'codex' | 'gemini',
 ): string {
-  const header = provider === 'codex' ? '# Codex Audit' : '# Gemini Audit';
+  const header = auditHeaderForProvider(provider);
 
   return buildReviewAuditPrompt(
     normalizedExecutionContext(ctx),
@@ -413,7 +451,7 @@ function buildAuditFinalizePrompt(
   ctx: NexusAdapterContext,
   provider: 'codex' | 'gemini',
 ): string {
-  const header = provider === 'codex' ? '# Codex Audit' : '# Gemini Audit';
+  const header = auditHeaderForProvider(provider);
   return buildReviewFinalizePrompt(normalizedExecutionContext(ctx), 'Nexus governed stage', provider, header);
 }
 
@@ -557,6 +595,7 @@ function recoverableAskPayload(
   stage: 'handoff' | 'build' | 'review' | 'qa',
   stdout: string,
   stderr: string,
+  provider?: 'codex' | 'gemini',
 ): string | null {
   const candidates = [stdout.trim(), stderr.trim()].filter(Boolean);
 
@@ -569,8 +608,12 @@ function recoverableAskPayload(
     }
 
     if (stage === 'review') {
-      if (/Result:\s*(pass|fail)/i.test(candidate) && /^Findings:\s*$/mi.test(candidate)) {
-        return candidate;
+      const providers = provider ? [provider] : ['codex', 'gemini'] as const;
+      for (const candidateProvider of providers) {
+        const extracted = extractCanonicalReviewAuditMarkdown(candidate, candidateProvider);
+        if (extracted !== null) {
+          return extracted;
+        }
       }
       continue;
     }
@@ -633,8 +676,12 @@ function parseMountedProviders(stdout: string): string[] {
   return parsed.mounted;
 }
 
-function shouldAttemptReviewWatchdog(stdout: string, stderr: string): boolean {
-  if (recoverableAskPayload('review', stdout, stderr) !== null) {
+function shouldAttemptReviewWatchdog(
+  provider: 'codex' | 'gemini',
+  stdout: string,
+  stderr: string,
+): boolean {
+  if (recoverableAskPayload('review', stdout, stderr, provider) !== null) {
     return false;
   }
 
@@ -1071,7 +1118,7 @@ async function runAskDispatch(
     let watchdogEngaged = false;
     let finalizeNudgeIssued = false;
     let pendAttempts = 0;
-    const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
+    const recoveredPayload = recoverableAskPayload(stage, execution.stdout, execution.stderr, provider);
     if (recoveredPayload !== null) {
       const latencySummary = buildDispatchLatencySummary({
         stage,
@@ -1115,7 +1162,7 @@ async function runAskDispatch(
     let recoveryPayloadSource: 'ask' | 'pend' | null = null;
     let recoveryStderr = execution.stderr;
 
-    if (stage === 'review' && shouldAttemptReviewWatchdog(execution.stdout, execution.stderr)) {
+    if (stage === 'review' && shouldAttemptReviewWatchdog(provider, execution.stdout, execution.stderr)) {
       watchdogEngaged = true;
       const nudgeExecution = await runReviewFinalizeNudge(
         ctx,
@@ -1130,7 +1177,7 @@ async function runAskDispatch(
         recoveryStderr = [recoveryStderr, '[WATCHDOG] finalize nudge issued', nudgeExecution.stderr]
           .filter(Boolean)
           .join('\n');
-        const nudgePayload = recoverableAskPayload(stage, nudgeExecution.stdout, nudgeExecution.stderr);
+        const nudgePayload = recoverableAskPayload(stage, nudgeExecution.stdout, nudgeExecution.stderr, provider);
         if (nudgePayload !== null) {
           recoveryPayload = nudgePayload;
           recoveryPayloadSource = 'ask';
@@ -1335,7 +1382,7 @@ async function recoverLateAskPayload(
       };
     }
 
-    const payload = recoverableAskPayload(stage, execution.stdout, execution.stderr);
+    const payload = recoverableAskPayload(stage, execution.stdout, execution.stderr, provider);
     if (execution.exit_code === 0 && payload !== null) {
       return { payload, attempts: attempt + 1 };
     }
@@ -1625,9 +1672,35 @@ export function createRuntimeCcbAdapter(
         return execution;
       }
 
+      const markdown = extractCanonicalReviewAuditMarkdown(execution.stdout, 'codex');
+      if (markdown === null) {
+        return blockedResult(
+          ctx.stage,
+          'Malformed review response: expected a canonical "# Codex Audit" block with Result and Findings.',
+          {
+            receipt: '',
+            dispatch_command: describeCommand([
+              options.resolveToolPaths().ask_path,
+              'codex',
+              '--foreground',
+              '--no-wrap',
+              '--timeout',
+              DEFAULT_TIMEOUTS_SECONDS.review,
+            ]),
+            exit_code: execution.exit_code,
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+            request_id: extractRequestId(execution.stdout, execution.stderr),
+            latency_summary: execution.latency_summary ?? null,
+          },
+          ctx.requested_route,
+          traceability,
+        );
+      }
+
       return successResult<CcbExecuteAuditRaw>(
         {
-          markdown: execution.stdout.trim(),
+          markdown,
           receipt: `ccb-review-codex-${sanitizeReceiptTimestamp(options.now())}`,
           dispatch_command: describeCommand([
             options.resolveToolPaths().ask_path,
@@ -1667,9 +1740,35 @@ export function createRuntimeCcbAdapter(
         return execution;
       }
 
+      const markdown = extractCanonicalReviewAuditMarkdown(execution.stdout, 'gemini');
+      if (markdown === null) {
+        return blockedResult(
+          ctx.stage,
+          'Malformed review response: expected a canonical "# Gemini Audit" block with Result and Findings.',
+          {
+            receipt: '',
+            dispatch_command: describeCommand([
+              options.resolveToolPaths().ask_path,
+              'gemini',
+              '--foreground',
+              '--no-wrap',
+              '--timeout',
+              DEFAULT_TIMEOUTS_SECONDS.review,
+            ]),
+            exit_code: execution.exit_code,
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+            request_id: extractRequestId(execution.stdout, execution.stderr),
+            latency_summary: execution.latency_summary ?? null,
+          },
+          ctx.requested_route,
+          traceability,
+        );
+      }
+
       return successResult<CcbExecuteAuditRaw>(
         {
-          markdown: execution.stdout.trim(),
+          markdown,
           receipt: `ccb-review-gemini-${sanitizeReceiptTimestamp(options.now())}`,
           dispatch_command: describeCommand([
             options.resolveToolPaths().ask_path,

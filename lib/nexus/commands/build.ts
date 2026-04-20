@@ -7,7 +7,14 @@ import {
   QA_STATUS_PATH,
   REVIEW_STATUS_PATH,
 } from '../contract-artifacts';
-import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath, stageStatusPath } from '../artifacts';
+import {
+  reviewAdvisoriesPath,
+  reviewAdvisoryDispositionPath,
+  stageAdapterOutputPath,
+  stageAdapterRequestPath,
+  stageNormalizationPath,
+  stageStatusPath,
+} from '../artifacts';
 import {
   executionFieldsFromLedger,
   withActualExecutionPath,
@@ -27,9 +34,18 @@ import {
   boundedFixCycleReviewScopeFromQaFindings,
   fullAcceptanceReviewScope,
   normalizeReviewScopeRecord,
+  resolveAdvisoryFixReviewScope,
   resolveFixCycleReviewScope,
 } from '../review-scope';
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
+import {
+  advisoryDispositionPermitsStage,
+  buildReviewAdvisoryDispositionRecord,
+  effectiveReviewAdvisoryDisposition,
+  readReviewAdvisories,
+  requiredReviewAdvisoryDispositionError,
+  reviewHasAdvisories,
+} from '../review-advisories';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import {
@@ -85,6 +101,18 @@ function isCanonicalFailingReview(reviewStatus: StageStatus | null | undefined):
     && reviewStatus.audit_set_complete === true
     && reviewStatus.provenance_consistent === true
     && reviewStatus.gate_decision === 'fail';
+}
+
+function isCanonicalPassingReviewWithAdvisories(reviewStatus: StageStatus | null | undefined): boolean {
+  return reviewStatus?.stage === 'review'
+    && reviewStatus.state === 'completed'
+    && reviewStatus.decision === 'audit_recorded'
+    && reviewStatus.ready === true
+    && reviewStatus.review_complete === true
+    && reviewStatus.audit_set_complete === true
+    && reviewStatus.provenance_consistent === true
+    && reviewStatus.gate_decision === 'pass'
+    && reviewHasAdvisories(reviewStatus);
 }
 
 function isCanonicalFailingQa(qaStatus: StageStatus | null | undefined): boolean {
@@ -177,6 +205,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const planStatus = readStageStatus(PLAN_STATUS_PATH, ctx.cwd);
   const handoffStatus = readStageStatus(handoffStatusPath, ctx.cwd);
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
+  const reviewAdvisories = readReviewAdvisories(ctx.cwd);
 
   if (!ledger || !handoffStatus?.ready) {
     throw new Error('Handoff must be completed before build');
@@ -189,6 +218,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   assertSameRunId(ledger.run_id, handoffStatus.run_id, 'handoff status');
   assertLegalTransition(ledger.current_stage, 'build');
 
+  const reviewAdvisoryDisposition = effectiveReviewAdvisoryDisposition(
+    ctx.cwd,
+    reviewStatus,
+    ctx.review_advisory_disposition_override,
+  );
+  const reviewAdvisoryFixCycle = ledger.current_stage === 'review'
+    && isCanonicalPassingReviewWithAdvisories(reviewStatus);
   const fixCycle = ledger.current_stage === 'review' || ledger.current_stage === 'qa';
   if (fixCycle) {
     if (ledger.current_stage === 'review') {
@@ -198,7 +234,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
 
       assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
 
-      if (!isCanonicalFailingReview(reviewStatus)) {
+      if (isCanonicalFailingReview(reviewStatus)) {
+        // canonical failing review gate
+      } else if (reviewAdvisoryFixCycle) {
+        if (!advisoryDispositionPermitsStage('build', reviewAdvisoryDisposition)) {
+          throw new Error(requiredReviewAdvisoryDispositionError('build'));
+        }
+      } else {
         throw new Error('Fix-cycle /build is only valid after a completed failing review gate');
       }
     } else {
@@ -243,8 +285,24 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
           qaStatus?.review_scope
             ?? boundedFixCycleReviewScopeFromQaFindings(qaStatus?.errors ?? []),
         )
-      : resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
+      : reviewAdvisoryFixCycle
+        ? resolveAdvisoryFixReviewScope(ctx.cwd)
+        : resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
     : normalizeReviewScopeRecord(handoffStatus.review_scope ?? fullAcceptanceReviewScope());
+  const reviewAdvisoryDispositionRecord = reviewAdvisoryFixCycle
+    ? buildReviewAdvisoryDispositionRecord(
+        ledger.run_id,
+        reviewStatus?.advisory_count ?? reviewAdvisories?.advisories.length ?? 0,
+        reviewAdvisoryDisposition,
+        startedAt,
+      )
+    : null;
+  const reviewAdvisoryDispositionWrite = reviewAdvisoryDispositionRecord
+    ? {
+        path: reviewAdvisoryDispositionPath(),
+        content: JSON.stringify(reviewAdvisoryDispositionRecord, null, 2) + '\n',
+      }
+    : null;
   const requestedRoute = (
     ledger.current_stage === 'qa'
       ? qaStatus?.requested_route ?? reviewStatus?.requested_route ?? null
@@ -260,6 +318,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ? [
           artifactPointerFor(HANDOFF_STATUS_PATH),
           artifactPointerFor(REVIEW_STATUS_PATH),
+          ...(reviewAdvisoryFixCycle && reviewAdvisories ? [artifactPointerFor(reviewAdvisoriesPath())] : []),
           ...(ledger.current_stage === 'qa' ? [artifactPointerFor(QA_STATUS_PATH)] : []),
           ...executionContractArtifacts(Boolean(verificationMatrix)),
           ...(designContractPointer ? [designContractPointer] : []),
@@ -281,6 +340,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         workspace,
         requested_route: requestedRoute,
         review_scope: reviewScope,
+        review_advisory_disposition: reviewAdvisoryDispositionRecord?.selected ?? null,
         design_impact: planStatus?.design_impact ?? 'none',
         design_contract_path: designContractPointer?.path ?? null,
       },
@@ -321,6 +381,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
       [statusPath]: artifactPointerFor(statusPath),
+      ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
     const conflict: ConflictRecord = {
       stage: 'build',
@@ -335,7 +396,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite],
+      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
       traceWrites: [
         {
           path: tracePaths[0],
@@ -442,6 +503,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
       [statusPath]: artifactPointerFor(statusPath),
+      ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
     const conflict: ConflictRecord = {
       stage: 'build',
@@ -460,7 +522,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite],
+      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -520,6 +582,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
       [statusPath]: artifactPointerFor(statusPath),
+      ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
     const conflict: ConflictRecord = {
       stage: 'build',
@@ -538,7 +601,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite],
+      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -616,6 +679,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
       [statusPath]: artifactPointerFor(statusPath),
+      ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
 
     const conflict: ConflictRecord = {
@@ -637,7 +701,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite],
+      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -704,6 +768,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
       [statusPath]: artifactPointerFor(statusPath),
+      ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
     const conflict: ConflictRecord = {
       stage: 'build',
@@ -722,7 +787,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite],
+      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -816,13 +881,18 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     [buildRequestPath]: artifactPointerFor(buildRequestPath),
     [buildResultPath]: artifactPointerFor(buildResultPath),
     [statusPath]: artifactPointerFor(statusPath),
+    ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
   };
 
   await applyNormalizationPlan({
     cwd: ctx.cwd,
     stage: 'build',
     statusPath,
-    canonicalWrites: [buildRequestWrite, buildResultWrite],
+    canonicalWrites: [
+      buildRequestWrite,
+      buildResultWrite,
+      ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+    ],
     traceWrites: buildBuildStageTraceabilityPayloads(
       ledger.run_id,
       predecessorArtifacts.map((artifact) => artifact.path),

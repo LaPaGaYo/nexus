@@ -3,7 +3,12 @@ import type { NexusCommandRunner } from '../command-runner';
 import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
 import type { ExecutionSelection } from '../execution-topology';
 import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
-import type { CanonicalCommandId, ContinuationMode, StageStatus } from '../types';
+import type {
+  CanonicalCommandId,
+  ContinuationMode,
+  ReviewAdvisoryDisposition,
+  StageStatus,
+} from '../types';
 import { resolveRepositoryRoot } from '../workspace-substrate';
 import { runBuild } from './build';
 import { runCloseout } from './closeout';
@@ -22,6 +27,7 @@ export interface CommandContext {
   adapters: NexusAdapters;
   execution: ExecutionSelection;
   continuation_mode_override?: ContinuationMode | null;
+  review_advisory_disposition_override?: ReviewAdvisoryDisposition | null;
   run_command?: NexusCommandRunner;
 }
 

@@ -493,7 +493,7 @@ describe('nexus runtime ccb adapter', () => {
         }
         return {
           exit_code: 0,
-          stdout: '# Gemini Audit\n\nResult: pass\n',
+          stdout: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
           stderr: '',
         };
       },
@@ -652,6 +652,59 @@ describe('nexus runtime ccb adapter', () => {
       markdown: expect.stringContaining('Result: pass'),
       exit_code: 1,
       request_id: '20260415-000000-000-00000-1',
+    });
+  });
+
+  test('extracts the canonical review audit block when provider adds leading prose with an earlier misleading Result line', async () => {
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async (spec) => {
+        if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+          return {
+            exit_code: 0,
+            stdout: '',
+            stderr: '',
+          };
+        }
+
+        return {
+          exit_code: 0,
+          stdout: [
+            'I initially thought the build looked healthy.',
+            'Result: pass',
+            '',
+            '# Codex Audit',
+            '',
+            'Result: fail',
+            '',
+            'Findings:',
+            '- Identifier column is not sortable.',
+          ].join('\n'),
+          stderr: '',
+        };
+      },
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const result = await adapter.execute_audit_a(buildContext('review', 'review'));
+
+    expect(result.outcome).toBe('success');
+    expect(result.raw_output).toMatchObject({
+      markdown: [
+        '# Codex Audit',
+        '',
+        'Result: fail',
+        '',
+        'Findings:',
+        '- Identifier column is not sortable.',
+      ].join('\n'),
+      exit_code: 0,
     });
   });
 

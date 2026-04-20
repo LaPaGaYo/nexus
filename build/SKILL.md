@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -409,3 +410,37 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts build
 ```
+
+## Completion Interaction
+
+After the command returns, inspect the JSON `status` object and summarize:
+
+- `status.state`
+- `status.decision`
+- `status.ready`
+- `status.errors`
+
+If `status.state = "completed"` and `status.ready = true`, the canonical next stage is `/review`.
+
+If the session is interactive, use AskUserQuestion:
+
+> `/build` completed and the governed run is ready for `/review`. Continue now?
+
+- A) Run `/review` now (recommended)
+- B) Stop here
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, print the exact next command:
+
+```bash
+_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+_NEXUS_ROOT="~/.claude/skills/nexus"
+[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts review
+```
+
+If `status.ready = false`, do not blindly continue. Summarize the blocking reason first.
+
+- If the error mentions stale handoff, route validation, or governed routing mismatch, recommend `/handoff`.
+- Otherwise recommend `/investigate`.
+
+If interactive, use AskUserQuestion with the recommended recovery step and `Stop here` as the fallback option.

@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -417,4 +418,43 @@ _REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts closeout
+```
+
+## Completion Interaction
+
+After the command returns, inspect the JSON `status` object and summarize:
+
+- `status.state`
+- `status.ready`
+- `status.archive_state`
+- `status.learnings_recorded`
+- `status.errors`
+
+If `status.state = "completed"` and `status.ready = true`, the governed run is complete. The main
+next-step surfaces are:
+
+- fresh `/discover` for the next run
+- `/land-and-deploy` to merge/deploy the shipped handoff
+- `/retro`
+- `/learn`
+- `/document-release`
+
+If the session is interactive, use AskUserQuestion:
+
+> `/closeout` completed. Choose the next step.
+
+- A) Start the next run with `/discover` (recommended)
+- B) Run `/land-and-deploy`
+- C) Stop here and choose a follow-on skill manually
+
+When the user chooses C, explicitly suggest `/retro`, `/learn`, and `/document-release` as the
+default post-closeout side skills.
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, print the recommended next command:
+
+```bash
+_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+_NEXUS_ROOT="~/.claude/skills/nexus"
+[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts discover
 ```

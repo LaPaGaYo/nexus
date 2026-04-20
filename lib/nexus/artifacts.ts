@@ -52,6 +52,14 @@ export function reviewLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/review/learning-candidates.json`;
 }
 
+export function reviewAdvisoriesPath(): string {
+  return `${CURRENT_ROOT}/review/advisories.json`;
+}
+
+export function reviewAdvisoryDispositionPath(): string {
+  return `${CURRENT_ROOT}/review/advisory-disposition.json`;
+}
+
 export function qaLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/qa/learning-candidates.json`;
 }

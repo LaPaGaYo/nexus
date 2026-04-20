@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 
 {{PREAMBLE}}
@@ -32,4 +33,40 @@ Run:
 
 ```bash
 {{NEXUS_RUN_COMMAND:closeout}}
+```
+
+## Completion Interaction
+
+After the command returns, inspect the JSON `status` object and summarize:
+
+- `status.state`
+- `status.ready`
+- `status.archive_state`
+- `status.learnings_recorded`
+- `status.errors`
+
+If `status.state = "completed"` and `status.ready = true`, the governed run is complete. The main
+next-step surfaces are:
+
+- fresh `/discover` for the next run
+- `/land-and-deploy` to merge/deploy the shipped handoff
+- `/retro`
+- `/learn`
+- `/document-release`
+
+If the session is interactive, use AskUserQuestion:
+
+> `/closeout` completed. Choose the next step.
+
+- A) Start the next run with `/discover` (recommended)
+- B) Run `/land-and-deploy`
+- C) Stop here and choose a follow-on skill manually
+
+When the user chooses C, explicitly suggest `/retro`, `/learn`, and `/document-release` as the
+default post-closeout side skills.
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, print the recommended next command:
+
+```bash
+{{NEXUS_RUN_COMMAND:discover}}
 ```

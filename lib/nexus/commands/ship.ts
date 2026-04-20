@@ -22,6 +22,14 @@ import { resolveShipPullRequest } from '../ship-pull-request';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
+import {
+  advisoryDispositionPermitsStage,
+  buildReviewAdvisoryDispositionRecord,
+  effectiveReviewAdvisoryDisposition,
+  persistReviewAdvisoryDisposition,
+  requiredReviewAdvisoryDispositionError,
+  reviewHasAdvisories,
+} from '../review-advisories';
 import type { SuperpowersShipDisciplineRaw } from '../adapters/superpowers';
 import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
 import type {
@@ -303,6 +311,26 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   }
 
   const startedAt = ctx.clock();
+  const reviewAdvisoryDisposition = effectiveReviewAdvisoryDisposition(
+    ctx.cwd,
+    reviewStatus,
+    ctx.review_advisory_disposition_override,
+  );
+  const reviewHasPendingAdvisories = reviewHasAdvisories(reviewStatus);
+  if (reviewHasPendingAdvisories && !advisoryDispositionPermitsStage('ship', reviewAdvisoryDisposition)) {
+    throw new Error(requiredReviewAdvisoryDispositionError('ship'));
+  }
+  if (reviewHasPendingAdvisories && ctx.review_advisory_disposition_override) {
+    persistReviewAdvisoryDisposition(
+      ctx.cwd,
+      buildReviewAdvisoryDispositionRecord(
+        ledger.run_id,
+        reviewStatus.advisory_count ?? 0,
+        reviewAdvisoryDisposition,
+        startedAt,
+      ),
+    );
+  }
   const verificationMatrix = resolveVerificationMatrix(ctx.cwd, ledger.run_id, startedAt);
   const canonicalVerificationMatrix = readVerificationMatrix(ctx.cwd);
   const designImpact = qaStatus?.design_impact ?? reviewStatus?.design_impact ?? verificationMatrix.design_impact;

@@ -5,9 +5,19 @@ import { getDefaultNexusAdapters } from '../../../lib/nexus/adapters/registry';
 import type { NexusAdapters } from '../../../lib/nexus/adapters/types';
 import { resolveInvocation } from '../../../lib/nexus/commands/index';
 import type { ExecutionSelection } from '../../../lib/nexus/execution-topology';
+import type { ReviewAdvisoryDisposition } from '../../../lib/nexus/types';
+
+interface TempRepoInvocationOptions {
+  reviewAdvisoryDispositionOverride?: ReviewAdvisoryDisposition | null;
+}
 
 interface TempRepoRun {
-  (command: string, adapters?: NexusAdapters, execution?: ExecutionSelection): Promise<void>;
+  (
+    command: string,
+    adapters?: NexusAdapters,
+    execution?: ExecutionSelection,
+    options?: TempRepoInvocationOptions,
+  ): Promise<void>;
   readJson: (path: string) => Promise<any>;
   readFile: (path: string) => Promise<string>;
 }
@@ -28,6 +38,7 @@ export async function runInTempRepo(
         provider_topology: 'multi_session',
         requested_execution_path: 'codex-via-ccb',
       },
+      options: TempRepoInvocationOptions = {},
     ) => {
       const invocation = resolveInvocation(command);
       await invocation.handler({
@@ -36,6 +47,7 @@ export async function runInTempRepo(
         via: invocation.via,
         adapters,
         execution,
+        review_advisory_disposition_override: options.reviewAdvisoryDispositionOverride ?? null,
       });
     },
     {

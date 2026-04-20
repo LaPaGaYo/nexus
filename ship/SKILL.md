@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -420,3 +421,38 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ship
 ```
+
+## Completion Interaction
+
+After the command returns, inspect the JSON `status` object and summarize:
+
+- `status.state`
+- `status.ready`
+- `status.deploy_configured`
+- `status.deploy_config_source`
+- `status.pull_request`
+- `status.errors`
+
+If `status.state = "completed"` and `status.ready = true`, the governed run is merge-ready. The
+recommended canonical next stage is `/closeout`, and the main follow-on support skills are
+`/land-and-deploy`, `/document-release`, and `/setup-deploy` when deploy is still unconfigured.
+
+If the session is interactive, use AskUserQuestion:
+
+> `/ship` recorded a merge-ready handoff. Choose what to do next.
+
+- A) Run `/closeout` now (recommended)
+- B) Stop here and leave the handoff for `/land-and-deploy`
+- C) Stop here and run `/setup-deploy` first
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, print the recommended next command:
+
+```bash
+_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+_NEXUS_ROOT="~/.claude/skills/nexus"
+[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts closeout
+```
+
+If `status.ready = false`, do not continue. Summarize the blocked release gate and tell the user to
+return to the missing predecessor stage before retrying `/ship`.

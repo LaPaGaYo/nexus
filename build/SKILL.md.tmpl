@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 
 {{PREAMBLE}}
@@ -33,3 +34,34 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:build}}
 ```
+
+## Completion Interaction
+
+After the command returns, inspect the JSON `status` object and summarize:
+
+- `status.state`
+- `status.decision`
+- `status.ready`
+- `status.errors`
+
+If `status.state = "completed"` and `status.ready = true`, the canonical next stage is `/review`.
+
+If the session is interactive, use AskUserQuestion:
+
+> `/build` completed and the governed run is ready for `/review`. Continue now?
+
+- A) Run `/review` now (recommended)
+- B) Stop here
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, print the exact next command:
+
+```bash
+{{NEXUS_RUN_COMMAND:review}}
+```
+
+If `status.ready = false`, do not blindly continue. Summarize the blocking reason first.
+
+- If the error mentions stale handoff, route validation, or governed routing mismatch, recommend `/handoff`.
+- Otherwise recommend `/investigate`.
+
+If interactive, use AskUserQuestion with the recommended recovery step and `Stop here` as the fallback option.

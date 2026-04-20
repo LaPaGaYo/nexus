@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 
 {{PREAMBLE}}
@@ -33,3 +34,69 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:review}}
 ```
+
+## Advisory Disposition Gate
+
+If the `/review` result reports all of the following:
+
+- `status.gate_decision = "pass"`
+- `status.advisory_count > 0`
+- `status.advisory_disposition = null`
+
+do not silently continue to `/qa`. Stop and use AskUserQuestion to make the user choose the
+next governed path:
+
+- `fix_before_qa`
+  Run:
+  ```bash
+  {{NEXUS_RUN_COMMAND:build}} --review-advisory-disposition fix_before_qa
+  ```
+- `continue_to_qa`
+  Run:
+  ```bash
+  {{NEXUS_RUN_COMMAND:qa}} --review-advisory-disposition continue_to_qa
+  ```
+- `defer_to_follow_on`
+  Run:
+  ```bash
+  {{NEXUS_RUN_COMMAND:qa}} --review-advisory-disposition defer_to_follow_on
+  ```
+
+Frame the AskUserQuestion clearly:
+
+> `/review` passed, but it recorded advisories. Choose whether to fix them now or carry them
+> forward as non-blocking context.
+
+Recommended ordering:
+
+- A) Fix advisories now
+- B) Continue to `/qa`
+- C) Defer advisories to follow-on work
+
+If the session is non-interactive, do not call AskUserQuestion. Instead, stop and tell the user
+which exact command to run next with the required `--review-advisory-disposition` flag.
+
+If `status.gate_decision = "pass"` and `status.advisory_count = 0`, summarize the clean pass and
+offer the canonical next-step choices.
+
+If interactive, use AskUserQuestion:
+
+> `/review` passed cleanly. Choose the next governed step.
+
+- A) Run `/qa` now (recommended)
+- B) Run `/ship` now
+- C) Stop here
+
+If non-interactive, print the recommended next command:
+
+```bash
+{{NEXUS_RUN_COMMAND:qa}}
+```
+
+If `status.gate_decision = "fail"`, do not continue to `/qa`. Summarize the blocking findings and,
+if interactive, use AskUserQuestion:
+
+> `/review` failed. The canonical next step is a bounded fix cycle through `/build`.
+
+- A) Run `/build` now (recommended)
+- B) Stop here

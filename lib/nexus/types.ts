@@ -94,6 +94,13 @@ export type ActualRouteTransport = (typeof ACTUAL_ROUTE_TRANSPORTS)[number];
 export const REVIEW_SCOPE_MODES = ['full_acceptance', 'bounded_fix_cycle'] as const;
 export type ReviewScopeMode = (typeof REVIEW_SCOPE_MODES)[number];
 
+export const REVIEW_ADVISORY_DISPOSITIONS = [
+  'continue_to_qa',
+  'fix_before_qa',
+  'defer_to_follow_on',
+] as const;
+export type ReviewAdvisoryDisposition = (typeof REVIEW_ADVISORY_DISPOSITIONS)[number];
+
 export const DESIGN_IMPACTS = ['none', 'touchup', 'material'] as const;
 export type DesignImpact = (typeof DESIGN_IMPACTS)[number];
 
@@ -611,6 +618,22 @@ export interface ReviewMetaRecord {
   review_scope?: ReviewScopeRecord;
 }
 
+export interface ReviewAdvisoriesRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  advisories: string[];
+}
+
+export interface ReviewAdvisoryDispositionRecord {
+  schema_version: 1;
+  run_id: string;
+  advisory_count: number;
+  selected: ReviewAdvisoryDisposition | null;
+  selected_at: string | null;
+  available_options: ReviewAdvisoryDisposition[];
+}
+
 export interface SessionContinuationAdviceRecord {
   schema_version: 1;
   run_id: string;
@@ -679,6 +702,7 @@ export interface StageStatus {
   actual_route?: ActualRouteRecord | null;
   route_validation?: RouteValidationRecord | null;
   review_scope?: ReviewScopeRecord | null;
+  advisories_path?: string | null;
   review_complete?: boolean;
   audit_set_complete?: boolean;
   provenance_consistent?: boolean;
@@ -693,6 +717,8 @@ export interface StageStatus {
   verification_count?: number;
   defect_count?: number;
   advisory_count?: number;
+  advisory_disposition?: ReviewAdvisoryDisposition | null;
+  advisory_disposition_path?: string | null;
   pull_request?: PullRequestRecord | null;
 }
 

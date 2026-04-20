@@ -1,6 +1,7 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import {
   planVerificationMatrixPath,
+  reviewAdvisoryDispositionPath,
   qaDesignVerificationPath,
   qaLearningCandidatesPath,
   qaReportPath,
@@ -33,6 +34,13 @@ import type {
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
 import { boundedFixCycleReviewScopeFromQaFindings } from '../review-scope';
+import {
+  advisoryDispositionPermitsStage,
+  buildReviewAdvisoryDispositionRecord,
+  effectiveReviewAdvisoryDisposition,
+  requiredReviewAdvisoryDispositionError,
+  reviewHasAdvisories,
+} from '../review-advisories';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -258,6 +266,15 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   }
 
   const startedAt = ctx.clock();
+  const reviewAdvisoryDisposition = effectiveReviewAdvisoryDisposition(
+    ctx.cwd,
+    reviewStatus,
+    ctx.review_advisory_disposition_override,
+  );
+  const reviewHasPendingAdvisories = reviewHasAdvisories(reviewStatus);
+  if (reviewHasPendingAdvisories && !advisoryDispositionPermitsStage('qa', reviewAdvisoryDisposition)) {
+    throw new Error(requiredReviewAdvisoryDispositionError('qa'));
+  }
   const verificationMatrix = resolveVerificationMatrix(ctx.cwd, ledger.run_id, startedAt);
   const canonicalVerificationMatrix = readVerificationMatrix(ctx.cwd);
   const designImpact = reviewStatus?.design_impact ?? verificationMatrix.design_impact;
@@ -279,6 +296,20 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     artifactPointerFor(reviewStatusPath),
     ...(canonicalVerificationMatrix ? [artifactPointerFor(planVerificationMatrixPath())] : []),
   ];
+  const reviewAdvisoryDispositionRecord = reviewHasPendingAdvisories
+    ? buildReviewAdvisoryDispositionRecord(
+        ledger.run_id,
+        reviewStatus.advisory_count ?? 0,
+        reviewAdvisoryDisposition,
+        startedAt,
+      )
+    : null;
+  const reviewAdvisoryDispositionWrite = reviewAdvisoryDispositionRecord
+    ? {
+        path: reviewAdvisoryDispositionPath(),
+        content: JSON.stringify(reviewAdvisoryDispositionRecord, null, 2) + '\n',
+      }
+    : null;
   const requestedRoute = requestedQaRouteFromLedger(ledgerWithExecution);
   const qaAdapter = ledger.execution.mode === 'local_provider' ? ctx.adapters.local : ctx.adapters.ccb;
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
@@ -327,7 +358,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'qa',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -341,9 +372,15 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ),
       status,
       mirrorWorkspace: workspace,
-      ledger: clearQaLearningArtifactIndex(
-        nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
-      ),
+      ledger: (() => {
+        const next = clearQaLearningArtifactIndex(
+          nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+        );
+        if (reviewAdvisoryDispositionWrite) {
+          next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
+        }
+        return next;
+      })(),
       removeWrites: [learningCandidatesPath],
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -380,7 +417,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'qa',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -395,7 +432,13 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ),
       status,
       mirrorWorkspace: workspace,
-      ledger: clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via)),
+      ledger: (() => {
+        const next = clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via));
+        if (reviewAdvisoryDispositionWrite) {
+          next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
+        }
+        return next;
+      })(),
       removeWrites: [learningCandidatesPath],
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -433,7 +476,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'qa',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -448,7 +491,13 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ),
       status,
       mirrorWorkspace: workspace,
-      ledger: clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via)),
+      ledger: (() => {
+        const next = clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via));
+        if (reviewAdvisoryDispositionWrite) {
+          next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
+        }
+        return next;
+      })(),
       removeWrites: [learningCandidatesPath],
       conflicts: [conflict, ...result.conflict_candidates],
     });
@@ -515,6 +564,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ...next.artifact_index,
     [reportPath]: artifactPointerFor(reportPath),
     [statusPath]: artifactPointerFor(statusPath),
+    ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
   };
   if (designVerificationMarkdown) {
     next.artifact_index[designVerificationPath] = artifactPointerFor(designVerificationPath);
@@ -532,6 +582,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     stage: 'qa',
     statusPath,
     canonicalWrites: [
+      ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       { path: reportPath, content: `${reportMarkdown}\n` },
       ...(designVerificationMarkdown
         ? [{ path: designVerificationPath, content: `${designVerificationMarkdown}\n` }]

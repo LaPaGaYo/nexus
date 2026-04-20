@@ -15,6 +15,7 @@ try {
     adapters: getRuntimeNexusAdapters(),
     execution: defaultExecutionSelection(),
     continuation_mode_override: runtimeInvocation.continuationModeOverride,
+    review_advisory_disposition_override: runtimeInvocation.reviewAdvisoryDispositionOverride,
   });
 
   console.log(JSON.stringify(result, null, 2));

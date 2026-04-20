@@ -6,6 +6,7 @@ import {
   executionContractArtifacts,
 } from '../contract-artifacts';
 import { currentAuditArtifactPaths, currentAuditPointer, reviewLearningCandidatesPath, stageStatusPath } from '../artifacts';
+import { reviewAdvisoriesPath, reviewAdvisoryDispositionPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
 import { readLedger } from '../ledger';
@@ -24,6 +25,10 @@ import {
   normalizeReviewScopeRecord,
   resolveFixCycleReviewScope,
 } from '../review-scope';
+import {
+  buildReviewAdvisoriesRecord,
+  buildReviewAdvisoryDispositionRecord,
+} from '../review-advisories';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
@@ -72,6 +77,8 @@ function clearCurrentAuditArtifactIndex(ledger: RunLedger): RunLedger {
   }
 
   delete nextArtifactIndex[reviewLearningCandidatesPath()];
+  delete nextArtifactIndex[reviewAdvisoriesPath()];
+  delete nextArtifactIndex[reviewAdvisoryDispositionPath()];
 
   return {
     ...ledger,
@@ -91,12 +98,13 @@ function reviewCommandHistoryVia(
 }
 
 function parseAuditVerdict(markdown: string, label: string): 'pass' | 'fail' {
-  const match = markdown.match(/Result:\s*(pass|fail)/i);
-  if (!match) {
+  const matches = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)];
+  const verdict = matches.at(-1)?.[1]?.toLowerCase();
+  if (!verdict) {
     throw new Error(`${label} audit is missing a canonical Result: pass|fail line`);
   }
 
-  return match[1].toLowerCase() as 'pass' | 'fail';
+  return verdict as 'pass' | 'fail';
 }
 
 function blockedReviewStatus(
@@ -323,7 +331,14 @@ export async function runReviewWithWriteAtomicFile(
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
   const metaPath = '.planning/audits/current/meta.json';
   const learningCandidatesPath = reviewLearningCandidatesPath();
-  const currentAuditPaths = [...currentAuditArtifactPaths(), learningCandidatesPath];
+  const advisoriesPath = reviewAdvisoriesPath();
+  const advisoryDispositionPath = reviewAdvisoryDispositionPath();
+  const currentAuditPaths = [
+    ...currentAuditArtifactPaths(),
+    learningCandidatesPath,
+    advisoriesPath,
+    advisoryDispositionPath,
+  ];
 
   if (planStatus?.design_impact === 'material') {
     const designContractPath = designContractPointer?.path ?? null;
@@ -708,6 +723,15 @@ export async function runReviewWithWriteAtomicFile(
     ? boundedFixCycleReviewScopeFromAudits(codexMarkdown, geminiMarkdown)
     : inheritedReviewScope;
   const learningCandidates = collectReviewLearningCandidates(auditAResult.raw_output, auditBResult.raw_output);
+  const advisoriesRecord = buildReviewAdvisoriesRecord(
+    ledger.run_id,
+    startedAt,
+    codexMarkdown,
+    geminiMarkdown,
+  );
+  const advisoryDispositionRecord = advisoriesRecord
+    ? buildReviewAdvisoryDispositionRecord(ledger.run_id, advisoriesRecord.advisories.length, null, null)
+    : null;
   const learningCandidatesRecord = learningCandidates.length > 0
     ? {
         schema_version: 1 as const,
@@ -779,6 +803,7 @@ export async function runReviewWithWriteAtomicFile(
     currentAuditPointer('gate-decision'),
     currentAuditPointer('meta'),
     ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
+    ...(advisoriesRecord ? [artifactPointerFor(advisoriesPath), artifactPointerFor(advisoryDispositionPath)] : []),
     artifactPointerFor(reviewStatusPath),
   ];
   const status: StageStatus = {
@@ -799,6 +824,10 @@ export async function runReviewWithWriteAtomicFile(
     review_scope: reviewScope,
     learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
     learnings_recorded: Boolean(learningCandidatesRecord),
+    advisories_path: advisoriesRecord ? advisoriesPath : null,
+    advisory_count: advisoriesRecord?.advisories.length ?? 0,
+    advisory_disposition: advisoryDispositionRecord?.selected ?? null,
+    advisory_disposition_path: advisoryDispositionRecord ? advisoryDispositionPath : null,
     workspace,
     review_complete: true,
     audit_set_complete: true,
@@ -822,10 +851,20 @@ export async function runReviewWithWriteAtomicFile(
     [gateDecisionPath]: currentAuditPointer('gate-decision'),
     [metaPath]: currentAuditPointer('meta'),
     ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
+    ...(advisoriesRecord
+      ? {
+          [advisoriesPath]: artifactPointerFor(advisoriesPath),
+          [advisoryDispositionPath]: artifactPointerFor(advisoryDispositionPath),
+        }
+      : {}),
     [reviewStatusPath]: artifactPointerFor(reviewStatusPath),
   };
   if (!learningCandidatesRecord) {
     delete next.artifact_index[learningCandidatesPath];
+  }
+  if (!advisoriesRecord) {
+    delete next.artifact_index[advisoriesPath];
+    delete next.artifact_index[advisoryDispositionPath];
   }
 
   await applyNormalizationPlan({
@@ -841,8 +880,17 @@ export async function runReviewWithWriteAtomicFile(
       ...(learningCandidatesRecord
         ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
         : []),
+      ...(advisoriesRecord
+        ? [
+            { path: advisoriesPath, content: JSON.stringify(advisoriesRecord, null, 2) + '\n' },
+            { path: advisoryDispositionPath, content: JSON.stringify(advisoryDispositionRecord, null, 2) + '\n' },
+          ]
+        : []),
     ],
-    removeWrites: learningCandidatesRecord ? [] : [learningCandidatesPath],
+    removeWrites: [
+      ...(learningCandidatesRecord ? [] : [learningCandidatesPath]),
+      ...(advisoriesRecord ? [] : [advisoriesPath, advisoryDispositionPath]),
+    ],
     traceWrites: buildReviewTraceabilityPayloads(
       ledger.run_id,
       [buildStatusPath],

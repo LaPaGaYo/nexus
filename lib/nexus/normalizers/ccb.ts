@@ -501,8 +501,12 @@ export function buildReviewSynthesisMarkdown(
   geminiMarkdown: string,
   gateDecision: 'pass' | 'fail',
 ): string {
-  const codexResult = codexMarkdown.match(/Result:\s*(pass|fail)/i)?.[1]?.toLowerCase() ?? 'unknown';
-  const geminiResult = geminiMarkdown.match(/Result:\s*(pass|fail)/i)?.[1]?.toLowerCase() ?? 'unknown';
+  const resultFromMarkdown = (markdown: string): string => {
+    const matches = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)];
+    return matches.at(-1)?.[1]?.toLowerCase() ?? 'unknown';
+  };
+  const codexResult = resultFromMarkdown(codexMarkdown);
+  const geminiResult = resultFromMarkdown(geminiMarkdown);
 
   return [
     '# Synthesis',
