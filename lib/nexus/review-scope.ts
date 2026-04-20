@@ -3,6 +3,7 @@ import { join } from 'path';
 import type { ReviewScopeRecord, StageStatus } from './types';
 
 const GENERIC_FIX_CYCLE_ITEM = 'Resolve the failing review findings recorded in .planning/audits/current/ before rerunning /build.';
+const GENERIC_QA_FIX_CYCLE_ITEM = 'Resolve the failing QA findings recorded in .planning/current/qa/qa-report.md before rerunning /build.';
 
 export function fullAcceptanceReviewScope(): ReviewScopeRecord {
   return {
@@ -115,6 +116,17 @@ export function boundedFixCycleReviewScopeFromAudits(codexMarkdown: string, gemi
     mode: 'bounded_fix_cycle',
     source_stage: 'review',
     blocking_items: blockingItems.length > 0 ? blockingItems : [GENERIC_FIX_CYCLE_ITEM],
+    advisory_policy: 'out_of_scope_advisory',
+  });
+}
+
+export function boundedFixCycleReviewScopeFromQaFindings(findings: string[]): ReviewScopeRecord {
+  const blockingItems = dedupeBlockingItems(findings);
+
+  return normalizeReviewScopeRecord({
+    mode: 'bounded_fix_cycle',
+    source_stage: 'qa',
+    blocking_items: blockingItems.length > 0 ? blockingItems : [GENERIC_QA_FIX_CYCLE_ITEM],
     advisory_policy: 'out_of_scope_advisory',
   });
 }

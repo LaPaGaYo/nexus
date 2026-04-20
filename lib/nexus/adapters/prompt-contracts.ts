@@ -197,6 +197,7 @@ export function buildQaPromptSchemaExample(): string {
     {
       ready: true,
       findings: ['example finding'],
+      advisories: ['example advisory'],
       report_markdown: '# QA Report\n\nResult: pass\n',
     },
     null,
@@ -216,6 +217,9 @@ export function buildQaValidationPrompt(
     'Return JSON only, with no code fences and no extra prose.',
     'You may include an optional learning_candidates array for durable reusable learnings; omit it when there are none.',
     'Keep the required ready, findings, and report_markdown fields unchanged.',
+    'Use findings only for blocking defects that make QA not ready.',
+    'Use an optional advisories array for non-blocking concerns that should not flip ready=false.',
+    'If only advisories remain, set ready=true and keep findings empty.',
     ...extraLines,
     buildQaPromptSchemaExample(),
   ].join('\n');

@@ -6,7 +6,7 @@ export interface NexusQaStagePack {
   id: 'nexus-qa-pack';
   stage: 'qa';
   source_binding: ReturnType<typeof getStagePackSourceBinding>;
-  buildQaReport(ctx: NexusAdapterContext, ready: boolean, findings: string[]): string;
+  buildQaReport(ctx: NexusAdapterContext, ready: boolean, findings: string[], advisories?: string[]): string;
   validationTraceability(): AdapterTraceability;
 }
 
@@ -17,7 +17,7 @@ export function createQaStagePack(): NexusQaStagePack {
     id: 'nexus-qa-pack',
     stage: 'qa',
     source_binding,
-    buildQaReport: (ctx, ready, findings) => buildQaReport(ctx, ready, findings),
+    buildQaReport: (ctx, ready, findings, advisories) => buildQaReport(ctx, ready, findings, advisories),
     validationTraceability: () => ({
       nexus_stage_pack: 'nexus-qa-pack',
       absorbed_capability: 'ccb-qa',

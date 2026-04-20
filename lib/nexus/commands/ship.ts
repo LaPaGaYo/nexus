@@ -202,6 +202,7 @@ function shipStatusTracePayload(
     | 'deploy_contract_path'
     | 'learning_candidates_path'
     | 'learnings_recorded'
+    | 'pull_request'
   >,
 ): Record<string, unknown> {
   return {
@@ -216,6 +217,7 @@ function shipStatusTracePayload(
     deploy_contract_path: status.deploy_contract_path ?? null,
     learning_candidates_path: status.learning_candidates_path ?? null,
     learnings_recorded: status.learnings_recorded ?? false,
+    pull_request: status.pull_request ?? null,
   };
 }
 

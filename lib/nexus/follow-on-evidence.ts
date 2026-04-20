@@ -42,25 +42,46 @@ function readDeployEvidence(
   deployResultPath: string | null,
 ): {
   path: string | null;
+  mergeStatus: DeployResultRecord['merge_status'] | null;
   deployStatus: DeployResultRecord['deploy_status'] | null;
   verificationStatus: DeployResultRecord['verification_status'] | null;
+  failureKind: DeployResultRecord['failure_kind'] | null;
+  nextAction: DeployResultRecord['next_action'] | null;
+  shipHandoffCurrent: boolean | null;
+  shipHandoffHeadSha: string | null;
+  pullRequestHeadSha: string | null;
   productionUrl: string | null;
 } {
   if (!deployResultPath) {
     return {
       path: null,
+      mergeStatus: null,
       deployStatus: null,
       verificationStatus: null,
+      failureKind: null,
+      nextAction: null,
+      shipHandoffCurrent: null,
+      shipHandoffHeadSha: null,
+      pullRequestHeadSha: null,
       productionUrl: null,
     };
   }
 
   const record = readJsonRecord<DeployResultRecord>(cwd, deployResultPath);
+  const mergeStatus = record?.merge_status;
   const deployStatus = record?.deploy_status;
   const verificationStatus = record?.verification_status;
+  const failureKind = record?.failure_kind;
+  const nextAction = record?.next_action;
 
   return {
     path: deployResultPath,
+    mergeStatus:
+      mergeStatus === 'pending'
+      || mergeStatus === 'merged'
+      || mergeStatus === 'reverted'
+        ? mergeStatus
+        : null,
     deployStatus:
       deployStatus === 'pending'
       || deployStatus === 'verified'
@@ -76,6 +97,24 @@ function readDeployEvidence(
       || verificationStatus === 'skipped'
         ? verificationStatus
         : null,
+    failureKind:
+      failureKind === 'pre_merge_ci_failed'
+      || failureKind === 'pre_merge_conflict'
+      || failureKind === 'merge_queue_failed'
+      || failureKind === 'post_merge_deploy_failed'
+        ? failureKind
+        : null,
+    nextAction:
+      nextAction === 'rerun_land_and_deploy'
+      || nextAction === 'rerun_ship'
+      || nextAction === 'rerun_build_review_qa_ship'
+      || nextAction === 'investigate_deploy'
+      || nextAction === 'revert'
+        ? nextAction
+        : null,
+    shipHandoffCurrent: typeof record?.ship_handoff_current === 'boolean' ? record.ship_handoff_current : null,
+    shipHandoffHeadSha: typeof record?.ship_handoff_head_sha === 'string' ? record.ship_handoff_head_sha : null,
+    pullRequestHeadSha: typeof record?.pull_request_head_sha === 'string' ? record.pull_request_head_sha : null,
     productionUrl: typeof record?.production_url === 'string' ? record.production_url : null,
   };
 }
@@ -109,6 +148,17 @@ export function buildFollowOnEvidenceSummary(input: {
     summaryParts.push(
       `Deploy result recorded${deployEvidence.deployStatus ? ` (${deployEvidence.deployStatus})` : ''}.`,
     );
+    if (deployEvidence.nextAction) {
+      summaryParts.push(`Landing re-entry next action: ${deployEvidence.nextAction}.`);
+    }
+    if (deployEvidence.failureKind) {
+      summaryParts.push(`Landing failure kind: ${deployEvidence.failureKind}.`);
+    }
+    if (deployEvidence.shipHandoffCurrent === false) {
+      summaryParts.push('Ship handoff is stale against the current PR head.');
+    } else if (deployEvidence.shipHandoffCurrent === true) {
+      summaryParts.push('Ship handoff still matches the current PR head.');
+    }
   }
   if (input.documentationSyncPath) {
     summaryParts.push('Documentation sync evidence recorded.');
@@ -141,6 +191,42 @@ export function buildFollowOnEvidenceSummary(input: {
   };
 }
 
+function renderLandingReentryBlock(record: FollowOnEvidenceSummaryRecord): string[] {
+  const shipEvidence = record.evidence.ship as FollowOnEvidenceSummaryRecord['evidence']['ship'] & {
+    landing_reentry?: {
+      merge_status: string | null;
+      failure_kind: string | null;
+      next_action: string | null;
+      ship_handoff_current: boolean | null;
+      ship_handoff_head_sha: string | null;
+      pull_request_head_sha: string | null;
+    } | null;
+  };
+  const landingReentry = shipEvidence.landing_reentry ?? null;
+
+  if (!landingReentry) {
+    return [];
+  }
+
+  return [
+    '## Landing Re-entry',
+    '',
+    `- Merge status: ${landingReentry.merge_status ?? 'unknown'}`,
+    `- Failure kind: ${landingReentry.failure_kind ?? 'unknown'}`,
+    `- Next action: ${landingReentry.next_action ?? 'none'}`,
+    `- Ship handoff current: ${
+      landingReentry.ship_handoff_current === true
+        ? 'yes'
+        : landingReentry.ship_handoff_current === false
+          ? 'no'
+          : 'unknown'
+    }`,
+    `- Ship handoff head SHA: ${landingReentry.ship_handoff_head_sha ?? 'unknown'}`,
+    `- PR head SHA: ${landingReentry.pull_request_head_sha ?? 'unknown'}`,
+    '',
+  ];
+}
+
 export function renderFollowOnEvidenceMarkdown(record: FollowOnEvidenceSummaryRecord): string {
   return [
     '# Follow-On Evidence Summary',
@@ -159,6 +245,7 @@ export function renderFollowOnEvidenceMarkdown(record: FollowOnEvidenceSummaryRe
     `- Deploy result: ${record.evidence.ship.deploy_result_path ?? 'none'}${record.evidence.ship.deploy_status ? ` (${record.evidence.ship.deploy_status})` : ''}`,
     `- Documentation sync: ${record.evidence.closeout.documentation_sync_path ?? 'none'}`,
     '',
+    ...renderLandingReentryBlock(record),
     '## Source Artifacts',
     '',
     ...(record.source_artifacts.length > 0

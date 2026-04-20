@@ -164,14 +164,14 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/design-review` | Live-site visual audit and polish that feeds canonical lifecycle artifacts for UI-bearing runs. |
 | `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
 | `/qa-only` | Report-only QA pass without fixes. |
-| `/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence and attaches `.planning/current/ship/deploy-result.json`. |
+| `/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence, verifies the primary deploy surface, and attaches `.planning/current/ship/deploy-result.json` for both successful lands and pre-merge stops. |
 | `/canary` | Post-deploy monitoring that attaches `.planning/current/ship/canary-status.json` as follow-on ship evidence. |
 | `/benchmark` | Performance regression checks that attach `.planning/current/qa/perf-verification.md` as follow-on QA evidence. |
 | `/document-release` | Release-note and documentation sync that attaches `.planning/current/closeout/documentation-sync.md` as follow-on closeout evidence. |
 | `/retro` | Engineering retrospective workflow with repo-scoped archive continuity under `.planning/archive/retros/`. |
 | `/learn` | Learned-pattern management. |
 | `/careful`, `/freeze`, `/guard`, `/unfreeze` | Safety and edit-boundary controls. |
-| `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. `/setup-deploy` authors `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`. |
+| `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. `/setup-deploy` authors `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`, including primary and secondary deploy surfaces. |
 | `/nexus-upgrade` | Upgrade Nexus itself through the supported release-based update flow. |
 
 Governed runs may publish canonical learnings at `/closeout`.

@@ -148,6 +148,49 @@ function readSection(content: string, header: string): string | null {
   return collected.join('\n').trim();
 }
 
+function normalizeSurfaceLabel(value: string | null | undefined): string | null {
+  const normalized = value?.trim() ?? '';
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeSecondarySurfaces(contract: Partial<DeployContractRecord>): DeployContractRecord['secondary_surfaces'] {
+  if (!Array.isArray(contract.secondary_surfaces)) {
+    return [];
+  }
+
+  return contract.secondary_surfaces
+    .map((surface, index) => {
+      if (!surface || typeof surface !== 'object') {
+        return null;
+      }
+
+      const entry = surface as Partial<DeployContractRecord['secondary_surfaces'][number]>;
+      const label = normalizeSurfaceLabel(entry.label ?? null) ?? `secondary-${index + 1}`;
+
+      return {
+        label,
+        platform: normalizePlatform(entry.platform ?? null),
+        project_type: normalizeProjectType(entry.project_type ?? null),
+        production: {
+          url: entry.production?.url ?? null,
+          health_check: entry.production?.health_check ?? null,
+        },
+        deploy_trigger: {
+          kind: oneOf(entry.deploy_trigger?.kind ?? null, DEPLOY_TRIGGER_KINDS, 'none'),
+          details: entry.deploy_trigger?.details ?? null,
+        },
+        deploy_workflow: entry.deploy_workflow ?? null,
+        deploy_status: {
+          kind: oneOf(entry.deploy_status?.kind ?? null, DEPLOY_STATUS_KINDS, 'none'),
+          command: entry.deploy_status?.command ?? null,
+        },
+        notes: Array.isArray(entry.notes) ? entry.notes.filter((item): item is string => typeof item === 'string') : [],
+        sources: Array.isArray(entry.sources) ? entry.sources.filter((item): item is string => typeof item === 'string') : [],
+      };
+    })
+    .filter((surface): surface is DeployContractRecord['secondary_surfaces'][number] => surface !== null);
+}
+
 export function readCanonicalDeployContract(cwd: string): DeployContractRecord | null {
   const path = join(cwd, deployContractJsonPath());
   if (!existsSync(path)) {
@@ -162,6 +205,7 @@ export function readCanonicalDeployContract(cwd: string): DeployContractRecord |
   return {
     schema_version: 1,
     configured_at: typeof parsed.configured_at === 'string' ? parsed.configured_at : new Date().toISOString(),
+    primary_surface_label: normalizeSurfaceLabel(parsed.primary_surface_label ?? null),
     platform: normalizePlatform(parsed.platform ?? null),
     project_type: normalizeProjectType(parsed.project_type ?? null),
     production: {
@@ -185,6 +229,7 @@ export function readCanonicalDeployContract(cwd: string): DeployContractRecord |
       pre_merge: Array.isArray(parsed.custom_hooks?.pre_merge) ? parsed.custom_hooks.pre_merge.filter((entry): entry is string => typeof entry === 'string') : [],
       post_merge: Array.isArray(parsed.custom_hooks?.post_merge) ? parsed.custom_hooks.post_merge.filter((entry): entry is string => typeof entry === 'string') : [],
     },
+    secondary_surfaces: normalizeSecondarySurfaces(parsed),
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter((entry): entry is string => typeof entry === 'string') : [],
     sources: Array.isArray(parsed.sources) ? parsed.sources.filter((entry): entry is string => typeof entry === 'string') : [],
   };
@@ -217,6 +262,7 @@ export function readLegacyClaudeDeployContract(cwd: string): DeployContractRecor
   return {
     schema_version: 1,
     configured_at: '',
+    primary_surface_label: projectType === 'web_app' ? 'web' : null,
     platform,
     project_type: projectType,
     production: {
@@ -240,6 +286,7 @@ export function readLegacyClaudeDeployContract(cwd: string): DeployContractRecor
       pre_merge: splitHooks(parseHookValue(hooksSection ?? '', 'Pre-merge')),
       post_merge: splitHooks(parseHookValue(hooksSection ?? '', 'Post-merge')),
     },
+    secondary_surfaces: [],
     notes: ['Recovered from legacy CLAUDE.md deploy configuration.'],
     sources: ['CLAUDE.md'],
   };
@@ -252,6 +299,19 @@ function readinessFromContract(
   generatedAt: string,
   contractPath: string | null,
 ): DeployReadinessRecord {
+  const secondarySurfaces = contract.secondary_surfaces.map((surface) => ({
+    label: surface.label,
+    platform: surface.platform,
+    project_type: surface.project_type,
+    production_url: surface.production.url,
+    health_check: surface.production.health_check,
+    deploy_status_kind: surface.deploy_status.kind,
+    deploy_status_command: surface.deploy_status.command,
+    deploy_workflow: surface.deploy_workflow,
+    blocking: false as const,
+    notes: surface.notes,
+  }));
+
   return {
     schema_version: 1,
     run_id: runId,
@@ -259,6 +319,7 @@ function readinessFromContract(
     configured: contract.platform !== 'unknown',
     source,
     contract_path: contractPath,
+    primary_surface_label: contract.primary_surface_label,
     platform: contract.platform,
     project_type: contract.project_type,
     production_url: contract.production.url,
@@ -267,7 +328,13 @@ function readinessFromContract(
     deploy_status_command: contract.deploy_status.command,
     deploy_workflow: contract.deploy_workflow,
     staging_detected: Boolean(contract.staging.url || contract.staging.workflow),
-    notes: contract.notes,
+    secondary_surfaces: secondarySurfaces,
+    notes: secondarySurfaces.length > 0
+      ? [
+          ...contract.notes,
+          `Secondary deploy surfaces detected: ${secondarySurfaces.map((surface) => `${surface.label} (${surface.platform})`).join(', ')}`,
+        ]
+      : contract.notes,
   };
 }
 
@@ -289,6 +356,7 @@ export function resolveDeployReadiness(cwd: string, runId: string, generatedAt: 
     configured: false,
     source: 'none',
     contract_path: null,
+    primary_surface_label: null,
     platform: null,
     project_type: null,
     production_url: null,
@@ -297,6 +365,7 @@ export function resolveDeployReadiness(cwd: string, runId: string, generatedAt: 
     deploy_status_command: null,
     deploy_workflow: null,
     staging_detected: false,
+    secondary_surfaces: [],
     notes: [],
   };
 }

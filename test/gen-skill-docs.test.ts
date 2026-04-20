@@ -337,6 +337,10 @@ describe('gen-skill-docs', () => {
     expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
     expect(landAndDeploy).toContain('.planning/current/ship/deploy-result.json');
     expect(landAndDeploy).toContain('nexus-refresh-follow-on-summary');
+    expect(landAndDeploy).toContain('headRefOid');
+    expect(landAndDeploy).toContain('pre_merge_ci_failed');
+    expect(landAndDeploy).toContain('rerun_build_review_qa_ship');
+    expect(landAndDeploy).toContain('rerun_ship');
   });
 
   test('generated SKILL.md does not mention telemetry storage', () => {

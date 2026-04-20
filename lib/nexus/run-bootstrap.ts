@@ -16,9 +16,22 @@ export interface NextRunBootstrapRecord {
   previous_workspace: WorkspaceRecord | null;
   recommended_entrypoint: 'discover';
   recommended_continuation_mode: ContinuationMode;
+  landing_reentry: LandingReentryRecord | null;
   summary: string;
   carry_forward_artifacts: ArtifactPointer[];
   generated_at: string;
+}
+
+export interface LandingReentryRecord {
+  deploy_result_path: string;
+  merge_status: string | null;
+  deploy_status: string | null;
+  verification_status: string | null;
+  failure_kind: string | null;
+  next_action: string | null;
+  ship_handoff_current: boolean | null;
+  ship_handoff_head_sha: string | null;
+  pull_request_head_sha: string | null;
 }
 
 function bootstrapArtifactPointer(path: string): ArtifactPointer {
@@ -41,6 +54,8 @@ export function buildNextRunBootstrap(input: {
   followOnSummaryRecorded?: boolean;
   canaryEvidencePath?: string | null;
   documentationSyncPath?: string | null;
+  deployResultPath?: string | null;
+  landingReentry?: LandingReentryRecord | null;
 }): NextRunBootstrapRecord {
   const carryForwardArtifacts: ArtifactPointer[] = [
     bootstrapArtifactPointer('docs/product/idea-brief.md'),
@@ -57,11 +72,29 @@ export function buildNextRunBootstrap(input: {
     );
   }
 
+  if (input.deployResultPath) {
+    carryForwardArtifacts.push(
+      bootstrapArtifactPointer(`.planning/archive/runs/${input.ledger.run_id}/ship/deploy-result.json`),
+    );
+  }
+
   if (input.documentationSyncPath) {
     carryForwardArtifacts.push(
       bootstrapArtifactPointer(`.planning/archive/runs/${input.ledger.run_id}/closeout/documentation-sync.md`),
     );
   }
+
+  const landingReentryLine = input.landingReentry
+    ? `Landing re-entry guidance: next_action=${input.landingReentry.next_action ?? 'none'}, ship_handoff_current=${
+        input.landingReentry.ship_handoff_current === true
+          ? 'yes'
+          : input.landingReentry.ship_handoff_current === false
+            ? 'no'
+            : 'unknown'
+      }, merge_status=${input.landingReentry.merge_status ?? 'unknown'}, verification_status=${
+        input.landingReentry.verification_status ?? 'unknown'
+      }.`
+    : 'Landing re-entry guidance: not recorded.';
 
   const summary = [
     `Completed governed run ${input.ledger.run_id} through /closeout.`,
@@ -70,7 +103,9 @@ export function buildNextRunBootstrap(input: {
     `Ship ready: ${input.shipStatus?.ready === true ? 'yes' : 'not recorded'}.`,
     `Follow-on evidence summary recorded: ${input.followOnSummaryRecorded ? 'yes' : 'no'}.`,
     `Ship canary evidence recorded: ${input.canaryEvidencePath ? 'yes' : 'no'}.`,
+    `Deploy result evidence recorded: ${input.deployResultPath ? 'yes' : 'no'}.`,
     `Documentation sync recorded: ${input.documentationSyncPath ? 'yes' : 'no'}.`,
+    landingReentryLine,
     'Start the next run from /discover, but continue from the repo-visible product artifacts and archived closeout record rather than rediscovering blind.',
   ].join(' ');
 
@@ -81,6 +116,7 @@ export function buildNextRunBootstrap(input: {
     previous_workspace: input.ledger.execution.workspace ?? null,
     recommended_entrypoint: 'discover',
     recommended_continuation_mode: 'phase',
+    landing_reentry: input.landingReentry ?? null,
     summary,
     carry_forward_artifacts: carryForwardArtifacts,
     generated_at: input.generatedAt,
@@ -104,6 +140,28 @@ export function renderNextRunBootstrapMarkdown(record: NextRunBootstrapRecord): 
     '## Summary',
     '',
     record.summary,
+    '',
+    '## Landing Re-entry',
+    '',
+    record.landing_reentry
+      ? [
+          `- Deploy result: ${record.landing_reentry.deploy_result_path}`,
+          `- Merge status: ${record.landing_reentry.merge_status ?? 'unknown'}`,
+          `- Deploy status: ${record.landing_reentry.deploy_status ?? 'unknown'}`,
+          `- Verification status: ${record.landing_reentry.verification_status ?? 'unknown'}`,
+          `- Failure kind: ${record.landing_reentry.failure_kind ?? 'unknown'}`,
+          `- Next action: ${record.landing_reentry.next_action ?? 'none'}`,
+          `- Ship handoff current: ${
+            record.landing_reentry.ship_handoff_current === true
+              ? 'yes'
+              : record.landing_reentry.ship_handoff_current === false
+                ? 'no'
+                : 'unknown'
+          }`,
+          `- Ship handoff head SHA: ${record.landing_reentry.ship_handoff_head_sha ?? 'unknown'}`,
+          `- PR head SHA: ${record.landing_reentry.pull_request_head_sha ?? 'unknown'}`,
+        ].join('\n')
+      : '- none',
     '',
     '## Carry Forward Artifacts',
     '',

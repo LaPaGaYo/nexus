@@ -6,6 +6,10 @@ import {
   CONTINUATION_ADVICE_OPTIONS,
   CANARY_EVIDENCE_STATUSES,
   DEPLOY_CONFIG_SOURCES,
+  DEPLOY_RESULT_CI_STATUSES,
+  DEPLOY_RESULT_FAILURE_KINDS,
+  DEPLOY_RESULT_NEXT_ACTIONS,
+  DEPLOY_RESULT_PHASES,
   DEPLOY_PLATFORMS,
   DEPLOY_PROJECT_TYPES,
   DEPLOY_STATUS_KINDS,
@@ -20,6 +24,7 @@ import {
   type FollowOnEvidenceSummaryRecord,
   type LearningCandidate,
   type RepoRetroArchiveRecord,
+  type PullRequestRecord,
   type RunLearningsRecord,
   type StageLearningCandidatesRecord,
   type VerificationMatrixRecord,
@@ -607,14 +612,44 @@ describe('nexus types', () => {
     expect(DEPLOY_TRIGGER_KINDS).toEqual(['auto_on_push', 'github_actions', 'command', 'manual', 'none']);
     expect(DEPLOY_STATUS_KINDS).toEqual(['http', 'command', 'github_actions', 'none']);
     expect(DEPLOY_CONFIG_SOURCES).toEqual(['canonical_contract', 'legacy_claude', 'none']);
+    expect(DEPLOY_RESULT_PHASES).toEqual(['pre_merge', 'merge_queue', 'post_merge']);
+    expect(DEPLOY_RESULT_FAILURE_KINDS).toEqual([
+      'pre_merge_ci_failed',
+      'pre_merge_conflict',
+      'merge_queue_failed',
+      'post_merge_deploy_failed',
+    ]);
+    expect(DEPLOY_RESULT_CI_STATUSES).toEqual(['passed', 'pending', 'failed', 'skipped', 'unknown']);
+    expect(DEPLOY_RESULT_NEXT_ACTIONS).toEqual([
+      'rerun_land_and_deploy',
+      'rerun_ship',
+      'rerun_build_review_qa_ship',
+      'investigate_deploy',
+      'revert',
+      'none',
+    ]);
     expect(deployContractJsonPath()).toBe('.planning/deploy/deploy-contract.json');
     expect(deployContractMarkdownPath()).toBe('.planning/deploy/DEPLOY-CONTRACT.md');
     expect(shipDeployReadinessPath()).toBe('.planning/current/ship/deploy-readiness.json');
     expect(shipDeployResultPath()).toBe('.planning/current/ship/deploy-result.json');
 
+    const pullRequest: PullRequestRecord = {
+      provider: 'github',
+      status: 'created',
+      number: 42,
+      url: 'https://github.com/LaPaGaYo/nexus/pull/42',
+      state: 'OPEN',
+      head_branch: 'codex/qa-advisories-fix-cycle',
+      head_sha: 'abc123def456',
+      base_branch: 'main',
+      reason: null,
+    };
+    expect(pullRequest.head_sha).toBe('abc123def456');
+
     const contract: DeployContractRecord = {
       schema_version: 1,
       configured_at: '2026-04-17T00:00:00.000Z',
+      primary_surface_label: 'web',
       platform: 'fly',
       project_type: 'web_app',
       production: {
@@ -638,6 +673,28 @@ describe('nexus types', () => {
         pre_merge: ['bun test'],
         post_merge: [],
       },
+      secondary_surfaces: [
+        {
+          label: 'worker',
+          platform: 'github_actions',
+          project_type: 'service',
+          production: {
+            url: null,
+            health_check: null,
+          },
+          deploy_trigger: {
+            kind: 'github_actions',
+            details: '.github/workflows/worker-deploy.yml',
+          },
+          deploy_workflow: '.github/workflows/worker-deploy.yml',
+          deploy_status: {
+            kind: 'github_actions',
+            command: null,
+          },
+          notes: ['Optional worker deploy path.'],
+          sources: ['.github/workflows/worker-deploy.yml'],
+        },
+      ],
       notes: ['Custom Fly.io domain configured separately'],
       sources: ['fly.toml', '.github/workflows/deploy.yml'],
     };
@@ -648,6 +705,7 @@ describe('nexus types', () => {
       configured: true,
       source: 'canonical_contract',
       contract_path: deployContractJsonPath(),
+      primary_surface_label: 'web',
       platform: 'fly',
       project_type: 'web_app',
       production_url: 'https://my-app.fly.dev',
@@ -656,17 +714,41 @@ describe('nexus types', () => {
       deploy_status_command: 'fly status --app my-app',
       deploy_workflow: '.github/workflows/deploy.yml',
       staging_detected: true,
+      secondary_surfaces: [
+        {
+          label: 'worker',
+          platform: 'github_actions',
+          project_type: 'service',
+          production_url: null,
+          health_check: null,
+          deploy_status_kind: 'github_actions',
+          deploy_status_command: null,
+          deploy_workflow: '.github/workflows/worker-deploy.yml',
+          blocking: false,
+          notes: ['Optional worker deploy path.'],
+        },
+      ],
       notes: [],
     };
 
     expect(contract.platform).toBe('fly');
+    expect(contract.primary_surface_label).toBe('web');
+    expect(contract.secondary_surfaces[0]?.label).toBe('worker');
     expect(readiness.source).toBe('canonical_contract');
     expect(readiness.contract_path).toBe('.planning/deploy/deploy-contract.json');
+    expect(readiness.secondary_surfaces[0]?.platform).toBe('github_actions');
 
     const deployResult: DeployResultRecord = {
       schema_version: 1,
       generated_at: '2026-04-18T00:00:00.000Z',
       source: 'land-and-deploy',
+      phase: 'post_merge',
+      failure_kind: null,
+      ci_status: 'passed',
+      ship_handoff_head_sha: 'abc123def456',
+      pull_request_head_sha: 'abc123def456',
+      ship_handoff_current: true,
+      next_action: 'none',
       production_url: 'https://my-app.fly.dev',
       pull_request_path: '.planning/current/ship/pull-request.json',
       deploy_readiness_path: '.planning/current/ship/deploy-readiness.json',

@@ -199,8 +199,12 @@ describe('nexus product surface contract', () => {
     expect(landAndDeploy).not.toContain('/ship` creates the PR');
     expect(landAndDeploy).toContain('.planning/deploy/deploy-contract.json');
     expect(landAndDeploy).not.toContain('CLAUDE.md and skips detection entirely');
+    expect(landAndDeploy).toContain('primary deploy surface');
+    expect(landAndDeploy).toContain('secondary deploy surface');
     expect(setupDeploy).toContain('.planning/deploy/deploy-contract.json');
     expect(setupDeploy).toContain('.planning/deploy/DEPLOY-CONTRACT.md');
+    expect(setupDeploy).toContain('secondary_surfaces');
+    expect(setupDeploy).toContain('primary deploy surface');
     expect(setupDeploy).not.toContain('CLAUDE.md is the source of truth');
     expect(landAndDeploy).toContain('.planning/current/ship/deploy-readiness.json');
     expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
@@ -212,12 +216,32 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`/document-release` | Sync docs after shipping and attach `.planning/current/closeout/documentation-sync.md`.');
     expect(readme).toContain('`/benchmark` | Performance baselining and regression checks attached to QA follow-on evidence via `.planning/current/qa/perf-verification.md`.');
     expect(readme).toContain('`/canary` | Post-deploy health monitoring attached to ship follow-on evidence via `.planning/current/ship/canary-status.json`.');
-    expect(readme).toContain('`/land-and-deploy` | Merge, deploy, and verify production using ship PR/deploy handoff and attach `.planning/current/ship/deploy-result.json`.');
+    expect(readme).toContain('`/land-and-deploy` | Merge, deploy, and verify the primary deploy surface using ship PR/deploy handoff, while recording attached secondary deploy surfaces as follow-on context in `.planning/current/ship/deploy-result.json`.');
     expect(readme).toContain('`/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state.');
-    expect(skills).toContain('`/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence and attaches `.planning/current/ship/deploy-result.json`.');
+    expect(readme).toContain('the deploy result now tells');
+    expect(readme).toContain('`rerun_land_and_deploy`, `rerun_ship`, or a');
+    expect(skills).toContain('`/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence, verifies the primary deploy surface, and attaches `.planning/current/ship/deploy-result.json` for both successful lands and pre-merge stops.');
     expect(skills).toContain('`/benchmark` | Performance regression checks that attach `.planning/current/qa/perf-verification.md` as follow-on QA evidence.');
     expect(skills).toContain('`/canary` | Post-deploy monitoring that attaches `.planning/current/ship/canary-status.json` as follow-on ship evidence.');
     expect(skills).toContain('`/document-release` | Release-note and documentation sync that attaches `.planning/current/closeout/documentation-sync.md` as follow-on closeout evidence.');
+    expect(landAndDeploy).toContain('head_sha');
+    expect(landAndDeploy).toContain('ship_handoff_current');
+    expect(landAndDeploy).toContain('rerun_build_review_qa_ship');
+    expect(landAndDeploy).toContain('rerun_ship');
+  });
+
+  test('active generated skills do not retain legacy GStack or Garry branding', () => {
+    const setupDeploy = readFileSync(join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf8');
+    const landAndDeploy = readFileSync(join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf8');
+    const codexSkill = readFileSync(join(ROOT, 'codex', 'SKILL.md'), 'utf8');
+
+    for (const content of [setupDeploy, landAndDeploy, codexSkill]) {
+      expect(content).toContain('You are Nexus');
+      expect(content).not.toContain('You are GStack');
+      expect(content).not.toContain("Garry Tan's product");
+      expect(content).not.toContain('Garry respects and wants to fund');
+      expect(content).not.toContain('consider applying to YC');
+    }
   });
 
   test('package metadata and setup are Nexus-primary', () => {
@@ -325,5 +349,21 @@ describe('nexus product surface contract', () => {
     expect(workflow).toContain('bun run maintainer:check');
     expect(workflow).toContain('NEXUS_REMOTE_RELEASE_MODE: live');
     expect(workflow).toContain('does not define repository truth');
+  });
+
+  test('active CI eval infrastructure uses Nexus-owned state roots', () => {
+    const dockerfile = readFileSync(join(ROOT, '.github', 'docker', 'Dockerfile.ci'), 'utf8');
+    const evalsWorkflow = readFileSync(join(ROOT, '.github', 'workflows', 'evals.yml'), 'utf8');
+    const periodicWorkflow = readFileSync(join(ROOT, '.github', 'workflows', 'evals-periodic.yml'), 'utf8');
+
+    expect(dockerfile).toContain('Nexus CI eval runner');
+    expect(dockerfile).toContain('/home/runner/.nexus');
+    expect(dockerfile).toContain('/home/runner/.nexus-dev');
+    expect(dockerfile).not.toContain('/home/runner/.gstack');
+
+    expect(evalsWorkflow).toContain('~/.nexus-dev/evals/*.json');
+    expect(periodicWorkflow).toContain('~/.nexus-dev/evals/*.json');
+    expect(evalsWorkflow).not.toContain('~/.gstack-dev/evals/*.json');
+    expect(periodicWorkflow).not.toContain('~/.gstack-dev/evals/*.json');
   });
 });

@@ -681,7 +681,7 @@ describe('Status', () => {
 
 describe('CLI server script resolution', () => {
   test('prefers adjacent browse/src/server.ts for compiled project installs', () => {
-    const root = fs.mkdtempSync('/tmp/gstack-cli-');
+    const root = fs.mkdtempSync('/tmp/nexus-cli-');
     const execPath = path.join(root, '.claude/skills/nexus/browse/dist/browse');
     const serverPath = path.join(root, '.claude/skills/nexus/browse/src/server.ts');
 

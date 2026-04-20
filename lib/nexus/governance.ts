@@ -3,6 +3,7 @@ import { join } from 'path';
 import { archiveRootFor } from './artifacts';
 import { CANONICAL_COMMANDS, COMMAND_HISTORY_VIAS } from './types';
 import type { RunLedger, StageStatus } from './types';
+import { getAllowedNextStages } from './transitions';
 
 export function archiveRequired(reviewStatus: StageStatus): boolean {
   return reviewStatus.state === 'completed' && reviewStatus.decision === 'audit_recorded';
@@ -204,51 +205,55 @@ function diagnoseFixCycleHistory(
   }
 
   cursor += 2;
-  while (actual[cursor] === 'review') {
-    cursor += 1;
-  }
+  let previous: RunLedger['command_history'][number]['command'] = 'review';
+  let firstQaIndex: number | null = null;
+  let firstShipIndex: number | null = null;
 
   while (cursor < actual.length) {
-    while (actual[cursor] === 'handoff') {
-      cursor += 1;
-    }
+    const current = actual[cursor]!;
 
-    if (cursor >= actual.length) {
-      break;
-    }
-
-    if (cursor + 1 < actual.length && actual[cursor] === 'build' && actual[cursor + 1] === 'review') {
-      cursor += 2;
-      while (actual[cursor] === 'review') {
-        cursor += 1;
-      }
-      continue;
-    }
-
-    break;
-  }
-
-  if (options.qaRecorded) {
-    if (actual[cursor] !== 'qa') {
+    if (previous === 'build' && current !== 'review') {
       return closeoutHistoryError(
-        `expected qa at position ${cursor + 1}, got ${historyCommandAt(actual, cursor)}`,
+        `expected review after build at positions ${cursor} -> ${cursor + 1}, got ${current}`,
       );
     }
+
+    if (!getAllowedNextStages(previous).includes(current)) {
+      return closeoutHistoryError(
+        `illegal ${previous} -> ${current} at positions ${cursor} -> ${cursor + 1}`,
+      );
+    }
+
+    if (current === 'qa' && firstQaIndex === null) {
+      firstQaIndex = cursor;
+    }
+    if (current === 'ship' && firstShipIndex === null) {
+      firstShipIndex = cursor;
+    }
+
+    previous = current;
     cursor += 1;
   }
 
-  if (options.shipRecorded) {
-    if (actual[cursor] !== 'ship') {
-      return closeoutHistoryError(
-        `expected ship at position ${cursor + 1}, got ${historyCommandAt(actual, cursor)}`,
-      );
-    }
-    cursor += 1;
-  }
-
-  if (cursor !== actual.length) {
+  if (options.qaRecorded && firstQaIndex === null) {
     return closeoutHistoryError(
-      `unexpected ${historyCommandAt(actual, cursor)} at position ${cursor + 1}; expected end of history`,
+      `expected qa before ${options.shipRecorded ? 'ship' : 'end of history'}, got ${options.shipRecorded ? 'ship' : 'end of history'}`,
+    );
+  }
+
+  if (!options.qaRecorded && firstQaIndex !== null) {
+    return closeoutHistoryError(
+      `unexpected qa at position ${firstQaIndex + 1}; expected end of history`,
+    );
+  }
+
+  if (options.shipRecorded && firstShipIndex === null) {
+    return closeoutHistoryError('expected ship before end of history, got end of history');
+  }
+
+  if (!options.shipRecorded && firstShipIndex !== null) {
+    return closeoutHistoryError(
+      `unexpected ship at position ${firstShipIndex + 1}; expected end of history`,
     );
   }
 

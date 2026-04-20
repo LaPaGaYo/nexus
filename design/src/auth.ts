@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 
-const CONFIG_PATH = path.join(process.env.HOME || "~", ".gstack", "openai.json");
+const CONFIG_PATH = path.join(process.env.HOME || "~", ".nexus", "openai.json");
 
 export function resolveApiKey(): string | null {
   // 1. Check ~/.nexus/openai.json

@@ -51,37 +51,104 @@ branch name wherever the instructions say "the base branch" or \`<default>\`.
 
 export function generateDeployBootstrap(_ctx: TemplateContext): string {
   return `\`\`\`bash
-# Check for persisted deploy config in CLAUDE.md
-DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
-echo "$DEPLOY_CONFIG"
+classify_secondary_surface_role() {
+  local source="$1"
+  if printf '%s' "$source" | grep -qiE 'preview|staging|storybook'; then
+    echo "preview_surface"
+  elif printf '%s' "$source" | grep -qiE 'docs|documentation'; then
+    echo "documentation_surface"
+  elif printf '%s' "$source" | grep -qiE 'worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail'; then
+    echo "background_service"
+  else
+    echo "auxiliary_service"
+  fi
+}
 
-# If config exists, parse it
-if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
-  PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
-  PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
-  echo "PERSISTED_PLATFORM:$PLATFORM"
-  echo "PERSISTED_URL:$PROD_URL"
+# Check the canonical deploy contract first
+if [ -f .planning/deploy/deploy-contract.json ]; then
+  echo "CANONICAL_DEPLOY_CONTRACT:.planning/deploy/deploy-contract.json"
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path(".planning/deploy/deploy-contract.json")
+data = json.loads(path.read_text())
+
+primary_platform = data.get("platform") or "unknown"
+primary_label = data.get("primary_surface_label") or ""
+production_url = ((data.get("production") or {}).get("url")) or ""
+
+print(f"PERSISTED_PRIMARY_PLATFORM:{primary_platform}")
+if primary_label:
+    print(f"PERSISTED_PRIMARY_SURFACE:{primary_label}")
+if production_url:
+    print(f"PERSISTED_URL:{production_url}")
+
+for surface in data.get("secondary_surfaces") or []:
+    label = surface.get("label") or "secondary"
+    platform = surface.get("platform") or "unknown"
+    workflow = surface.get("deploy_workflow") or "none"
+    print(f"PERSISTED_SECONDARY_SURFACE:{label}:{platform}:{workflow}")
+PY
+elif [ -f CLAUDE.md ]; then
+  # Legacy fallback only when the canonical deploy contract is absent
+  DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
+  echo "$DEPLOY_CONFIG"
+
+  if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
+    PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
+    PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
+    echo "PERSISTED_PRIMARY_PLATFORM:$PLATFORM"
+    echo "PERSISTED_URL:$PROD_URL"
+  fi
 fi
 
-# Auto-detect platform from config files
-[ -f fly.toml ] && echo "PLATFORM:fly"
-[ -f render.yaml ] && echo "PLATFORM:render"
-([ -f vercel.json ] || [ -d .vercel ]) && echo "PLATFORM:vercel"
-[ -f netlify.toml ] && echo "PLATFORM:netlify"
-[ -f Procfile ] && echo "PLATFORM:heroku"
-([ -f railway.json ] || [ -f railway.toml ]) && echo "PLATFORM:railway"
+# Auto-detect primary deploy surface from repo-level config
+([ -f vercel.json ] || [ -d .vercel ]) && echo "PRIMARY_PLATFORM:vercel"
+[ -f render.yaml ] && echo "PRIMARY_PLATFORM:render"
+[ -f netlify.toml ] && echo "PRIMARY_PLATFORM:netlify"
+[ -f Procfile ] && echo "PRIMARY_PLATFORM:heroku"
+([ -f railway.json ] || [ -f railway.toml ]) && echo "PRIMARY_PLATFORM:railway"
+[ -f fly.toml ] && echo "PRIMARY_PLATFORM:fly"
+
+# Detect nested or auxiliary deploy surfaces
+find . \\( -path '*/fly.toml' -o -path '*/render.yaml' -o -path '*/railway.json' -o -path '*/railway.toml' -o -path '*/netlify.toml' \\) \\
+  ! -path './fly.toml' ! -path './render.yaml' ! -path './railway.json' ! -path './railway.toml' ! -path './netlify.toml' 2>/dev/null | while read -r f; do
+  [ -z "$f" ] && continue
+  role=$(classify_secondary_surface_role "$f")
+  case "$f" in
+    */fly.toml) platform="fly" ;;
+    */render.yaml) platform="render" ;;
+    */railway.json|*/railway.toml) platform="railway" ;;
+    */netlify.toml) platform="netlify" ;;
+    *) platform="custom" ;;
+  esac
+  echo "SECONDARY_PLATFORM:$role:$platform:$f"
+done
 
 # Detect deploy workflows
 for f in $(find .github/workflows -maxdepth 1 \\( -name '*.yml' -o -name '*.yaml' \\) 2>/dev/null); do
-  [ -f "$f" ] && grep -qiE "deploy|release|production|cd" "$f" 2>/dev/null && echo "DEPLOY_WORKFLOW:$f"
+  if [ -f "$f" ] && grep -qiE "deploy|release|production|cd" "$f" 2>/dev/null; then
+    if grep -qiE "worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail|preview|storybook|docs" "$f" 2>/dev/null; then
+      role=$(classify_secondary_surface_role "$f")
+      echo "SECONDARY_DEPLOY_WORKFLOW:$role:$f"
+    else
+      echo "DEPLOY_WORKFLOW:$f"
+    fi
+  fi
   [ -f "$f" ] && grep -qiE "staging" "$f" 2>/dev/null && echo "STAGING_WORKFLOW:$f"
 done
 \`\`\`
 
-If \`PERSISTED_PLATFORM\` and \`PERSISTED_URL\` were found in CLAUDE.md, use them directly
-and skip manual detection. If no persisted config exists, use the auto-detected platform
-to guide deploy verification. If nothing is detected, ask the user via AskUserQuestion
-in the decision tree below.
+If a canonical deploy contract exists, treat \`PERSISTED_PRIMARY_PLATFORM\` and
+\`PERSISTED_URL\` as the authoritative primary deploy surface, and treat any
+\`PERSISTED_SECONDARY_SURFACE\` entries as attached secondary surfaces.
+If only the legacy \`CLAUDE.md\` config exists, use it as a migration fallback.
+If no persisted config exists, use \`PRIMARY_PLATFORM\` as the deploy surface that
+\`/land-and-deploy\` gates on, and treat any \`SECONDARY_PLATFORM\` or
+\`SECONDARY_DEPLOY_WORKFLOW\` output as warning-only attached surfaces like
+background services, preview surfaces, or documentation-only deploys.
+If nothing is detected, ask the user via AskUserQuestion in the decision tree below.
 
 If you want to persist deploy settings for future runs, suggest the user run \`/setup-deploy\`.`;
 }

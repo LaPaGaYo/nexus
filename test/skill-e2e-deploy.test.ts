@@ -20,6 +20,10 @@ test('deploy-related generated skills use Nexus report paths and helpers', () =>
   expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
   expect(landAndDeploy).toContain('.planning/current/ship/deploy-result.json');
   expect(landAndDeploy).toContain('nexus-refresh-follow-on-summary');
+  expect(landAndDeploy).toContain('headRefOid');
+  expect(landAndDeploy).toContain('rerun_build_review_qa_ship');
+  expect(landAndDeploy).toContain('rerun_ship');
+  expect(landAndDeploy).toContain('pre_merge_ci_failed');
   expect(landAndDeploy).toContain('nexus-review-read');
   expect(landAndDeploy).toContain('nexus-diff-scope');
   expect(landAndDeploy).not.toContain('.gstack/deploy-reports');
@@ -40,8 +44,17 @@ test('deploy-related generated skills use Nexus report paths and helpers', () =>
   const setupDeploy = fs.readFileSync(path.join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf-8');
   expect(setupDeploy).toContain('Configure Deployment for Nexus');
   expect(setupDeploy).toContain('How can Nexus check if a deploy succeeded?');
+  expect(setupDeploy).toContain('primary deploy surface');
+  expect(setupDeploy).toContain('secondary_surfaces');
+  expect(setupDeploy).not.toContain('apps/worker');
+  expect(setupDeploy).not.toContain('FLY_API_TOKEN');
   expect(setupDeploy).not.toContain('Configure Deployment for gstack');
   expect(setupDeploy).not.toContain('How can gstack check if a deploy succeeded?');
+
+  expect(landAndDeploy).toContain('primary deploy surface');
+  expect(landAndDeploy).toContain('secondary deploy surface');
+  expect(landAndDeploy).not.toContain('apps/worker');
+  expect(landAndDeploy).not.toContain('FLY_API_TOKEN');
 });
 
 // --- Land-and-Deploy E2E ---

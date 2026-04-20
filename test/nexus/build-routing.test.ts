@@ -1541,6 +1541,77 @@ describe('nexus build routing', () => {
     });
   });
 
+  test('allows fix-cycle build from a completed failing QA gate', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const qaAdapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              report_markdown: '# QA Report\n\nResult: fail\n\nFindings:\n- Login form is broken\n',
+              ready: false,
+              findings: ['Login form is broken'],
+              receipt: 'qa-fail',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/qa/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-qa-pack',
+              absorbed_capability: 'ccb-qa',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa', qaAdapters);
+      await run('build');
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        state: 'completed',
+        ready: true,
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'qa',
+          blocking_items: ['Login form is broken'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      });
+      expect(await run.readJson('.planning/current/build/build-request.json')).toMatchObject({
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'qa',
+          blocking_items: ['Login form is broken'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'build',
+        previous_stage: 'qa',
+        command_history: expect.arrayContaining([
+          expect.objectContaining({
+            command: 'build',
+            via: 'fix-cycle',
+          }),
+        ]),
+      });
+    });
+  });
+
   test('keeps the review stage active when a fix-cycle build finds a stale governed handoff contract, and allows handoff refresh', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const reviewAdapters = makeFakeAdapters({

@@ -6,6 +6,7 @@ interface GithubPullRequestPayload {
   url?: string;
   state?: string;
   headRefName?: string;
+  headRefOid?: string;
   baseRefName?: string;
 }
 
@@ -21,6 +22,7 @@ function unavailablePullRequest(
     url: null,
     state: null,
     head_branch: headBranch,
+    head_sha: null,
     base_branch: null,
     reason,
   };
@@ -34,6 +36,7 @@ function notRequestedPullRequest(reason: string): PullRequestRecord {
     url: null,
     state: null,
     head_branch: null,
+    head_sha: null,
     base_branch: null,
     reason,
   };
@@ -50,6 +53,7 @@ function fromGithubPayload(
     url: typeof payload.url === 'string' ? payload.url : null,
     state: typeof payload.state === 'string' ? payload.state : null,
     head_branch: typeof payload.headRefName === 'string' ? payload.headRefName : null,
+    head_sha: typeof payload.headRefOid === 'string' ? payload.headRefOid : null,
     base_branch: typeof payload.baseRefName === 'string' ? payload.baseRefName : null,
   };
 }
@@ -67,7 +71,7 @@ async function readGithubPullRequest(
   runCommand: NexusCommandRunner,
 ): Promise<{ ok: true; pullRequest: GithubPullRequestPayload } | { ok: false; error: string }> {
   const result = await runCommand({
-    argv: ['gh', 'pr', 'view', '--json', 'number,url,state,headRefName,baseRefName'],
+    argv: ['gh', 'pr', 'view', '--json', 'number,url,state,headRefName,headRefOid,baseRefName'],
     cwd,
   });
 

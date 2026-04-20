@@ -115,7 +115,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
       '.planning/current/build/status.json',
     ],
     exit_condition: 'Build result exists or the route is refused.',
-    legal_predecessors: ['handoff', 'review'],
+    legal_predecessors: ['handoff', 'review', 'qa'],
   },
   review: {
     id: 'review',

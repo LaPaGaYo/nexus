@@ -6,6 +6,7 @@ import {
   qaPerfVerificationPath,
   shipDeployReadinessPath,
   shipLearningCandidatesPath,
+  shipPullRequestPath,
 } from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
@@ -316,6 +317,7 @@ describe('nexus ship', () => {
       writeFileSync(join(cwd, contractPath), JSON.stringify({
         schema_version: 1,
         configured_at: '2026-04-17T00:00:00.000Z',
+        primary_surface_label: 'web',
         platform: 'fly',
         project_type: 'web_app',
         production: {
@@ -339,6 +341,28 @@ describe('nexus ship', () => {
           pre_merge: ['bun test'],
           post_merge: [],
         },
+        secondary_surfaces: [
+          {
+            label: 'worker',
+            platform: 'github_actions',
+            project_type: 'service',
+            production: {
+              url: null,
+              health_check: null,
+            },
+            deploy_trigger: {
+              kind: 'github_actions',
+              details: '.github/workflows/worker-deploy.yml',
+            },
+            deploy_workflow: '.github/workflows/worker-deploy.yml',
+            deploy_status: {
+              kind: 'github_actions',
+              command: null,
+            },
+            notes: ['Optional worker deploy path.'],
+            sources: ['.github/workflows/worker-deploy.yml'],
+          },
+        ],
         notes: [],
         sources: ['fly.toml', '.github/workflows/deploy.yml'],
       }, null, 2) + '\n');
@@ -349,6 +373,7 @@ describe('nexus ship', () => {
         configured: true,
         source: 'canonical_contract',
         contract_path: contractPath,
+        primary_surface_label: 'web',
         platform: 'fly',
         project_type: 'web_app',
         production_url: 'https://test-app.fly.dev',
@@ -357,6 +382,15 @@ describe('nexus ship', () => {
         deploy_status_command: 'fly status --app test-app',
         deploy_workflow: '.github/workflows/deploy.yml',
         staging_detected: true,
+        secondary_surfaces: [
+          expect.objectContaining({
+            label: 'worker',
+            platform: 'github_actions',
+            project_type: 'service',
+            deploy_workflow: '.github/workflows/worker-deploy.yml',
+            blocking: false,
+          }),
+        ],
       });
       expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
         outputs: expect.arrayContaining([
@@ -501,6 +535,7 @@ describe('nexus ship', () => {
                 url: 'https://github.com/LaPaGaYo/project-tracker/pull/123',
                 state: 'OPEN',
                 headRefName: 'feature/phase-2-auth',
+                headRefOid: 'abc123def456',
                 baseRefName: 'main',
               }),
               stderr: '',
@@ -529,6 +564,7 @@ describe('nexus ship', () => {
         number: 123,
         url: 'https://github.com/LaPaGaYo/project-tracker/pull/123',
         head_branch: 'feature/phase-2-auth',
+        head_sha: 'abc123def456',
         base_branch: 'main',
       });
       expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
@@ -537,14 +573,18 @@ describe('nexus ship', () => {
         pull_request: {
           status: 'created',
           number: 123,
+          head_sha: 'abc123def456',
         },
+      });
+      expect(await run.readJson(shipPullRequestPath())).toMatchObject({
+        head_sha: 'abc123def456',
       });
       expect(commands).toEqual([
         'git branch --show-current',
-        'gh pr view --json number,url,state,headRefName,baseRefName',
+        'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
         'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
         'gh pr create --base main --head feature/phase-2-auth --fill',
-        'gh pr view --json number,url,state,headRefName,baseRefName',
+        'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
       ]);
     });
   });
@@ -611,6 +651,7 @@ describe('nexus ship', () => {
                 url: 'https://github.com/LaPaGaYo/project-tracker/pull/123',
                 state: 'OPEN',
                 headRefName: 'feature/phase-2-auth',
+                headRefOid: 'abc123def456',
                 baseRefName: 'main',
               }),
               stderr: '',
@@ -627,11 +668,12 @@ describe('nexus ship', () => {
         number: 123,
         url: 'https://github.com/LaPaGaYo/project-tracker/pull/123',
         head_branch: 'feature/phase-2-auth',
+        head_sha: 'abc123def456',
         base_branch: 'main',
       });
       expect(commands).toEqual([
         'git branch --show-current',
-        'gh pr view --json number,url,state,headRefName,baseRefName',
+        'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
       ]);
     });
   });
@@ -702,6 +744,7 @@ describe('nexus ship', () => {
                     url: `https://github.com/LaPaGaYo/project-tracker/pull/456-${state.toLowerCase()}`,
                     state,
                     headRefName: 'feature/phase-2-auth',
+                    headRefOid: 'deadbeefcafefeed',
                     baseRefName: 'main',
                   }),
                   stderr: '',
@@ -715,6 +758,7 @@ describe('nexus ship', () => {
                   url: 'https://github.com/LaPaGaYo/project-tracker/pull/789',
                   state: 'OPEN',
                   headRefName: 'feature/phase-2-auth',
+                  headRefOid: 'abc123def456',
                   baseRefName: 'main',
                 }),
                 stderr: '',
@@ -739,19 +783,20 @@ describe('nexus ship', () => {
 
         expect(await run.readJson('.planning/current/ship/pull-request.json')).toMatchObject({
           status: 'created',
-          provider: 'github',
-          number: 789,
-          url: 'https://github.com/LaPaGaYo/project-tracker/pull/789',
-          head_branch: 'feature/phase-2-auth',
-          base_branch: 'main',
-        });
-        expect(commands).toEqual([
-          'git branch --show-current',
-          'gh pr view --json number,url,state,headRefName,baseRefName',
-          'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
-          'gh pr create --base main --head feature/phase-2-auth --fill',
-          'gh pr view --json number,url,state,headRefName,baseRefName',
-        ]);
+        provider: 'github',
+        number: 789,
+        url: 'https://github.com/LaPaGaYo/project-tracker/pull/789',
+        head_branch: 'feature/phase-2-auth',
+        head_sha: 'abc123def456',
+        base_branch: 'main',
+      });
+      expect(commands).toEqual([
+        'git branch --show-current',
+        'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
+        'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
+        'gh pr create --base main --head feature/phase-2-auth --fill',
+        'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
+      ]);
       });
     }
   });
@@ -826,12 +871,14 @@ describe('nexus ship', () => {
         pull_request: {
           status: 'unavailable',
           provider: 'github',
+          head_sha: null,
         },
       });
       expect(await run.readJson('.planning/current/ship/pull-request.json')).toMatchObject({
         status: 'unavailable',
         provider: 'github',
         head_branch: 'feature/phase-2-auth',
+        head_sha: null,
       });
       expect(await run.readJson('.planning/current/ship/pull-request.json')).toHaveProperty('reason');
     });

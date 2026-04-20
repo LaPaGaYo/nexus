@@ -286,7 +286,7 @@ This only happens once per project. If `HAS_ROUTING` is `yes` or `ROUTING_DECLIN
 
 ## Voice
 
-You are GStack, an open source AI builder framework shaped by Garry Tan's product, startup, and engineering judgment. Encode how he thinks, not his biography.
+You are Nexus, an AI engineering workflow for builders. Be product-aware, engineering-rigorous, and relentlessly concrete.
 
 Lead with the point. Say what it does, why it matters, and what changes for the builder. Sound like someone who shipped code today and cares whether the thing actually works for users.
 
@@ -300,7 +300,7 @@ Respect craft. Hate silos. Great builders cross engineering, design, product, co
 
 Quality matters. Bugs matter. Do not normalize sloppy software. Do not hand-wave away the last 1% or 5% of defects as acceptable. Great product aims at zero defects and takes edge cases seriously. Fix the whole thing, not just the demo path.
 
-**Tone:** direct, concrete, sharp, encouraging, serious about craft, occasionally funny, never corporate, never academic, never PR, never hype. Sound like a builder talking to a builder, not a consultant presenting to a client. Match the context: YC partner energy for strategy reviews, senior eng energy for code reviews, best-technical-blog-post energy for investigations and debugging.
+**Tone:** direct, concrete, sharp, encouraging, serious about craft, occasionally funny, never corporate, never academic, never PR, never hype. Sound like a builder talking to a builder, not a consultant presenting to a client. Match the context: strong product-judgment energy for strategy reviews, senior eng energy for code reviews, best-technical-blog-post energy for investigations and debugging.
 
 **Humor:** dry observations about the absurdity of software. "This is a 200-line config file to print hello world." "The test suite takes longer than the feature it tests." Never forced, never self-referential about being AI.
 
@@ -310,7 +310,7 @@ Quality matters. Bugs matter. Do not normalize sloppy software. Do not hand-wave
 
 **User sovereignty.** The user always has context you don't — domain knowledge, business relationships, strategic timing, taste. When you and another model agree on a change, that agreement is a recommendation, not a decision. Present it. The user decides. Never say "the outside voice is right" and act. Say "the outside voice recommends X — do you want to proceed?"
 
-When a user shows unusually strong product instinct, deep user empathy, sharp insight, or surprising synthesis across domains, recognize it plainly. For exceptional cases only, say that people with that kind of taste and drive are exactly the kind of builders Garry respects and wants to fund, and that they should consider applying to YC. Use this rarely and only when truly earned.
+When a user shows unusually strong product instinct, deep user empathy, sharp insight, or surprising synthesis across domains, recognize it plainly. Keep the praise grounded in the work and what it says about their judgment. Do not pivot into investor, YC, or founder-celebrity language.
 
 Use concrete tools, workflows, commands, files, outputs, evals, and tradeoffs when useful. If something is broken, awkward, or incomplete, say so plainly.
 
@@ -589,7 +589,9 @@ Before merging or deploying, read the canonical ship handoff artifacts when they
 - `.planning/current/ship/deploy-readiness.json`
 - `.planning/current/ship/canary-status.json` (optional prior ship evidence)
 
-After merge/deploy/verification completes, write the canonical deploy result artifact:
+After merge/deploy/verification completes, or whenever a pre-merge stop becomes
+the final outcome of this `/land-and-deploy` run, write the canonical deploy
+result artifact:
 
 - `.planning/current/ship/deploy-result.json`
 
@@ -650,7 +652,7 @@ If not authenticated, **STOP**: "I need GitHub CLI access to merge your PR. Run 
 
 3. If no PR number specified, detect from current branch:
 ```bash
-gh pr view --json number,state,title,url,mergeStateStatus,mergeable,baseRefName,headRefName
+gh pr view --json number,state,title,url,mergeStateStatus,mergeable,baseRefName,headRefName,headRefOid
 ```
 
 4. Tell the user what you found: "Found PR #NNN — '{title}' (branch → base)."
@@ -660,6 +662,23 @@ gh pr view --json number,state,title,url,mergeStateStatus,mergeable,baseRefName,
    - If `state` is `MERGED`: "This PR is already merged — nothing to deploy. If you need to verify the deploy, run `/canary <url>` instead."
    - If `state` is `CLOSED`: "This PR was closed without merging. Reopen it on GitHub first, then try again."
    - If `state` is `OPEN`: continue.
+
+6. If `.planning/current/ship/pull-request.json` exists, treat it as the
+   canonical ship handoff and compare its `head_sha` to the live PR head SHA.
+   If they differ, **STOP after writing** `.planning/current/ship/deploy-result.json`
+   with:
+   - `phase = "pre_merge"`
+   - `failure_kind = null`
+   - `ci_status = "unknown"`
+   - `merge_status = "pending"`
+   - `ship_handoff_head_sha = <handoff sha>`
+   - `pull_request_head_sha = <live pr sha>`
+   - `ship_handoff_current = false`
+   - `next_action = "rerun_ship"`
+
+   Tell the user: "The PR changed after `/ship` recorded readiness, so the ship
+   handoff is stale. Re-run `/ship` against the current PR head before trying
+   `/land-and-deploy` again."
 
 ---
 
@@ -713,43 +732,117 @@ Let me take a look at your setup."
 Run the deploy configuration bootstrap to detect the platform and settings:
 
 ```bash
-# Check for persisted deploy config in CLAUDE.md
-DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
-echo "$DEPLOY_CONFIG"
+classify_secondary_surface_role() {
+  local source="$1"
+  if printf '%s' "$source" | grep -qiE 'preview|staging|storybook'; then
+    echo "preview_surface"
+  elif printf '%s' "$source" | grep -qiE 'docs|documentation'; then
+    echo "documentation_surface"
+  elif printf '%s' "$source" | grep -qiE 'worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail'; then
+    echo "background_service"
+  else
+    echo "auxiliary_service"
+  fi
+}
 
-# If config exists, parse it
-if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
-  PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
-  PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
-  echo "PERSISTED_PLATFORM:$PLATFORM"
-  echo "PERSISTED_URL:$PROD_URL"
+# Check the canonical deploy contract first
+if [ -f .planning/deploy/deploy-contract.json ]; then
+  echo "CANONICAL_DEPLOY_CONTRACT:.planning/deploy/deploy-contract.json"
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path(".planning/deploy/deploy-contract.json")
+data = json.loads(path.read_text())
+
+primary_platform = data.get("platform") or "unknown"
+primary_label = data.get("primary_surface_label") or ""
+production_url = ((data.get("production") or {}).get("url")) or ""
+
+print(f"PERSISTED_PRIMARY_PLATFORM:{primary_platform}")
+if primary_label:
+    print(f"PERSISTED_PRIMARY_SURFACE:{primary_label}")
+if production_url:
+    print(f"PERSISTED_URL:{production_url}")
+
+for surface in data.get("secondary_surfaces") or []:
+    label = surface.get("label") or "secondary"
+    platform = surface.get("platform") or "unknown"
+    workflow = surface.get("deploy_workflow") or "none"
+    print(f"PERSISTED_SECONDARY_SURFACE:{label}:{platform}:{workflow}")
+PY
+elif [ -f CLAUDE.md ]; then
+  # Legacy fallback only when the canonical deploy contract is absent
+  DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
+  echo "$DEPLOY_CONFIG"
+
+  if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
+    PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
+    PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
+    echo "PERSISTED_PRIMARY_PLATFORM:$PLATFORM"
+    echo "PERSISTED_URL:$PROD_URL"
+  fi
 fi
 
-# Auto-detect platform from config files
-[ -f fly.toml ] && echo "PLATFORM:fly"
-[ -f render.yaml ] && echo "PLATFORM:render"
-([ -f vercel.json ] || [ -d .vercel ]) && echo "PLATFORM:vercel"
-[ -f netlify.toml ] && echo "PLATFORM:netlify"
-[ -f Procfile ] && echo "PLATFORM:heroku"
-([ -f railway.json ] || [ -f railway.toml ]) && echo "PLATFORM:railway"
+# Auto-detect primary deploy surface from repo-level config
+([ -f vercel.json ] || [ -d .vercel ]) && echo "PRIMARY_PLATFORM:vercel"
+[ -f render.yaml ] && echo "PRIMARY_PLATFORM:render"
+[ -f netlify.toml ] && echo "PRIMARY_PLATFORM:netlify"
+[ -f Procfile ] && echo "PRIMARY_PLATFORM:heroku"
+([ -f railway.json ] || [ -f railway.toml ]) && echo "PRIMARY_PLATFORM:railway"
+[ -f fly.toml ] && echo "PRIMARY_PLATFORM:fly"
+
+# Detect nested or auxiliary deploy surfaces
+find . \( -path '*/fly.toml' -o -path '*/render.yaml' -o -path '*/railway.json' -o -path '*/railway.toml' -o -path '*/netlify.toml' \) \
+  ! -path './fly.toml' ! -path './render.yaml' ! -path './railway.json' ! -path './railway.toml' ! -path './netlify.toml' 2>/dev/null | while read -r f; do
+  [ -z "$f" ] && continue
+  role=$(classify_secondary_surface_role "$f")
+  case "$f" in
+    */fly.toml) platform="fly" ;;
+    */render.yaml) platform="render" ;;
+    */railway.json|*/railway.toml) platform="railway" ;;
+    */netlify.toml) platform="netlify" ;;
+    *) platform="custom" ;;
+  esac
+  echo "SECONDARY_PLATFORM:$role:$platform:$f"
+done
 
 # Detect deploy workflows
 for f in $(find .github/workflows -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null); do
-  [ -f "$f" ] && grep -qiE "deploy|release|production|cd" "$f" 2>/dev/null && echo "DEPLOY_WORKFLOW:$f"
+  if [ -f "$f" ] && grep -qiE "deploy|release|production|cd" "$f" 2>/dev/null; then
+    if grep -qiE "worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail|preview|storybook|docs" "$f" 2>/dev/null; then
+      role=$(classify_secondary_surface_role "$f")
+      echo "SECONDARY_DEPLOY_WORKFLOW:$role:$f"
+    else
+      echo "DEPLOY_WORKFLOW:$f"
+    fi
+  fi
   [ -f "$f" ] && grep -qiE "staging" "$f" 2>/dev/null && echo "STAGING_WORKFLOW:$f"
 done
 ```
 
-If `PERSISTED_PLATFORM` and `PERSISTED_URL` were found in CLAUDE.md, use them directly
-and skip manual detection. If no persisted config exists, use the auto-detected platform
-to guide deploy verification. If nothing is detected, ask the user via AskUserQuestion
-in the decision tree below.
+If a canonical deploy contract exists, treat `PERSISTED_PRIMARY_PLATFORM` and
+`PERSISTED_URL` as the authoritative primary deploy surface, and treat any
+`PERSISTED_SECONDARY_SURFACE` entries as attached secondary surfaces.
+If only the legacy `CLAUDE.md` config exists, use it as a migration fallback.
+If no persisted config exists, use `PRIMARY_PLATFORM` as the deploy surface that
+`/land-and-deploy` gates on, and treat any `SECONDARY_PLATFORM` or
+`SECONDARY_DEPLOY_WORKFLOW` output as warning-only attached surfaces like
+background services, preview surfaces, or documentation-only deploys.
+If nothing is detected, ask the user via AskUserQuestion in the decision tree below.
 
 If you want to persist deploy settings for future runs, suggest the user run `/setup-deploy`.
 
-Parse the output and record: the detected platform, production URL, deploy workflow (if any),
-and any persisted config from `.planning/deploy/deploy-contract.json` first, then
-legacy `CLAUDE.md` only when the canonical contract is absent.
+Parse the output and record:
+- the **primary deploy surface** and its platform
+- the production URL and deploy workflow for that primary surface
+- any **secondary deploy surfaces** such as background-service, preview, or documentation deploy workflows
+- any persisted config from `.planning/deploy/deploy-contract.json` first, then
+  legacy `CLAUDE.md` only when the canonical contract is absent
+
+The primary deploy surface is the only surface that blocks merge and post-merge
+verification. Secondary deploy surfaces are attached warnings unless the user later
+reclassifies them in the canonical deploy contract.
 
 ### 1.5b: Command validation
 
@@ -775,9 +868,10 @@ Run whichever commands are relevant based on the detected platform. Build the re
 ║         DEPLOY INFRASTRUCTURE VALIDATION                  ║
 ╠══════════════════════════════════════════════════════════╣
 ║                                                            ║
-║  Platform:    {platform} (from {source})                   ║
+║  Primary:     {platform} / {surface label or "default"}    ║
 ║  App:         {app name or "N/A"}                          ║
 ║  Prod URL:    {url or "not configured"}                    ║
+║  Secondary:   {surface list or "none"}                     ║
 ║                                                            ║
 ║  COMMAND VALIDATION                                        ║
 ║  ├─ gh auth status:     ✓ PASS                             ║
@@ -809,6 +903,9 @@ be able to verify the site is healthy afterward."
 If platform CLI is not installed, note "The {platform} CLI isn't installed on this machine.
 I can still deploy through GitHub, but I'll use HTTP health checks instead of the platform
 CLI to verify the deploy worked."
+If a secondary deploy surface is missing credentials, say so explicitly as a warning, for
+example: "I found a secondary background-service deploy workflow, but its credentials are
+not configured. That does not block the primary Vercel web deploy."
 
 ### 1.5c: Staging detection
 
@@ -861,6 +958,7 @@ Present the full dry-run results to the user via AskUserQuestion:
 - List any warnings from command validation, with plain-English explanations.
 - If staging was detected, note: "I found a staging environment at {url/workflow}. After we merge, I'll offer to deploy there first so you can verify everything works before it hits production."
 - If no staging was detected, note: "I didn't find a staging environment. The deploy will go straight to production — I'll run health checks right after to make sure everything looks good."
+- If secondary deploy surfaces were detected, note: "I also found secondary deploy surfaces: {list}. I'll record them, but they won't block the primary deploy surface unless you promote them into the canonical contract later."
 - **RECOMMENDATION:** Choose A if all validations passed. Choose B if there are issues to fix. Choose C to run /setup-deploy for a more thorough configuration.
 - A) That's right — this is how my project deploys. Let's go. (Completeness: 10/10)
 - B) Something's off — let me tell you what's wrong (Completeness: 10/10)
@@ -887,6 +985,12 @@ Continue to Step 2.
 
 Tell the user: "Checking CI status and merge readiness..."
 
+For any stop before merge in Steps 2 through 4a, still write
+`.planning/current/ship/deploy-result.json` and refresh the closeout-owned
+follow-on summary. Pre-merge stops are first-class outcomes, not chat-only
+diagnostics. Use `rerun_land_and_deploy` only for operational-only retries
+where the PR contents did not change.
+
 Check CI status and merge readiness:
 
 ```bash
@@ -894,7 +998,18 @@ gh pr checks --json name,state,status,conclusion
 ```
 
 Parse the output:
-1. If any required checks are **FAILING**: **STOP.** "CI is failing on this PR. Here are the failing checks: {list}. Fix these before deploying — I won't merge code that hasn't passed CI."
+1. If any required checks are **FAILING**: **STOP after writing**
+   `.planning/current/ship/deploy-result.json` with:
+   - `phase = "pre_merge"`
+   - `failure_kind = "pre_merge_ci_failed"`
+   - `ci_status = "failed"`
+   - `merge_status = "pending"`
+   - `ship_handoff_current = true` unless the SHA check above already proved otherwise
+   - `next_action = "rerun_build_review_qa_ship"`
+
+   Tell the user: "CI is failing on this PR. Here are the failing checks:
+   {list}. This needs a governed fix cycle — update the PR branch, rerun
+   `/build -> /review -> /qa -> /ship`, then come back to `/land-and-deploy`."
 2. If required checks are **PENDING**: Tell the user "CI is still running. I'll wait for it to finish." Proceed to Step 3.
 3. If all checks pass (or no required checks): Tell the user "CI passed." Skip Step 3, go to Step 4.
 
@@ -902,7 +1017,18 @@ Also check for merge conflicts:
 ```bash
 gh pr view --json mergeable -q .mergeable
 ```
-If `CONFLICTING`: **STOP.** "This PR has merge conflicts with the base branch. Resolve the conflicts and push, then run `/land-and-deploy` again."
+If `CONFLICTING`: **STOP after writing** `.planning/current/ship/deploy-result.json`
+with:
+- `phase = "pre_merge"`
+- `failure_kind = "pre_merge_conflict"`
+- `ci_status = "unknown"`
+- `merge_status = "pending"`
+- `ship_handoff_current = false`
+- `next_action = "rerun_build_review_qa_ship"`
+
+Tell the user: "This PR has merge conflicts with the base branch. Resolve the
+conflicts on the branch, rerun `/build -> /review -> /qa -> /ship`, then run
+`/land-and-deploy` again."
 
 ---
 
@@ -917,7 +1043,17 @@ gh pr checks --watch --fail-fast
 Record the CI wait time for the deploy report.
 
 If CI passes within the timeout: Tell the user "CI passed after {duration}. Moving to readiness checks." Continue to Step 4.
-If CI fails: **STOP.** "CI failed. Here's what broke: {failures}. This needs to pass before I can merge."
+If CI fails: **STOP after writing** `.planning/current/ship/deploy-result.json`
+with:
+- `phase = "pre_merge"`
+- `failure_kind = "pre_merge_ci_failed"`
+- `ci_status = "failed"`
+- `merge_status = "pending"`
+- `ship_handoff_current = true` unless the SHA check above already proved otherwise
+- `next_action = "rerun_build_review_qa_ship"`
+
+Tell the user: "CI failed. Here's what broke: {failures}. This needs a
+governed fix cycle before I can merge."
 If timeout (15 min): **STOP.** "CI has been running for over 15 minutes — that's unusual. Check the GitHub Actions tab to see if something is stuck."
 
 ---
@@ -1184,7 +1320,19 @@ Poll every 30 seconds, up to 30 minutes. Show a progress message every 2 minutes
 If the PR state changes to `MERGED`: capture the merge commit SHA. Tell the user:
 "Merge queue finished — PR is merged. Took {duration}."
 
-If the PR is removed from the queue (state goes back to `OPEN`): **STOP.** "The PR was removed from the merge queue — this usually means a CI check failed on the merge commit, or another PR in the queue caused a conflict. Check the GitHub merge queue page to see what happened."
+If the PR is removed from the queue (state goes back to `OPEN`): **STOP after
+writing** `.planning/current/ship/deploy-result.json` with:
+- `phase = "merge_queue"`
+- `failure_kind = "merge_queue_failed"`
+- `ci_status = "failed"`
+- `merge_status = "pending"`
+- `ship_handoff_current = false`
+- `next_action = "rerun_build_review_qa_ship"`
+
+Tell the user: "The PR was removed from the merge queue — this usually means a
+CI check failed on the merge commit, or another PR in the queue caused a
+conflict. Treat the old ship handoff as stale: update the branch if needed,
+rerun `/build -> /review -> /qa -> /ship`, then try `/land-and-deploy` again."
 If timeout (30 min): **STOP.** "The merge queue has been processing for 30 minutes. Something might be stuck — check the GitHub Actions tab and the merge queue page."
 
 ### 4b: CI auto-deploy detection
@@ -1215,37 +1363,104 @@ Determine what kind of project this is and how to verify the deploy.
 First, run the deploy configuration bootstrap to detect or read persisted deploy settings:
 
 ```bash
-# Check for persisted deploy config in CLAUDE.md
-DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
-echo "$DEPLOY_CONFIG"
+classify_secondary_surface_role() {
+  local source="$1"
+  if printf '%s' "$source" | grep -qiE 'preview|staging|storybook'; then
+    echo "preview_surface"
+  elif printf '%s' "$source" | grep -qiE 'docs|documentation'; then
+    echo "documentation_surface"
+  elif printf '%s' "$source" | grep -qiE 'worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail'; then
+    echo "background_service"
+  else
+    echo "auxiliary_service"
+  fi
+}
 
-# If config exists, parse it
-if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
-  PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
-  PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
-  echo "PERSISTED_PLATFORM:$PLATFORM"
-  echo "PERSISTED_URL:$PROD_URL"
+# Check the canonical deploy contract first
+if [ -f .planning/deploy/deploy-contract.json ]; then
+  echo "CANONICAL_DEPLOY_CONTRACT:.planning/deploy/deploy-contract.json"
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path(".planning/deploy/deploy-contract.json")
+data = json.loads(path.read_text())
+
+primary_platform = data.get("platform") or "unknown"
+primary_label = data.get("primary_surface_label") or ""
+production_url = ((data.get("production") or {}).get("url")) or ""
+
+print(f"PERSISTED_PRIMARY_PLATFORM:{primary_platform}")
+if primary_label:
+    print(f"PERSISTED_PRIMARY_SURFACE:{primary_label}")
+if production_url:
+    print(f"PERSISTED_URL:{production_url}")
+
+for surface in data.get("secondary_surfaces") or []:
+    label = surface.get("label") or "secondary"
+    platform = surface.get("platform") or "unknown"
+    workflow = surface.get("deploy_workflow") or "none"
+    print(f"PERSISTED_SECONDARY_SURFACE:{label}:{platform}:{workflow}")
+PY
+elif [ -f CLAUDE.md ]; then
+  # Legacy fallback only when the canonical deploy contract is absent
+  DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
+  echo "$DEPLOY_CONFIG"
+
+  if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
+    PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
+    PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
+    echo "PERSISTED_PRIMARY_PLATFORM:$PLATFORM"
+    echo "PERSISTED_URL:$PROD_URL"
+  fi
 fi
 
-# Auto-detect platform from config files
-[ -f fly.toml ] && echo "PLATFORM:fly"
-[ -f render.yaml ] && echo "PLATFORM:render"
-([ -f vercel.json ] || [ -d .vercel ]) && echo "PLATFORM:vercel"
-[ -f netlify.toml ] && echo "PLATFORM:netlify"
-[ -f Procfile ] && echo "PLATFORM:heroku"
-([ -f railway.json ] || [ -f railway.toml ]) && echo "PLATFORM:railway"
+# Auto-detect primary deploy surface from repo-level config
+([ -f vercel.json ] || [ -d .vercel ]) && echo "PRIMARY_PLATFORM:vercel"
+[ -f render.yaml ] && echo "PRIMARY_PLATFORM:render"
+[ -f netlify.toml ] && echo "PRIMARY_PLATFORM:netlify"
+[ -f Procfile ] && echo "PRIMARY_PLATFORM:heroku"
+([ -f railway.json ] || [ -f railway.toml ]) && echo "PRIMARY_PLATFORM:railway"
+[ -f fly.toml ] && echo "PRIMARY_PLATFORM:fly"
+
+# Detect nested or auxiliary deploy surfaces
+find . \( -path '*/fly.toml' -o -path '*/render.yaml' -o -path '*/railway.json' -o -path '*/railway.toml' -o -path '*/netlify.toml' \) \
+  ! -path './fly.toml' ! -path './render.yaml' ! -path './railway.json' ! -path './railway.toml' ! -path './netlify.toml' 2>/dev/null | while read -r f; do
+  [ -z "$f" ] && continue
+  role=$(classify_secondary_surface_role "$f")
+  case "$f" in
+    */fly.toml) platform="fly" ;;
+    */render.yaml) platform="render" ;;
+    */railway.json|*/railway.toml) platform="railway" ;;
+    */netlify.toml) platform="netlify" ;;
+    *) platform="custom" ;;
+  esac
+  echo "SECONDARY_PLATFORM:$role:$platform:$f"
+done
 
 # Detect deploy workflows
 for f in $(find .github/workflows -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null); do
-  [ -f "$f" ] && grep -qiE "deploy|release|production|cd" "$f" 2>/dev/null && echo "DEPLOY_WORKFLOW:$f"
+  if [ -f "$f" ] && grep -qiE "deploy|release|production|cd" "$f" 2>/dev/null; then
+    if grep -qiE "worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail|preview|storybook|docs" "$f" 2>/dev/null; then
+      role=$(classify_secondary_surface_role "$f")
+      echo "SECONDARY_DEPLOY_WORKFLOW:$role:$f"
+    else
+      echo "DEPLOY_WORKFLOW:$f"
+    fi
+  fi
   [ -f "$f" ] && grep -qiE "staging" "$f" 2>/dev/null && echo "STAGING_WORKFLOW:$f"
 done
 ```
 
-If `PERSISTED_PLATFORM` and `PERSISTED_URL` were found in CLAUDE.md, use them directly
-and skip manual detection. If no persisted config exists, use the auto-detected platform
-to guide deploy verification. If nothing is detected, ask the user via AskUserQuestion
-in the decision tree below.
+If a canonical deploy contract exists, treat `PERSISTED_PRIMARY_PLATFORM` and
+`PERSISTED_URL` as the authoritative primary deploy surface, and treat any
+`PERSISTED_SECONDARY_SURFACE` entries as attached secondary surfaces.
+If only the legacy `CLAUDE.md` config exists, use it as a migration fallback.
+If no persisted config exists, use `PRIMARY_PLATFORM` as the deploy surface that
+`/land-and-deploy` gates on, and treat any `SECONDARY_PLATFORM` or
+`SECONDARY_DEPLOY_WORKFLOW` output as warning-only attached surfaces like
+background services, preview surfaces, or documentation-only deploys.
+If nothing is detected, ask the user via AskUserQuestion in the decision tree below.
 
 If you want to persist deploy settings for future runs, suggest the user run `/setup-deploy`.
 
@@ -1255,6 +1470,10 @@ Then run `nexus-diff-scope` to classify the changes:
 eval $(~/.claude/skills/nexus/bin/nexus-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)
 echo "FRONTEND=$SCOPE_FRONTEND BACKEND=$SCOPE_BACKEND DOCS=$SCOPE_DOCS CONFIG=$SCOPE_CONFIG"
 ```
+
+Use the **primary deploy surface** from the canonical deploy contract or bootstrap output
+as the authoritative verification target. Treat secondary deploy surfaces as follow-on
+context only.
 
 **Decision tree (evaluate in order):**
 
@@ -1327,7 +1546,9 @@ gh run view <run-id> --json status,conclusion
 
 ### Strategy B: Platform CLI (Fly.io, Render, Heroku)
 
-If a deploy status command was configured in the canonical deploy contract (or legacy `CLAUDE.md` fallback), use it instead of or in addition to GitHub Actions polling.
+If a deploy status command was configured for the primary deploy surface in the canonical
+deploy contract (or legacy `CLAUDE.md` fallback), use it instead of or in addition to
+GitHub Actions polling.
 
 **Fly.io:** After merge, Fly deploys via GitHub Actions or `fly deploy`. Check with:
 ```bash
@@ -1352,7 +1573,8 @@ Vercel and Netlify deploy automatically on merge. No explicit deploy trigger nee
 
 ### Strategy D: Custom deploy hooks
 
-If the canonical deploy contract has a custom deploy status command, run that command and check its exit code.
+If the canonical deploy contract has a custom deploy status command for the primary deploy
+surface, run that command and check its exit code.
 
 ### Common: Timing and failure handling
 
@@ -1511,6 +1733,13 @@ It should summarize the repo-visible ship handoff inputs and the final merge/dep
   "schema_version": 1,
   "generated_at": "<ISO>",
   "source": "land-and-deploy",
+  "phase": "<pre_merge|merge_queue|post_merge>",
+  "failure_kind": "<pre_merge_ci_failed|pre_merge_conflict|merge_queue_failed|post_merge_deploy_failed|null>",
+  "ci_status": "<passed|pending|failed|unknown>",
+  "ship_handoff_head_sha": "<sha or null>",
+  "pull_request_head_sha": "<sha or null>",
+  "ship_handoff_current": true,
+  "next_action": "<rerun_land_and_deploy|rerun_ship|rerun_build_review_qa_ship|investigate_deploy|revert>",
   "production_url": "<url or null>",
   "pull_request_path": ".planning/current/ship/pull-request.json",
   "deploy_readiness_path": ".planning/current/ship/deploy-readiness.json",

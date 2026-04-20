@@ -17,7 +17,7 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const OUTPUT_DIR = "/tmp/gstack-prototype-" + Date.now();
+const OUTPUT_DIR = "/tmp/nexus-prototype-" + Date.now();
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 const briefs = [

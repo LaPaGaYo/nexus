@@ -4,6 +4,7 @@ import {
   dedupeArtifactPointers,
   executionContractArtifacts,
   HANDOFF_STATUS_PATH,
+  QA_STATUS_PATH,
   REVIEW_STATUS_PATH,
 } from '../contract-artifacts';
 import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath, stageStatusPath } from '../artifacts';
@@ -22,7 +23,12 @@ import {
   requestedBuildRouteFromLedger,
   validateGovernedHandoffRouteValidation,
 } from '../normalizers/ccb';
-import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
+import {
+  boundedFixCycleReviewScopeFromQaFindings,
+  fullAcceptanceReviewScope,
+  normalizeReviewScopeRecord,
+  resolveFixCycleReviewScope,
+} from '../review-scope';
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
@@ -38,7 +44,7 @@ const PLAN_STATUS_PATH = stageStatusPath('plan');
 
 function nextLedger(
   ledger: RunLedger,
-  previousStage: 'handoff' | 'review',
+  previousStage: 'handoff' | 'review' | 'qa',
   status: RunLedger['status'],
   at: string,
   via: CommandHistoryVia,
@@ -74,6 +80,15 @@ function isCanonicalFailingReview(reviewStatus: StageStatus | null | undefined):
     && reviewStatus.audit_set_complete === true
     && reviewStatus.provenance_consistent === true
     && reviewStatus.gate_decision === 'fail';
+}
+
+function isCanonicalFailingQa(qaStatus: StageStatus | null | undefined): boolean {
+  return qaStatus?.stage === 'qa'
+    && qaStatus.state === 'completed'
+    && qaStatus.decision === 'qa_recorded'
+    && qaStatus.ready === false
+    && qaStatus.review_scope?.mode === 'bounded_fix_cycle'
+    && qaStatus.review_scope.source_stage === 'qa';
 }
 
 function blockedPreflightLedger(
@@ -153,6 +168,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const handoffStatusPath = stageStatusPath('handoff');
   const reviewStatusPath = stageStatusPath('review');
+  const qaStatus = readStageStatus(QA_STATUS_PATH, ctx.cwd);
   const planStatus = readStageStatus(PLAN_STATUS_PATH, ctx.cwd);
   const handoffStatus = readStageStatus(handoffStatusPath, ctx.cwd);
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
@@ -168,16 +184,28 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   assertSameRunId(ledger.run_id, handoffStatus.run_id, 'handoff status');
   assertLegalTransition(ledger.current_stage, 'build');
 
-  const fixCycle = ledger.current_stage === 'review';
+  const fixCycle = ledger.current_stage === 'review' || ledger.current_stage === 'qa';
   if (fixCycle) {
-    if (!reviewStatus) {
-      throw new Error('Review status must exist before running a governed fix-cycle build');
-    }
+    if (ledger.current_stage === 'review') {
+      if (!reviewStatus) {
+        throw new Error('Review status must exist before running a governed fix-cycle build');
+      }
 
-    assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
+      assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
 
-    if (!isCanonicalFailingReview(reviewStatus)) {
-      throw new Error('Fix-cycle /build is only valid after a completed failing review gate');
+      if (!isCanonicalFailingReview(reviewStatus)) {
+        throw new Error('Fix-cycle /build is only valid after a completed failing review gate');
+      }
+    } else {
+      if (!qaStatus) {
+        throw new Error('QA status must exist before running a governed QA fix-cycle build');
+      }
+
+      assertSameRunId(ledger.run_id, qaStatus.run_id, 'qa status');
+
+      if (!isCanonicalFailingQa(qaStatus)) {
+        throw new Error('Fix-cycle /build is only valid after a completed failing QA gate');
+      }
     }
   }
 
@@ -185,19 +213,39 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const manifest = CANONICAL_MANIFEST.build;
   const workspace = resolveExecutionWorkspace(
     ctx.cwd,
-    ledger.execution.workspace ?? (fixCycle ? reviewStatus?.workspace ?? null : handoffStatus.workspace ?? null),
+    ledger.execution.workspace
+      ?? (ledger.current_stage === 'qa'
+        ? qaStatus?.workspace ?? reviewStatus?.workspace ?? null
+        : fixCycle
+          ? reviewStatus?.workspace ?? null
+          : handoffStatus.workspace ?? null),
   );
   const sessionRoot = ledger.execution.session_root
-    ?? (fixCycle ? reviewStatus?.session_root ?? null : handoffStatus.session_root ?? null)
+    ?? (ledger.current_stage === 'qa'
+      ? qaStatus?.session_root ?? reviewStatus?.session_root ?? null
+      : fixCycle
+        ? reviewStatus?.session_root ?? null
+        : handoffStatus.session_root ?? null)
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const buildRequestPath = '.planning/current/build/build-request.json';
   const buildResultPath = '.planning/current/build/build-result.md';
   const statusPath = stageStatusPath('build');
   const reviewScope = fixCycle
-    ? resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
+    ? ledger.current_stage === 'qa'
+      ? normalizeReviewScopeRecord(
+          qaStatus?.review_scope
+            ?? boundedFixCycleReviewScopeFromQaFindings(qaStatus?.errors ?? []),
+        )
+      : resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
     : normalizeReviewScopeRecord(handoffStatus.review_scope ?? fullAcceptanceReviewScope());
-  const requestedRoute = (fixCycle ? reviewStatus?.requested_route : null) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledgerWithExecution);
+  const requestedRoute = (
+    ledger.current_stage === 'qa'
+      ? qaStatus?.requested_route ?? reviewStatus?.requested_route ?? null
+      : fixCycle
+        ? reviewStatus?.requested_route ?? null
+        : null
+  ) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledgerWithExecution);
   const commandHistoryVia = buildCommandHistoryVia(reviewScope, ctx.via);
   const designContractPointer = planDesignContractPointer(planStatus);
   const verificationMatrix = readVerificationMatrix(ctx.cwd);
@@ -206,6 +254,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ? [
           artifactPointerFor(HANDOFF_STATUS_PATH),
           artifactPointerFor(REVIEW_STATUS_PATH),
+          ...(ledger.current_stage === 'qa' ? [artifactPointerFor(QA_STATUS_PATH)] : []),
           ...executionContractArtifacts(Boolean(verificationMatrix)),
           ...(designContractPointer ? [designContractPointer] : []),
         ]
@@ -378,7 +427,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     };
     const next = nextLedger(
       ledgerWithExecution,
-      fixCycle ? 'review' : 'handoff',
+      fixCycle ? (ledger.current_stage === 'qa' ? 'qa' : 'review') : 'handoff',
       disciplineResult.outcome === 'refused' ? 'refused' : 'blocked',
       startedAt,
       commandHistoryVia,
@@ -454,7 +503,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       review_scope: reviewScope,
       workspace,
     };
-    const next = nextLedger(ledgerWithExecution, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, commandHistoryVia);
+    const next = nextLedger(
+      ledgerWithExecution,
+      fixCycle ? (ledger.current_stage === 'qa' ? 'qa' : 'review') : 'handoff',
+      'blocked',
+      startedAt,
+      commandHistoryVia,
+    );
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
@@ -544,7 +599,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     const next = withActualExecutionPath(
       nextLedger(
         ledgerWithExecution,
-        fixCycle ? 'review' : 'handoff',
+        fixCycle ? (ledger.current_stage === 'qa' ? 'qa' : 'review') : 'handoff',
         result.outcome === 'refused' ? 'refused' : 'blocked',
         startedAt,
         commandHistoryVia,
@@ -630,7 +685,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       workspace,
     };
     const next = withActualExecutionPath(
-      nextLedger(ledgerWithExecution, fixCycle ? 'review' : 'handoff', 'blocked', startedAt, commandHistoryVia),
+      nextLedger(
+        ledgerWithExecution,
+        fixCycle ? (ledger.current_stage === 'qa' ? 'qa' : 'review') : 'handoff',
+        'blocked',
+        startedAt,
+        commandHistoryVia,
+      ),
       actualRoute?.route ?? null,
     );
     next.artifact_index = {
@@ -735,7 +796,13 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     workspace,
   };
   const next = withActualExecutionPath(
-    nextLedger(ledgerWithExecution, fixCycle ? 'review' : 'handoff', 'active', startedAt, commandHistoryVia),
+    nextLedger(
+      ledgerWithExecution,
+      fixCycle ? (ledger.current_stage === 'qa' ? 'qa' : 'review') : 'handoff',
+      'active',
+      startedAt,
+      commandHistoryVia,
+    ),
     result.actual_route?.route ?? null,
   );
   next.artifact_index = {

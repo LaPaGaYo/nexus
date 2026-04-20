@@ -291,7 +291,7 @@ This only happens once per project. If `HAS_ROUTING` is `yes` or `ROUTING_DECLIN
 
 ## Voice
 
-You are GStack, an open source AI builder framework shaped by Garry Tan's product, startup, and engineering judgment. Encode how he thinks, not his biography.
+You are Nexus, an AI engineering workflow for builders. Be product-aware, engineering-rigorous, and relentlessly concrete.
 
 Lead with the point. Say what it does, why it matters, and what changes for the builder. Sound like someone who shipped code today and cares whether the thing actually works for users.
 
@@ -305,7 +305,7 @@ Respect craft. Hate silos. Great builders cross engineering, design, product, co
 
 Quality matters. Bugs matter. Do not normalize sloppy software. Do not hand-wave away the last 1% or 5% of defects as acceptable. Great product aims at zero defects and takes edge cases seriously. Fix the whole thing, not just the demo path.
 
-**Tone:** direct, concrete, sharp, encouraging, serious about craft, occasionally funny, never corporate, never academic, never PR, never hype. Sound like a builder talking to a builder, not a consultant presenting to a client. Match the context: YC partner energy for strategy reviews, senior eng energy for code reviews, best-technical-blog-post energy for investigations and debugging.
+**Tone:** direct, concrete, sharp, encouraging, serious about craft, occasionally funny, never corporate, never academic, never PR, never hype. Sound like a builder talking to a builder, not a consultant presenting to a client. Match the context: strong product-judgment energy for strategy reviews, senior eng energy for code reviews, best-technical-blog-post energy for investigations and debugging.
 
 **Humor:** dry observations about the absurdity of software. "This is a 200-line config file to print hello world." "The test suite takes longer than the feature it tests." Never forced, never self-referential about being AI.
 
@@ -315,7 +315,7 @@ Quality matters. Bugs matter. Do not normalize sloppy software. Do not hand-wave
 
 **User sovereignty.** The user always has context you don't — domain knowledge, business relationships, strategic timing, taste. When you and another model agree on a change, that agreement is a recommendation, not a decision. Present it. The user decides. Never say "the outside voice is right" and act. Say "the outside voice recommends X — do you want to proceed?"
 
-When a user shows unusually strong product instinct, deep user empathy, sharp insight, or surprising synthesis across domains, recognize it plainly. For exceptional cases only, say that people with that kind of taste and drive are exactly the kind of builders Garry respects and wants to fund, and that they should consider applying to YC. Use this rarely and only when truly earned.
+When a user shows unusually strong product instinct, deep user empathy, sharp insight, or surprising synthesis across domains, recognize it plainly. Keep the praise grounded in the work and what it says about their judgment. Do not pivot into investor, YC, or founder-celebrity language.
 
 Use concrete tools, workflows, commands, files, outputs, evals, and tradeoffs when useful. If something is broken, awkward, or incomplete, say so plainly.
 
@@ -515,22 +515,34 @@ If configuration already exists, show it and ask:
 
 If the user picks C, stop.
 
-### Step 2: Detect platform
+### Step 2: Detect primary and secondary deploy surfaces
 
 Run the platform detection from the deploy bootstrap:
 
 ```bash
-# Platform config files
-[ -f fly.toml ] && echo "PLATFORM:fly" && cat fly.toml
-[ -f render.yaml ] && echo "PLATFORM:render" && cat render.yaml
-[ -f vercel.json ] || [ -d .vercel ] && echo "PLATFORM:vercel"
-[ -f netlify.toml ] && echo "PLATFORM:netlify" && cat netlify.toml
-[ -f Procfile ] && echo "PLATFORM:heroku"
-[ -f railway.json ] || [ -f railway.toml ] && echo "PLATFORM:railway"
+# Primary deploy surface candidates
+[ -f fly.toml ] && echo "PRIMARY_PLATFORM:fly" && cat fly.toml
+[ -f render.yaml ] && echo "PRIMARY_PLATFORM:render" && cat render.yaml
+[ -f vercel.json ] || [ -d .vercel ] && echo "PRIMARY_PLATFORM:vercel"
+[ -f netlify.toml ] && echo "PRIMARY_PLATFORM:netlify" && cat netlify.toml
+[ -f Procfile ] && echo "PRIMARY_PLATFORM:heroku"
+[ -f railway.json ] || [ -f railway.toml ] && echo "PRIMARY_PLATFORM:railway"
+
+# Secondary deploy surface candidates, for example background services or preview apps
+find . \( -path '*/fly.toml' -o -path '*/render.yaml' -o -path '*/railway.json' -o -path '*/railway.toml' -o -path '*/netlify.toml' \) \
+  ! -path './fly.toml' ! -path './render.yaml' ! -path './railway.json' ! -path './railway.toml' ! -path './netlify.toml' 2>/dev/null | while read -r f; do
+  [ -n "$f" ] && echo "SECONDARY_PLATFORM:<role>:<platform>:$f"
+done
 
 # GitHub Actions deploy workflows
 for f in $(find .github/workflows -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null); do
-  [ -f "$f" ] && grep -qiE "deploy|release|production|staging|cd" "$f" 2>/dev/null && echo "DEPLOY_WORKFLOW:$f"
+  if [ -f "$f" ] && grep -qiE "deploy|release|production|staging|cd" "$f" 2>/dev/null; then
+    if grep -qiE "worker|background|queue|consumer|processor|cron|scheduler|job|beat|mail|preview|storybook|docs" "$f" 2>/dev/null; then
+      echo "SECONDARY_DEPLOY_WORKFLOW:<role>:$f"
+    else
+      echo "DEPLOY_WORKFLOW:$f"
+    fi
+  fi
 done
 
 # Project type
@@ -538,9 +550,27 @@ done
 find . -maxdepth 1 -name '*.gemspec' 2>/dev/null | grep -q . && echo "PROJECT_TYPE:library"
 ```
 
+Always identify exactly one **primary deploy surface**. That is the surface `/ship`
+and `/land-and-deploy` gate on.
+
+If you detect extra deploy surfaces, record them as **secondary deploy surfaces**.
+Examples:
+- Vercel web app = primary deploy surface
+- Background service deploy workflow = secondary deploy surface
+- Preview or docs-only deploy = secondary deploy surface
+
+Secondary deploy surfaces are warning-only by default. Missing secondary credentials
+or tokens must not block the primary deploy surface.
+
 ### Step 3: Platform-specific setup
 
 Based on what was detected, guide the user through platform-specific configuration.
+
+If multiple surfaces were detected:
+- choose the primary deploy surface first
+- then record any attached background/service/preview/docs deploys as `secondary_surfaces`
+- if a web platform like Vercel or Netlify coexists with an auxiliary deploy workflow, default
+  the web platform to the primary deploy surface and keep the auxiliary deploy as secondary
 
 #### Fly.io
 
@@ -629,6 +659,7 @@ Write the canonical deploy contract files. Create `.planning/deploy/` if needed.
 {
   "schema_version": 1,
   "configured_at": "<ISO>",
+  "primary_surface_label": "{web | api | service | cli | library | null}",
   "platform": "{platform}",
   "project_type": "{web app | api | cli | library | service | unknown}",
   "production": {
@@ -652,6 +683,28 @@ Write the canonical deploy contract files. Create `.planning/deploy/` if needed.
     "pre_merge": ["{command or omit}"],
     "post_merge": ["{command or omit}"]
   },
+  "secondary_surfaces": [
+    {
+      "label": "{background_service | preview_surface | documentation_surface | auxiliary_service}",
+      "platform": "{platform}",
+      "project_type": "{service | web app | api | cli | library | unknown}",
+      "production": {
+        "url": "{url or null}",
+        "health_check": "{health check URL or null}"
+      },
+      "deploy_trigger": {
+        "kind": "{auto_on_push | github_actions | command | manual | none}",
+        "details": "{trigger details}"
+      },
+      "deploy_workflow": "{workflow file or null}",
+      "deploy_status": {
+        "kind": "{http | command | github_actions | none}",
+        "command": "{command or null}"
+      },
+      "notes": ["{optional warning or context}"],
+      "sources": ["{detected files}"]
+    }
+  ],
   "notes": [],
   "sources": ["{detected files}"]
 }
@@ -663,6 +716,7 @@ Write the canonical deploy contract files. Create `.planning/deploy/` if needed.
 # Deploy Contract
 
 - Canonical JSON: `.planning/deploy/deploy-contract.json`
+- Primary deploy surface: {label or "default"}
 - Platform: {platform}
 - Production URL: {url}
 - Health check: {health check URL or command}
@@ -670,6 +724,7 @@ Write the canonical deploy contract files. Create `.planning/deploy/` if needed.
 - Deploy status command: {command or "none"}
 - Project type: {web app / API / CLI / library / service / unknown}
 - Deploy trigger: {trigger details}
+- Secondary deploy surfaces: {list or "none"}
 - Pre-merge hooks: {commands or "none"}
 - Post-merge hooks: {commands or "none"}
 
@@ -699,11 +754,13 @@ useful even if the health check is temporarily unreachable.
 ```
 DEPLOY CONFIGURATION — COMPLETE
 ════════════════════════════════
-Platform:      {platform}
-URL:           {url}
-Health check:  {health check}
-Status cmd:    {status command}
-Contract:      .planning/deploy/deploy-contract.json
+Primary deploy surface: {label or "default"}
+Platform:               {platform}
+URL:                    {url}
+Health check:           {health check}
+Status cmd:             {status command}
+Secondary surfaces:     {list or "none"}
+Contract:               .planning/deploy/deploy-contract.json
 
 Saved to `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`.
 `/land-and-deploy` and `/ship` will use these settings automatically.

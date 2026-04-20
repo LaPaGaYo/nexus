@@ -743,10 +743,90 @@ describe('nexus qa', () => {
         state: 'completed',
         decision: 'qa_recorded',
         ready: false,
+        review_scope: {
+          mode: 'bounded_fix_cycle',
+          source_stage: 'qa',
+          blocking_items: ['Login form is broken'],
+          advisory_policy: 'out_of_scope_advisory',
+        },
         verification_count: 0,
         defect_count: 1,
       });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'qa',
+        allowed_next_stages: ['build'],
+      });
       expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('Login form is broken');
+    });
+  });
+
+  test('records advisories without blocking QA readiness', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const adapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              report_markdown: [
+                '# QA Report',
+                '',
+                'Result: pass',
+                '',
+                'Findings:',
+                '- none',
+                '',
+                'Advisories:',
+                '- WorkspaceError is duplicated across module boundaries.',
+              ].join('\n'),
+              ready: true,
+              findings: [],
+              advisories: ['WorkspaceError is duplicated across module boundaries.'],
+              receipt: 'qa-advisory',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/qa/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-qa-pack',
+              absorbed_capability: 'ccb-qa',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('qa', adapters);
+
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        stage: 'qa',
+        state: 'completed',
+        decision: 'qa_recorded',
+        ready: true,
+        errors: [],
+        advisory_count: 1,
+        defect_count: 0,
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'active',
+        current_stage: 'qa',
+        allowed_next_stages: ['ship', 'closeout'],
+      });
+      expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('Advisories:');
+      expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('WorkspaceError is duplicated across module boundaries.');
     });
   });
 

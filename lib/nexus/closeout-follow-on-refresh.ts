@@ -15,9 +15,21 @@ import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from './
 import { readLedger, writeLedger } from './ledger';
 import { buildNextRunBootstrap, renderNextRunBootstrapMarkdown } from './run-bootstrap';
 import { readStageStatus } from './status';
-import type { ArtifactPointer, RunLedger } from './types';
+import type { ArtifactPointer, FollowOnEvidenceSummaryRecord, RunLedger } from './types';
 
 const CLOSEOUT_RECORD_PATH = '.planning/current/closeout/CLOSEOUT-RECORD.md';
+
+export interface LandingReentryGuidance {
+  deploy_result_path: string;
+  merge_status: string | null;
+  deploy_status: string | null;
+  verification_status: string | null;
+  failure_kind: string | null;
+  next_action: string | null;
+  ship_handoff_current: boolean | null;
+  ship_handoff_head_sha: string | null;
+  pull_request_head_sha: string | null;
+}
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -28,6 +40,107 @@ function artifactPointerFor(path: string): ArtifactPointer {
 
 function attachedEvidencePathIfPresent(cwd: string, path: string): string | null {
   return existsSync(join(cwd, path)) ? path : null;
+}
+
+function readString(record: Record<string, unknown> | null, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function readBoolean(record: Record<string, unknown> | null, key: string): boolean | null {
+  const value = record?.[key];
+  return typeof value === 'boolean' ? value : null;
+}
+
+export function readLandingReentryGuidance(
+  cwd: string,
+  deployResultPath: string | null,
+): LandingReentryGuidance | null {
+  if (!deployResultPath) {
+    return null;
+  }
+
+  const absolutePath = join(cwd, deployResultPath);
+  if (!existsSync(absolutePath)) {
+    return null;
+  }
+
+  try {
+    const record = JSON.parse(readFileSync(absolutePath, 'utf8')) as Record<string, unknown>;
+    return {
+      deploy_result_path: deployResultPath,
+      merge_status: readString(record, 'merge_status'),
+      deploy_status: readString(record, 'deploy_status'),
+      verification_status: readString(record, 'verification_status'),
+      failure_kind: readString(record, 'failure_kind'),
+      next_action: readString(record, 'next_action'),
+      ship_handoff_current: readBoolean(record, 'ship_handoff_current'),
+      ship_handoff_head_sha: readString(record, 'ship_handoff_head_sha'),
+      pull_request_head_sha: readString(record, 'pull_request_head_sha'),
+    };
+  } catch {
+    return {
+      deploy_result_path: deployResultPath,
+      merge_status: null,
+      deploy_status: null,
+      verification_status: null,
+      failure_kind: null,
+      next_action: null,
+      ship_handoff_current: null,
+      ship_handoff_head_sha: null,
+      pull_request_head_sha: null,
+    };
+  }
+}
+
+export function renderLandingReentryMarkdown(guidance: LandingReentryGuidance | null): string {
+  if (!guidance) {
+    return '';
+  }
+
+  return [
+    '',
+    '## Landing Re-entry',
+    '',
+    `- Deploy result: ${guidance.deploy_result_path}`,
+    `- Merge status: ${guidance.merge_status ?? 'unknown'}`,
+    `- Deploy status: ${guidance.deploy_status ?? 'unknown'}`,
+    `- Verification status: ${guidance.verification_status ?? 'unknown'}`,
+    `- Failure kind: ${guidance.failure_kind ?? 'unknown'}`,
+    `- Next action: ${guidance.next_action ?? 'none'}`,
+    `- Ship handoff current: ${
+      guidance.ship_handoff_current === true
+        ? 'yes'
+        : guidance.ship_handoff_current === false
+          ? 'no'
+          : 'unknown'
+    }`,
+    `- Ship handoff head SHA: ${guidance.ship_handoff_head_sha ?? 'unknown'}`,
+    `- PR head SHA: ${guidance.pull_request_head_sha ?? 'unknown'}`,
+    '',
+  ].join('\n');
+}
+
+export function enrichFollowOnEvidenceSummary(
+  summary: FollowOnEvidenceSummaryRecord,
+  guidance: LandingReentryGuidance | null,
+): FollowOnEvidenceSummaryRecord & {
+  evidence: FollowOnEvidenceSummaryRecord['evidence'] & {
+    ship: FollowOnEvidenceSummaryRecord['evidence']['ship'] & {
+      landing_reentry: LandingReentryGuidance | null;
+    };
+  };
+} {
+  return {
+    ...summary,
+    evidence: {
+      ...summary.evidence,
+      ship: {
+        ...summary.evidence.ship,
+        landing_reentry: guidance,
+      },
+    },
+  };
 }
 
 function renderAttachedEvidenceBlock(input: {
@@ -65,6 +178,7 @@ function refreshCloseoutRecord(
     deployResultPath: string | null;
     documentationSyncPath: string | null;
   },
+  landingReentry: LandingReentryGuidance | null,
 ): boolean {
   const absolutePath = join(cwd, CLOSEOUT_RECORD_PATH);
   if (!existsSync(absolutePath)) {
@@ -72,7 +186,7 @@ function refreshCloseoutRecord(
   }
 
   const baseContent = readFileSync(absolutePath, 'utf8').replace(/\n## Attached Evidence[\s\S]*$/m, '').trimEnd();
-  const nextContent = `${baseContent}${renderAttachedEvidenceBlock(evidence)}\n`;
+  const nextContent = `${baseContent}${renderAttachedEvidenceBlock(evidence)}${renderLandingReentryMarkdown(landingReentry)}\n`;
   if (readFileSync(absolutePath, 'utf8') === nextContent) {
     return false;
   }
@@ -127,11 +241,12 @@ export function refreshCurrentCloseoutFollowOnArtifacts(cwd: string): RefreshClo
   const canaryEvidencePath = attachedEvidencePathIfPresent(cwd, shipCanaryStatusPath());
   const deployResultPath = attachedEvidencePathIfPresent(cwd, shipDeployResultPath());
   const documentationSyncPath = attachedEvidencePathIfPresent(cwd, closeoutDocumentationSyncPath());
+  const landingReentry = readLandingReentryGuidance(cwd, deployResultPath);
   const refreshedAt = new Date().toISOString();
   const qaStatusForRun = qaStatus && qaStatus.run_id === ledger.run_id ? qaStatus : null;
   const shipStatusForRun = shipStatus && shipStatus.run_id === ledger.run_id ? shipStatus : null;
 
-  const followOnSummary = buildFollowOnEvidenceSummary({
+  const followOnSummary = enrichFollowOnEvidenceSummary(buildFollowOnEvidenceSummary({
     cwd,
     runId: ledger.run_id,
     generatedAt: refreshedAt,
@@ -139,7 +254,7 @@ export function refreshCurrentCloseoutFollowOnArtifacts(cwd: string): RefreshClo
     canaryEvidencePath,
     deployResultPath,
     documentationSyncPath,
-  });
+  }), landingReentry);
   const bootstrap = buildNextRunBootstrap({
     ledger,
     reviewStatus,
@@ -149,12 +264,14 @@ export function refreshCurrentCloseoutFollowOnArtifacts(cwd: string): RefreshClo
     followOnSummaryRecorded: true,
     canaryEvidencePath,
     documentationSyncPath,
+    deployResultPath,
+    landingReentry,
   });
 
   const writes: Array<{ path: string; content: string }> = [
     {
       path: closeoutFollowOnSummaryMarkdownPath(),
-      content: renderFollowOnEvidenceMarkdown(followOnSummary),
+      content: `${renderFollowOnEvidenceMarkdown(followOnSummary)}${renderLandingReentryMarkdown(landingReentry)}`,
     },
     {
       path: closeoutFollowOnSummaryJsonPath(),
@@ -185,7 +302,7 @@ export function refreshCurrentCloseoutFollowOnArtifacts(cwd: string): RefreshClo
     canaryEvidencePath,
     deployResultPath,
     documentationSyncPath,
-  })) {
+  }, landingReentry)) {
     writtenPaths.push(CLOSEOUT_RECORD_PATH);
   }
 

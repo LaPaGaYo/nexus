@@ -38,10 +38,18 @@ import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '..
 import { readLedger } from '../ledger';
 import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalizers/gsd';
 import { applyNormalizationPlan } from '../normalizers';
-import { buildNextRunBootstrap, persistCloseoutBootstrap } from '../run-bootstrap';
+import {
+  buildNextRunBootstrap,
+  persistCloseoutBootstrap,
+} from '../run-bootstrap';
 import { readStageStatus } from '../status';
 import { assertLegalTransition } from '../transitions';
 import { retireRunWorkspace } from '../workspace-substrate';
+import {
+  enrichFollowOnEvidenceSummary,
+  readLandingReentryGuidance,
+  renderLandingReentryMarkdown,
+} from '../closeout-follow-on-refresh';
 import type { GsdCloseoutRaw } from '../adapters/gsd';
 import type {
   ArtifactPointer,
@@ -129,8 +137,24 @@ function closeoutAttachedEvidenceSummary(
   canaryEvidencePath: string | null,
   deployResultPath: string | null,
   documentationSyncPath: string | null,
+  landingReentry: {
+    next_action: string | null;
+    ship_handoff_current: boolean | null;
+    merge_status: string | null;
+    deploy_status: string | null;
+    verification_status: string | null;
+    failure_kind: string | null;
+    ship_handoff_head_sha: string | null;
+    pull_request_head_sha: string | null;
+  } | null,
 ): string {
-  if (!perfVerificationPath && !canaryEvidencePath && !deployResultPath && !documentationSyncPath) {
+  if (
+    !perfVerificationPath
+    && !canaryEvidencePath
+    && !deployResultPath
+    && !documentationSyncPath
+    && !landingReentry
+  ) {
     return '';
   }
 
@@ -143,6 +167,7 @@ function closeoutAttachedEvidenceSummary(
     `- Deploy result evidence: ${deployResultPath ?? 'none'}`,
     `- Documentation sync evidence: ${documentationSyncPath ?? 'none'}`,
     '',
+    renderLandingReentryMarkdown(landingReentry).trimEnd(),
   ].join('\n');
 }
 
@@ -197,6 +222,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const canaryEvidencePath = attachedEvidencePathIfPresent(ctx.cwd, shipCanaryStatusPath());
   const deployResultPath = attachedEvidencePathIfPresent(ctx.cwd, shipDeployResultPath());
   const documentationSyncPath = attachedEvidencePathIfPresent(ctx.cwd, closeoutDocumentationSyncPath());
+  const landingReentry = readLandingReentryGuidance(ctx.cwd, deployResultPath);
 
   assertSameRunId(ledger.run_id, meta.run_id, 'reviewed provenance');
 
@@ -339,7 +365,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdCloseout(result);
-    const followOnEvidence = buildFollowOnEvidenceSummary({
+    const followOnEvidence = enrichFollowOnEvidenceSummary(buildFollowOnEvidenceSummary({
       cwd: ctx.cwd,
       runId: ledger.run_id,
       generatedAt: startedAt,
@@ -347,7 +373,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       canaryEvidencePath,
       deployResultPath,
       documentationSyncPath,
-    });
+    }), landingReentry);
     const bootstrap = buildNextRunBootstrap({
       ledger,
       reviewStatus,
@@ -357,6 +383,8 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       followOnSummaryRecorded: true,
       canaryEvidencePath,
       documentationSyncPath,
+      deployResultPath,
+      landingReentry,
     });
     const bootstrapWrites = persistCloseoutBootstrap(ctx.cwd, bootstrap);
     const closeoutRecord = `${result.raw_output.closeout_record.trimEnd()}${closeoutAttachedEvidenceSummary(
@@ -364,6 +392,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       canaryEvidencePath,
       deployResultPath,
       documentationSyncPath,
+      landingReentry,
     )}\n`;
     const retiredWorkspace = retireRunWorkspace(ledger.execution.workspace);
     const ledgerWithRetiredWorkspace = retiredWorkspace ? withExecutionWorkspace(ledger, retiredWorkspace) : ledger;
@@ -450,7 +479,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
           : []),
         {
           path: closeoutFollowOnSummaryMarkdownPath(),
-          content: renderFollowOnEvidenceMarkdown(followOnEvidence),
+          content: `${renderFollowOnEvidenceMarkdown(followOnEvidence)}${renderLandingReentryMarkdown(landingReentry)}`,
         },
         {
           path: closeoutFollowOnSummaryJsonPath(),

@@ -17,7 +17,7 @@ import {
   requestedQaRouteFromLedger,
 } from '../normalizers/ccb';
 import { readStageStatus } from '../status';
-import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+import { assertLegalTransition } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
@@ -32,6 +32,7 @@ import type {
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
+import { boundedFixCycleReviewScopeFromQaFindings } from '../review-scope';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -146,7 +147,7 @@ function buildQaLearningCandidatesRecord(
 }
 
 function qaStatusTracePayload(
-  status: Pick<StageStatus, 'state' | 'decision' | 'ready' | 'design_impact' | 'design_contract_path' | 'design_verified' | 'learning_candidates_path' | 'learnings_recorded'>,
+  status: Pick<StageStatus, 'state' | 'decision' | 'ready' | 'design_impact' | 'design_contract_path' | 'design_verified' | 'learning_candidates_path' | 'learnings_recorded' | 'review_scope' | 'advisory_count'>,
 ): Record<string, unknown> {
   return {
     state: status.state,
@@ -157,14 +158,19 @@ function qaStatusTracePayload(
     design_verified: status.design_verified,
     learning_candidates_path: status.learning_candidates_path ?? null,
     learnings_recorded: status.learnings_recorded ?? false,
+    review_scope: status.review_scope ?? null,
+    advisory_count: status.advisory_count ?? 0,
   };
 }
+
+const QA_READY_NEXT_STAGES: RunLedger['allowed_next_stages'] = ['ship', 'closeout'];
 
 function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
   at: string,
   via: string | null,
+  allowedNextStages: RunLedger['allowed_next_stages'] = status === 'active' ? QA_READY_NEXT_STAGES : [],
 ): RunLedger {
   return {
     ...ledger,
@@ -172,7 +178,7 @@ function nextLedger(
     previous_stage: 'review',
     current_command: 'qa',
     current_stage: 'qa',
-    allowed_next_stages: status === 'active' ? getAllowedNextStages('qa') : [],
+    allowed_next_stages: allowedNextStages,
     command_history: [...ledger.command_history, { command: 'qa', at, via }],
   };
 }
@@ -452,8 +458,12 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
 
   const ready = result.raw_output.ready;
   const findings = result.raw_output.findings ?? [];
+  const advisories = Array.isArray(result.raw_output.advisories)
+    ? result.raw_output.advisories.filter((advisory): advisory is string => typeof advisory === 'string')
+    : [];
   const verificationCount = ready ? findings.length : 0;
   const defectCount = ready ? 0 : findings.length;
+  const advisoryCount = advisories.length;
   const designVerificationPath = qaDesignVerificationPath();
   const learningCandidatesRecord = buildQaLearningCandidatesRecord(
     ledger.run_id,
@@ -463,6 +473,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const designVerificationMarkdown = designIsBearing
     ? buildDesignVerificationMarkdown(designImpact, designContractPath, ready)
     : null;
+  const reviewScope = ready ? null : boundedFixCycleReviewScopeFromQaFindings(findings);
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'qa',
@@ -485,13 +496,21 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     errors: ready ? [] : findings,
     requested_route: requestedRoute,
     actual_route: result.actual_route,
+    review_scope: reviewScope,
     verification_count: verificationCount,
     defect_count: defectCount,
+    advisory_count: advisoryCount,
     learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
     learnings_recorded: Boolean(learningCandidatesRecord),
     workspace,
   };
-  const next = nextLedger(ledgerWithExecution, ready ? 'active' : 'blocked', startedAt, ctx.via);
+  const next = nextLedger(
+    ledgerWithExecution,
+    ready ? 'active' : 'blocked',
+    startedAt,
+    ctx.via,
+    ready ? QA_READY_NEXT_STAGES : ['build'],
+  );
   next.artifact_index = {
     ...next.artifact_index,
     [reportPath]: artifactPointerFor(reportPath),

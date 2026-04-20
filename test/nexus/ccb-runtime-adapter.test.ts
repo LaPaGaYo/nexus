@@ -1429,4 +1429,47 @@ describe('nexus runtime ccb adapter', () => {
       report_markdown: '# QA Report\n\nResult: pass',
     });
   });
+
+  test('extracts optional QA advisories from structured provider output', async () => {
+    const adapter = createRuntimeCcbAdapter({
+      resolveSessionRoot: () => '/repo/root',
+      resolveToolPaths: () => ({
+        ask_path: '/opt/ccb/bin/ask',
+        ping_path: '/opt/ccb/bin/ccb-ping',
+        mounted_path: '/opt/ccb/bin/ccb-mounted',
+        autonew_path: '/opt/ccb/bin/autonew',
+      }),
+      runCommand: async () => ({
+        exit_code: 0,
+        stdout: [
+          JSON.stringify({
+            ready: true,
+            findings: [],
+            advisories: ['WorkspaceError is duplicated across module boundaries.'],
+            report_markdown: '# QA Report\n\nResult: pass\n\nAdvisories:\n- WorkspaceError is duplicated across module boundaries.\n',
+          }),
+        ].join('\n'),
+        stderr: '',
+      }),
+      now: () => '2026-04-08T00:00:00.000Z',
+    });
+
+    const requestedRoute: RequestedRouteRecord = {
+      ...REQUESTED_ROUTE,
+      command: 'qa',
+      generator: 'gemini-via-ccb',
+      evaluator_a: null,
+      evaluator_b: null,
+      planner: null,
+      synthesizer: null,
+    };
+    const result = await adapter.execute_qa(buildContext('qa', 'qa', requestedRoute));
+
+    expect(result.outcome).toBe('success');
+    expect(result.raw_output).toMatchObject({
+      ready: true,
+      findings: [],
+      advisories: ['WorkspaceError is duplicated across module boundaries.'],
+    });
+  });
 });

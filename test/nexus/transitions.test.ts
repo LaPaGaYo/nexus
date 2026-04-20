@@ -10,7 +10,7 @@ describe('nexus transitions', () => {
     expect(getAllowedNextStages('handoff')).toEqual(['handoff', 'build']);
     expect(getAllowedNextStages('build')).toEqual(['review']);
     expect(getAllowedNextStages('review')).toEqual(['handoff', 'build', 'review', 'qa', 'ship', 'closeout']);
-    expect(getAllowedNextStages('qa')).toEqual(['ship', 'closeout']);
+    expect(getAllowedNextStages('qa')).toEqual(['build', 'ship', 'closeout']);
     expect(getAllowedNextStages('ship')).toEqual(['closeout']);
   });
 
@@ -25,6 +25,7 @@ describe('nexus transitions', () => {
     expect(() => assertLegalTransition('review', 'review')).not.toThrow();
     expect(() => assertLegalTransition('review', 'qa')).not.toThrow();
     expect(() => assertLegalTransition('review', 'ship')).not.toThrow();
+    expect(() => assertLegalTransition('qa', 'build')).not.toThrow();
     expect(() => assertLegalTransition('qa', 'ship')).not.toThrow();
     expect(() => assertLegalTransition('qa', 'closeout')).not.toThrow();
     expect(() => assertLegalTransition('ship', 'closeout')).not.toThrow();

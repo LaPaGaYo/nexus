@@ -100,8 +100,11 @@ Canonical lifecycle:
 A governed run ends at `/closeout`. If `/ship` recorded merge-ready PR handoff
 metadata and you want to merge, deploy, and verify production health, continue
 with `/land-and-deploy` after `/closeout`. `/land-and-deploy` is a support
-workflow, not an additional canonical lifecycle stage. Deploy assumptions should
-live in `.planning/deploy/`, not in `CLAUDE.md`.
+workflow, not an additional canonical lifecycle stage. It records pre-merge CI
+or mergeability stops in `.planning/current/ship/deploy-result.json` and tells
+you whether to rerun `/land-and-deploy`, rerun `/ship`, or return to
+`/build -> /review -> /qa -> /ship`. Deploy assumptions should live in
+`.planning/deploy/`, not in `CLAUDE.md`.
 
 ## Install
 
@@ -389,7 +392,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/investigate` | Systematic root-cause debugging. |
 | `/document-release` | Sync docs after shipping and attach `.planning/current/closeout/documentation-sync.md`. |
 | `/retro` | Project or global retrospective. Repo-scoped retros archive to `.planning/archive/retros/` and can feed fresh-run continuity. |
-| `/land-and-deploy` | Merge, deploy, and verify production using ship PR/deploy handoff and attach `.planning/current/ship/deploy-result.json`. |
+| `/land-and-deploy` | Merge, deploy, and verify the primary deploy surface using ship PR/deploy handoff, while recording attached secondary deploy surfaces as follow-on context in `.planning/current/ship/deploy-result.json`. |
 | `/canary` | Post-deploy health monitoring attached to ship follow-on evidence via `.planning/current/ship/canary-status.json`. |
 | `/benchmark` | Performance baselining and regression checks attached to QA follow-on evidence via `.planning/current/qa/perf-verification.md`. |
 | `/cso` | Security review and threat analysis. |
@@ -397,7 +400,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/freeze` | Restrict edits to one directory. |
 | `/guard` | Combine destructive-command warnings and edit freeze. |
 | `/unfreeze` | Remove the edit freeze. |
-| `/setup-deploy` | Author the canonical deploy contract in `.planning/deploy/` for `/ship` and `/land-and-deploy`. |
+| `/setup-deploy` | Author the canonical deploy contract in `.planning/deploy/`, including primary and secondary deploy surfaces, for `/ship` and `/land-and-deploy`. |
 | `/nexus-upgrade` | Upgrade Nexus through the supported release-based user-facing update flow. |
 | `/learn` | Manage project learnings across sessions. |
 | `/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state. |
@@ -415,8 +418,11 @@ learn flows.
 `/land-and-deploy` is intentionally post-lifecycle: it consumes the PR handoff
 record and deploy-readiness record written by `/ship`, optionally reuses prior
 ship canary evidence, plus the canonical deploy contract written by
-`/setup-deploy`, and writes `.planning/current/ship/deploy-result.json` after
-merge/deploy/production verification completes.
+`/setup-deploy`, and writes `.planning/current/ship/deploy-result.json` for
+both successful merges and pre-merge terminal stops. When CI fails, a merge
+conflict appears, or merge-queue validation fails, the deploy result now tells
+you whether the next step is `rerun_land_and_deploy`, `rerun_ship`, or a
+governed fix cycle back through `/build -> /review -> /qa -> /ship`.
 
 ## Maintainer helpers
 

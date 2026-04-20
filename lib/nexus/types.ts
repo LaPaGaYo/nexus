@@ -139,6 +139,30 @@ export type DeployConfigSource = (typeof DEPLOY_CONFIG_SOURCES)[number];
 export const CANARY_EVIDENCE_STATUSES = ['healthy', 'degraded', 'broken'] as const;
 export type CanaryEvidenceStatus = (typeof CANARY_EVIDENCE_STATUSES)[number];
 
+export const DEPLOY_RESULT_PHASES = ['pre_merge', 'merge_queue', 'post_merge'] as const;
+export type DeployResultPhase = (typeof DEPLOY_RESULT_PHASES)[number];
+
+export const DEPLOY_RESULT_FAILURE_KINDS = [
+  'pre_merge_ci_failed',
+  'pre_merge_conflict',
+  'merge_queue_failed',
+  'post_merge_deploy_failed',
+] as const;
+export type DeployResultFailureKind = (typeof DEPLOY_RESULT_FAILURE_KINDS)[number];
+
+export const DEPLOY_RESULT_CI_STATUSES = ['passed', 'pending', 'failed', 'skipped', 'unknown'] as const;
+export type DeployResultCiStatus = (typeof DEPLOY_RESULT_CI_STATUSES)[number];
+
+export const DEPLOY_RESULT_NEXT_ACTIONS = [
+  'rerun_land_and_deploy',
+  'rerun_ship',
+  'rerun_build_review_qa_ship',
+  'investigate_deploy',
+  'revert',
+  'none',
+] as const;
+export type DeployResultNextAction = (typeof DEPLOY_RESULT_NEXT_ACTIONS)[number];
+
 export const LEARNING_TYPES = [
   'pattern',
   'pitfall',
@@ -338,7 +362,7 @@ export interface ReviewAuditProvenanceRecord {
 
 export interface ReviewScopeRecord {
   mode: ReviewScopeMode;
-  source_stage: 'plan' | 'review';
+  source_stage: 'plan' | 'review' | 'qa';
   blocking_items: string[];
   advisory_policy: 'out_of_scope_advisory';
 }
@@ -352,9 +376,31 @@ export interface LearningCandidate {
   files: string[];
 }
 
+export interface DeploySecondarySurfaceRecord {
+  label: string;
+  platform: DeployPlatform;
+  project_type: DeployProjectType;
+  production: {
+    url: string | null;
+    health_check: string | null;
+  };
+  deploy_trigger: {
+    kind: DeployTriggerKind;
+    details: string | null;
+  };
+  deploy_workflow: string | null;
+  deploy_status: {
+    kind: DeployStatusKind;
+    command: string | null;
+  };
+  notes: string[];
+  sources: string[];
+}
+
 export interface DeployContractRecord {
   schema_version: 1;
   configured_at: string;
+  primary_surface_label: string | null;
   platform: DeployPlatform;
   project_type: DeployProjectType;
   production: {
@@ -378,8 +424,22 @@ export interface DeployContractRecord {
     pre_merge: string[];
     post_merge: string[];
   };
+  secondary_surfaces: DeploySecondarySurfaceRecord[];
   notes: string[];
   sources: string[];
+}
+
+export interface DeployReadinessSecondarySurfaceRecord {
+  label: string;
+  platform: DeployPlatform;
+  project_type: DeployProjectType;
+  production_url: string | null;
+  health_check: string | null;
+  deploy_status_kind: DeployStatusKind;
+  deploy_status_command: string | null;
+  deploy_workflow: string | null;
+  blocking: false;
+  notes: string[];
 }
 
 export interface DeployReadinessRecord {
@@ -389,6 +449,7 @@ export interface DeployReadinessRecord {
   configured: boolean;
   source: DeployConfigSource;
   contract_path: string | null;
+  primary_surface_label: string | null;
   platform: DeployPlatform | null;
   project_type: DeployProjectType | null;
   production_url: string | null;
@@ -397,6 +458,7 @@ export interface DeployReadinessRecord {
   deploy_status_command: string | null;
   deploy_workflow: string | null;
   staging_detected: boolean;
+  secondary_surfaces: DeployReadinessSecondarySurfaceRecord[];
   notes: string[];
 }
 
@@ -404,6 +466,13 @@ export interface DeployResultRecord {
   schema_version: 1;
   generated_at: string;
   source: 'land-and-deploy';
+  phase: DeployResultPhase;
+  failure_kind: DeployResultFailureKind | null;
+  ci_status: DeployResultCiStatus;
+  ship_handoff_head_sha: string | null;
+  pull_request_head_sha: string | null;
+  ship_handoff_current: boolean;
+  next_action: DeployResultNextAction;
   production_url: string | null;
   pull_request_path: string;
   deploy_readiness_path: string;
@@ -579,6 +648,7 @@ export interface PullRequestRecord {
   url: string | null;
   state: string | null;
   head_branch: string | null;
+  head_sha: string | null;
   base_branch: string | null;
   reason?: string | null;
 }
@@ -622,6 +692,7 @@ export interface StageStatus {
   archive_state?: 'pending' | 'archived' | 'not_required' | 'failed';
   verification_count?: number;
   defect_count?: number;
+  advisory_count?: number;
   pull_request?: PullRequestRecord | null;
 }
 

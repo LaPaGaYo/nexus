@@ -8,6 +8,7 @@ export const HANDOFF_STATUS_PATH = '.planning/current/handoff/status.json';
 export const GOVERNED_HANDOFF_PATH = '.planning/current/handoff/governed-handoff.md';
 export const BUILD_STATUS_PATH = '.planning/current/build/status.json';
 export const REVIEW_STATUS_PATH = '.planning/current/review/status.json';
+export const QA_STATUS_PATH = '.planning/current/qa/status.json';
 
 export function artifactPointerFor(path: string): ArtifactPointer {
   return {

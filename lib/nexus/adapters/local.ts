@@ -42,6 +42,7 @@ export interface LocalExecuteQaRaw {
   report_markdown: string;
   ready: boolean;
   findings: string[];
+  advisories?: string[];
   learning_candidates?: LearningCandidate[];
   receipt: string;
   dispatch_command?: string;
@@ -337,6 +338,7 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
   const parsed = JSON.parse(normalized.slice(firstBrace, lastBrace + 1)) as {
     ready?: unknown;
     findings?: unknown;
+    advisories?: unknown;
     report_markdown?: unknown;
     learning_candidates?: unknown;
   };
@@ -348,6 +350,16 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
     || parsed.findings.some((finding) => typeof finding !== 'string')
   ) {
     throw new Error('Malformed QA response: expected ready, findings, and report_markdown');
+  }
+
+  const advisories = typeof parsed.advisories === 'undefined'
+    ? undefined
+    : Array.isArray(parsed.advisories)
+      ? parsed.advisories.filter((advisory): advisory is string => typeof advisory === 'string')
+      : null;
+
+  if (advisories === null) {
+    throw new Error('Malformed QA response: advisories must be an array when present');
   }
 
   let learningCandidates: LearningCandidate[] | undefined;
@@ -388,6 +400,7 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
   return {
     ready: parsed.ready,
     findings: parsed.findings,
+    ...(typeof advisories !== 'undefined' ? { advisories } : {}),
     report_markdown: parsed.report_markdown.trim(),
     ...(typeof learningCandidates !== 'undefined'
       ? { learning_candidates: learningCandidates }
@@ -442,7 +455,7 @@ function buildClaudeQaAgent(): LocalRoleAgent {
   return {
     name: 'nexus_qa',
     description: 'Performs local Nexus QA validation.',
-    systemPrompt: 'You are the Nexus local QA subagent. Return only the requested JSON payload with ready, findings, and report_markdown. You may also include optional learning_candidates for durable reusable learnings.',
+    systemPrompt: 'You are the Nexus local QA subagent. Return only the requested JSON payload with ready, findings, and report_markdown. Use advisories for non-blocking concerns that should not make ready=false. You may also include optional learning_candidates for durable reusable learnings.',
   };
 }
 

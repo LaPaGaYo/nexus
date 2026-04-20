@@ -71,6 +71,7 @@ export interface CcbExecuteQaRaw {
   report_markdown: string;
   ready: boolean;
   findings: string[];
+  advisories?: string[];
   learning_candidates?: LearningCandidate[];
   receipt: string;
   dispatch_command?: string;
@@ -424,6 +425,7 @@ function buildQaPrompt(ctx: NexusAdapterContext): string {
     [
       'Required JSON schema:',
       'Set ready=false and include findings when defects remain.',
+      'Use advisories only for non-blocking concerns; advisories alone must not make ready=false.',
       'report_markdown must begin with "# QA Report" and include a "Result:" line.',
     ],
   );
@@ -460,6 +462,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
   let parsed: {
     ready?: unknown;
     findings?: unknown;
+    advisories?: unknown;
     report_markdown?: unknown;
     learning_candidates?: unknown;
   };
@@ -468,6 +471,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
     parsed = JSON.parse(normalized) as {
       ready?: unknown;
       findings?: unknown;
+      advisories?: unknown;
       report_markdown?: unknown;
       learning_candidates?: unknown;
     };
@@ -480,6 +484,16 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
 
   if (typeof parsed.ready !== 'boolean' || typeof parsed.report_markdown !== 'string' || findings === null) {
     throw new Error('Malformed QA response: expected JSON with ready, findings, and report_markdown');
+  }
+
+  const advisories = typeof parsed.advisories === 'undefined'
+    ? undefined
+    : Array.isArray(parsed.advisories)
+      ? parsed.advisories.filter((value): value is string => typeof value === 'string')
+      : null;
+
+  if (advisories === null) {
+    throw new Error('Malformed QA response: advisories must be an array when present');
   }
 
   let learningCandidates: LearningCandidate[] | undefined;
@@ -520,6 +534,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
   return {
     ready: parsed.ready,
     findings,
+    ...(typeof advisories !== 'undefined' ? { advisories } : {}),
     report_markdown: parsed.report_markdown.trim(),
     ...(typeof learningCandidates !== 'undefined'
       ? { learning_candidates: learningCandidates }

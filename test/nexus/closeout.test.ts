@@ -25,6 +25,7 @@ import {
 import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
 import { resolveInvocation } from '../../lib/nexus/commands/index';
+import { diagnoseCloseoutHistory } from '../../lib/nexus/governance';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
 
@@ -236,6 +237,29 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('accepts qa fix-cycle history before ship during closeout validation', () => {
+    const error = diagnoseCloseoutHistory(
+      {
+        command_history: [
+          { command: 'discover', at: '2026-04-18T00:00:00.000Z', via: null },
+          { command: 'frame', at: '2026-04-18T00:00:01.000Z', via: null },
+          { command: 'plan', at: '2026-04-18T00:00:02.000Z', via: null },
+          { command: 'handoff', at: '2026-04-18T00:00:03.000Z', via: null },
+          { command: 'build', at: '2026-04-18T00:00:04.000Z', via: null },
+          { command: 'review', at: '2026-04-18T00:00:05.000Z', via: null },
+          { command: 'qa', at: '2026-04-18T00:00:06.000Z', via: null },
+          { command: 'build', at: '2026-04-18T00:00:07.000Z', via: 'fix-cycle' },
+          { command: 'review', at: '2026-04-18T00:00:08.000Z', via: null },
+          { command: 'qa', at: '2026-04-18T00:00:09.000Z', via: null },
+          { command: 'ship', at: '2026-04-18T00:00:10.000Z', via: null },
+        ],
+      } as any,
+      { qaRecorded: true, shipRecorded: true },
+    );
+
+    expect(error).toBeNull();
+  });
+
   test('indexes attached evidence into closeout continuity outputs', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');
@@ -330,6 +354,67 @@ describe('nexus closeout', () => {
           }),
           expect.objectContaining({
             path: `.planning/archive/runs/${(await run.readJson('.planning/current/closeout/status.json')).run_id}/closeout/follow-on-summary.json`,
+          }),
+        ]),
+      });
+    });
+  });
+
+  test('propagates land-and-deploy re-entry guidance into closeout bootstrap', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+      await run('qa');
+      await run('ship');
+
+      writeFileSync(
+        join(cwd, qaPerfVerificationPath()),
+        '# Perf Verification\n\n- P95 stayed under budget.\n',
+      );
+      writeFileSync(join(cwd, shipCanaryStatusPath()), JSON.stringify({
+        status: 'healthy',
+        summary: 'Canary stayed clean for 10 minutes.',
+      }, null, 2) + '\n');
+      writeFileSync(join(cwd, shipDeployResultPath()), JSON.stringify({
+        source: 'land-and-deploy',
+        merge_status: 'pending',
+        deploy_status: 'failed',
+        verification_status: 'skipped',
+        failure_kind: 'pre_merge_ci_failed',
+        next_action: 'rerun_build_review_qa_ship',
+        ship_handoff_current: true,
+        ship_handoff_head_sha: 'abc123',
+        pull_request_head_sha: 'def456',
+        summary: 'Deploy blocked before merge because CI failed.',
+      }, null, 2) + '\n');
+      mkdirSync(join(cwd, '.planning/current/closeout'), { recursive: true });
+      writeFileSync(
+        join(cwd, closeoutDocumentationSyncPath()),
+        '# Documentation Sync\n\n- README updated for the shipped flow.\n',
+      );
+
+      await run('closeout');
+      const closeoutStatus = await run.readJson('.planning/current/closeout/status.json');
+      const archivedRunId = closeoutStatus.run_id;
+
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        '## Landing Re-entry',
+      );
+      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+        'Next action: rerun_build_review_qa_ship',
+      );
+      expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({
+        landing_reentry: {
+          next_action: 'rerun_build_review_qa_ship',
+          ship_handoff_current: true,
+          failure_kind: 'pre_merge_ci_failed',
+        },
+        summary: expect.stringContaining('Landing re-entry guidance: next_action=rerun_build_review_qa_ship'),
+        carry_forward_artifacts: expect.arrayContaining([
+          expect.objectContaining({
+            path: `.planning/archive/runs/${archivedRunId}/ship/deploy-result.json`,
           }),
         ]),
       });
