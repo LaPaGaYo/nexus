@@ -1866,6 +1866,12 @@ describe('nexus build routing', () => {
         },
       });
       expect(await run.readJson('.planning/current/build/build-request.json')).toMatchObject({
+        requested_route: {
+          command: 'build',
+          generator: 'codex-via-ccb',
+          evaluator_a: 'codex-via-ccb',
+          evaluator_b: 'gemini-via-ccb',
+        },
         review_scope: {
           mode: 'bounded_fix_cycle',
           source_stage: 'qa',

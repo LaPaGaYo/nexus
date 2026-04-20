@@ -139,6 +139,17 @@ function planDesignContractPointer(planStatus: StageStatus | null | undefined): 
   return planStatus?.design_contract_path ? artifactPointerFor(planStatus.design_contract_path) : null;
 }
 
+function requestedBuildRouteForExecution(
+  handoffRequestedRoute: StageStatus['requested_route'] | null | undefined,
+  reviewRequestedRoute: StageStatus['requested_route'] | null | undefined,
+  currentStage: RunLedger['current_stage'],
+  ledgerWithExecution: RunLedger,
+): NonNullable<StageStatus['requested_route']> {
+  return handoffRequestedRoute
+    ?? (currentStage === 'review' ? reviewRequestedRoute ?? null : null)
+    ?? requestedBuildRouteFromLedger(ledgerWithExecution);
+}
+
 interface ParsedBuildExecutionSummary {
   status: 'completed' | 'blocked';
   markdown: string;
@@ -303,13 +314,12 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         content: JSON.stringify(reviewAdvisoryDispositionRecord, null, 2) + '\n',
       }
     : null;
-  const requestedRoute = (
-    ledger.current_stage === 'qa'
-      ? qaStatus?.requested_route ?? reviewStatus?.requested_route ?? null
-      : fixCycle
-        ? reviewStatus?.requested_route ?? null
-        : null
-  ) ?? handoffStatus.requested_route ?? requestedBuildRouteFromLedger(ledgerWithExecution);
+  const requestedRoute = requestedBuildRouteForExecution(
+    handoffStatus.requested_route ?? null,
+    reviewStatus?.requested_route ?? null,
+    ledger.current_stage,
+    ledgerWithExecution,
+  );
   const commandHistoryVia = buildCommandHistoryVia(reviewScope, ctx.via);
   const designContractPointer = planDesignContractPointer(planStatus);
   const verificationMatrix = readVerificationMatrix(ctx.cwd);

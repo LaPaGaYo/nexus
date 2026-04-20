@@ -16,6 +16,7 @@ import {
   buildReviewSynthesisMarkdown,
   buildReviewTraceabilityPayloads,
   describeCcbLatencySummary,
+  requestedBuildRouteFromLedger,
   requestedAndActualAuditRouteMatch,
   requestedAuditRouteFromBuild,
 } from '../normalizers/ccb';
@@ -49,6 +50,7 @@ import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
+const HANDOFF_STATUS_PATH = stageStatusPath('handoff');
 const PLAN_STATUS_PATH = stageStatusPath('plan');
 
 function nextLedger(
@@ -95,6 +97,21 @@ function reviewCommandHistoryVia(
   }
 
   return via as CommandHistoryVia;
+}
+
+function reviewCompatibleBuildRoute(
+  requestedRoute: StageStatus['requested_route'] | null | undefined,
+): requestedRoute is NonNullable<StageStatus['requested_route']> {
+  return Boolean(
+    requestedRoute
+      && requestedRoute.command === 'build'
+      && typeof requestedRoute.generator === 'string'
+      && requestedRoute.generator.length > 0
+      && typeof requestedRoute.evaluator_a === 'string'
+      && requestedRoute.evaluator_a.length > 0
+      && typeof requestedRoute.evaluator_b === 'string'
+      && requestedRoute.evaluator_b.length > 0,
+  );
 }
 
 function parseAuditVerdict(markdown: string, label: string): 'pass' | 'fail' {
@@ -258,6 +275,7 @@ export async function runReviewWithWriteAtomicFile(
   writeAtomicFile?: AtomicWriteFile,
 ): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
+  const handoffStatus = readStageStatus(HANDOFF_STATUS_PATH, ctx.cwd);
   const planStatus = readStageStatus(PLAN_STATUS_PATH, ctx.cwd);
   const buildStatusPath = stageStatusPath('build');
   const reviewStatusPath = stageStatusPath('review');
@@ -270,6 +288,9 @@ export async function runReviewWithWriteAtomicFile(
 
   if (planStatus) {
     assertSameRunId(ledger.run_id, planStatus.run_id, 'plan status');
+  }
+  if (handoffStatus) {
+    assertSameRunId(ledger.run_id, handoffStatus.run_id, 'handoff status');
   }
   assertSameRunId(ledger.run_id, buildStatus.run_id, 'build status');
   assertLegalTransition(ledger.current_stage, 'review');
@@ -317,7 +338,13 @@ export async function runReviewWithWriteAtomicFile(
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const commandHistoryVia = reviewCommandHistoryVia(ledger, ctx.via);
-  const requestedRoute = buildStatus.requested_route;
+  const requestedRoute = reviewCompatibleBuildRoute(buildStatus.requested_route)
+    ? buildStatus.requested_route
+    : (
+      reviewCompatibleBuildRoute(handoffStatus?.requested_route)
+        ? handoffStatus.requested_route
+        : requestedBuildRouteFromLedger(ledgerWithExecution)
+    );
   const actualRoute = buildStatus.actual_route;
   const designFields = reviewDesignFields(planStatus, buildStatus);
   const inheritedReviewScope = buildStatus.review_scope

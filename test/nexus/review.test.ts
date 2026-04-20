@@ -988,6 +988,145 @@ describe('nexus review', () => {
     });
   });
 
+  test('falls back to the canonical build route when a QA fix-cycle build left QA routing in build status', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const buildStatusPath = join(cwd, '.planning/current/build/status.json');
+      const corruptedBuildStatus = JSON.parse(readFileSync(buildStatusPath, 'utf8'));
+      writeFileSync(
+        buildStatusPath,
+        JSON.stringify(
+          {
+            ...corruptedBuildStatus,
+            requested_execution_path: 'gemini-via-ccb',
+            actual_execution_path: 'gemini-via-ccb',
+            requested_route: {
+              command: 'qa',
+              governed: true,
+              execution_mode: 'governed_ccb',
+              primary_provider: 'codex',
+              provider_topology: 'multi_session',
+              planner: null,
+              generator: 'gemini-via-ccb',
+              evaluator_a: null,
+              evaluator_b: null,
+              synthesizer: null,
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              fallback_policy: 'disabled',
+            },
+            actual_route: {
+              provider: 'gemini',
+              route: 'gemini-via-ccb',
+              substrate: 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/build/adapter-output.json',
+            },
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'superpowers-review-discipline',
+              source_map: ['upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+            },
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'ccb-review-codex',
+              source_map: ['upstream/claude-code-bridge/lib/codex_comm.py'],
+            },
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Gemini Audit\n\nResult: pass\n',
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-review-pack',
+              absorbed_capability: 'ccb-review-gemini',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        stage: 'review',
+        state: 'completed',
+        ready: true,
+        gate_decision: 'pass',
+      });
+      expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
+        audits: {
+          codex: {
+            requested_route: {
+              provider: 'codex',
+              route: 'codex-via-ccb',
+            },
+          },
+          gemini: {
+            requested_route: {
+              provider: 'gemini',
+              route: 'gemini-via-ccb',
+            },
+          },
+        },
+      });
+    });
+  });
+
   test('blocks review when canonical audit writeback partially fails', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');
