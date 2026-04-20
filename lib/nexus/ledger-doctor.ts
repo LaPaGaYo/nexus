@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'fs';
+import { existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import {
   closeoutDocumentationSyncPath,
@@ -17,6 +17,7 @@ import type { StageStatus } from './types';
 export const LEDGER_DOCTOR_ISSUE_CODES = [
   'history_mismatch',
   'stale_current_audits',
+  'split_brain_current_audits',
   'stale_attached_evidence',
 ] as const;
 
@@ -41,6 +42,91 @@ export interface LedgerDoctorSafeFixResult {
 
 function currentAuditArtifactsPresent(rootDir: string): string[] {
   return currentAuditArtifactPaths().filter((path) => existsSync(join(rootDir, path)));
+}
+
+function parseAuditVerdict(markdown: string): 'pass' | 'fail' | null {
+  const matches = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)];
+  const verdict = matches.at(-1)?.[1]?.toLowerCase();
+  return verdict === 'pass' || verdict === 'fail' ? verdict : null;
+}
+
+function parseGateDecision(markdown: string): 'pass' | 'fail' | 'blocked' | null {
+  const match = markdown.match(/Gate:\s*(pass|fail|blocked)/i);
+  const verdict = match?.[1]?.toLowerCase();
+  return verdict === 'pass' || verdict === 'fail' || verdict === 'blocked' ? verdict : null;
+}
+
+function parseSynthesisAuditVerdict(markdown: string, provider: 'Codex' | 'Gemini'): 'pass' | 'fail' | null {
+  const match = markdown.match(new RegExp(`${provider} audit result:\\s*(pass|fail)`, 'i'));
+  const verdict = match?.[1]?.toLowerCase();
+  return verdict === 'pass' || verdict === 'fail' ? verdict : null;
+}
+
+function hasSplitBrainCurrentAudits(rootDir: string, reviewStatus: StageStatus): boolean {
+  const requiredPaths = currentAuditArtifactPaths();
+  if (!requiredPaths.every((path) => existsSync(join(rootDir, path)))) {
+    return true;
+  }
+
+  try {
+    const codexMarkdown = readFileSync(join(rootDir, '.planning/audits/current/codex.md'), 'utf8');
+    const geminiMarkdown = readFileSync(join(rootDir, '.planning/audits/current/gemini.md'), 'utf8');
+    const gateDecisionMarkdown = readFileSync(join(rootDir, '.planning/audits/current/gate-decision.md'), 'utf8');
+    const synthesisMarkdown = readFileSync(join(rootDir, '.planning/audits/current/synthesis.md'), 'utf8');
+    const meta = JSON.parse(readFileSync(join(rootDir, '.planning/audits/current/meta.json'), 'utf8')) as {
+      review_attempt_id?: unknown;
+      audits?: {
+        codex?: { request_id?: unknown };
+        gemini?: { request_id?: unknown };
+      };
+    };
+
+    const codexVerdict = parseAuditVerdict(codexMarkdown);
+    const geminiVerdict = parseAuditVerdict(geminiMarkdown);
+    const gateDecision = parseGateDecision(gateDecisionMarkdown);
+    const synthesisCodexVerdict = parseSynthesisAuditVerdict(synthesisMarkdown, 'Codex');
+    const synthesisGeminiVerdict = parseSynthesisAuditVerdict(synthesisMarkdown, 'Gemini');
+    const derivedGate = codexVerdict && geminiVerdict
+      ? (codexVerdict === 'pass' && geminiVerdict === 'pass' ? 'pass' : 'fail')
+      : null;
+    const inconsistencies: string[] = [];
+
+    if (!codexVerdict || !geminiVerdict || !gateDecision || !synthesisCodexVerdict || !synthesisGeminiVerdict || !derivedGate) {
+      inconsistencies.push('missing_or_unparseable_verdict');
+    }
+    if (derivedGate && gateDecision && gateDecision !== derivedGate) {
+      inconsistencies.push('gate_decision_mismatch');
+    }
+    if (derivedGate && reviewStatus.gate_decision !== derivedGate) {
+      inconsistencies.push('status_gate_mismatch');
+    }
+    if (codexVerdict && synthesisCodexVerdict && synthesisCodexVerdict !== codexVerdict) {
+      inconsistencies.push('codex_synthesis_mismatch');
+    }
+    if (geminiVerdict && synthesisGeminiVerdict && synthesisGeminiVerdict !== geminiVerdict) {
+      inconsistencies.push('gemini_synthesis_mismatch');
+    }
+
+    const statusAttemptId = reviewStatus.review_attempt_id ?? null;
+    const metaAttemptId = typeof meta.review_attempt_id === 'string' ? meta.review_attempt_id : null;
+    if (statusAttemptId !== metaAttemptId) {
+      inconsistencies.push('review_attempt_mismatch');
+    }
+
+    const statusRequestIds = reviewStatus.audit_request_ids ?? null;
+    const metaCodexRequestId = typeof meta.audits?.codex?.request_id === 'string' ? meta.audits.codex.request_id : null;
+    const metaGeminiRequestId = typeof meta.audits?.gemini?.request_id === 'string' ? meta.audits.gemini.request_id : null;
+    if ((statusRequestIds?.codex ?? null) !== metaCodexRequestId) {
+      inconsistencies.push('codex_request_id_mismatch');
+    }
+    if ((statusRequestIds?.gemini ?? null) !== metaGeminiRequestId) {
+      inconsistencies.push('gemini_request_id_mismatch');
+    }
+
+    return inconsistencies.length > 0;
+  } catch {
+    return true;
+  }
 }
 
 type AttachedEvidenceBinding = {
@@ -141,7 +227,8 @@ export function buildLedgerDoctorReport(rootDir: string): LedgerDoctorReport {
 
   const currentAuditArtifacts = currentAuditArtifactsPresent(rootDir);
   if (
-    currentAuditArtifacts.length > 0
+    shouldDiagnoseCloseoutHistory(ledger?.current_stage)
+    && currentAuditArtifacts.length > 0
     && !isCanonicalRecordedReview(reviewStatus, ledger?.run_id ?? null)
   ) {
     const reviewEvidence = reviewStatus ? [stageStatusPath('review')] : [];
@@ -152,6 +239,19 @@ export function buildLedgerDoctorReport(rootDir: string): LedgerDoctorReport {
       code: 'stale_current_audits',
       message: explanation,
       evidence: [...reviewEvidence, ...currentAuditArtifacts],
+    });
+  }
+
+  if (
+    shouldDiagnoseCloseoutHistory(ledger?.current_stage)
+    && currentAuditArtifacts.length > 0
+    && isCanonicalRecordedReview(reviewStatus, ledger?.run_id ?? null)
+    && hasSplitBrainCurrentAudits(rootDir, reviewStatus)
+  ) {
+    issues.push({
+      code: 'split_brain_current_audits',
+      message: 'Current audit artifacts are incomplete or internally inconsistent with the canonical review status.',
+      evidence: [stageStatusPath('review'), ...currentAuditArtifactPaths()],
     });
   }
 

@@ -5,9 +5,9 @@ import { ccbDispatchStatePath, ccbProviderStatePath } from './artifacts';
 export type CcbRuntimeProvider = 'codex' | 'gemini';
 export type CcbRuntimeStage = 'handoff' | 'build' | 'review' | 'qa';
 export type CcbDispatchStage = Exclude<CcbRuntimeStage, 'handoff'>;
-export type CcbDispatchStatus = 'dispatched' | 'completed' | 'blocked' | 'recovered_late';
+export type CcbDispatchStatus = 'dispatched' | 'completed' | 'blocked' | 'recovered_late' | 'superseded';
 export type CcbPayloadSource = 'ask' | 'pend' | null;
-export type CcbDispatchLatencyPath = 'foreground' | 'watchdog_recovery' | 'late_recovery' | 'blocked';
+export type CcbDispatchLatencyPath = 'foreground' | 'foreground_retry' | 'watchdog_recovery' | 'late_recovery' | 'blocked';
 export type CcbDispatchForegroundExit = 'success' | 'timeout' | 'nonzero';
 export type CcbDispatchLikelyCause = 'normal' | 'provider_slow' | 'orchestration_false_start' | 'dispatch_failed';
 
@@ -15,9 +15,19 @@ export interface CcbDispatchLatencySummary {
   path: CcbDispatchLatencyPath;
   likely_cause: CcbDispatchLikelyCause;
   foreground_exit: CcbDispatchForegroundExit;
+  foreground_retry_count: number;
   finalize_nudge_issued: boolean;
   pend_attempts: number;
   recovered_via: CcbPayloadSource;
+}
+
+export interface CcbDispatchRetryProvenance {
+  reason: 'foreground_false_start';
+  retry_count: number;
+  initial_exit_code: number | null;
+  initial_request_id: string | null;
+  initial_stdout_excerpt: string | null;
+  initial_stderr_excerpt: string | null;
 }
 
 export interface CcbProviderStateEntry {
@@ -67,6 +77,7 @@ export interface CcbDispatchStateRecord {
   ask_exit_code: number | null;
   stdout: string;
   stderr: string;
+  retry_provenance: CcbDispatchRetryProvenance | null;
   latency_summary: CcbDispatchLatencySummary | null;
 }
 
@@ -204,11 +215,36 @@ export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbD
       ask_exit_code: typeof parsed.ask_exit_code === 'number' ? parsed.ask_exit_code : null,
       stdout: typeof parsed.stdout === 'string' ? parsed.stdout : '',
       stderr: typeof parsed.stderr === 'string' ? parsed.stderr : '',
+      retry_provenance: parsed.retry_provenance && typeof parsed.retry_provenance === 'object'
+        ? {
+            reason: parsed.retry_provenance.reason === 'foreground_false_start'
+              ? 'foreground_false_start'
+              : 'foreground_false_start',
+            retry_count: typeof parsed.retry_provenance.retry_count === 'number'
+              ? parsed.retry_provenance.retry_count
+              : 0,
+            initial_exit_code: typeof parsed.retry_provenance.initial_exit_code === 'number'
+              ? parsed.retry_provenance.initial_exit_code
+              : null,
+            initial_request_id: typeof parsed.retry_provenance.initial_request_id === 'string'
+              ? parsed.retry_provenance.initial_request_id
+              : null,
+            initial_stdout_excerpt: typeof parsed.retry_provenance.initial_stdout_excerpt === 'string'
+              ? parsed.retry_provenance.initial_stdout_excerpt
+              : null,
+            initial_stderr_excerpt: typeof parsed.retry_provenance.initial_stderr_excerpt === 'string'
+              ? parsed.retry_provenance.initial_stderr_excerpt
+              : null,
+          }
+        : null,
       latency_summary: parsed.latency_summary && typeof parsed.latency_summary === 'object'
         ? {
             path: parsed.latency_summary.path as CcbDispatchLatencyPath,
             likely_cause: parsed.latency_summary.likely_cause as CcbDispatchLikelyCause,
             foreground_exit: parsed.latency_summary.foreground_exit as CcbDispatchForegroundExit,
+            foreground_retry_count: typeof parsed.latency_summary.foreground_retry_count === 'number'
+              ? parsed.latency_summary.foreground_retry_count
+              : 0,
             finalize_nudge_issued: parsed.latency_summary.finalize_nudge_issued === true,
             pend_attempts: typeof parsed.latency_summary.pend_attempts === 'number'
               ? parsed.latency_summary.pend_attempts
@@ -266,6 +302,7 @@ export function startCcbDispatchState(input: {
     ask_exit_code: null,
     stdout: '',
     stderr: '',
+    retry_provenance: null,
     latency_summary: null,
   };
   writeJson(dispatchStateAbsolutePath(input.repoRoot, input.dispatchId), record);
@@ -369,6 +406,7 @@ export function recordCcbDispatchState(input: {
   askExitCode: number | null;
   stdout: string;
   stderr: string;
+  retryProvenance?: CcbDispatchRetryProvenance | null;
   latencySummary?: CcbDispatchLatencySummary | null;
 }): void {
   const record: CcbDispatchStateRecord = {
@@ -388,6 +426,7 @@ export function recordCcbDispatchState(input: {
     ask_exit_code: input.askExitCode,
     stdout: input.stdout,
     stderr: input.stderr,
+    retry_provenance: input.retryProvenance ?? null,
     latency_summary: input.latencySummary ?? null,
   };
   writeJson(dispatchStateAbsolutePath(input.repoRoot, input.dispatchId), record);

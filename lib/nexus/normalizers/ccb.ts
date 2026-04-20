@@ -40,6 +40,8 @@ export function describeCcbLatencySummary(summary: CcbDispatchLatencySummary | n
     ? 'watchdog recovery'
     : summary.path === 'late_recovery'
       ? 'late recovery'
+      : summary.path === 'foreground_retry'
+        ? 'foreground retry'
       : summary.path;
   const details = [
     `path=${path}`,
@@ -47,6 +49,9 @@ export function describeCcbLatencySummary(summary: CcbDispatchLatencySummary | n
     `foreground_exit=${summary.foreground_exit}`,
   ];
 
+  if (summary.foreground_retry_count > 0) {
+    details.push(`foreground_retry_count=${summary.foreground_retry_count}`);
+  }
   if (summary.finalize_nudge_issued) {
     details.push('finalize_nudge=yes');
   }

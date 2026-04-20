@@ -131,9 +131,30 @@ function parseAuditVerdict(markdown: string, label: string): 'pass' | 'fail' {
   return verdict as 'pass' | 'fail';
 }
 
+function reviewAttemptId(startedAt: string): string {
+  return `review-${startedAt.replace(/[^0-9A-Za-z]+/g, '-')}`;
+}
+
+function requestIdFromAuditRaw(rawOutput: CcbExecuteAuditRaw | LocalExecuteAuditRaw | null | undefined): string | null {
+  if (!rawOutput || !('request_id' in rawOutput)) {
+    return null;
+  }
+
+  return typeof rawOutput.request_id === 'string' ? rawOutput.request_id : null;
+}
+
+function receiptFromAuditRaw(rawOutput: CcbExecuteAuditRaw | LocalExecuteAuditRaw | null | undefined): string | null {
+  if (!rawOutput || typeof rawOutput.receipt !== 'string' || rawOutput.receipt.length === 0) {
+    return null;
+  }
+
+  return rawOutput.receipt;
+}
+
 function blockedReviewStatus(
   ledger: RunLedger,
   startedAt: string,
+  attemptId: string,
   inputs: ArtifactPointer[],
   outputs: ArtifactPointer[],
   design: Pick<StageStatus, 'design_impact' | 'design_contract_required' | 'design_contract_path' | 'design_verified'>,
@@ -142,11 +163,14 @@ function blockedReviewStatus(
   reviewScope: StageStatus['review_scope'],
   error: string,
   state: 'blocked' | 'refused' = 'blocked',
+  auditRequestIds: StageStatus['audit_request_ids'] = null,
 ): StageStatus {
   return {
     run_id: ledger.run_id,
     stage: 'review',
     ...executionFieldsFromLedger(ledger, actualRoute?.route ?? null),
+    review_attempt_id: attemptId,
+    audit_request_ids: auditRequestIds,
     state,
     decision: state === 'refused' ? 'refused' : 'audit_recorded',
     ready: false,
@@ -326,6 +350,7 @@ export async function runReviewWithWriteAtomicFile(
   }
 
   const startedAt = ctx.clock();
+  const attemptId = reviewAttemptId(startedAt);
   const manifest = CANONICAL_MANIFEST.review;
   const designContractPointer = planDesignContractPointer(planStatus);
   const verificationMatrix = readVerificationMatrix(ctx.cwd);
@@ -388,6 +413,7 @@ export async function runReviewWithWriteAtomicFile(
       const status = blockedReviewStatus(
         ledgerWithExecution,
         startedAt,
+        attemptId,
         predecessorArtifacts,
         [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
         designFields,
@@ -465,6 +491,7 @@ export async function runReviewWithWriteAtomicFile(
     const status = blockedReviewStatus(
       ledgerWithExecution,
       startedAt,
+      attemptId,
       predecessorArtifacts,
       [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
       designFields,
@@ -532,6 +559,7 @@ export async function runReviewWithWriteAtomicFile(
     const status = blockedReviewStatus(
       ledgerWithExecution,
       startedAt,
+      attemptId,
       predecessorArtifacts,
       [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
       designFields,
@@ -625,6 +653,7 @@ export async function runReviewWithWriteAtomicFile(
       const status = blockedReviewStatus(
         ledgerWithExecution,
         startedAt,
+        attemptId,
         predecessorArtifacts,
         [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
         designFields,
@@ -633,6 +662,10 @@ export async function runReviewWithWriteAtomicFile(
         inheritedReviewScope,
         statusMessage,
         result.outcome === 'refused' ? 'refused' : 'blocked',
+        {
+          codex: requestIdFromAuditRaw(auditAResult.raw_output),
+          gemini: requestIdFromAuditRaw(auditBResult.raw_output),
+        },
       );
       const conflict: ConflictRecord = {
         stage: 'review',
@@ -698,6 +731,7 @@ export async function runReviewWithWriteAtomicFile(
     const status = blockedReviewStatus(
       ledgerWithExecution,
       startedAt,
+      attemptId,
       predecessorArtifacts,
       [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
       designFields,
@@ -705,6 +739,11 @@ export async function runReviewWithWriteAtomicFile(
       actualRoute,
       inheritedReviewScope,
       message,
+      'blocked',
+      {
+        codex: requestIdFromAuditRaw(auditAResult.raw_output),
+        gemini: requestIdFromAuditRaw(auditBResult.raw_output),
+      },
     );
     const conflict: ConflictRecord = {
       stage: 'review',
@@ -785,6 +824,7 @@ export async function runReviewWithWriteAtomicFile(
   const gateDecisionMarkdown = buildReviewGateDecisionMarkdown(gateDecision);
   const meta: ReviewMetaRecord = {
     run_id: ledger.run_id,
+    review_attempt_id: attemptId,
     execution_mode: ledger.execution.mode,
     primary_provider: ledger.execution.primary_provider,
     provider_topology: ledger.execution.provider_topology,
@@ -804,12 +844,16 @@ export async function runReviewWithWriteAtomicFile(
         path: codexPath,
         requested_route: requestedCodexRoute,
         actual_route: auditAResult.actual_route,
+        request_id: requestIdFromAuditRaw(auditAResult.raw_output),
+        receipt: receiptFromAuditRaw(auditAResult.raw_output),
       },
       gemini: {
         provider: requestedGeminiRoute.provider ?? ledger.execution.primary_provider,
         path: geminiPath,
         requested_route: requestedGeminiRoute,
         actual_route: auditBResult.actual_route,
+        request_id: requestIdFromAuditRaw(auditBResult.raw_output),
+        receipt: receiptFromAuditRaw(auditBResult.raw_output),
       },
     },
     review_discipline: {
@@ -851,6 +895,11 @@ export async function runReviewWithWriteAtomicFile(
     run_id: ledger.run_id,
     stage: 'review',
     ...executionFieldsFromLedger(ledgerWithExecution, actualRoute.route),
+    review_attempt_id: attemptId,
+    audit_request_ids: {
+      codex: requestIdFromAuditRaw(auditAResult.raw_output),
+      gemini: requestIdFromAuditRaw(auditBResult.raw_output),
+    },
     state: 'completed',
     decision: 'audit_recorded',
     ready: gateDecision === 'pass',

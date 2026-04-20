@@ -145,6 +145,39 @@ describe('nexus ledger doctor', () => {
     });
   });
 
+  test('reports split-brain current audits when the canonical review set disagrees internally', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      writeFileSync(
+        join(cwd, '.planning/audits/current/codex.md'),
+        '# Codex Audit\n\nResult: fail\n\nFindings:\n- Manual override.\n',
+      );
+
+      expect(buildLedgerDoctorReport(cwd)).toMatchObject({
+        status: 'action_required',
+        issues: [
+          expect.objectContaining({
+            code: 'split_brain_current_audits',
+          }),
+        ],
+      });
+
+      const splitBrainIssue = buildLedgerDoctorReport(cwd).issues.find((issue) => issue.code === 'split_brain_current_audits');
+      expect(splitBrainIssue?.evidence).toEqual(expect.arrayContaining([
+        '.planning/current/review/status.json',
+        '.planning/audits/current/codex.md',
+        '.planning/audits/current/gemini.md',
+        '.planning/audits/current/synthesis.md',
+        '.planning/audits/current/gate-decision.md',
+        '.planning/audits/current/meta.json',
+      ]));
+    });
+  });
+
   test('reports and safely clears stale attached evidence without mutating command history', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');

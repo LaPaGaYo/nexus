@@ -390,6 +390,8 @@ export interface ReviewAuditProvenanceRecord {
   path: string;
   requested_route: ReviewRequestedRouteRecord;
   actual_route: ActualRouteRecord | null;
+  request_id?: string | null;
+  receipt?: string | null;
 }
 
 export interface ReviewScopeRecord {
@@ -606,6 +608,7 @@ export interface WorkspaceRecord {
 
 export interface ReviewMetaRecord {
   run_id: string;
+  review_attempt_id?: string;
   execution_mode?: ExecutionMode;
   primary_provider?: PrimaryProvider;
   provider_topology?: ProviderTopology;
@@ -747,6 +750,11 @@ export interface StageStatus {
   design_verified?: boolean | null;
   requested_execution_path?: string;
   actual_execution_path?: string | null;
+  review_attempt_id?: string | null;
+  audit_request_ids?: {
+    codex: string | null;
+    gemini: string | null;
+  } | null;
   state: StageState;
   decision: StageDecision;
   ready: boolean;

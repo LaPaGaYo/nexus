@@ -1045,6 +1045,7 @@ describe('nexus qa', () => {
                 path: 'watchdog_recovery',
                 likely_cause: 'orchestration_false_start',
                 foreground_exit: 'nonzero',
+                foreground_retry_count: 0,
                 finalize_nudge_issued: true,
                 pend_attempts: 1,
                 recovered_via: null,

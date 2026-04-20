@@ -1295,6 +1295,7 @@ describe('nexus review', () => {
             raw_output: {
               markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
               receipt: 'codex-review-receipt',
+              request_id: 'codex-review-request-1',
             },
             requested_route: ctx.requested_route,
             actual_route: {
@@ -1313,6 +1314,7 @@ describe('nexus review', () => {
             raw_output: {
               markdown: '',
               receipt: '',
+              request_id: 'gemini-review-request-1',
             },
             requested_route: null,
             actual_route: null,
@@ -1324,6 +1326,16 @@ describe('nexus review', () => {
 
       await expect(run('review', blockedReviewAdapters)).rejects.toThrow('CCB gemini audit blocked review');
 
+      const blockedStatus = await run.readJson('.planning/current/review/status.json');
+      expect(blockedStatus).toMatchObject({
+        review_attempt_id: expect.any(String),
+        audit_request_ids: {
+          codex: 'codex-review-request-1',
+          gemini: 'gemini-review-request-1',
+        },
+      });
+      const firstAttemptId = blockedStatus.review_attempt_id;
+
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         status: 'blocked',
         current_stage: 'review',
@@ -1333,12 +1345,32 @@ describe('nexus review', () => {
 
       await run('review');
 
-      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+      const retriedStatus = await run.readJson('.planning/current/review/status.json');
+      expect(retriedStatus).toMatchObject({
         stage: 'review',
         state: 'completed',
         decision: 'audit_recorded',
         ready: true,
         gate_decision: 'pass',
+        review_attempt_id: expect.any(String),
+        audit_request_ids: {
+          codex: null,
+          gemini: null,
+        },
+      });
+      expect(retriedStatus.review_attempt_id).not.toBe(firstAttemptId);
+      expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
+        review_attempt_id: retriedStatus.review_attempt_id,
+        audits: {
+          codex: {
+            request_id: null,
+            receipt: expect.any(String),
+          },
+          gemini: {
+            request_id: null,
+            receipt: expect.any(String),
+          },
+        },
       });
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         command_history: [
@@ -1547,6 +1579,7 @@ describe('nexus review', () => {
                 path: 'watchdog_recovery',
                 likely_cause: 'provider_slow',
                 foreground_exit: 'timeout',
+                foreground_retry_count: 0,
                 finalize_nudge_issued: true,
                 pend_attempts: 2,
                 recovered_via: null,

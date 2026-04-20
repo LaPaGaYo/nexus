@@ -4,6 +4,7 @@ import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { createRuntimeCcbAdapter } from '../../lib/nexus/adapters/ccb';
+import { readActiveCcbDispatchState, readCcbDispatchState, readCcbProviderState, startCcbDispatchState } from '../../lib/nexus/ccb-runtime-state';
 import { withExecutionSessionRoot, withExecutionWorkspace } from '../../lib/nexus/execution-topology';
 import { startLedger } from '../../lib/nexus/ledger';
 import type { NexusAdapterContext } from '../../lib/nexus/adapters/types';
@@ -550,6 +551,93 @@ describe('nexus runtime ccb adapter', () => {
     });
   });
 
+  test('marks a previously active governed dispatch as superseded when a newer dispatch starts', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-superseded-'));
+    try {
+      startCcbDispatchState({
+        repoRoot: root,
+        dispatchId: 'review-gemini-2026-04-07T23-59-59-000Z',
+        provider: 'gemini',
+        stage: 'review',
+        sessionRoot: root,
+        sessionFile: `${root}/.ccb/.gemini-session`,
+        executionWorkspace: `${root}/.nexus-worktrees/run-old`,
+        dispatchCommand: '/opt/ccb/bin/ask gemini --foreground --no-wrap --timeout 180',
+        dispatchedAt: '2026-04-07T23:59:59.000Z',
+      });
+
+      const adapter = createRuntimeCcbAdapter({
+        resolveSessionRoot: () => root,
+        resolveToolPaths: () => ({
+          ask_path: '/opt/ccb/bin/ask',
+          ping_path: '/opt/ccb/bin/ccb-ping',
+          mounted_path: '/opt/ccb/bin/ccb-mounted',
+          autonew_path: '/opt/ccb/bin/autonew',
+        }),
+        runCommand: async (spec) => {
+          if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+            return {
+              exit_code: 0,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          return {
+            exit_code: 0,
+            stdout: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+            stderr: '',
+          };
+        },
+        sleep: async () => {},
+        now: () => '2026-04-08T00:00:00.000Z',
+      });
+
+      const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, null, {
+        cwd: root,
+        contextWorkspace: {
+          path: join(root, '.nexus-worktrees/run-new'),
+          kind: 'worktree',
+          branch: 'codex/run-new',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerWorkspace: {
+          path: join(root, '.nexus-worktrees/run-new'),
+          kind: 'worktree',
+          branch: 'codex/run-new',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerSessionRoot: {
+          path: root,
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+      }));
+
+      expect(result.outcome).toBe('success');
+      expect(readActiveCcbDispatchState(root, 'gemini', '2026-04-08T00:00:00.000Z')).toBeNull();
+      expect(readCcbDispatchState(root, 'review-gemini-2026-04-07T23-59-59-000Z')).toMatchObject({
+        status: 'superseded',
+        stderr: expect.stringContaining('[SUPERSEDED] replaced by a newer governed dispatch before completion'),
+      });
+      expect(readCcbProviderState(root, '2026-04-08T00:00:00.000Z')).toMatchObject({
+        providers: {
+          gemini: {
+            active_dispatch_id: null,
+            last_dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
+            last_dispatch_status: 'completed',
+          },
+        },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('blocks review audit dispatch when the provider command fails', async () => {
     const calls: RecordedCommand[] = [];
     const adapter = createRuntimeCcbAdapter({
@@ -866,10 +954,12 @@ describe('nexus runtime ccb adapter', () => {
     }
   });
 
-  test('recovers a successful review audit from pend when ask exits nonzero without a request id but provider output has started', async () => {
+  test('retries a Gemini foreground false-start once after session reset and completes in-foreground', async () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-pend-noreqid-'));
     try {
       const calls: RecordedCommand[] = [];
+      const sleepCalls: number[] = [];
+      let askAttempts = 0;
       const adapter = createRuntimeCcbAdapter({
         resolveSessionRoot: () => root,
         resolveToolPaths: () => ({
@@ -890,27 +980,36 @@ describe('nexus runtime ccb adapter', () => {
           }
 
           if (spec.argv[0] === '/opt/ccb/bin/ask') {
+            askAttempts += 1;
+            if (askAttempts === 1) {
+              return {
+                exit_code: 2,
+                stdout: 'I will inspect the webhook verification path and owner safeguards before finalizing the audit.',
+                stderr: '',
+              };
+            }
+
             return {
-              exit_code: 2,
-              stdout: 'I will inspect the webhook verification path and owner safeguards before finalizing the audit.',
+              exit_code: 0,
+              stdout: [
+                'CCB_REQ_ID: 20260415-000000-000-00000-3',
+                '',
+                '# Gemini Audit',
+                '',
+                'Result: pass',
+                '',
+                'Findings:',
+                '- none',
+              ].join('\n'),
               stderr: '',
             };
           }
 
-          return {
-            exit_code: 0,
-            stdout: [
-              '# Gemini Audit',
-              '',
-              'Result: pass',
-              '',
-              'Findings:',
-              '- none',
-            ].join('\n'),
-            stderr: '',
-          };
+          throw new Error(`Unexpected command: ${spec.argv.join(' ')}`);
         },
-        sleep: async () => {},
+        sleep: async (ms) => {
+          sleepCalls.push(ms);
+        },
         now: () => '2026-04-08T00:00:00.000Z',
       });
 
@@ -940,30 +1039,16 @@ describe('nexus runtime ccb adapter', () => {
       }));
 
       expect(calls).toHaveLength(4);
+      expect(sleepCalls).toEqual([500, 500]);
       expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
       expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
-      expect(calls[2]?.argv).toEqual([
-        '/opt/ccb/bin/ask',
-        'gemini',
-        '--foreground',
-        '--no-wrap',
-        '--timeout',
-        '45',
-      ]);
-      expect(calls[2]?.stdin_text).toContain('exceeded the bounded review soft deadline');
-      expect(calls[3]).toMatchObject({
-        argv: ['/opt/ccb/bin/pend', 'gemini', '--session-file', `${root}/.ccb/.gemini-session`],
-        cwd: root,
-        env: {
-          CCB_SESSION_FILE: `${root}/.ccb/.gemini-session`,
-          PWD: root,
-        },
-      });
+      expect(calls[2]?.argv).toEqual(['/opt/ccb/bin/autonew', 'gemini']);
+      expect(calls[3]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'gemini', '--foreground']);
       expect(result.outcome).toBe('success');
       expect(result.raw_output).toMatchObject({
         markdown: expect.stringContaining('Result: pass'),
-        exit_code: 2,
-        request_id: null,
+        exit_code: 0,
+        request_id: '20260415-000000-000-00000-3',
       });
 
       const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-gemini-2026-04-08T00-00-00-000Z.json');
@@ -971,18 +1056,26 @@ describe('nexus runtime ccb adapter', () => {
       expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
         schema_version: 3,
         dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
-        request_id: null,
+        request_id: '20260415-000000-000-00000-3',
         provider: 'gemini',
         stage: 'review',
-        status: 'recovered_late',
-        payload_source: 'pend',
+        status: 'completed',
+        payload_source: 'ask',
+        retry_provenance: {
+          reason: 'foreground_false_start',
+          retry_count: 1,
+          initial_exit_code: 2,
+          initial_request_id: null,
+          initial_stdout_excerpt: 'I will inspect the webhook verification path and owner safeguards before finalizing the audit.',
+        },
         latency_summary: {
-          path: 'watchdog_recovery',
+          path: 'foreground_retry',
           likely_cause: 'orchestration_false_start',
-          foreground_exit: 'nonzero',
-          finalize_nudge_issued: true,
-          pend_attempts: 1,
-          recovered_via: 'pend',
+          foreground_exit: 'success',
+          foreground_retry_count: 1,
+          finalize_nudge_issued: false,
+          pend_attempts: 0,
+          recovered_via: 'ask',
         },
       });
 
@@ -994,10 +1087,139 @@ describe('nexus runtime ccb adapter', () => {
             active_dispatch_id: null,
             last_dispatch_id: 'review-gemini-2026-04-08T00-00-00-000Z',
             last_dispatch_stage: 'review',
-            last_dispatch_status: 'recovered_late',
-            last_request_id: null,
-            last_request_stage: null,
+            last_dispatch_status: 'completed',
+            last_request_id: '20260415-000000-000-00000-3',
+            last_request_stage: 'review',
           },
+        },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('retries a Codex foreground false-start once after session reset and completes in-foreground', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-codex-retry-'));
+    try {
+      const calls: RecordedCommand[] = [];
+      const sleepCalls: number[] = [];
+      let askAttempts = 0;
+      const adapter = createRuntimeCcbAdapter({
+        resolveSessionRoot: () => root,
+        resolveToolPaths: () => ({
+          ask_path: '/opt/ccb/bin/ask',
+          ping_path: '/opt/ccb/bin/ccb-ping',
+          mounted_path: '/opt/ccb/bin/ccb-mounted',
+          autonew_path: '/opt/ccb/bin/autonew',
+          pend_path: '/opt/ccb/bin/pend',
+        }),
+        runCommand: async (spec) => {
+          calls.push(spec);
+          if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+            return {
+              exit_code: 0,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === '/opt/ccb/bin/ask') {
+            askAttempts += 1;
+            if (askAttempts === 1) {
+              return {
+                exit_code: 2,
+                stdout: 'I am loading the bounded review scope and repo-visible evidence before finalizing the audit.',
+                stderr: '',
+              };
+            }
+
+            return {
+              exit_code: 0,
+              stdout: [
+                'CCB_REQ_ID: 20260415-000000-000-00000-4',
+                '',
+                '# Codex Audit',
+                '',
+                'Result: pass',
+                '',
+                'Findings:',
+                '- none',
+              ].join('\n'),
+              stderr: '',
+            };
+          }
+
+          throw new Error(`Unexpected command: ${spec.argv.join(' ')}`);
+        },
+        sleep: async (ms) => {
+          sleepCalls.push(ms);
+        },
+        now: () => '2026-04-08T00:00:00.000Z',
+      });
+
+      const result = await adapter.execute_audit_a(buildContext('review', 'review', REQUESTED_ROUTE, null, {
+        cwd: root,
+        contextWorkspace: {
+          path: join(root, '.nexus-worktrees/run-123'),
+          kind: 'worktree',
+          branch: 'codex/run-123',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerWorkspace: {
+          path: join(root, '.nexus-worktrees/run-123'),
+          kind: 'worktree',
+          branch: 'codex/run-123',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerSessionRoot: {
+          path: root,
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+      }));
+
+      expect(calls).toHaveLength(4);
+      expect(sleepCalls).toEqual([250, 250]);
+      expect(calls[0]?.argv).toEqual(['/opt/ccb/bin/autonew', 'codex']);
+      expect(calls[1]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'codex', '--foreground']);
+      expect(calls[2]?.argv).toEqual(['/opt/ccb/bin/autonew', 'codex']);
+      expect(calls[3]?.argv.slice(0, 3)).toEqual(['/opt/ccb/bin/ask', 'codex', '--foreground']);
+      expect(result.outcome).toBe('success');
+      expect(result.raw_output).toMatchObject({
+        markdown: expect.stringContaining('Result: pass'),
+        exit_code: 0,
+        request_id: '20260415-000000-000-00000-4',
+      });
+
+      const dispatchStatePath = join(root, '.planning/nexus/dispatch/review-codex-2026-04-08T00-00-00-000Z.json');
+      expect(existsSync(dispatchStatePath)).toBe(true);
+      expect(JSON.parse(readFileSync(dispatchStatePath, 'utf8'))).toMatchObject({
+        schema_version: 3,
+        dispatch_id: 'review-codex-2026-04-08T00-00-00-000Z',
+        request_id: '20260415-000000-000-00000-4',
+        provider: 'codex',
+        stage: 'review',
+        status: 'completed',
+        payload_source: 'ask',
+        retry_provenance: {
+          reason: 'foreground_false_start',
+          retry_count: 1,
+          initial_exit_code: 2,
+          initial_request_id: null,
+          initial_stdout_excerpt: 'I am loading the bounded review scope and repo-visible evidence before finalizing the audit.',
+        },
+        latency_summary: {
+          path: 'foreground_retry',
+          likely_cause: 'orchestration_false_start',
+          foreground_exit: 'success',
+          foreground_retry_count: 1,
+          finalize_nudge_issued: false,
+          pend_attempts: 0,
+          recovered_via: 'ask',
         },
       });
     } finally {
