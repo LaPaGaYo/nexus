@@ -9,6 +9,7 @@ patch releases ship as standalone release notes under `docs/releases/`; this
 index gives the quick user-facing delta without forcing users to hunt through
 tags.
 
+- **[v1.0.37](docs/releases/2026-04-20-nexus-v1.0.37.md)** — QA fix-cycle `/build` now preserves canonical build routing instead of inheriting QA routing, and `/review` can recover the canonical requested audit route when older poisoned build artifacts would otherwise false-block on route divergence.
 - **[v1.0.36](docs/releases/2026-04-20-nexus-v1.0.36.md)** — review now extracts canonical final audit verdicts, passed advisories require an explicit disposition before QA/ship/closeout, and the stage skills from `/build` through `/closeout` now surface governed next-step interactions.
 - **[v1.0.1](docs/releases/2026-04-10-nexus-v1.0.1.md)** — release-based upgrade flow, published bundle installs, and maintainer-grade release preflight/smoke checks.
 - **[v1.0.2](docs/releases/2026-04-10-nexus-v1.0.2.md)** — Nexus-owned maintainer status/reporting plus stable upstream refresh contract syncing.
