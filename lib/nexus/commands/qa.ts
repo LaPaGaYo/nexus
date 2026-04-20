@@ -5,6 +5,7 @@ import {
   qaDesignVerificationPath,
   qaLearningCandidatesPath,
   qaReportPath,
+  stageCompletionAdvisorPath,
   stageStatusPath,
 } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
@@ -41,6 +42,7 @@ import {
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
 } from '../review-advisories';
+import { buildCompletionAdvisorWrite, buildQaCompletionAdvisor } from '../completion-advisor';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -225,7 +227,7 @@ function blockedQaStatus(
     decision: state === 'refused' ? 'refused' : 'qa_recorded',
     ready: false,
     inputs,
-    outputs: [artifactPointerFor(stageStatusPath('qa'))],
+    outputs: [artifactPointerFor(stageCompletionAdvisorPath('qa')), artifactPointerFor(stageStatusPath('qa'))],
     started_at: startedAt,
     completed_at: startedAt,
     errors: [error],
@@ -290,6 +292,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const statusPath = stageStatusPath('qa');
+  const completionAdvisorPath = stageCompletionAdvisorPath('qa');
   const reportPath = qaReportPath();
   const learningCandidatesPath = qaLearningCandidatesPath();
   const predecessorArtifacts = [
@@ -346,7 +349,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [statusPath],
+      canonical_paths: [completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/qa/adapter-request.json',
         '.planning/current/qa/adapter-output.json',
@@ -354,11 +357,15 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       ],
     };
 
+    const completionAdvisor = buildQaCompletionAdvisor(status, verificationMatrix, startedAt);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'qa',
       statusPath,
-      canonicalWrites: reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [],
+      canonicalWrites: [
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -376,6 +383,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
         const next = clearQaLearningArtifactIndex(
           nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
         );
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
         if (reviewAdvisoryDispositionWrite) {
           next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
         }
@@ -405,7 +413,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'route_mismatch',
       message,
-      canonical_paths: [statusPath],
+      canonical_paths: [completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/qa/adapter-request.json',
         '.planning/current/qa/adapter-output.json',
@@ -413,11 +421,15 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       ],
     };
 
+    const completionAdvisor = buildQaCompletionAdvisor(status, verificationMatrix, startedAt);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'qa',
       statusPath,
-      canonicalWrites: reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [],
+      canonicalWrites: [
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -434,6 +446,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       mirrorWorkspace: workspace,
       ledger: (() => {
         const next = clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via));
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
         if (reviewAdvisoryDispositionWrite) {
           next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
         }
@@ -464,7 +477,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [statusPath],
+      canonical_paths: [completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/qa/adapter-request.json',
         '.planning/current/qa/adapter-output.json',
@@ -472,11 +485,15 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       ],
     };
 
+    const completionAdvisor = buildQaCompletionAdvisor(status, verificationMatrix, startedAt);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'qa',
       statusPath,
-      canonicalWrites: reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [],
+      canonicalWrites: [
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildQaTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -493,6 +510,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       mirrorWorkspace: workspace,
       ledger: (() => {
         const next = clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via));
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
         if (reviewAdvisoryDispositionWrite) {
           next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
         }
@@ -538,6 +556,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       artifactPointerFor(reportPath),
       ...(designVerificationMarkdown ? [artifactPointerFor(designVerificationPath)] : []),
       ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
+      artifactPointerFor(completionAdvisorPath),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
@@ -560,9 +579,11 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ctx.via,
     ready ? QA_READY_NEXT_STAGES : ['build'],
   );
+  const completionAdvisor = buildQaCompletionAdvisor(status, verificationMatrix, startedAt);
   next.artifact_index = {
     ...next.artifact_index,
     [reportPath]: artifactPointerFor(reportPath),
+    [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
     [statusPath]: artifactPointerFor(statusPath),
     ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
   };
@@ -582,6 +603,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     stage: 'qa',
     statusPath,
     canonicalWrites: [
+      buildCompletionAdvisorWrite(completionAdvisor),
       ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       { path: reportPath, content: `${reportMarkdown}\n` },
       ...(designVerificationMarkdown
@@ -604,6 +626,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       {
         outcome: 'success',
         canonical_paths: [
+          completionAdvisorPath,
           reportPath,
           ...(designVerificationMarkdown ? [designVerificationPath] : []),
           ...(learningCandidatesRecord ? [learningCandidatesPath] : []),

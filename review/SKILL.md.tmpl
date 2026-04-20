@@ -35,68 +35,35 @@ Run:
 {{NEXUS_RUN_COMMAND:review}}
 ```
 
-## Advisory Disposition Gate
+## Completion Advisor
 
-If the `/review` result reports all of the following:
+After `/review` returns, treat `.planning/current/review/completion-advisor.json` as the canonical
+next-step contract.
 
-- `status.gate_decision = "pass"`
-- `status.advisory_count > 0`
-- `status.advisory_disposition = null`
+Read and summarize:
 
-do not silently continue to `/qa`. Stop and use AskUserQuestion to make the user choose the
-next governed path:
+- `summary`
+- `stage_outcome`
+- `requires_user_choice`
+- `choice_reason`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `default_action_id`
 
-- `fix_before_qa`
-  Run:
-  ```bash
-  {{NEXUS_RUN_COMMAND:build}} --review-advisory-disposition fix_before_qa
-  ```
-- `continue_to_qa`
-  Run:
-  ```bash
-  {{NEXUS_RUN_COMMAND:qa}} --review-advisory-disposition continue_to_qa
-  ```
-- `defer_to_follow_on`
-  Run:
-  ```bash
-  {{NEXUS_RUN_COMMAND:qa}} --review-advisory-disposition defer_to_follow_on
-  ```
+If the session is interactive and the advisor exposes multiple meaningful next actions, use
+AskUserQuestion. Present each option using the advisor action's `label` and `description`.
 
-Frame the AskUserQuestion clearly:
+Do not reconstruct advisory logic from `status.json`. Review advisory disposition is runtime-owned
+through the advisor actions themselves. If `/review` passed with advisories, the advisor will emit
+the exact governed choices, including:
 
-> `/review` passed, but it recorded advisories. Choose whether to fix them now or carry them
-> forward as non-blocking context.
+- `/build --review-advisory-disposition fix_before_qa`
+- `/qa --review-advisory-disposition continue_to_qa`
+- `/qa --review-advisory-disposition defer_to_follow_on`
 
-Recommended ordering:
+If the advisor recommends `/design-review`, that came from design-bearing verification context and
+should be offered as a side skill after the canonical governed action.
 
-- A) Fix advisories now
-- B) Continue to `/qa`
-- C) Defer advisories to follow-on work
-
-If the session is non-interactive, do not call AskUserQuestion. Instead, stop and tell the user
-which exact command to run next with the required `--review-advisory-disposition` flag.
-
-If `status.gate_decision = "pass"` and `status.advisory_count = 0`, summarize the clean pass and
-offer the canonical next-step choices.
-
-If interactive, use AskUserQuestion:
-
-> `/review` passed cleanly. Choose the next governed step.
-
-- A) Run `/qa` now (recommended)
-- B) Run `/ship` now
-- C) Stop here
-
-If non-interactive, print the recommended next command:
-
-```bash
-{{NEXUS_RUN_COMMAND:qa}}
-```
-
-If `status.gate_decision = "fail"`, do not continue to `/qa`. Summarize the blocking findings and,
-if interactive, use AskUserQuestion:
-
-> `/review` failed. The canonical next step is a bounded fix cycle through `/build`.
-
-- A) Run `/build` now (recommended)
-- B) Stop here
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id`.

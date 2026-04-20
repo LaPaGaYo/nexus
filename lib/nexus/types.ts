@@ -101,6 +101,24 @@ export const REVIEW_ADVISORY_DISPOSITIONS = [
 ] as const;
 export type ReviewAdvisoryDisposition = (typeof REVIEW_ADVISORY_DISPOSITIONS)[number];
 
+export const COMPLETION_ADVISOR_OUTCOMES = [
+  'ready',
+  'blocked',
+  'refused',
+  'requires_choice',
+] as const;
+export type CompletionAdvisorOutcome = (typeof COMPLETION_ADVISOR_OUTCOMES)[number];
+
+export const COMPLETION_ADVISOR_ACTION_KINDS = [
+  'canonical_stage',
+  'support_skill',
+  'compat_alias',
+  'utility',
+  'disposition',
+  'stop',
+] as const;
+export type CompletionAdvisorActionKind = (typeof COMPLETION_ADVISOR_ACTION_KINDS)[number];
+
 export const DESIGN_IMPACTS = ['none', 'touchup', 'material'] as const;
 export type DesignImpact = (typeof DESIGN_IMPACTS)[number];
 
@@ -632,6 +650,33 @@ export interface ReviewAdvisoryDispositionRecord {
   selected: ReviewAdvisoryDisposition | null;
   selected_at: string | null;
   available_options: ReviewAdvisoryDisposition[];
+}
+
+export interface CompletionAdvisorActionRecord {
+  id: string;
+  kind: CompletionAdvisorActionKind;
+  surface: string;
+  invocation: string | null;
+  label: string;
+  description: string;
+  recommended: boolean;
+}
+
+export interface CompletionAdvisorRecord {
+  schema_version: 1;
+  run_id: string;
+  stage: CanonicalCommandId;
+  generated_at: string;
+  stage_outcome: CompletionAdvisorOutcome;
+  summary: string;
+  requires_user_choice: boolean;
+  choice_reason: string | null;
+  default_action_id: string | null;
+  primary_next_actions: CompletionAdvisorActionRecord[];
+  alternative_next_actions: CompletionAdvisorActionRecord[];
+  recommended_side_skills: CompletionAdvisorActionRecord[];
+  hidden_compat_aliases: string[];
+  hidden_utility_skills: string[];
 }
 
 export interface SessionContinuationAdviceRecord {

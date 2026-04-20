@@ -418,40 +418,29 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts qa
 ```
 
-## Completion Interaction
+## Completion Advisor
 
-After the command returns, inspect the JSON `status` object and summarize:
+After `/qa` returns, treat `.planning/current/qa/completion-advisor.json` as the canonical
+next-step contract.
 
-- `status.state`
-- `status.ready`
-- `status.design_impact`
-- `status.design_verified`
-- `status.advisory_count`
-- `status.errors`
+Read and summarize:
 
-If `status.state = "completed"` and `status.ready = true`, the canonical next stage is `/ship`.
+- `summary`
+- `stage_outcome`
+- `requires_user_choice`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `default_action_id`
 
-If the session is interactive, use AskUserQuestion:
+If the session is interactive and the advisor exposes multiple meaningful next actions, use
+AskUserQuestion. Present each option using the advisor action's `label` and `description`.
 
-> `/qa` passed. Choose the next step.
+For design-bearing runs, or when the verification matrix supports additional evidence, the advisor
+may surface `/design-review`, `/browse`, and `/benchmark`. Keep `/ship` first when QA is ready.
 
-- A) Run `/ship` now (recommended)
-- B) Run a side skill first (`/design-review` for design-bearing runs, otherwise `/benchmark`)
-- C) Stop here
+If QA is not ready, do not improvise. Follow the advisor back into the bounded fix cycle through
+`/build`.
 
-If the session is non-interactive, do not call AskUserQuestion. Instead, print the recommended next command:
-
-```bash
-_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-_NEXUS_ROOT="~/.claude/skills/nexus"
-[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
-cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ship
-```
-
-If `status.ready = false`, do not continue to `/ship`. Summarize the QA findings and, if interactive,
-use AskUserQuestion:
-
-> `/qa` is not ready. The canonical next step is a bounded fix cycle through `/build`.
-
-- A) Run `/build` now (recommended)
-- B) Stop here
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id`.

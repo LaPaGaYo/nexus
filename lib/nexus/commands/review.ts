@@ -5,7 +5,13 @@ import {
   dedupeArtifactPointers,
   executionContractArtifacts,
 } from '../contract-artifacts';
-import { currentAuditArtifactPaths, currentAuditPointer, reviewLearningCandidatesPath, stageStatusPath } from '../artifacts';
+import {
+  currentAuditArtifactPaths,
+  currentAuditPointer,
+  reviewLearningCandidatesPath,
+  stageCompletionAdvisorPath,
+  stageStatusPath,
+} from '../artifacts';
 import { reviewAdvisoriesPath, reviewAdvisoryDispositionPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
@@ -48,6 +54,7 @@ import type {
 import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
+import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from '../completion-advisor';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
 const HANDOFF_STATUS_PATH = stageStatusPath('handoff');
@@ -279,6 +286,7 @@ export async function runReviewWithWriteAtomicFile(
   const planStatus = readStageStatus(PLAN_STATUS_PATH, ctx.cwd);
   const buildStatusPath = stageStatusPath('build');
   const reviewStatusPath = stageStatusPath('review');
+  const completionAdvisorPath = stageCompletionAdvisorPath('review');
   const buildStatus = readStageStatus(buildStatusPath, ctx.cwd);
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
 
@@ -381,7 +389,7 @@ export async function runReviewWithWriteAtomicFile(
         ledgerWithExecution,
         startedAt,
         predecessorArtifacts,
-        [artifactPointerFor(reviewStatusPath)],
+        [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
         designFields,
         requestedRoute,
         actualRoute,
@@ -393,19 +401,20 @@ export async function runReviewWithWriteAtomicFile(
         adapter: 'superpowers',
         kind: 'backend_conflict',
         message,
-        canonical_paths: [reviewStatusPath],
+        canonical_paths: [completionAdvisorPath, reviewStatusPath],
         trace_paths: [
           '.planning/current/review/adapter-request.json',
           '.planning/current/review/adapter-output.json',
           '.planning/current/review/normalization.json',
         ],
       };
+      const completionAdvisor = buildReviewCompletionAdvisor(status, verificationMatrix, startedAt);
 
       await applyNormalizationPlan({
         cwd: ctx.cwd,
         stage: 'review',
         statusPath: reviewStatusPath,
-        canonicalWrites: [],
+        canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
         removeWrites: currentAuditPaths,
         traceWrites: buildReviewTraceabilityPayloads(
           ledger.run_id,
@@ -457,7 +466,7 @@ export async function runReviewWithWriteAtomicFile(
       ledgerWithExecution,
       startedAt,
       predecessorArtifacts,
-      [artifactPointerFor(reviewStatusPath)],
+      [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
       designFields,
       requestedRoute,
       actualRoute,
@@ -470,19 +479,20 @@ export async function runReviewWithWriteAtomicFile(
       adapter: 'superpowers',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [reviewStatusPath],
+      canonical_paths: [completionAdvisorPath, reviewStatusPath],
       trace_paths: [
         '.planning/current/review/adapter-request.json',
         '.planning/current/review/adapter-output.json',
         '.planning/current/review/normalization.json',
       ],
     };
+    const completionAdvisor = buildReviewCompletionAdvisor(status, verificationMatrix, startedAt);
 
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'review',
       statusPath: reviewStatusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
@@ -523,7 +533,7 @@ export async function runReviewWithWriteAtomicFile(
       ledgerWithExecution,
       startedAt,
       predecessorArtifacts,
-      [artifactPointerFor(reviewStatusPath)],
+      [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
       designFields,
       requestedRoute,
       actualRoute,
@@ -535,19 +545,20 @@ export async function runReviewWithWriteAtomicFile(
       adapter: 'superpowers',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [reviewStatusPath],
+      canonical_paths: [completionAdvisorPath, reviewStatusPath],
       trace_paths: [
         '.planning/current/review/adapter-request.json',
         '.planning/current/review/adapter-output.json',
         '.planning/current/review/normalization.json',
       ],
     };
+    const completionAdvisor = buildReviewCompletionAdvisor(status, verificationMatrix, startedAt);
 
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'review',
       statusPath: reviewStatusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
@@ -615,7 +626,7 @@ export async function runReviewWithWriteAtomicFile(
         ledgerWithExecution,
         startedAt,
         predecessorArtifacts,
-        [artifactPointerFor(reviewStatusPath)],
+        [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
         designFields,
         requestedRoute,
         actualRoute,
@@ -628,19 +639,20 @@ export async function runReviewWithWriteAtomicFile(
         adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
         kind: 'backend_conflict',
         message,
-        canonical_paths: [reviewStatusPath],
+        canonical_paths: [completionAdvisorPath, reviewStatusPath],
         trace_paths: [
           '.planning/current/review/adapter-request.json',
           '.planning/current/review/adapter-output.json',
           '.planning/current/review/normalization.json',
         ],
       };
+      const completionAdvisor = buildReviewCompletionAdvisor(status, verificationMatrix, startedAt);
 
       await applyNormalizationPlan({
         cwd: ctx.cwd,
         stage: 'review',
         statusPath: reviewStatusPath,
-        canonicalWrites: [],
+        canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
         removeWrites: currentAuditPaths,
         traceWrites: buildReviewTraceabilityPayloads(
           ledger.run_id,
@@ -687,7 +699,7 @@ export async function runReviewWithWriteAtomicFile(
       ledgerWithExecution,
       startedAt,
       predecessorArtifacts,
-      [artifactPointerFor(reviewStatusPath)],
+      [artifactPointerFor(completionAdvisorPath), artifactPointerFor(reviewStatusPath)],
       designFields,
       requestedRoute,
       actualRoute,
@@ -699,19 +711,20 @@ export async function runReviewWithWriteAtomicFile(
       adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind: 'route_mismatch',
       message,
-      canonical_paths: [reviewStatusPath],
+      canonical_paths: [completionAdvisorPath, reviewStatusPath],
       trace_paths: [
         '.planning/current/review/adapter-request.json',
         '.planning/current/review/adapter-output.json',
         '.planning/current/review/normalization.json',
       ],
     };
+    const completionAdvisor = buildReviewCompletionAdvisor(status, verificationMatrix, startedAt);
 
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'review',
       statusPath: reviewStatusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
@@ -831,6 +844,7 @@ export async function runReviewWithWriteAtomicFile(
     currentAuditPointer('meta'),
     ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
     ...(advisoriesRecord ? [artifactPointerFor(advisoriesPath), artifactPointerFor(advisoryDispositionPath)] : []),
+    artifactPointerFor(completionAdvisorPath),
     artifactPointerFor(reviewStatusPath),
   ];
   const status: StageStatus = {
@@ -870,6 +884,7 @@ export async function runReviewWithWriteAtomicFile(
     commandHistoryVia,
     gateDecision === 'pass' ? getAllowedNextStages('review') : ['build', 'review'],
   );
+  const completionAdvisor = buildReviewCompletionAdvisor(status, verificationMatrix, startedAt);
   next.artifact_index = {
     ...next.artifact_index,
     [codexPath]: currentAuditPointer('codex'),
@@ -884,6 +899,7 @@ export async function runReviewWithWriteAtomicFile(
           [advisoryDispositionPath]: artifactPointerFor(advisoryDispositionPath),
         }
       : {}),
+    [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
     [reviewStatusPath]: artifactPointerFor(reviewStatusPath),
   };
   if (!learningCandidatesRecord) {
@@ -913,6 +929,7 @@ export async function runReviewWithWriteAtomicFile(
             { path: advisoryDispositionPath, content: JSON.stringify(advisoryDispositionRecord, null, 2) + '\n' },
           ]
         : []),
+      buildCompletionAdvisorWrite(completionAdvisor),
     ],
     removeWrites: [
       ...(learningCandidatesRecord ? [] : [learningCandidatesPath]),
@@ -936,6 +953,7 @@ export async function runReviewWithWriteAtomicFile(
           gateDecisionPath,
           metaPath,
           ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
+          completionAdvisorPath,
         ],
         learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
         learnings_recorded: Boolean(learningCandidatesRecord),

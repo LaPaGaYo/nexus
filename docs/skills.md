@@ -117,6 +117,16 @@ The canonical build command. Nexus owns the bounded implementation contract and 
 - Canonical outputs: `.planning/current/build/build-request.json`, `.planning/current/build/build-result.md`, and `.planning/current/build/status.json`.
 - Build truth only exists after Nexus normalization and writeback.
 
+## Stage Completion Advisor
+
+Every canonical stage from `/frame` through `/closeout` also writes
+`.planning/current/<stage>/completion-advisor.json`.
+
+- Primary purpose: give interactive hosts a runtime-owned next-step contract instead of relying on prompt-only heuristics.
+- Advisor contents: primary next actions, alternative actions, recommended side skills, default action, and whether an explicit user choice is required.
+- Design-aware surfacing: when `design_impact` and the verification matrix say a run is design-bearing, the advisor can elevate `/plan-design-review`, `/design-review`, and `/browse`.
+- Hidden surfaces: compatibility aliases and utility skills remain off the stage-completion advisor unless the user invokes them directly.
+
 ## `/closeout`
 
 The canonical closeout command. Nexus verifies the governed work unit and final readiness state here.

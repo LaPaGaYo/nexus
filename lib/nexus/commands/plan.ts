@@ -1,5 +1,10 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { planDesignContractPath, planVerificationMatrixPath, stageStatusPath } from '../artifacts';
+import {
+  planDesignContractPath,
+  planVerificationMatrixPath,
+  stageCompletionAdvisorPath,
+  stageStatusPath,
+} from '../artifacts';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildGsdTraceabilityPayloads, normalizeGsdPlan } from '../normalizers/gsd';
@@ -9,6 +14,7 @@ import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '..
 import type { CommandContext, CommandResult } from './index';
 import { readStageStatus } from '../status';
 import { buildVerificationMatrix } from '../verification-matrix';
+import { buildCompletionAdvisorWrite, buildPlanCompletionAdvisor } from '../completion-advisor';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -98,17 +104,18 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       startedAt,
       frameStatus,
       null,
-      [artifactPointerFor(statusPath)],
+      [artifactPointerFor(stageCompletionAdvisorPath('plan')), artifactPointerFor(statusPath)],
       result.outcome === 'refused' ? 'refused' : 'blocked',
       result.outcome === 'refused' ? 'refused' : 'not_ready',
       false,
       [result.outcome === 'refused' ? 'GSD planning refused' : 'GSD planning blocked'],
     );
+    const completionAdvisor = buildPlanCompletionAdvisor(status, null, startedAt);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'plan',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
@@ -147,6 +154,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         artifactPointerFor('.planning/current/plan/sprint-contract.md'),
         artifactPointerFor(planVerificationMatrixPath()),
         ...(designContractPointer ? [designContractPointer] : []),
+        artifactPointerFor(stageCompletionAdvisorPath('plan')),
         artifactPointerFor(statusPath),
       ],
       ready ? 'completed' : 'blocked',
@@ -154,6 +162,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       ready,
       [],
     );
+    const completionAdvisor = buildPlanCompletionAdvisor(status, verificationMatrix, startedAt);
 
     const next = nextLedger(ledger, ready ? 'active' : 'blocked', startedAt, ctx.via);
     next.artifact_index = {
@@ -164,6 +173,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       '.planning/current/plan/sprint-contract.md': artifactPointerFor('.planning/current/plan/sprint-contract.md'),
       [planVerificationMatrixPath()]: artifactPointerFor(planVerificationMatrixPath()),
       ...(designContractPointer ? { [designContractPointer.path]: designContractPointer } : {}),
+      [stageCompletionAdvisorPath('plan')]: artifactPointerFor(stageCompletionAdvisorPath('plan')),
       [statusPath]: artifactPointerFor(statusPath),
     };
 
@@ -171,7 +181,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'plan',
       statusPath,
-      canonicalWrites: normalized.canonicalWrites,
+      canonicalWrites: [...normalized.canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
@@ -221,18 +231,19 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       startedAt,
       frameStatus,
       null,
-      [artifactPointerFor(statusPath)],
+      [artifactPointerFor(stageCompletionAdvisorPath('plan')), artifactPointerFor(statusPath)],
       'blocked',
       'not_ready',
       false,
       ['Canonical writeback failed'],
     );
+    const completionAdvisor = buildPlanCompletionAdvisor(status, null, startedAt);
 
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'plan',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,

@@ -9,6 +9,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -408,3 +409,33 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts frame
 ```
+
+## Completion Advisor
+
+After `/frame` returns, treat `.planning/current/frame/completion-advisor.json` as the canonical
+next-step contract.
+
+Read and summarize:
+
+- `summary`
+- `requires_user_choice`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `default_action_id`
+
+If the session is interactive and the advisor exposes multiple meaningful next actions, use
+AskUserQuestion. Present each option using the advisor action's `label` and `description`.
+Order options by:
+
+1. recommended primary action
+2. other primary actions
+3. alternatives
+4. recommended side skills
+
+If the advisor surfaces `/plan-design-review`, that means the run is design-bearing. Keep the
+canonical path anchored on `/plan`; do not surface compatibility aliases like `/plan-ceo-review`
+or `/plan-eng-review`.
+
+If the session is non-interactive, do not call AskUserQuestion. Print the advisor `summary` and
+the invocation for the `default_action_id`.

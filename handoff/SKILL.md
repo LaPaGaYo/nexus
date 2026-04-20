@@ -408,3 +408,20 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts handoff
 ```
+
+## Completion Advisor
+
+After `/handoff` returns, treat `.planning/current/handoff/completion-advisor.json` as the
+canonical next-step contract.
+
+Read and summarize:
+
+- `summary`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `default_action_id`
+
+`/handoff` normally has a single canonical continuation into `/build`. Do not manufacture extra
+choices when the advisor has no real branching. In non-interactive sessions, print the advisor
+`summary` and the invocation for the `default_action_id`.

@@ -15,6 +15,7 @@ import {
   shipCanaryStatusPath,
   shipDeployResultPath,
   shipLearningCandidatesPath,
+  stageCompletionAdvisorPath,
   stageStatusPath,
 } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
@@ -68,6 +69,7 @@ import type {
   StageStatus,
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { buildCloseoutCompletionAdvisor, buildCompletionAdvisorWrite } from '../completion-advisor';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -298,6 +300,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   const startedAt = ctx.clock();
   const closeoutRecordPath = '.planning/current/closeout/CLOSEOUT-RECORD.md';
   const closeoutStatusPath = stageStatusPath('closeout');
+  const completionAdvisorPath = stageCompletionAdvisorPath('closeout');
   const closeoutBootstrapJson = closeoutNextRunBootstrapJsonPath();
   const closeoutBootstrapMarkdown = closeoutNextRunMarkdownPath();
   const closeoutLearningSources = collectCloseoutLearningSources(ctx.cwd, ledger.run_id);
@@ -354,7 +357,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       decision: result.outcome === 'refused' ? 'refused' : 'closeout_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(closeoutStatusPath)],
+      outputs: [artifactPointerFor(completionAdvisorPath), artifactPointerFor(closeoutStatusPath)],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [result.outcome === 'refused' ? 'GSD closeout refused' : 'GSD closeout blocked'],
@@ -363,11 +366,19 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       archive_state: archiveRequired ? 'archived' : 'not_required',
       provenance_consistent: true,
     };
+    const completionAdvisor = buildCloseoutCompletionAdvisor(
+      status,
+      shipStatus?.pull_request ?? null,
+      null,
+      Boolean(documentationSyncPath),
+      Boolean(canaryEvidencePath),
+      startedAt,
+    );
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'closeout',
       statusPath: closeoutStatusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: [
         closeoutLearningsMarkdownPath(),
         closeoutLearningsJsonPath(),
@@ -386,7 +397,13 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: nextLedger,
+      ledger: {
+        ...nextLedger,
+        artifact_index: {
+          ...nextLedger.artifact_index,
+          [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
+        },
+      },
     });
     throw new Error(result.outcome === 'refused' ? 'GSD closeout refused' : 'GSD closeout blocked');
   }
@@ -444,6 +461,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         artifactPointerFor(closeoutFollowOnSummaryJsonPath()),
         artifactPointerFor(closeoutBootstrapMarkdown),
         artifactPointerFor(closeoutBootstrapJson),
+        artifactPointerFor(completionAdvisorPath),
         artifactPointerFor(closeoutStatusPath),
       ],
       started_at: startedAt,
@@ -475,6 +493,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         [closeoutFollowOnSummaryJsonPath()]: artifactPointerFor(closeoutFollowOnSummaryJsonPath()),
         [closeoutBootstrapMarkdown]: artifactPointerFor(closeoutBootstrapMarkdown),
         [closeoutBootstrapJson]: artifactPointerFor(closeoutBootstrapJson),
+        [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
         [closeoutStatusPath]: artifactPointerFor(closeoutStatusPath),
       },
     };
@@ -483,6 +502,16 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       delete nextLedger.artifact_index[closeoutLearningsJsonPath()];
     }
 
+    const completionAdvisor = buildCloseoutCompletionAdvisor(
+      status,
+      shipStatus?.pull_request ?? null,
+      deployResultPath
+        ? JSON.parse(readFileSync(join(ctx.cwd, deployResultPath), 'utf8'))
+        : null,
+      Boolean(documentationSyncPath),
+      Boolean(canaryEvidencePath),
+      startedAt,
+    );
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'closeout',
@@ -514,6 +543,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
           content: JSON.stringify(followOnEvidence, null, 2) + '\n',
         },
         ...bootstrapWrites,
+        buildCompletionAdvisorWrite(completionAdvisor),
       ],
       removeWrites: closeoutLearningRecord
         ? []
@@ -536,6 +566,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
               : []),
             closeoutFollowOnSummaryMarkdownPath(),
             closeoutFollowOnSummaryJsonPath(),
+            completionAdvisorPath,
           ],
           status: { state: status.state, decision: status.decision, ready: status.ready },
         },
@@ -551,7 +582,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       adapter: 'gsd',
       kind: 'backend_conflict',
       message: error instanceof Error ? error.message : String(error),
-      canonical_paths: [closeoutRecordPath, closeoutStatusPath],
+      canonical_paths: [closeoutRecordPath, completionAdvisorPath, closeoutStatusPath],
       trace_paths: [
         '.planning/current/closeout/adapter-request.json',
         '.planning/current/closeout/adapter-output.json',
@@ -566,7 +597,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       decision: 'closeout_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(closeoutStatusPath)],
+      outputs: [artifactPointerFor(completionAdvisorPath), artifactPointerFor(closeoutStatusPath)],
       started_at: startedAt,
       completed_at: startedAt,
       errors: ['Canonical writeback failed'],
@@ -575,11 +606,19 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       archive_state: archiveRequired ? 'archived' : 'not_required',
       provenance_consistent: true,
     };
+    const completionAdvisor = buildCloseoutCompletionAdvisor(
+      status,
+      shipStatus?.pull_request ?? null,
+      null,
+      Boolean(documentationSyncPath),
+      Boolean(canaryEvidencePath),
+      startedAt,
+    );
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'closeout',
       statusPath: closeoutStatusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: [
         closeoutLearningsMarkdownPath(),
         closeoutLearningsJsonPath(),
@@ -599,14 +638,18 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         },
       ),
       status,
-      ledger: clearCloseoutLearningArtifactIndex({
-        ...ledger,
-        status: 'blocked',
-        current_command: 'closeout',
-        current_stage: 'closeout',
-        allowed_next_stages: [],
-        command_history: [...ledger.command_history, { command: 'closeout', at: startedAt, via: ctx.via }],
-      }),
+      ledger: (() => {
+        const next = clearCloseoutLearningArtifactIndex({
+          ...ledger,
+          status: 'blocked',
+          current_command: 'closeout',
+          current_stage: 'closeout',
+          allowed_next_stages: [],
+          command_history: [...ledger.command_history, { command: 'closeout', at: startedAt, via: ctx.via }],
+        });
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
+        return next;
+      })(),
       conflicts: [conflict],
     });
     throw error;

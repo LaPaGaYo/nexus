@@ -10,6 +10,7 @@ import {
   shipChecklistPath,
   shipPullRequestPath,
   shipReleaseGateRecordPath,
+  stageCompletionAdvisorPath,
   stageStatusPath,
 } from '../artifacts';
 import { resolveDeployReadiness } from '../deploy-contract';
@@ -42,6 +43,7 @@ import type {
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
+import { buildCompletionAdvisorWrite, buildShipCompletionAdvisor } from '../completion-advisor';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -280,7 +282,7 @@ function blockedShipStatus(
     decision: state === 'refused' ? 'refused' : 'ship_recorded',
     ready: false,
     inputs,
-    outputs: [artifactPointerFor(stageStatusPath('ship'))],
+    outputs: [artifactPointerFor(stageCompletionAdvisorPath('ship')), artifactPointerFor(stageStatusPath('ship'))],
     started_at: startedAt,
     completed_at: startedAt,
     errors: [error],
@@ -372,6 +374,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const pullRequestPath = shipPullRequestPath();
   const learningCandidatesPath = shipLearningCandidatesPath();
   const statusPath = stageStatusPath('ship');
+  const completionAdvisorPath = stageCompletionAdvisorPath('ship');
   const predecessorArtifacts = [
     artifactPointerFor(reviewStatusPath),
     ...(canonicalVerificationMatrix ? [artifactPointerFor(planVerificationMatrixPath())] : []),
@@ -414,7 +417,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       adapter: 'superpowers',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [statusPath],
+      canonical_paths: [completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/ship/adapter-request.json',
         '.planning/current/ship/adapter-output.json',
@@ -422,11 +425,12 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ],
     };
 
+    const completionAdvisor = buildShipCompletionAdvisor(status, verificationMatrix, null, startedAt);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'ship',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: [learningCandidatesPath],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
@@ -444,13 +448,17 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: clearShipLearningArtifactIndex(nextLedger(
-        ledgerWithExecution,
-        previousStage,
-        result.outcome === 'refused' ? 'refused' : 'blocked',
-        startedAt,
-        ctx.via,
-      )),
+      ledger: (() => {
+        const next = clearShipLearningArtifactIndex(nextLedger(
+          ledgerWithExecution,
+          previousStage,
+          result.outcome === 'refused' ? 'refused' : 'blocked',
+          startedAt,
+          ctx.via,
+        ));
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
+        return next;
+      })(),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -473,7 +481,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       adapter: 'superpowers',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [statusPath],
+      canonical_paths: [completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/ship/adapter-request.json',
         '.planning/current/ship/adapter-output.json',
@@ -481,11 +489,12 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ],
     };
 
+    const completionAdvisor = buildShipCompletionAdvisor(status, verificationMatrix, null, startedAt);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'ship',
       statusPath,
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       removeWrites: [learningCandidatesPath],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
@@ -504,7 +513,11 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ),
       status,
       mirrorWorkspace: workspace,
-      ledger: clearShipLearningArtifactIndex(nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via)),
+      ledger: (() => {
+        const next = clearShipLearningArtifactIndex(nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via));
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
+        return next;
+      })(),
       conflicts: [conflict, ...result.conflict_candidates],
     });
 
@@ -550,6 +563,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       artifactPointerFor(deployReadinessPath),
       artifactPointerFor(pullRequestPath),
       ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
+      artifactPointerFor(completionAdvisorPath),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
@@ -561,6 +575,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     learnings_recorded: Boolean(learningCandidatesRecord),
   };
   const next = nextLedger(ledgerWithExecution, previousStage, result.raw_output.merge_ready ? 'active' : 'blocked', startedAt, ctx.via);
+  const completionAdvisor = buildShipCompletionAdvisor(status, verificationMatrix, deployReadiness, startedAt);
   next.artifact_index = {
     ...next.artifact_index,
     [releaseGateRecordPath]: artifactPointerFor(releaseGateRecordPath),
@@ -568,6 +583,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     [deployReadinessPath]: artifactPointerFor(deployReadinessPath),
     [pullRequestPath]: artifactPointerFor(pullRequestPath),
     ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
+    [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
     [statusPath]: artifactPointerFor(statusPath),
   };
   if (!learningCandidatesRecord) {
@@ -586,6 +602,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ...(learningCandidatesRecord
         ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
         : []),
+      buildCompletionAdvisorWrite(completionAdvisor),
     ],
     removeWrites: learningCandidatesRecord ? [] : [learningCandidatesPath],
     traceWrites: buildShipStageTraceabilityPayloads(
@@ -601,6 +618,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
           deployReadinessPath,
           pullRequestPath,
           ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
+          completionAdvisorPath,
         ],
         learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
         learnings_recorded: Boolean(learningCandidatesRecord),

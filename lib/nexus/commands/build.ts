@@ -10,6 +10,7 @@ import {
 import {
   reviewAdvisoriesPath,
   reviewAdvisoryDispositionPath,
+  stageCompletionAdvisorPath,
   stageAdapterOutputPath,
   stageAdapterRequestPath,
   stageNormalizationPath,
@@ -60,6 +61,7 @@ import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
+import { buildBuildCompletionAdvisor, buildCompletionAdvisorWrite } from '../completion-advisor';
 
 const PLAN_STATUS_PATH = stageStatusPath('plan');
 
@@ -290,6 +292,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const buildRequestPath = '.planning/current/build/build-request.json';
   const buildResultPath = '.planning/current/build/build-result.md';
   const statusPath = stageStatusPath('build');
+  const completionAdvisorPath = stageCompletionAdvisorPath('build');
   const reviewScope = fixCycle
     ? ledger.current_stage === 'qa'
       ? normalizeReviewScopeRecord(
@@ -377,7 +380,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       decision: 'build_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
+      outputs: [
+        artifactPointerFor(buildRequestPath),
+        artifactPointerFor(completionAdvisorPath),
+        artifactPointerFor(statusPath),
+      ],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [message],
@@ -387,9 +394,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       workspace,
     };
     const next = blockedPreflightLedger(ledgerWithExecution, 'handoff');
+    const completionAdvisor = buildBuildCompletionAdvisor(status, verificationMatrix, startedAt);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
+      [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
       [statusPath]: artifactPointerFor(statusPath),
       ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
@@ -398,7 +407,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       adapter: 'ccb',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [buildRequestPath, statusPath],
+      canonical_paths: [buildRequestPath, completionAdvisorPath, statusPath],
       trace_paths: tracePaths,
     };
 
@@ -406,7 +415,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
+      canonicalWrites: [
+        buildRequestWrite,
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: [
         {
           path: tracePaths[0],
@@ -493,7 +506,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       decision: disciplineResult.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
+      outputs: [
+        artifactPointerFor(buildRequestPath),
+        artifactPointerFor(completionAdvisorPath),
+        artifactPointerFor(statusPath),
+      ],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [message],
@@ -509,9 +526,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       startedAt,
       commandHistoryVia,
     );
+    const completionAdvisor = buildBuildCompletionAdvisor(status, verificationMatrix, startedAt);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
+      [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
       [statusPath]: artifactPointerFor(statusPath),
       ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
@@ -520,7 +539,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       adapter: 'superpowers',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [buildRequestPath, statusPath],
+      canonical_paths: [buildRequestPath, completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/build/adapter-request.json',
         '.planning/current/build/adapter-output.json',
@@ -532,7 +551,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
+      canonicalWrites: [
+        buildRequestWrite,
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -572,7 +595,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       decision: 'build_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
+      outputs: [
+        artifactPointerFor(buildRequestPath),
+        artifactPointerFor(completionAdvisorPath),
+        artifactPointerFor(statusPath),
+      ],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [message],
@@ -588,9 +615,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       startedAt,
       commandHistoryVia,
     );
+    const completionAdvisor = buildBuildCompletionAdvisor(status, verificationMatrix, startedAt);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
+      [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
       [statusPath]: artifactPointerFor(statusPath),
       ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
@@ -599,7 +628,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       adapter: 'superpowers',
       kind: 'backend_conflict',
       message,
-      canonical_paths: [buildRequestPath, statusPath],
+      canonical_paths: [buildRequestPath, completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/build/adapter-request.json',
         '.planning/current/build/adapter-output.json',
@@ -611,7 +640,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
+      canonicalWrites: [
+        buildRequestWrite,
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -662,7 +695,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       decision: result.outcome === 'refused' ? 'refused' : 'build_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
+      outputs: [
+        artifactPointerFor(buildRequestPath),
+        artifactPointerFor(completionAdvisorPath),
+        artifactPointerFor(statusPath),
+      ],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [
@@ -685,9 +722,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ),
       result.actual_route?.route ?? null,
     );
+    const completionAdvisor = buildBuildCompletionAdvisor(status, verificationMatrix, startedAt);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
+      [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
       [statusPath]: artifactPointerFor(statusPath),
       ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
@@ -699,7 +738,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       message: result.outcome === 'refused'
         ? `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution refused`
         : `${ledger.execution.mode === 'local_provider' ? 'Local provider' : 'CCB'} generator execution blocked`,
-      canonical_paths: [buildRequestPath, statusPath],
+      canonical_paths: [buildRequestPath, completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/build/adapter-request.json',
         '.planning/current/build/adapter-output.json',
@@ -711,7 +750,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
+      canonicalWrites: [
+        buildRequestWrite,
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -755,7 +798,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       decision: 'build_recorded',
       ready: false,
       inputs: predecessorArtifacts,
-      outputs: [artifactPointerFor(buildRequestPath), artifactPointerFor(statusPath)],
+      outputs: [
+        artifactPointerFor(buildRequestPath),
+        artifactPointerFor(completionAdvisorPath),
+        artifactPointerFor(statusPath),
+      ],
       started_at: startedAt,
       completed_at: startedAt,
       errors: [message],
@@ -774,9 +821,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       ),
       actualRoute?.route ?? null,
     );
+    const completionAdvisor = buildBuildCompletionAdvisor(status, verificationMatrix, startedAt);
     next.artifact_index = {
       ...next.artifact_index,
       [buildRequestPath]: artifactPointerFor(buildRequestPath),
+      [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
       [statusPath]: artifactPointerFor(statusPath),
       ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
     };
@@ -785,7 +834,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       adapter: ledger.execution.mode === 'local_provider' ? 'local' : 'ccb',
       kind,
       message,
-      canonical_paths: [buildRequestPath, statusPath],
+      canonical_paths: [buildRequestPath, completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/build/adapter-request.json',
         '.planning/current/build/adapter-output.json',
@@ -797,7 +846,11 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'build',
       statusPath,
-      canonicalWrites: [buildRequestWrite, ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : [])],
+      canonicalWrites: [
+        buildRequestWrite,
+        buildCompletionAdvisorWrite(completionAdvisor),
+        ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
+      ],
       traceWrites: buildBuildStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -866,6 +919,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     outputs: [
       artifactPointerFor(buildRequestPath),
       artifactPointerFor(buildResultPath),
+      artifactPointerFor(completionAdvisorPath),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
@@ -886,10 +940,12 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     ),
     result.actual_route?.route ?? null,
   );
+  const completionAdvisor = buildBuildCompletionAdvisor(status, verificationMatrix, startedAt);
   next.artifact_index = {
     ...next.artifact_index,
     [buildRequestPath]: artifactPointerFor(buildRequestPath),
     [buildResultPath]: artifactPointerFor(buildResultPath),
+    [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
     [statusPath]: artifactPointerFor(statusPath),
     ...(reviewAdvisoryDispositionWrite ? { [reviewAdvisoryDispositionPath()]: artifactPointerFor(reviewAdvisoryDispositionPath()) } : {}),
   };
@@ -901,6 +957,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     canonicalWrites: [
       buildRequestWrite,
       buildResultWrite,
+      buildCompletionAdvisorWrite(completionAdvisor),
       ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
     ],
     traceWrites: buildBuildStageTraceabilityPayloads(
@@ -912,7 +969,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       result,
       {
         outcome: 'success',
-        canonical_paths: [buildRequestPath, buildResultPath],
+        canonical_paths: [buildRequestPath, buildResultPath, completionAdvisorPath],
         discipline_summary: normalizedDiscipline.verification_summary,
         status: { state: status.state, decision: status.decision, ready: status.ready },
       },

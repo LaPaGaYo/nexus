@@ -1,5 +1,5 @@
 import { CANONICAL_MANIFEST } from '../command-manifest';
-import { planVerificationMatrixPath, stageStatusPath } from '../artifacts';
+import { planVerificationMatrixPath, stageCompletionAdvisorPath, stageStatusPath } from '../artifacts';
 import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
 import { assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
@@ -26,6 +26,7 @@ import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
+import { buildCompletionAdvisorWrite, buildHandoffCompletionAdvisor } from '../completion-advisor';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -144,6 +145,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const routingPath = '.planning/current/handoff/governed-execution-routing.md';
   const handoffPath = '.planning/current/handoff/governed-handoff.md';
   const statusPath = stageStatusPath('handoff');
+  const completionAdvisorPath = stageCompletionAdvisorPath('handoff');
   const designContractPointer = planDesignContractPointer(planStatus);
   const verificationMatrix = readVerificationMatrix(ctx.cwd);
   const predecessorArtifacts = ledger.current_stage === 'review'
@@ -199,6 +201,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const outputs = [
     artifactPointerFor(routingPath),
     artifactPointerFor(handoffPath),
+    artifactPointerFor(completionAdvisorPath),
     artifactPointerFor(statusPath),
   ];
   const status: StageStatus = {
@@ -249,8 +252,10 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     ...next.artifact_index,
     [routingPath]: artifactPointerFor(routingPath),
     [handoffPath]: artifactPointerFor(handoffPath),
+    [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
     [statusPath]: artifactPointerFor(statusPath),
   };
+  const completionAdvisor = buildHandoffCompletionAdvisor(status, startedAt);
 
   if (result.outcome !== 'success' || routeValidation.approved !== true) {
     const conflict: ConflictRecord = {
@@ -258,7 +263,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       adapter: requestedRoute.transport === 'local' ? 'local' : 'ccb',
       kind: 'backend_conflict',
       message: routeValidation.route_validation.reason,
-      canonical_paths: [routingPath, handoffPath, statusPath],
+      canonical_paths: [routingPath, handoffPath, completionAdvisorPath, statusPath],
       trace_paths: [
         '.planning/current/handoff/adapter-request.json',
         '.planning/current/handoff/adapter-output.json',
@@ -270,7 +275,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'handoff',
       statusPath,
-      canonicalWrites,
+      canonicalWrites: [...canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildCcbTraceabilityPayloads(
         'handoff',
         ledger.run_id,
@@ -305,7 +310,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     cwd: ctx.cwd,
     stage: 'handoff',
     statusPath,
-    canonicalWrites,
+    canonicalWrites: [...canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
     traceWrites: buildCcbTraceabilityPayloads(
       'handoff',
       ledger.run_id,
@@ -320,7 +325,7 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       {
         outcome: 'success',
         route_validation: routeValidation.route_validation,
-        canonical_paths: canonicalWrites.map((write) => write.path),
+        canonical_paths: [...canonicalWrites.map((write) => write.path), completionAdvisorPath],
         status: { state: status.state, decision: status.decision, ready: status.ready },
       },
     ),

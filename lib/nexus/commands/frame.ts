@@ -3,13 +3,14 @@ import { join } from 'path';
 import { readLedger, startLedger, makeRunId } from '../ledger';
 import { CANONICAL_MANIFEST } from '../command-manifest';
 import { executionFieldsFromLedger } from '../execution-topology';
-import { frameDesignIntentPath, stageStatusPath } from '../artifacts';
+import { frameDesignIntentPath, stageCompletionAdvisorPath, stageStatusPath } from '../artifacts';
 import { applyNormalizationPlan } from '../normalizers';
 import { canonicalNextStages, normalizePmFrame, buildPmTraceabilityPayloads } from '../normalizers/pm';
 import { assertLegalTransition } from '../transitions';
 import type { PmFrameRaw } from '../adapters/pm';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
+import { buildCompletionAdvisorWrite, buildFrameCompletionAdvisor } from '../completion-advisor';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -61,9 +62,10 @@ function buildStatus(
           artifactPointerFor('docs/product/decision-brief.md'),
           artifactPointerFor('docs/product/prd.md'),
           artifactPointerFor(frameDesignIntentPath()),
+          artifactPointerFor(stageCompletionAdvisorPath('frame')),
           artifactPointerFor(stageStatusPath('frame')),
         ]
-      : [artifactPointerFor(stageStatusPath('frame'))],
+      : [artifactPointerFor(stageCompletionAdvisorPath('frame')), artifactPointerFor(stageStatusPath('frame'))],
     started_at: at,
     completed_at: at,
     errors,
@@ -98,11 +100,12 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       false,
       [`Missing required input artifact: ${inputPath}`],
     );
+    const completionAdvisor = buildFrameCompletionAdvisor(status, at);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: [],
       status,
       mirrorWorkspace: ledger.execution.workspace,
@@ -124,11 +127,12 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
 
   if (result.outcome === 'refused') {
     const status = buildStatus(ledger, at, null, 'refused', 'refused', false, ['PM framing refused']);
+    const completionAdvisor = buildFrameCompletionAdvisor(status, at);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,
@@ -146,11 +150,12 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
 
   if (result.outcome !== 'success') {
     const status = buildStatus(ledger, at, null, 'blocked', 'not_ready', false, ['PM framing blocked']);
+    const completionAdvisor = buildFrameCompletionAdvisor(status, at);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,
@@ -169,12 +174,14 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
   try {
     const normalized = normalizePmFrame(result);
     const status = buildStatus(ledger, at, result.raw_output.design_intent, 'completed', 'ready', true, []);
+    const completionAdvisor = buildFrameCompletionAdvisor(status, at);
     const next = nextLedger(ledger, 'active', at, ctx.via);
     next.artifact_index = {
       ...next.artifact_index,
       'docs/product/decision-brief.md': artifactPointerFor('docs/product/decision-brief.md'),
       'docs/product/prd.md': artifactPointerFor('docs/product/prd.md'),
       [frameDesignIntentPath()]: artifactPointerFor(frameDesignIntentPath()),
+      [stageCompletionAdvisorPath('frame')]: artifactPointerFor(stageCompletionAdvisorPath('frame')),
       [stageStatusPath('frame')]: artifactPointerFor(stageStatusPath('frame')),
     };
 
@@ -182,7 +189,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: normalized.canonicalWrites,
+      canonicalWrites: [...normalized.canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,
@@ -211,6 +218,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
         'docs/product/decision-brief.md',
         'docs/product/prd.md',
         frameDesignIntentPath(),
+        stageCompletionAdvisorPath('frame'),
         stageStatusPath('frame'),
       ],
       trace_paths: [
@@ -220,11 +228,12 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       ],
     };
     const status = buildStatus(ledger, at, null, 'blocked', 'not_ready', false, ['Canonical writeback failed']);
+    const completionAdvisor = buildFrameCompletionAdvisor(status, at);
     await applyNormalizationPlan({
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,

@@ -312,6 +312,17 @@ cd ~/nexus && ./setup --host factory
 
 For design-bearing runs, `/frame` classifies design impact, `/plan` writes the canonical verification matrix and requires a design contract for material UI work, and `/qa` records visual verification before `/ship` for design-bearing runs.
 
+Each canonical stage from `/frame` through `/closeout` now also writes
+`.planning/current/<stage>/completion-advisor.json`. That advisor is the
+runtime-owned next-step contract for interactive hosts: it carries the primary
+next action, any required user choice, recommended side skills, and the short
+descriptions that should back stage-completion prompts.
+
+Design-bearing runs use that advisor to surface design-aware follow-on work.
+That means `/plan-design-review`, `/design-review`, and `/browse` appear when
+`design_impact` and the verification matrix say they matter, while compatibility
+aliases and session utility skills stay hidden from stage-completion prompts.
+
 Fresh `/discover` also accepts an explicit continuation hint when you are
 starting the next run:
 

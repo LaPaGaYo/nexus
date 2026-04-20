@@ -483,52 +483,69 @@ describe('gen-skill-docs', () => {
     }
   });
 
-  test('review SKILL.md gates passed advisories behind an explicit user choice', () => {
+  test('frame and plan SKILL.md surface runtime-owned completion advisors and design-aware follow-ons', () => {
+    const frameContent = fs.readFileSync(path.join(ROOT, 'frame', 'SKILL.md'), 'utf-8');
+    const planContent = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
+
+    expect(frameContent).toContain('.planning/current/frame/completion-advisor.json');
+    expect(frameContent).toContain('/plan-design-review');
+    expect(frameContent).toContain('/plan-ceo-review');
+    expect(frameContent).toContain('/plan-eng-review');
+
+    expect(planContent).toContain('.planning/current/plan/completion-advisor.json');
+    expect(planContent).toContain('/plan-design-review');
+    expect(planContent).toContain('design_impact');
+    expect(planContent).toContain('verification matrix');
+  });
+
+  test('review SKILL.md routes advisory disposition through the runtime-owned completion advisor', () => {
     const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
-    expect(reviewContent).toContain('## Advisory Disposition Gate');
-    expect(reviewContent).toContain('status.gate_decision = "pass"');
-    expect(reviewContent).toContain('status.advisory_count > 0');
-    expect(reviewContent).toContain('status.advisory_disposition = null');
+    expect(reviewContent).toContain('## Completion Advisor');
+    expect(reviewContent).toContain('.planning/current/review/completion-advisor.json');
+    expect(reviewContent).toContain('Do not reconstruct advisory logic from `status.json`.');
     expect(reviewContent).toContain('AskUserQuestion');
   });
 
   test('review SKILL.md maps each advisory choice to an exact Nexus command', () => {
     const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
-    expect(reviewContent).toContain('bun run bin/nexus.ts build --review-advisory-disposition fix_before_qa');
-    expect(reviewContent).toContain('bun run bin/nexus.ts qa --review-advisory-disposition continue_to_qa');
-    expect(reviewContent).toContain('bun run bin/nexus.ts qa --review-advisory-disposition defer_to_follow_on');
+    expect(reviewContent).toContain('/build --review-advisory-disposition fix_before_qa');
+    expect(reviewContent).toContain('/qa --review-advisory-disposition continue_to_qa');
+    expect(reviewContent).toContain('/qa --review-advisory-disposition defer_to_follow_on');
   });
 
-  test('build SKILL.md offers an explicit completion interaction into review', () => {
+  test('build SKILL.md consumes completion advisor output and keeps design-aware follow-ons behind review', () => {
     const buildContent = fs.readFileSync(path.join(ROOT, 'build', 'SKILL.md'), 'utf-8');
-    expect(buildContent).toContain('## Completion Interaction');
-    expect(buildContent).toContain('/build` completed and the governed run is ready for `/review`');
+    expect(buildContent).toContain('## Completion Advisor');
+    expect(buildContent).toContain('.planning/current/build/completion-advisor.json');
     expect(buildContent).toContain('AskUserQuestion');
-    expect(buildContent).toContain('bun run bin/nexus.ts review');
+    expect(buildContent).toContain('/review');
+    expect(buildContent).toContain('/design-review');
+    expect(buildContent).toContain('/browse');
   });
 
-  test('qa SKILL.md offers next-step interaction and side-skill entrypoints', () => {
+  test('qa SKILL.md offers advisor-driven next-step interaction and side-skill entrypoints', () => {
     const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
-    expect(qaContent).toContain('## Completion Interaction');
-    expect(qaContent).toContain('/qa` passed. Choose the next step.');
+    expect(qaContent).toContain('## Completion Advisor');
+    expect(qaContent).toContain('.planning/current/qa/completion-advisor.json');
     expect(qaContent).toContain('/design-review');
     expect(qaContent).toContain('/benchmark');
-    expect(qaContent).toContain('bun run bin/nexus.ts ship');
+    expect(qaContent).toContain('/browse');
+    expect(qaContent).toContain('/ship');
   });
 
-  test('ship SKILL.md offers closeout and deploy-facing follow-on interaction', () => {
+  test('ship SKILL.md offers advisor-driven closeout and deploy-facing follow-on interaction', () => {
     const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-    expect(shipContent).toContain('## Completion Interaction');
-    expect(shipContent).toContain('/ship` recorded a merge-ready handoff. Choose what to do next.');
+    expect(shipContent).toContain('## Completion Advisor');
+    expect(shipContent).toContain('.planning/current/ship/completion-advisor.json');
     expect(shipContent).toContain('/closeout');
     expect(shipContent).toContain('/land-and-deploy');
     expect(shipContent).toContain('/setup-deploy');
   });
 
-  test('closeout SKILL.md offers next-run and follow-on side-skill interaction', () => {
+  test('closeout SKILL.md offers advisor-driven next-run and follow-on side-skill interaction', () => {
     const closeoutContent = fs.readFileSync(path.join(ROOT, 'closeout', 'SKILL.md'), 'utf-8');
-    expect(closeoutContent).toContain('## Completion Interaction');
-    expect(closeoutContent).toContain('/closeout` completed. Choose the next step.');
+    expect(closeoutContent).toContain('## Completion Advisor');
+    expect(closeoutContent).toContain('.planning/current/closeout/completion-advisor.json');
     expect(closeoutContent).toContain('/discover');
     expect(closeoutContent).toContain('/land-and-deploy');
     expect(closeoutContent).toContain('/retro');

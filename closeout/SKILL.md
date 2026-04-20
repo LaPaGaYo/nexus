@@ -420,41 +420,30 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts closeout
 ```
 
-## Completion Interaction
+## Completion Advisor
 
-After the command returns, inspect the JSON `status` object and summarize:
+After `/closeout` returns, treat `.planning/current/closeout/completion-advisor.json` as the
+canonical next-step contract.
 
-- `status.state`
-- `status.ready`
-- `status.archive_state`
-- `status.learnings_recorded`
-- `status.errors`
+Read and summarize:
 
-If `status.state = "completed"` and `status.ready = true`, the governed run is complete. The main
-next-step surfaces are:
+- `summary`
+- `stage_outcome`
+- `requires_user_choice`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `default_action_id`
 
-- fresh `/discover` for the next run
-- `/land-and-deploy` to merge/deploy the shipped handoff
-- `/retro`
-- `/learn`
-- `/document-release`
+If the session is interactive and the advisor exposes multiple meaningful next actions, use
+AskUserQuestion. Present each option using the advisor action's `label` and `description`.
 
-If the session is interactive, use AskUserQuestion:
+The closeout advisor should be the single place where you surface:
 
-> `/closeout` completed. Choose the next step.
+- fresh `/discover` for the next governed run
+- `/land-and-deploy` when landing is still pending
+- `/canary` after a landed change without post-deploy health evidence
+- `/retro`, `/learn`, and `/document-release` as follow-on work
 
-- A) Start the next run with `/discover` (recommended)
-- B) Run `/land-and-deploy`
-- C) Stop here and choose a follow-on skill manually
-
-When the user chooses C, explicitly suggest `/retro`, `/learn`, and `/document-release` as the
-default post-closeout side skills.
-
-If the session is non-interactive, do not call AskUserQuestion. Instead, print the recommended next command:
-
-```bash
-_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-_NEXUS_ROOT="~/.claude/skills/nexus"
-[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
-cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts discover
-```
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id`.

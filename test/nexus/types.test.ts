@@ -51,6 +51,7 @@ import {
   frameDesignIntentPath,
   planDesignContractPath,
   planVerificationMatrixPath,
+  stageCompletionAdvisorPath,
   qaPerfVerificationPath,
   discoverNextRunBootstrapJsonPath,
   discoverNextRunMarkdownPath,
@@ -890,6 +891,7 @@ describe('nexus types', () => {
     ]);
     expect(CANONICAL_MANIFEST.plan.optional_outputs).toEqual([
       planDesignContractPath(),
+      stageCompletionAdvisorPath('plan'),
     ]);
   });
 
@@ -908,13 +910,16 @@ describe('nexus types', () => {
       '.planning/audits/current/meta.json',
       '.planning/current/review/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.review.optional_outputs).toBeUndefined();
+    expect(CANONICAL_MANIFEST.review.optional_outputs).toEqual([
+      stageCompletionAdvisorPath('review'),
+    ]);
     expect(CANONICAL_MANIFEST.qa.durable_outputs).toEqual([
       '.planning/current/qa/qa-report.md',
       '.planning/current/qa/status.json',
     ]);
     expect(CANONICAL_MANIFEST.qa.optional_outputs).toEqual([
       '.planning/current/qa/design-verification.md',
+      stageCompletionAdvisorPath('qa'),
     ]);
     expect(CANONICAL_MANIFEST.ship.durable_outputs).toEqual([
       '.planning/current/ship/release-gate-record.md',
@@ -923,7 +928,9 @@ describe('nexus types', () => {
       '.planning/current/ship/pull-request.json',
       '.planning/current/ship/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.ship.optional_outputs).toBeUndefined();
+    expect(CANONICAL_MANIFEST.ship.optional_outputs).toEqual([
+      stageCompletionAdvisorPath('ship'),
+    ]);
     expect(CANONICAL_MANIFEST.closeout.durable_outputs).toEqual([
       '.planning/current/closeout/CLOSEOUT-RECORD.md',
       '.planning/current/closeout/FOLLOW-ON-SUMMARY.md',
@@ -932,7 +939,9 @@ describe('nexus types', () => {
       '.planning/current/closeout/next-run-bootstrap.json',
       '.planning/current/closeout/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.closeout.optional_outputs).toBeUndefined();
+    expect(CANONICAL_MANIFEST.closeout.optional_outputs).toEqual([
+      stageCompletionAdvisorPath('closeout'),
+    ]);
   });
 
   test('locks the discover manifest outputs for continuation advisory artifacts', () => {

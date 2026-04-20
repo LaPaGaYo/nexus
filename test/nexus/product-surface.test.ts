@@ -154,6 +154,11 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`/plan` writes the canonical verification matrix');
     expect(readme).toContain('`/plan` writes the canonical verification matrix and requires a design contract for material UI work');
     expect(readme).toContain('`/qa` records visual verification before `/ship` for design-bearing runs');
+    expect(readme).toContain('.planning/current/<stage>/completion-advisor.json');
+    expect(readme).toContain('runtime-owned next-step contract');
+    expect(readme).toContain('/plan-design-review');
+    expect(readme).toContain('/design-review');
+    expect(readme).toContain('/browse');
     expect(readme).toContain('| `/discover` |');
     expect(readme).toContain('| `/frame` |');
     expect(readme).toContain('| `/plan` |');
@@ -175,6 +180,9 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| [`/ship`](#ship) |');
     expect(skills).toContain('| [`/closeout`](#closeout) |');
     expect(skills).toContain('.planning/current/plan/verification-matrix.json');
+    expect(skills).toContain('.planning/current/<stage>/completion-advisor.json');
+    expect(skills).toContain('runtime-owned next-step contract');
+    expect(skills).toContain('/browse');
     expect(skills).toContain('| `/design-consultation` | Design-system discovery and visual direction that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that feeds canonical lifecycle artifacts for UI-bearing runs. |');

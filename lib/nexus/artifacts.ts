@@ -24,6 +24,10 @@ export function stageNormalizationPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/normalization.json`;
 }
 
+export function stageCompletionAdvisorPath(stage: CanonicalCommandId): string {
+  return `${CURRENT_ROOT}/${stage}/completion-advisor.json`;
+}
+
 export function frameDesignIntentPath(): string {
   return `${CURRENT_ROOT}/frame/design-intent.json`;
 }

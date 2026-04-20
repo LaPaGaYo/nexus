@@ -411,36 +411,31 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts build
 ```
 
-## Completion Interaction
+## Completion Advisor
 
-After the command returns, inspect the JSON `status` object and summarize:
+After `/build` returns, treat `.planning/current/build/completion-advisor.json` as the canonical
+next-step contract.
 
-- `status.state`
-- `status.decision`
-- `status.ready`
-- `status.errors`
+Read and summarize:
 
-If `status.state = "completed"` and `status.ready = true`, the canonical next stage is `/review`.
+- `summary`
+- `stage_outcome`
+- `requires_user_choice`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `default_action_id`
 
-If the session is interactive, use AskUserQuestion:
+If the session is interactive and the advisor exposes multiple meaningful next actions, use
+AskUserQuestion. Present each option using the advisor action's `label` and `description`.
 
-> `/build` completed and the governed run is ready for `/review`. Continue now?
+For design-bearing runs, the advisor may surface `/design-review` and `/browse` based on
+`design_impact` and the verification matrix. Keep `/review` first when the build is ready.
 
-- A) Run `/review` now (recommended)
-- B) Stop here
+If the build is blocked, do not invent your own routing. Follow the advisor:
 
-If the session is non-interactive, do not call AskUserQuestion. Instead, print the exact next command:
+- stale handoff / route issues -> `/handoff`
+- implementation ambiguity or deeper failure analysis -> `/investigate`
 
-```bash
-_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-_NEXUS_ROOT="~/.claude/skills/nexus"
-[ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
-cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts review
-```
-
-If `status.ready = false`, do not blindly continue. Summarize the blocking reason first.
-
-- If the error mentions stale handoff, route validation, or governed routing mismatch, recommend `/handoff`.
-- Otherwise recommend `/investigate`.
-
-If interactive, use AskUserQuestion with the recommended recovery step and `Stop here` as the fallback option.
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id`.
