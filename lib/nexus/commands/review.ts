@@ -9,6 +9,7 @@ import {
   currentAuditArtifactPaths,
   currentAuditPointer,
   reviewLearningCandidatesPath,
+  reviewAttemptAuditMarkdownPath,
   stageCompletionAdvisorPath,
   stageStatusPath,
 } from '../artifacts';
@@ -55,6 +56,11 @@ import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
 import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from '../completion-advisor';
+import {
+  buildReviewAuditReceiptRecord,
+  persistReviewAuditReceipt,
+  readReviewAuditReceipt,
+} from '../review-receipts';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
 const HANDOFF_STATUS_PATH = stageStatusPath('handoff');
@@ -149,6 +155,67 @@ function receiptFromAuditRaw(rawOutput: CcbExecuteAuditRaw | LocalExecuteAuditRa
   }
 
   return rawOutput.receipt;
+}
+
+function requestedReviewRoute(
+  requestedRoute: NonNullable<StageStatus['requested_route']>,
+  provider: 'codex' | 'gemini',
+) {
+  return requestedAuditRouteFromBuild(requestedRoute, provider);
+}
+
+function persistReviewAuditReceiptForResult(input: {
+  cwd: string;
+  reviewAttemptId: string;
+  provider: 'codex' | 'gemini';
+  generatedAt: string;
+  requestedRoute: NonNullable<StageStatus['requested_route']>;
+  result: {
+    raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw;
+    actual_route: StageStatus['actual_route'];
+  };
+}): { markdownPath: string; receiptPath: string } {
+  const markdown = input.result.raw_output.markdown;
+  assertNonEmptyMarkdown(markdown, input.provider === 'codex' ? 'Codex audit' : 'Gemini audit');
+
+  return persistReviewAuditReceipt({
+    cwd: input.cwd,
+    review_attempt_id: input.reviewAttemptId,
+    provider: input.provider,
+    markdown,
+    record: buildReviewAuditReceiptRecord({
+      review_attempt_id: input.reviewAttemptId,
+      provider: input.provider,
+      request_id: requestIdFromAuditRaw(input.result.raw_output),
+      generated_at: input.generatedAt,
+      requested_route: requestedReviewRoute(input.requestedRoute, input.provider),
+      actual_route: input.result.actual_route,
+      verdict: parseAuditVerdict(markdown, input.provider === 'codex' ? 'Codex' : 'Gemini'),
+      markdown_path: reviewAttemptAuditMarkdownPath(input.reviewAttemptId, input.provider),
+    }),
+  });
+}
+
+function readRequiredReviewAuditReceipt(input: {
+  cwd: string;
+  reviewAttemptId: string;
+  provider: 'codex' | 'gemini';
+}): NonNullable<ReturnType<typeof readReviewAuditReceipt>> {
+  const receipt = readReviewAuditReceipt({
+    cwd: input.cwd,
+    review_attempt_id: input.reviewAttemptId,
+    provider: input.provider,
+  });
+
+  if (!receipt) {
+    throw new Error(`Missing ${input.provider} review receipt for attempt ${input.reviewAttemptId}`);
+  }
+
+  if (receipt.record.review_attempt_id !== input.reviewAttemptId || receipt.record.provider !== input.provider) {
+    throw new Error(`Malformed ${input.provider} review receipt for attempt ${input.reviewAttemptId}`);
+  }
+
+  return receipt;
 }
 
 function blockedReviewStatus(
@@ -626,6 +693,7 @@ export async function runReviewWithWriteAtomicFile(
       predecessor_artifacts: predecessorArtifacts,
       requested_route: requestedRoute,
       review_scope: inheritedReviewScope,
+      review_attempt_id: attemptId,
     }) as Promise<Awaited<ReturnType<typeof auditAdapter.execute_audit_a>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw }>,
     auditAdapter.execute_audit_b({
       cwd: ctx.cwd,
@@ -638,8 +706,31 @@ export async function runReviewWithWriteAtomicFile(
       predecessor_artifacts: predecessorArtifacts,
       requested_route: requestedRoute,
       review_scope: inheritedReviewScope,
+      review_attempt_id: attemptId,
     }) as Promise<Awaited<ReturnType<typeof auditAdapter.execute_audit_b>> & { raw_output: CcbExecuteAuditRaw | LocalExecuteAuditRaw }>,
   ]);
+
+  if (auditAResult.outcome === 'success') {
+    persistReviewAuditReceiptForResult({
+      cwd: ctx.cwd,
+      reviewAttemptId: attemptId,
+      provider: 'codex',
+      generatedAt: startedAt,
+      requestedRoute,
+      result: auditAResult,
+    });
+  }
+
+  if (auditBResult.outcome === 'success') {
+    persistReviewAuditReceiptForResult({
+      cwd: ctx.cwd,
+      reviewAttemptId: attemptId,
+      provider: 'gemini',
+      generatedAt: startedAt,
+      requestedRoute,
+      result: auditBResult,
+    });
+  }
 
   for (const [label, result] of [
     ['codex', auditAResult] as const,
@@ -720,8 +811,8 @@ export async function runReviewWithWriteAtomicFile(
     }
   }
 
-  const requestedCodexRoute = requestedAuditRouteFromBuild(requestedRoute, 'codex');
-  const requestedGeminiRoute = requestedAuditRouteFromBuild(requestedRoute, 'gemini');
+  const requestedCodexRoute = requestedReviewRoute(requestedRoute, 'codex');
+  const requestedGeminiRoute = requestedReviewRoute(requestedRoute, 'gemini');
 
   if (
     !requestedAndActualAuditRouteMatch(requestedCodexRoute, auditAResult.actual_route)
@@ -790,8 +881,18 @@ export async function runReviewWithWriteAtomicFile(
     throw new Error(message);
   }
 
-  const codexMarkdown = auditAResult.raw_output.markdown;
-  const geminiMarkdown = auditBResult.raw_output.markdown;
+  const codexReceipt = readRequiredReviewAuditReceipt({
+    cwd: ctx.cwd,
+    reviewAttemptId: attemptId,
+    provider: 'codex',
+  });
+  const geminiReceipt = readRequiredReviewAuditReceipt({
+    cwd: ctx.cwd,
+    reviewAttemptId: attemptId,
+    provider: 'gemini',
+  });
+  const codexMarkdown = codexReceipt.markdown;
+  const geminiMarkdown = geminiReceipt.markdown;
   assertNonEmptyMarkdown(codexMarkdown, 'Codex audit');
   assertNonEmptyMarkdown(geminiMarkdown, 'Gemini audit');
 
@@ -846,6 +947,8 @@ export async function runReviewWithWriteAtomicFile(
         actual_route: auditAResult.actual_route,
         request_id: requestIdFromAuditRaw(auditAResult.raw_output),
         receipt: receiptFromAuditRaw(auditAResult.raw_output),
+        receipt_markdown_path: codexReceipt.markdownPath,
+        receipt_record_path: codexReceipt.receiptPath,
       },
       gemini: {
         provider: requestedGeminiRoute.provider ?? ledger.execution.primary_provider,
@@ -854,6 +957,8 @@ export async function runReviewWithWriteAtomicFile(
         actual_route: auditBResult.actual_route,
         request_id: requestIdFromAuditRaw(auditBResult.raw_output),
         receipt: receiptFromAuditRaw(auditBResult.raw_output),
+        receipt_markdown_path: geminiReceipt.markdownPath,
+        receipt_record_path: geminiReceipt.receiptPath,
       },
     },
     review_discipline: {
@@ -865,12 +970,16 @@ export async function runReviewWithWriteAtomicFile(
       path: codexPath,
       route: requestedCodexRoute.route,
       substrate: requestedCodexRoute.substrate,
+      receipt_markdown_path: codexReceipt.markdownPath,
+      receipt_record_path: codexReceipt.receiptPath,
     },
     gemini_audit: {
       provider: requestedGeminiRoute.provider ?? ledger.execution.primary_provider,
       path: geminiPath,
       route: requestedGeminiRoute.route,
       substrate: requestedGeminiRoute.substrate,
+      receipt_markdown_path: geminiReceipt.markdownPath,
+      receipt_record_path: geminiReceipt.receiptPath,
     },
     pm_skill: 'frame',
     execution_skill_chain: ['plan', 'handoff', 'build', 'review'],

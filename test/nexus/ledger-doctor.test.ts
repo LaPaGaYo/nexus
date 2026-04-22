@@ -4,10 +4,13 @@ import { describe, expect, test } from 'bun:test';
 import {
   closeoutDocumentationSyncPath,
   qaPerfVerificationPath,
+  reviewAttemptAuditMarkdownPath,
+  reviewAttemptAuditReceiptPath,
   shipCanaryStatusPath,
   shipDeployResultPath,
 } from '../../lib/nexus/artifacts';
 import { applySafeLedgerDoctorFix, buildLedgerDoctorReport } from '../../lib/nexus/ledger-doctor';
+import { buildReviewAuditReceiptRecord, persistReviewAuditReceipt } from '../../lib/nexus/review-receipts';
 import { runInTempRepo } from './helpers/temp-repo';
 
 describe('nexus ledger doctor', () => {
@@ -174,6 +177,58 @@ describe('nexus ledger doctor', () => {
         '.planning/audits/current/synthesis.md',
         '.planning/audits/current/gate-decision.md',
         '.planning/audits/current/meta.json',
+      ]));
+    });
+  });
+
+  test('reports stale review receipts when a superseded attempt lands after the current review completed', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      persistReviewAuditReceipt({
+        cwd,
+        review_attempt_id: 'review-2026-04-21T12-00-00-000Z',
+        provider: 'codex',
+        markdown: '# Codex Audit\n\nResult: fail\n\nFindings:\n- stale late receipt\n',
+        record: buildReviewAuditReceiptRecord({
+          review_attempt_id: 'review-2026-04-21T12-00-00-000Z',
+          provider: 'codex',
+          request_id: '20260421-999999-1',
+          generated_at: '2099-04-21T12:00:00.000Z',
+          requested_route: {
+            provider: 'codex',
+            route: 'codex-via-ccb',
+            substrate: 'superpowers-core',
+            transport: 'ccb',
+          },
+          actual_route: {
+            provider: 'codex',
+            route: 'codex-via-ccb',
+            substrate: 'superpowers-core',
+            transport: 'ccb',
+            receipt_path: '.planning/current/review/adapter-output.json',
+          },
+          verdict: 'fail',
+          markdown_path: reviewAttemptAuditMarkdownPath('review-2026-04-21T12-00-00-000Z', 'codex'),
+        }),
+      });
+
+      expect(buildLedgerDoctorReport(cwd)).toMatchObject({
+        status: 'action_required',
+        issues: [
+          expect.objectContaining({
+            code: 'stale_review_receipts',
+          }),
+        ],
+      });
+
+      const staleReceiptIssue = buildLedgerDoctorReport(cwd).issues.find((issue) => issue.code === 'stale_review_receipts');
+      expect(staleReceiptIssue?.evidence).toEqual(expect.arrayContaining([
+        reviewAttemptAuditMarkdownPath('review-2026-04-21T12-00-00-000Z', 'codex'),
+        reviewAttemptAuditReceiptPath('review-2026-04-21T12-00-00-000Z', 'codex'),
       ]));
     });
   });

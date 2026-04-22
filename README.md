@@ -63,6 +63,9 @@ Use this when you want the full governed cross-provider path.
 - Claude invokes Nexus
 - Nexus owns commands, lifecycle, artifacts, and governance
 - Nexus dispatches external model work through CCB when needed
+- review providers author attempt-scoped receipts under `.planning/current/review/attempts/<review_attempt_id>/`
+- Nexus promotes the validated current attempt into `.planning/audits/current/`
+- late stale replies stay in attempt receipts and do not overwrite canonical current audit truth
 - repo-visible Nexus artifacts remain the only governed truth source
 
 ### `local_provider`
@@ -305,7 +308,7 @@ cd ~/nexus && ./setup --host factory
 | `/plan` | GSD planning | Convert approved framing into execution-ready planning artifacts, including the canonical verification matrix, and require a design contract for material UI work. |
 | `/handoff` | Governed routing | Record approved provider routing, substrate, provenance intent, and fallback policy. |
 | `/build` | Disciplined execution | Run the bounded implementation contract and persist the build result. |
-| `/review` | Dual audit | Persist the audit set, synthesis, and reviewed provenance. |
+| `/review` | Dual audit | Promote provider-authored review receipts into the canonical audit set, synthesis, and reviewed provenance. |
 | `/qa` | Validation | Record explicit validation scope, findings, and visual verification before `/ship` for design-bearing runs. |
 | `/ship` | Release gate | Record conservative release readiness, checklist state, and PR handoff metadata when available. |
 | `/closeout` | Milestone verification | Verify archive, provenance, legality, and final readiness status. |

@@ -11,6 +11,11 @@ import {
 } from './artifacts';
 import { diagnoseCloseoutHistory } from './governance';
 import { readLedger, writeLedger } from './ledger';
+import {
+  listReviewAttemptIds,
+  listReviewAttemptReceiptPaths,
+  readReviewAuditReceipt,
+} from './review-receipts';
 import { readStageStatus } from './status';
 import type { StageStatus } from './types';
 
@@ -18,6 +23,7 @@ export const LEDGER_DOCTOR_ISSUE_CODES = [
   'history_mismatch',
   'stale_current_audits',
   'split_brain_current_audits',
+  'stale_review_receipts',
   'stale_attached_evidence',
 ] as const;
 
@@ -127,6 +133,65 @@ function hasSplitBrainCurrentAudits(rootDir: string, reviewStatus: StageStatus):
   } catch {
     return true;
   }
+}
+
+function reviewReceiptGeneratedAtMillis(rootDir: string, attemptId: string): number | null {
+  const receipts = [
+    readReviewAuditReceipt({ cwd: rootDir, review_attempt_id: attemptId, provider: 'codex' }),
+    readReviewAuditReceipt({ cwd: rootDir, review_attempt_id: attemptId, provider: 'gemini' }),
+  ].filter((receipt): receipt is NonNullable<typeof receipt> => receipt !== null);
+
+  if (receipts.length === 0) {
+    return null;
+  }
+
+  const generatedAtMillis = receipts
+    .map((receipt) => Date.parse(receipt.record.generated_at))
+    .filter((value) => Number.isFinite(value));
+
+  if (generatedAtMillis.length === 0) {
+    return null;
+  }
+
+  return Math.max(...generatedAtMillis);
+}
+
+function staleReviewReceiptPaths(
+  rootDir: string,
+  reviewStatus: StageStatus | null,
+  ledgerRunId: string | null,
+): string[] {
+  const attemptIds = listReviewAttemptIds(rootDir);
+  if (attemptIds.length === 0) {
+    return [];
+  }
+
+  const activeAttemptId = reviewStatus?.run_id === ledgerRunId ? (reviewStatus.review_attempt_id ?? null) : null;
+  const activeCompletedAtMillis = reviewStatus?.run_id === ledgerRunId && typeof reviewStatus.completed_at === 'string'
+    ? Date.parse(reviewStatus.completed_at)
+    : NaN;
+
+  return attemptIds.flatMap((attemptId) => {
+    if (attemptId === activeAttemptId) {
+      return [];
+    }
+
+    const attemptPaths = listReviewAttemptReceiptPaths(rootDir, attemptId);
+    if (attemptPaths.length === 0) {
+      return [];
+    }
+
+    if (!activeAttemptId || !Number.isFinite(activeCompletedAtMillis)) {
+      return attemptPaths;
+    }
+
+    const generatedAtMillis = reviewReceiptGeneratedAtMillis(rootDir, attemptId);
+    if (generatedAtMillis === null || generatedAtMillis > activeCompletedAtMillis) {
+      return attemptPaths;
+    }
+
+    return [];
+  });
 }
 
 type AttachedEvidenceBinding = {
@@ -252,6 +317,15 @@ export function buildLedgerDoctorReport(rootDir: string): LedgerDoctorReport {
       code: 'split_brain_current_audits',
       message: 'Current audit artifacts are incomplete or internally inconsistent with the canonical review status.',
       evidence: [stageStatusPath('review'), ...currentAuditArtifactPaths()],
+    });
+  }
+
+  const staleReviewReceipts = staleReviewReceiptPaths(rootDir, reviewStatus, ledger?.run_id ?? null);
+  if (shouldDiagnoseCloseoutHistory(ledger?.current_stage) && staleReviewReceipts.length > 0) {
+    issues.push({
+      code: 'stale_review_receipts',
+      message: 'Attempt-scoped review receipts from superseded or orphaned review attempts remain under .planning/current/review/attempts/.',
+      evidence: staleReviewReceipts,
     });
   }
 

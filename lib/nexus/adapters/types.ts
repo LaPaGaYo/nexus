@@ -24,6 +24,7 @@ export interface NexusAdapterContext {
   predecessor_artifacts: ArtifactPointer[];
   requested_route: RequestedRouteRecord | null;
   review_scope?: ReviewScopeRecord | null;
+  review_attempt_id?: string | null;
 }
 
 export interface AdapterTraceability extends StagePackTraceability {

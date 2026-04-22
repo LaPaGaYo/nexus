@@ -64,6 +64,28 @@ export function reviewAdvisoryDispositionPath(): string {
   return `${CURRENT_ROOT}/review/advisory-disposition.json`;
 }
 
+export function reviewAttemptsRootPath(): string {
+  return `${CURRENT_ROOT}/review/attempts`;
+}
+
+export function reviewAttemptRootPath(reviewAttemptId: string): string {
+  return `${reviewAttemptsRootPath()}/${reviewAttemptId}`;
+}
+
+export function reviewAttemptAuditMarkdownPath(
+  reviewAttemptId: string,
+  provider: 'codex' | 'gemini',
+): string {
+  return `${reviewAttemptRootPath(reviewAttemptId)}/${provider}.md`;
+}
+
+export function reviewAttemptAuditReceiptPath(
+  reviewAttemptId: string,
+  provider: 'codex' | 'gemini',
+): string {
+  return `${reviewAttemptRootPath(reviewAttemptId)}/${provider}.json`;
+}
+
 export function qaLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/qa/learning-candidates.json`;
 }

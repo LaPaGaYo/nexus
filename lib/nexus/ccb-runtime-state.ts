@@ -6,7 +6,7 @@ export type CcbRuntimeProvider = 'codex' | 'gemini';
 export type CcbRuntimeStage = 'handoff' | 'build' | 'review' | 'qa';
 export type CcbDispatchStage = Exclude<CcbRuntimeStage, 'handoff'>;
 export type CcbDispatchStatus = 'dispatched' | 'completed' | 'blocked' | 'recovered_late' | 'superseded';
-export type CcbPayloadSource = 'ask' | 'pend' | null;
+export type CcbPayloadSource = 'ask' | 'pend' | 'receipt' | null;
 export type CcbDispatchLatencyPath = 'foreground' | 'foreground_retry' | 'watchdog_recovery' | 'late_recovery' | 'blocked';
 export type CcbDispatchForegroundExit = 'success' | 'timeout' | 'nonzero';
 export type CcbDispatchLikelyCause = 'normal' | 'provider_slow' | 'orchestration_false_start' | 'dispatch_failed';
@@ -205,7 +205,11 @@ export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbD
       provider: parsed.provider as CcbRuntimeProvider,
       stage: parsed.stage as CcbDispatchStage,
       status: parsed.status as CcbDispatchStatus,
-      payload_source: parsed.payload_source === 'ask' || parsed.payload_source === 'pend' ? parsed.payload_source : null,
+      payload_source: parsed.payload_source === 'ask'
+        || parsed.payload_source === 'pend'
+        || parsed.payload_source === 'receipt'
+        ? parsed.payload_source
+        : null,
       session_root: typeof parsed.session_root === 'string' ? parsed.session_root : '',
       session_file: typeof parsed.session_file === 'string' ? parsed.session_file : null,
       execution_workspace: typeof parsed.execution_workspace === 'string' ? parsed.execution_workspace : '',
@@ -249,7 +253,9 @@ export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbD
             pend_attempts: typeof parsed.latency_summary.pend_attempts === 'number'
               ? parsed.latency_summary.pend_attempts
               : 0,
-            recovered_via: parsed.latency_summary.recovered_via === 'ask' || parsed.latency_summary.recovered_via === 'pend'
+            recovered_via: parsed.latency_summary.recovered_via === 'ask'
+              || parsed.latency_summary.recovered_via === 'pend'
+              || parsed.latency_summary.recovered_via === 'receipt'
               ? parsed.latency_summary.recovered_via
               : null,
           }

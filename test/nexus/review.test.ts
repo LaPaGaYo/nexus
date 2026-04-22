@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { buildReviewAuditPrompt } from '../../lib/nexus/adapters/prompt-contracts';
@@ -8,6 +8,8 @@ import {
   reviewAdvisoriesPath,
   reviewAdvisoryDispositionPath,
   reviewLearningCandidatesPath,
+  reviewAttemptAuditMarkdownPath,
+  reviewAttemptAuditReceiptPath,
 } from '../../lib/nexus/artifacts';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
@@ -102,8 +104,10 @@ describe('nexus review', () => {
 
       const buildStatus = await run.readJson('.planning/current/build/status.json');
       const ledger = await run.readJson('.planning/nexus/current-run.json');
+      const reviewStatus = await run.readJson('.planning/current/review/status.json');
+      const reviewAttemptId = reviewStatus.review_attempt_id as string;
       expect(calls).toEqual(['discipline', 'audit_a', 'audit_b']);
-      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+      expect(reviewStatus).toMatchObject({
         stage: 'review',
         state: 'completed',
         decision: 'audit_recorded',
@@ -115,9 +119,13 @@ describe('nexus review', () => {
         learnings_recorded: false,
         requested_route: buildStatus.requested_route,
         actual_route: buildStatus.actual_route,
+        review_attempt_id: expect.any(String),
       });
       expect(existsSync(join(cwd, reviewLearningCandidatesPath()))).toBe(false);
       expect(ledger.artifact_index[reviewLearningCandidatesPath()]).toBeUndefined();
+      expect(
+        readdirSync(join(cwd, '.planning/current/review/attempts', reviewAttemptId)).sort(),
+      ).toEqual(['codex.json', 'codex.md', 'gemini.json', 'gemini.md']);
 
       expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain('Verification-before-completion passed');
       expect(await run.readJson('.planning/current/review/adapter-output.json')).toMatchObject({
@@ -147,7 +155,8 @@ describe('nexus review', () => {
         },
       });
 
-      expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
+      const meta = await run.readJson('.planning/audits/current/meta.json');
+      expect(meta).toMatchObject({
         run_id: expect.any(String),
         implementation: {
           path: expect.any(String),
@@ -170,6 +179,8 @@ describe('nexus review', () => {
               substrate: buildStatus.requested_route.substrate,
               transport: 'ccb',
             },
+            receipt_markdown_path: reviewAttemptAuditMarkdownPath(reviewAttemptId, 'codex'),
+            receipt_record_path: reviewAttemptAuditReceiptPath(reviewAttemptId, 'codex'),
           },
           gemini: {
             provider: 'gemini',
@@ -186,6 +197,8 @@ describe('nexus review', () => {
               substrate: buildStatus.requested_route.substrate,
               transport: 'ccb',
             },
+            receipt_markdown_path: reviewAttemptAuditMarkdownPath(reviewAttemptId, 'gemini'),
+            receipt_record_path: reviewAttemptAuditReceiptPath(reviewAttemptId, 'gemini'),
           },
         },
         review_discipline: {
@@ -193,6 +206,10 @@ describe('nexus review', () => {
           summary: 'Verification-before-completion passed',
         },
       });
+      expect(existsSync(join(cwd, meta.audits.codex.receipt_markdown_path))).toBe(true);
+      expect(existsSync(join(cwd, meta.audits.codex.receipt_record_path))).toBe(true);
+      expect(existsSync(join(cwd, meta.audits.gemini.receipt_markdown_path))).toBe(true);
+      expect(existsSync(join(cwd, meta.audits.gemini.receipt_record_path))).toBe(true);
     });
   });
 

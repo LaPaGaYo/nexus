@@ -155,6 +155,9 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`/plan` writes the canonical verification matrix and requires a design contract for material UI work');
     expect(readme).toContain('`/qa` records visual verification before `/ship` for design-bearing runs');
     expect(readme).toContain('.planning/current/<stage>/completion-advisor.json');
+    expect(readme).toContain('.planning/current/review/attempts/<review_attempt_id>/');
+    expect(readme).toContain('providers author attempt-scoped receipts');
+    expect(readme).toContain('late stale replies stay in attempt receipts');
     expect(readme).toContain('runtime-owned next-step contract');
     expect(readme).toContain('/plan-design-review');
     expect(readme).toContain('/design-review');
@@ -179,6 +182,9 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| [`/qa`](#qa) |');
     expect(skills).toContain('| [`/ship`](#ship) |');
     expect(skills).toContain('| [`/closeout`](#closeout) |');
+    expect(skills).toContain('providers now author attempt-scoped receipts first');
+    expect(skills).toContain('.planning/current/review/attempts/<review_attempt_id>/codex.md');
+    expect(skills).toContain('providers own review receipt content; Nexus promotes and owns canonical current audit truth');
     expect(skills).toContain('.planning/current/plan/verification-matrix.json');
     expect(skills).toContain('.planning/current/<stage>/completion-advisor.json');
     expect(skills).toContain('runtime-owned next-step contract');

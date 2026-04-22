@@ -4,9 +4,11 @@ import { join } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { createRuntimeCcbAdapter } from '../../lib/nexus/adapters/ccb';
+import { reviewAttemptAuditMarkdownPath, reviewAttemptAuditReceiptPath } from '../../lib/nexus/artifacts';
 import { readActiveCcbDispatchState, readCcbDispatchState, readCcbProviderState, startCcbDispatchState } from '../../lib/nexus/ccb-runtime-state';
 import { withExecutionSessionRoot, withExecutionWorkspace } from '../../lib/nexus/execution-topology';
 import { startLedger } from '../../lib/nexus/ledger';
+import { buildReviewAuditReceiptRecord, persistReviewAuditReceipt } from '../../lib/nexus/review-receipts';
 import type { NexusAdapterContext } from '../../lib/nexus/adapters/types';
 import type { ArtifactPointer, RequestedRouteRecord, ReviewScopeRecord, SessionRootRecord, WorkspaceRecord } from '../../lib/nexus/types';
 
@@ -41,6 +43,7 @@ function buildContext(
     ledgerWorkspace?: WorkspaceRecord;
     ledgerSessionRoot?: SessionRootRecord;
     predecessorArtifacts?: ArtifactPointer[];
+    reviewAttemptId?: string;
   } = {},
 ): NexusAdapterContext {
   const contextWorkspace = options.contextWorkspace ?? {
@@ -71,6 +74,7 @@ function buildContext(
     predecessor_artifacts: options.predecessorArtifacts ?? [{ kind: 'json', path: `.planning/current/${stage}/status.json` }],
     requested_route: requestedRoute,
     review_scope: reviewScope,
+    review_attempt_id: options.reviewAttemptId,
   };
 }
 
@@ -112,6 +116,7 @@ describe('nexus runtime ccb adapter', () => {
           kind: 'repo_root',
           source: 'ccb_root',
         },
+        reviewAttemptId: 'review-2026-04-21T01-23-45-678Z',
       }));
 
       const providerStatePath = join(root, '.planning/nexus/providers.json');
@@ -549,6 +554,182 @@ describe('nexus runtime ccb adapter', () => {
       route: 'gemini-via-ccb',
       transport: 'ccb',
     });
+  });
+
+  test('writes review attempt receipts when a governed review audit succeeds', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-review-receipt-'));
+
+    try {
+      const adapter = createRuntimeCcbAdapter({
+        resolveSessionRoot: () => root,
+        resolveToolPaths: () => ({
+          ask_path: '/opt/ccb/bin/ask',
+          ping_path: '/opt/ccb/bin/ccb-ping',
+          mounted_path: '/opt/ccb/bin/ccb-mounted',
+          autonew_path: '/opt/ccb/bin/autonew',
+        }),
+        runCommand: async (spec) => {
+          if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+            return {
+              exit_code: 0,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          return {
+            exit_code: 0,
+            stdout: '# Gemini Audit\n\nResult: fail\n\nFindings:\n- Receipt persisted.\n',
+            stderr: '',
+          };
+        },
+        now: () => '2026-04-21T01:23:45.678Z',
+      });
+
+      const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, null, {
+        cwd: root,
+        contextWorkspace: {
+          path: join(root, '.nexus-worktrees', 'run-owned'),
+          kind: 'worktree',
+          branch: 'codex/run-owned',
+          source: 'allocated:fresh_run',
+        },
+        ledgerWorkspace: {
+          path: join(root, '.nexus-worktrees', 'run-owned'),
+          kind: 'worktree',
+          branch: 'codex/run-owned',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerSessionRoot: {
+          path: root,
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+        reviewAttemptId: 'review-2026-04-21T01-23-45-678Z',
+      }));
+
+      expect(result.outcome).toBe('success');
+      const reviewAttemptId = 'review-2026-04-21T01-23-45-678Z';
+      const markdownPath = join(root, reviewAttemptAuditMarkdownPath(reviewAttemptId, 'gemini'));
+      const receiptPath = join(root, reviewAttemptAuditReceiptPath(reviewAttemptId, 'gemini'));
+      expect(existsSync(markdownPath)).toBe(true);
+      expect(existsSync(receiptPath)).toBe(true);
+      expect(readFileSync(markdownPath, 'utf8')).toContain('# Gemini Audit');
+      expect(JSON.parse(readFileSync(receiptPath, 'utf8'))).toMatchObject({
+        schema_version: 1,
+        review_attempt_id: reviewAttemptId,
+        provider: 'gemini',
+        verdict: 'fail',
+        markdown_path: reviewAttemptAuditMarkdownPath(reviewAttemptId, 'gemini'),
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('recovers a governed review audit from the current attempt receipt when transport recovery still misses the reply', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nexus-ccb-receipt-recovery-'));
+    const reviewAttemptId = 'review-2026-04-21T01-23-45-678Z';
+
+    try {
+      persistReviewAuditReceipt({
+        cwd: root,
+        review_attempt_id: reviewAttemptId,
+        provider: 'gemini',
+        markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n',
+        record: buildReviewAuditReceiptRecord({
+          review_attempt_id: reviewAttemptId,
+          provider: 'gemini',
+          request_id: '20260421-123456-1',
+          generated_at: '2026-04-21T01:23:45.678Z',
+          requested_route: {
+            provider: 'gemini',
+            route: REQUESTED_ROUTE.evaluator_b,
+            substrate: REQUESTED_ROUTE.substrate,
+            transport: 'ccb',
+          },
+          actual_route: {
+            provider: 'gemini',
+            route: REQUESTED_ROUTE.evaluator_b,
+            substrate: REQUESTED_ROUTE.substrate,
+            transport: 'ccb',
+            receipt_path: '.planning/current/review/adapter-output.json',
+          },
+          verdict: 'pass',
+          markdown_path: reviewAttemptAuditMarkdownPath(reviewAttemptId, 'gemini'),
+        }),
+      });
+
+      const adapter = createRuntimeCcbAdapter({
+        resolveSessionRoot: () => root,
+        resolveToolPaths: () => ({
+          ask_path: '/opt/ccb/bin/ask',
+          ping_path: '/opt/ccb/bin/ccb-ping',
+          mounted_path: '/opt/ccb/bin/ccb-mounted',
+          autonew_path: '/opt/ccb/bin/autonew',
+          pend_path: '/opt/ccb/bin/pend',
+        }),
+        runCommand: async (spec) => {
+          if (spec.argv[0] === '/opt/ccb/bin/autonew') {
+            return {
+              exit_code: 0,
+              stdout: '',
+              stderr: '',
+            };
+          }
+
+          return {
+            exit_code: 1,
+            stdout: '',
+            stderr: 'foreground false-start',
+          };
+        },
+        now: () => '2026-04-21T01:24:00.000Z',
+      });
+
+      const result = await adapter.execute_audit_b(buildContext('review', 'review', REQUESTED_ROUTE, null, {
+        cwd: root,
+        contextWorkspace: {
+          path: join(root, '.nexus-worktrees', 'run-owned'),
+          kind: 'worktree',
+          branch: 'codex/run-owned',
+          source: 'allocated:fresh_run',
+        },
+        ledgerWorkspace: {
+          path: join(root, '.nexus-worktrees', 'run-owned'),
+          kind: 'worktree',
+          branch: 'codex/run-owned',
+          source: 'allocated:fresh_run',
+          run_id: 'run-123',
+          retirement_state: 'active',
+        },
+        ledgerSessionRoot: {
+          path: root,
+          kind: 'repo_root',
+          source: 'ccb_root',
+        },
+        reviewAttemptId,
+      }));
+
+      expect(result.outcome).toBe('success');
+      expect(result.raw_output.request_id).toBe('20260421-123456-1');
+      expect(result.raw_output.markdown).toContain('# Gemini Audit');
+      expect(result.raw_output.markdown).toContain('Result: pass');
+      expect(result.raw_output.latency_summary).toMatchObject({
+        path: 'late_recovery',
+        recovered_via: 'receipt',
+      });
+      const providerState = readCcbProviderState(root, '2026-04-21T01:24:00.000Z');
+      expect(providerState.providers.gemini).toMatchObject({
+        last_dispatch_status: 'recovered_late',
+        last_request_status: 'recovered_late',
+      });
+      expect(readFileSync(join(root, reviewAttemptAuditMarkdownPath(reviewAttemptId, 'gemini')), 'utf8')).toContain('Result: pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('marks a previously active governed dispatch as superseded when a newer dispatch starts', async () => {

@@ -26,6 +26,7 @@ import {
   type FollowOnEvidenceSummaryRecord,
   type LearningCandidate,
   type RepoRetroArchiveRecord,
+  type ReviewAuditReceiptRecord,
   type PullRequestRecord,
   type RunLearningsRecord,
   type StageLearningCandidatesRecord,
@@ -66,6 +67,9 @@ import {
   retroArchiveJsonPath,
   retroArchiveMarkdownPath,
   reviewLearningCandidatesPath,
+  reviewAttemptsRootPath,
+  reviewAttemptAuditMarkdownPath,
+  reviewAttemptAuditReceiptPath,
   qaLearningCandidatesPath,
   shipDeployReadinessPath,
   shipDeployResultPath,
@@ -960,6 +964,44 @@ describe('nexus types', () => {
 
     expect(canary.status).toBe('healthy');
     expect(canary.source).toBe('canary');
+  });
+
+  test('freezes the review receipt schema and artifact helpers', () => {
+    const receipt: ReviewAuditReceiptRecord = {
+      schema_version: 1,
+      review_attempt_id: 'review-2026-04-21T01-23-45-678Z',
+      provider: 'codex',
+      request_id: '20260421-123456-1',
+      generated_at: '2026-04-21T01:23:45.678Z',
+      requested_route: {
+        provider: 'codex',
+        route: 'codex-via-ccb',
+        substrate: 'superpowers-core',
+        transport: 'ccb',
+      },
+      actual_route: {
+        provider: 'codex',
+        route: 'codex-via-ccb',
+        substrate: 'superpowers-core',
+        transport: 'ccb',
+        receipt_path: '.planning/current/review/adapter-output.json',
+      },
+      verdict: 'pass',
+      markdown_path: '.planning/current/review/attempts/review-2026-04-21T01-23-45-678Z/codex.md',
+    };
+
+    expect(receipt).toMatchObject({
+      schema_version: 1,
+      provider: 'codex',
+      verdict: 'pass',
+    });
+    expect(reviewAttemptAuditMarkdownPath('review-2026-04-21T01-23-45-678Z', 'codex')).toBe(
+      '.planning/current/review/attempts/review-2026-04-21T01-23-45-678Z/codex.md',
+    );
+    expect(reviewAttemptsRootPath()).toBe('.planning/current/review/attempts');
+    expect(reviewAttemptAuditReceiptPath('review-2026-04-21T01-23-45-678Z', 'gemini')).toBe(
+      '.planning/current/review/attempts/review-2026-04-21T01-23-45-678Z/gemini.json',
+    );
   });
 
   test('locks the plan manifest input contract', () => {

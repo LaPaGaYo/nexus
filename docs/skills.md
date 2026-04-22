@@ -58,7 +58,7 @@ Legacy compatibility aliases route through the same Nexus runtime:
 | [`/plan`](#plan) | **GSD planning** | Convert approved framing into execution-ready artifacts and readiness state. |
 | [`/handoff`](#handoff) | **Governed routing** | Record approved provider routing, substrate, provenance intent, and fallback policy. |
 | [`/build`](#build) | **Disciplined execution** | Run the bounded implementation contract through Nexus-governed execution. |
-| [`/review`](#review) | **Dual audit** | Persist the audit set, synthesis, gate decision, and reviewed provenance. |
+| [`/review`](#review) | **Dual audit** | Promote provider-authored review receipts into the audit set, synthesis, gate decision, and reviewed provenance. |
 | [`/qa`](#qa) | **Validation** | Record explicit validation scope, findings, and QA status. |
 | [`/ship`](#ship) | **Release gate** | Record release readiness, checklist state, and PR handoff metadata without bypassing review or closeout requirements. |
 | [`/closeout`](#closeout) | **Milestone verification** | Verify archive, provenance, legality, and final readiness status. |
@@ -116,6 +116,16 @@ The canonical build command. Nexus owns the bounded implementation contract and 
 - Absorbed capability lineage: Superpowers execution discipline plus CCB transport.
 - Canonical outputs: `.planning/current/build/build-request.json`, `.planning/current/build/build-result.md`, and `.planning/current/build/status.json`.
 - Build truth only exists after Nexus normalization and writeback.
+
+## `/review`
+
+The canonical review command. Nexus owns the governed audit truth, but providers now author attempt-scoped receipts first.
+
+- Primary purpose: validate the build through dual audit and promote the validated current-attempt receipts into canonical current audit truth.
+- Attempt receipts: `.planning/current/review/attempts/<review_attempt_id>/codex.md`, `.planning/current/review/attempts/<review_attempt_id>/codex.json`, `.planning/current/review/attempts/<review_attempt_id>/gemini.md`, and `.planning/current/review/attempts/<review_attempt_id>/gemini.json`.
+- Canonical outputs: `.planning/audits/current/codex.md`, `.planning/audits/current/gemini.md`, `.planning/audits/current/synthesis.md`, `.planning/audits/current/gate-decision.md`, `.planning/audits/current/meta.json`, and `.planning/current/review/status.json`.
+- Ownership boundary: providers own review receipt content; Nexus promotes and owns canonical current audit truth.
+- Late stale replies stay in attempt receipts and do not overwrite `.planning/audits/current/*`.
 
 ## Stage Completion Advisor
 

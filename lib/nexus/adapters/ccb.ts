@@ -25,6 +25,12 @@ import { createBuildStagePack, createHandoffStagePack, createQaStagePack, create
 import { resolveRepositoryRoot } from '../workspace-substrate';
 import type { ActualRouteRecord, ConflictRecord, LearningCandidate } from '../types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter, NexusAdapterContext } from './types';
+import {
+  buildReviewAuditReceiptRecord,
+  persistReviewAuditReceipt,
+  readReviewAuditReceipt,
+} from '../review-receipts';
+import { reviewAttemptAuditMarkdownPath } from '../artifacts';
 
 export interface CcbResolveRouteRaw {
   available: boolean;
@@ -461,6 +467,16 @@ function extractCanonicalReviewAuditMarkdown(
   return candidate;
 }
 
+function canonicalReviewAuditVerdict(markdown: string): 'pass' | 'fail' {
+  const matches = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)];
+  const verdict = matches.at(-1)?.[1]?.toLowerCase();
+  if (verdict !== 'pass' && verdict !== 'fail') {
+    throw new Error('Malformed review response: canonical audit block is missing Result: pass|fail');
+  }
+
+  return verdict;
+}
+
 function buildGeneratorPrompt(ctx: NexusAdapterContext): string {
   return buildBuildExecutionPrompt(normalizedExecutionContext(ctx), 'Nexus governed stage');
 }
@@ -477,6 +493,60 @@ function buildAuditPrompt(
     `Perform the governed Nexus /review audit for the ${provider} path.`,
     header,
   );
+}
+
+function reviewRequestedRouteFromContext(
+  ctx: NexusAdapterContext,
+  provider: 'codex' | 'gemini',
+) {
+  return {
+    provider,
+    route: provider === 'codex'
+      ? (ctx.requested_route?.evaluator_a ?? 'codex-via-ccb')
+      : (ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb'),
+    substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+    transport: 'ccb' as const,
+  };
+}
+
+function reviewReceiptMatchesContext(
+  ctx: NexusAdapterContext,
+  provider: 'codex' | 'gemini',
+): { markdown: string; requestId: string | null } | null {
+  if (ctx.stage !== 'review' || !ctx.review_attempt_id) {
+    return null;
+  }
+
+  const receipt = readReviewAuditReceipt({
+    cwd: ctx.cwd,
+    review_attempt_id: ctx.review_attempt_id,
+    provider,
+  });
+  if (!receipt) {
+    return null;
+  }
+
+  const expectedRoute = reviewRequestedRouteFromContext(ctx, provider);
+  if (
+    receipt.record.review_attempt_id !== ctx.review_attempt_id
+    || receipt.record.provider !== provider
+    || receipt.record.requested_route.provider !== expectedRoute.provider
+    || receipt.record.requested_route.route !== expectedRoute.route
+    || receipt.record.requested_route.substrate !== expectedRoute.substrate
+    || receipt.record.requested_route.transport !== expectedRoute.transport
+  ) {
+    return null;
+  }
+
+  const markdown = extractCanonicalReviewAuditMarkdown(receipt.markdown, provider);
+  if (markdown === null) {
+    return null;
+  }
+
+  return {
+    markdown,
+    requestId: receipt.record.request_id,
+  };
 }
 
 function buildAuditFinalizePrompt(
@@ -850,7 +920,7 @@ function buildDispatchLatencySummary(input: {
   finalizeNudgeIssued: boolean;
   foregroundRetryCount: number;
   pendAttempts: number;
-  recoveredVia: 'ask' | 'pend' | null;
+  recoveredVia: 'ask' | 'pend' | 'receipt' | null;
 }): CcbDispatchLatencySummary {
   const foregroundExit = foregroundExitKind(input.exitCode, input.stdout, input.stderr);
   let path: CcbDispatchLatencySummary['path'] = 'blocked';
@@ -1462,6 +1532,56 @@ async function runAskDispatch(
       };
     }
 
+    const receiptRecovery = stage === 'review'
+      ? reviewReceiptMatchesContext(ctx, provider)
+      : null;
+    if (receiptRecovery !== null) {
+      const recoveryStderrWithReceipt = [
+        recoveryStderr,
+        '[RECEIPT] adopted current-attempt review receipt after transport recovery',
+      ].filter(Boolean).join('\n');
+      const latencySummary = buildDispatchLatencySummary({
+        stage,
+        exitCode: execution.exit_code,
+        stdout: execution.stdout,
+        stderr: recoveryStderrWithReceipt,
+        watchdogEngaged,
+        finalizeNudgeIssued,
+        foregroundRetryCount,
+        pendAttempts,
+        recoveredVia: 'receipt',
+      });
+      if (dispatchId && stage !== 'handoff') {
+        recordCcbDispatchState({
+          repoRoot,
+          dispatchId,
+          requestId: receiptRecovery.requestId,
+          provider,
+          stage,
+          status: 'recovered_late',
+          payloadSource: 'receipt',
+          sessionRoot,
+          sessionFile,
+          executionWorkspace: executionCwd,
+          dispatchCommand,
+          dispatchedAt: dispatchAt,
+          updatedAt: options.now(),
+          askExitCode: execution.exit_code,
+          stdout: receiptRecovery.markdown,
+          stderr: recoveryStderrWithReceipt,
+          retryProvenance,
+          latencySummary,
+        });
+      }
+      return {
+        ...execution,
+        stdout: receiptRecovery.markdown,
+        stderr: recoveryStderrWithReceipt,
+        request_id: receiptRecovery.requestId,
+        latency_summary: latencySummary,
+      };
+    }
+
     const latencySummary = buildDispatchLatencySummary({
       stage,
       exitCode: execution.exit_code,
@@ -1922,6 +2042,26 @@ export function createRuntimeCcbAdapter(
         );
       }
 
+      const actualRoute = buildActualRoute('codex', ctx.requested_route?.evaluator_a ?? 'codex-via-ccb', ctx.requested_route?.substrate ?? null, 'review');
+      if (ctx.review_attempt_id) {
+        persistReviewAuditReceipt({
+          cwd: ctx.cwd,
+          review_attempt_id: ctx.review_attempt_id,
+          provider: 'codex',
+          markdown,
+          record: buildReviewAuditReceiptRecord({
+            review_attempt_id: ctx.review_attempt_id,
+            provider: 'codex',
+            request_id: execution.request_id ?? extractRequestId(execution.stdout, execution.stderr),
+            generated_at: options.now(),
+            requested_route: reviewRequestedRouteFromContext(ctx, 'codex'),
+            actual_route: actualRoute,
+            verdict: canonicalReviewAuditVerdict(markdown),
+            markdown_path: reviewAttemptAuditMarkdownPath(ctx.review_attempt_id, 'codex'),
+          }),
+        });
+      }
+
       return successResult<CcbExecuteAuditRaw>(
         {
           markdown,
@@ -1940,7 +2080,7 @@ export function createRuntimeCcbAdapter(
           request_id: execution.request_id ?? extractRequestId(execution.stdout, execution.stderr),
           latency_summary: execution.latency_summary ?? null,
         },
-        buildActualRoute('codex', ctx.requested_route?.evaluator_a ?? 'codex-via-ccb', ctx.requested_route?.substrate ?? null, 'review'),
+        actualRoute,
         ctx.requested_route,
         traceability,
       );
@@ -1991,6 +2131,26 @@ export function createRuntimeCcbAdapter(
         );
       }
 
+      const actualRoute = buildActualRoute('gemini', ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb', ctx.requested_route?.substrate ?? null, 'review');
+      if (ctx.review_attempt_id) {
+        persistReviewAuditReceipt({
+          cwd: ctx.cwd,
+          review_attempt_id: ctx.review_attempt_id,
+          provider: 'gemini',
+          markdown,
+          record: buildReviewAuditReceiptRecord({
+            review_attempt_id: ctx.review_attempt_id,
+            provider: 'gemini',
+            request_id: execution.request_id ?? extractRequestId(execution.stdout, execution.stderr),
+            generated_at: options.now(),
+            requested_route: reviewRequestedRouteFromContext(ctx, 'gemini'),
+            actual_route: actualRoute,
+            verdict: canonicalReviewAuditVerdict(markdown),
+            markdown_path: reviewAttemptAuditMarkdownPath(ctx.review_attempt_id, 'gemini'),
+          }),
+        });
+      }
+
       return successResult<CcbExecuteAuditRaw>(
         {
           markdown,
@@ -2009,7 +2169,7 @@ export function createRuntimeCcbAdapter(
           request_id: execution.request_id ?? extractRequestId(execution.stdout, execution.stderr),
           latency_summary: execution.latency_summary ?? null,
         },
-        buildActualRoute('gemini', ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb', ctx.requested_route?.substrate ?? null, 'review'),
+        actualRoute,
         ctx.requested_route,
         traceability,
       );

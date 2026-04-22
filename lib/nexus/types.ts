@@ -405,6 +405,20 @@ export interface ReviewAuditProvenanceRecord {
   actual_route: ActualRouteRecord | null;
   request_id?: string | null;
   receipt?: string | null;
+  receipt_markdown_path?: string | null;
+  receipt_record_path?: string | null;
+}
+
+export interface ReviewAuditReceiptRecord {
+  schema_version: 1;
+  review_attempt_id: string;
+  provider: 'codex' | 'gemini';
+  request_id: string | null;
+  generated_at: string;
+  requested_route: ReviewRequestedRouteRecord;
+  actual_route: ActualRouteRecord | null;
+  verdict: 'pass' | 'fail';
+  markdown_path: string;
 }
 
 export interface ReviewScopeRecord {
@@ -644,12 +658,16 @@ export interface ReviewMetaRecord {
     path: string;
     route: string | null;
     substrate: string | null;
+    receipt_markdown_path?: string | null;
+    receipt_record_path?: string | null;
   };
   gemini_audit: {
     provider: string;
     path: string;
     route: string | null;
     substrate: string | null;
+    receipt_markdown_path?: string | null;
+    receipt_record_path?: string | null;
   };
   pm_skill: string;
   execution_skill_chain: string[];
