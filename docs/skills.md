@@ -179,8 +179,8 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/cso` | Security audit and threat-modeling support skill. |
 | `/browse` | Fast browser automation and QA support. |
 | `/investigate` | Root-cause debugging workflow. |
-| `/design-consultation` | Design-system discovery and visual direction, now absorbing brand asset protocol into the canonical UI-bearing workflow. |
-| `/design-shotgun` | Design exploration and option generation with stronger fallback direction selection for UI-bearing runs. |
+| `/design-consultation` | Design-system discovery and visual direction with integrated asset protocol and brand context for UI-bearing runs. |
+| `/design-shotgun` | Design exploration and option generation with distinct-school direction architecture for UI-bearing runs. |
 | `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |
 | `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |
 | `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
