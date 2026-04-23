@@ -193,10 +193,20 @@ function formatExtractedSection(
  * If no DESIGN.md exists, returns null (explore wide).
  */
 export function readDesignConstraints(repoRoot: string): string | null {
-  const designPath = path.join(repoRoot, "DESIGN.md");
-  if (!fs.existsSync(designPath)) return null;
+  const sections: string[] = [];
 
-  const content = fs.readFileSync(designPath, "utf-8");
-  // Truncate to first 2000 chars to keep brief reasonable
-  return content.slice(0, 2000);
+  const designPath = path.join(repoRoot, "DESIGN.md");
+  if (fs.existsSync(designPath)) {
+    const content = fs.readFileSync(designPath, "utf-8");
+    sections.push(`DESIGN.md\n${content.slice(0, 2000)}`);
+  }
+
+  const brandSpecPath = path.join(repoRoot, "brand-spec.md");
+  if (fs.existsSync(brandSpecPath)) {
+    const content = fs.readFileSync(brandSpecPath, "utf-8");
+    sections.push(`brand-spec.md\n${content.slice(0, 2000)}`);
+  }
+
+  if (sections.length === 0) return null;
+  return sections.join("\n\n");
 }

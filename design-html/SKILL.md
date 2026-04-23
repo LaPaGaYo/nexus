@@ -492,6 +492,82 @@ approximations. Computed layout via Pretext. Text reflows on resize, heights adj
 to content, cards size themselves, chat bubbles shrinkwrap, editorial spreads flow
 around obstacles.
 
+## Nexus Design Governance
+
+Use these rules across all design-bearing work. They are part of the integrated
+Nexus design surface, not optional side guidance.
+
+### 1. Core asset protocol (required for named brands or products)
+
+If the work targets a specific company, product, or named brand:
+
+- Ask for the full asset set up front:
+  - logo
+  - product renders / photography for physical products
+  - UI screenshots for digital products
+  - color palette
+  - typography
+  - brand guidelines
+- If assets are missing, search official channels before improvising:
+  - `<brand>.com/brand`
+  - `<brand>.com/press`
+  - `brand.<brand>.com`
+  - product pages, launch films, app-store screenshots
+- Prefer real logo / product / UI assets over inferred colors or "brand vibes".
+- Verify fidelity before use:
+  - logo fidelity
+  - image resolution
+  - UI freshness
+  - extracted colors from real assets
+- Freeze the result to `brand-spec.md` so later design work consumes the same
+  truth instead of re-guessing.
+
+Asset importance order:
+1. Logo
+2. Product renders for physical products
+3. UI screenshots for digital products
+4. Color values
+5. Fonts
+
+If brand assets cannot be verified, say so explicitly. Do not fake "brand
+accuracy" from memory.
+
+### 2. Direction fallback for vague briefs
+
+If the brief is visually vague, or existing design context is too thin:
+
+- do not jump straight to one generic mockup
+- propose 3 differentiated directions
+- make them genuinely different in composition, typography, palette, and tone
+- explain why each direction fits the product and what tradeoff it makes
+
+The goal is to create intentional choice, not aesthetic drift.
+
+### 3. Junior-designer execution discipline
+
+Do not rely on heroic one-shot design guesses.
+
+- start with assumptions and placeholders when needed
+- surface reasoning early
+- show the user something concrete quickly
+- tighten with real content, real assets, and real constraints
+- iterate toward craft instead of pretending the first pass is final
+
+### 4. Five design lenses
+
+Use these lenses when proposing, reviewing, or finalizing design work:
+
+1. **Philosophical coherence** — does the system feel like one idea?
+2. **Visual hierarchy** — is the user's attention directed intentionally?
+3. **Execution craft** — spacing, typography, motion, and detail quality
+4. **Functional fit** — does the design help the task instead of just decorating it?
+5. **Distinctiveness** — does it avoid generic AI-default output?
+
+When critiquing, bias toward:
+- **Keep** — what is already working
+- **Fix** — what materially breaks the experience
+- **Quick wins** — high-leverage improvements that can land immediately
+
 ## DESIGN SETUP (run this check BEFORE any design mockup command)
 
 ```bash
@@ -587,8 +663,9 @@ ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1
 
 2. If found, read it. Extract: approved variant PNG path, user feedback, screen name.
 
-3. Read `DESIGN.md` if it exists in the repo root. These tokens take priority for
-   system-level values (fonts, brand colors, spacing scale).
+3. Read `DESIGN.md` and `brand-spec.md` if they exist in the repo root. These take
+   priority for system-level values, frozen brand assets, and spacing / typography
+   constraints.
 
 4. **Evolve mode:** Check for prior output:
 ```bash

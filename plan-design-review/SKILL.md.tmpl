@@ -30,6 +30,8 @@ to find missing design decisions and ADD THEM TO THE PLAN before implementation.
 
 The output of this skill is a better plan, not a document about the plan.
 
+{{DESIGN_GOVERNANCE}}
+
 ## Design Philosophy
 
 You are not here to rubber-stamp this plan's UI. You are here to ensure that when
@@ -112,12 +114,12 @@ git diff <base> --stat
 Then read:
 - The plan file (current plan or branch diff)
 - CLAUDE.md — project conventions
-- DESIGN.md — if it exists, ALL design decisions calibrate against it
+- DESIGN.md and brand-spec.md — if they exist, ALL design decisions calibrate against them
 - TODOS.md — any design-related TODOs this plan touches
 
 Map:
 * What is the UI scope of this plan? (pages, components, interactions)
-* Does a DESIGN.md exist? If not, flag as a gap.
+* Does a DESIGN.md or brand-spec.md exist? If not, flag the missing source(s) as a gap.
 * Are there existing design patterns in the codebase to align with?
 * What prior design reviews exist? (check reviews.jsonl)
 
@@ -141,8 +143,8 @@ Rate the plan's overall design completeness 0-10.
 Explain what a 10 looks like for THIS plan.
 
 ### 0B. DESIGN.md Status
-- If DESIGN.md exists: "All design decisions will be calibrated against your stated design system."
-- If no DESIGN.md: "No design system found. Recommend running /design-consultation first. Proceeding with universal design principles."
+- If DESIGN.md or brand-spec.md exists: "All design decisions will be calibrated against your stated design context."
+- If no DESIGN.md and no brand-spec.md: "No design system or frozen brand asset spec found. Recommend running /design-consultation first. Proceeding with universal design principles."
 
 ### 0C. Existing Design Leverage
 What existing UI patterns, components, or design decisions in the codebase should this plan reuse? Don't reinvent what already works.

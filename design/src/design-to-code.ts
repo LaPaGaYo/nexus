@@ -26,7 +26,7 @@ export async function generateDesignToCodePrompt(
   const apiKey = requireApiKey();
   const imageData = fs.readFileSync(imagePath).toString("base64");
 
-  // Read DESIGN.md if available for additional context
+  // Read design context (DESIGN.md / brand-spec.md) if available for additional context
   const designConstraints = repoRoot ? readDesignConstraints(repoRoot) : null;
 
   const controller = new AbortController();
@@ -34,7 +34,7 @@ export async function generateDesignToCodePrompt(
 
   try {
     const contextBlock = designConstraints
-      ? `\n\nExisting DESIGN.md (use these as constraints):\n${designConstraints}`
+      ? `\n\nExisting design context (use these as hard constraints when present):\n${designConstraints}`
       : "";
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -64,7 +64,7 @@ export async function generateDesignToCodePrompt(
   "components": ["component name - description", ...]
 }
 
-Be specific about every visual detail: exact hex colors, font sizes in px, spacing values, border-radius, shadows. The developer should be able to implement this without looking at the mockup again.${contextBlock}`,
+Be specific about every visual detail: exact hex colors, font sizes in px, spacing values, border-radius, shadows. If the design context freezes brand assets or logo/product/UI references, preserve them instead of inventing substitutes. The developer should be able to implement this without looking at the mockup again.${contextBlock}`,
             },
           ],
         }],

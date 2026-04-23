@@ -133,6 +133,19 @@ describe('gen-skill-docs', () => {
     }
   });
 
+  test('design skills absorb the shared design governance model', () => {
+    const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
+    const shotgun = fs.readFileSync(path.join(ROOT, 'design-shotgun', 'SKILL.md'), 'utf-8');
+    const review = fs.readFileSync(path.join(ROOT, 'design-review', 'SKILL.md'), 'utf-8');
+    const html = fs.readFileSync(path.join(ROOT, 'design-html', 'SKILL.md'), 'utf-8');
+
+    for (const content of [consultation, shotgun, review, html]) {
+      expect(content).toContain('Core asset protocol');
+      expect(content).toContain('brand-spec.md');
+      expect(content).toContain('Five design lenses');
+    }
+  });
+
   test('generated SKILL.md contains all command categories', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     const categories = new Set(Object.values(COMMAND_DESCRIPTIONS).map(d => d.category));

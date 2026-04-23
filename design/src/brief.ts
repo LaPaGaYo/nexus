@@ -9,6 +9,11 @@ export interface DesignBrief {
   elements: string[];     // ["builder name", "score badge", "narrative letter"]
   constraints?: string;   // "Max width 1024px, mobile-first"
   reference?: string;     // DESIGN.md excerpt or style reference text
+  narrative?: string;     // "From confused first visit to clear next action"
+  brandCore?: string;     // "Calm technical trust with one warm accent"
+  assetContext?: string[]; // ["Use frozen logo lockup", "Use real product render"]
+  reviewLenses?: string[]; // ["hierarchy", "craft", "functional fit"]
+  avoid?: string[];       // ["generic SaaS card grid", "purple gradients"]
   screenType: string;     // "desktop-dashboard" | "mobile-app" | "landing-page" | etc.
 }
 
@@ -29,6 +34,26 @@ export function briefToPrompt(brief: DesignBrief): string {
 
   if (brief.reference) {
     lines.push(`Design reference: ${brief.reference}`);
+  }
+
+  if (brief.narrative) {
+    lines.push(`Narrative arc: ${brief.narrative}.`);
+  }
+
+  if (brief.brandCore) {
+    lines.push(`Brand core: ${brief.brandCore}.`);
+  }
+
+  if (brief.assetContext && brief.assetContext.length > 0) {
+    lines.push(`Asset context: ${brief.assetContext.join(", ")}.`);
+  }
+
+  if (brief.reviewLenses && brief.reviewLenses.length > 0) {
+    lines.push(`Optimize for these design lenses: ${brief.reviewLenses.join(", ")}.`);
+  }
+
+  if (brief.avoid && brief.avoid.length > 0) {
+    lines.push(`Avoid these patterns: ${brief.avoid.join(", ")}.`);
   }
 
   lines.push(

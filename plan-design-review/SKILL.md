@@ -548,6 +548,82 @@ to find missing design decisions and ADD THEM TO THE PLAN before implementation.
 
 The output of this skill is a better plan, not a document about the plan.
 
+## Nexus Design Governance
+
+Use these rules across all design-bearing work. They are part of the integrated
+Nexus design surface, not optional side guidance.
+
+### 1. Core asset protocol (required for named brands or products)
+
+If the work targets a specific company, product, or named brand:
+
+- Ask for the full asset set up front:
+  - logo
+  - product renders / photography for physical products
+  - UI screenshots for digital products
+  - color palette
+  - typography
+  - brand guidelines
+- If assets are missing, search official channels before improvising:
+  - `<brand>.com/brand`
+  - `<brand>.com/press`
+  - `brand.<brand>.com`
+  - product pages, launch films, app-store screenshots
+- Prefer real logo / product / UI assets over inferred colors or "brand vibes".
+- Verify fidelity before use:
+  - logo fidelity
+  - image resolution
+  - UI freshness
+  - extracted colors from real assets
+- Freeze the result to `brand-spec.md` so later design work consumes the same
+  truth instead of re-guessing.
+
+Asset importance order:
+1. Logo
+2. Product renders for physical products
+3. UI screenshots for digital products
+4. Color values
+5. Fonts
+
+If brand assets cannot be verified, say so explicitly. Do not fake "brand
+accuracy" from memory.
+
+### 2. Direction fallback for vague briefs
+
+If the brief is visually vague, or existing design context is too thin:
+
+- do not jump straight to one generic mockup
+- propose 3 differentiated directions
+- make them genuinely different in composition, typography, palette, and tone
+- explain why each direction fits the product and what tradeoff it makes
+
+The goal is to create intentional choice, not aesthetic drift.
+
+### 3. Junior-designer execution discipline
+
+Do not rely on heroic one-shot design guesses.
+
+- start with assumptions and placeholders when needed
+- surface reasoning early
+- show the user something concrete quickly
+- tighten with real content, real assets, and real constraints
+- iterate toward craft instead of pretending the first pass is final
+
+### 4. Five design lenses
+
+Use these lenses when proposing, reviewing, or finalizing design work:
+
+1. **Philosophical coherence** — does the system feel like one idea?
+2. **Visual hierarchy** — is the user's attention directed intentionally?
+3. **Execution craft** — spacing, typography, motion, and detail quality
+4. **Functional fit** — does the design help the task instead of just decorating it?
+5. **Distinctiveness** — does it avoid generic AI-default output?
+
+When critiquing, bias toward:
+- **Keep** — what is already working
+- **Fix** — what materially breaks the experience
+- **Quick wins** — high-leverage improvements that can land immediately
+
 ## Design Philosophy
 
 You are not here to rubber-stamp this plan's UI. You are here to ensure that when
@@ -630,12 +706,12 @@ git diff <base> --stat
 Then read:
 - The plan file (current plan or branch diff)
 - CLAUDE.md — project conventions
-- DESIGN.md — if it exists, ALL design decisions calibrate against it
+- DESIGN.md and brand-spec.md — if they exist, ALL design decisions calibrate against them
 - TODOS.md — any design-related TODOs this plan touches
 
 Map:
 * What is the UI scope of this plan? (pages, components, interactions)
-* Does a DESIGN.md exist? If not, flag as a gap.
+* Does a DESIGN.md or brand-spec.md exist? If not, flag the missing source(s) as a gap.
 * Are there existing design patterns in the codebase to align with?
 * What prior design reviews exist? (check reviews.jsonl)
 
@@ -700,8 +776,8 @@ Rate the plan's overall design completeness 0-10.
 Explain what a 10 looks like for THIS plan.
 
 ### 0B. DESIGN.md Status
-- If DESIGN.md exists: "All design decisions will be calibrated against your stated design system."
-- If no DESIGN.md: "No design system found. Recommend running /design-consultation first. Proceeding with universal design principles."
+- If DESIGN.md or brand-spec.md exists: "All design decisions will be calibrated against your stated design context."
+- If no DESIGN.md and no brand-spec.md: "No design system or frozen brand asset spec found. Recommend running /design-consultation first. Proceeding with universal design principles."
 
 ### 0C. Existing Design Leverage
 What existing UI patterns, components, or design decisions in the codebase should this plan reuse? Don't reinvent what already works.

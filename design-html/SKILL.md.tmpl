@@ -30,6 +30,8 @@ approximations. Computed layout via Pretext. Text reflows on resize, heights adj
 to content, cards size themselves, chat bubbles shrinkwrap, editorial spreads flow
 around obstacles.
 
+{{DESIGN_GOVERNANCE}}
+
 {{DESIGN_SETUP}}
 
 {{BROWSE_SETUP}}
@@ -50,8 +52,9 @@ ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1
 
 2. If found, read it. Extract: approved variant PNG path, user feedback, screen name.
 
-3. Read `DESIGN.md` if it exists in the repo root. These tokens take priority for
-   system-level values (fonts, brand colors, spacing scale).
+3. Read `DESIGN.md` and `brand-spec.md` if they exist in the repo root. These take
+   priority for system-level values, frozen brand assets, and spacing / typography
+   constraints.
 
 4. **Evolve mode:** Check for prior output:
 ```bash

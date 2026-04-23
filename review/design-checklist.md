@@ -14,7 +14,7 @@ source <(~/.claude/skills/nexus/bin/nexus-diff-scope <base> 2>/dev/null)
 
 If `SCOPE_FRONTEND=false`, skip the entire design review silently.
 
-**DESIGN.md calibration:** If `DESIGN.md` or `design-system.md` exists in the repo root, read it first. All findings are calibrated against the project's stated design system. Patterns explicitly blessed in DESIGN.md are NOT flagged. If no DESIGN.md exists, use universal design principles.
+**Design-context calibration:** If `DESIGN.md`, `design-system.md`, or `brand-spec.md` exists in the repo root, read it first. All findings are calibrated against the project's stated design context. Patterns explicitly blessed there are NOT flagged. If none exist, use universal design principles.
 
 ---
 
@@ -110,9 +110,9 @@ These are the telltale signs of AI-generated UI that no designer at a respected 
 
 - **[LOW]** Touch targets < 44px on interactive elements. Check `min-height`/`min-width`/`padding` on buttons and links. Requires computing effective size from multiple properties — low confidence from code alone.
 
-### 5. DESIGN.md Violations (3 items, conditional)
+### 5. Design Context Violations (3 items, conditional)
 
-Only apply if `DESIGN.md` or `design-system.md` exists:
+Only apply if `DESIGN.md`, `design-system.md`, or `brand-spec.md` exists:
 
 - **[MEDIUM]** Colors not in the stated palette. Compare color values in changed CSS against the palette defined in DESIGN.md.
 
@@ -125,7 +125,7 @@ Only apply if `DESIGN.md` or `design-system.md` exists:
 ## Suppressions
 
 Do NOT flag:
-- Patterns explicitly documented in DESIGN.md as intentional choices
+- Patterns explicitly documented in the repo's design context as intentional choices
 - Third-party/vendor CSS files (node_modules, vendor directories)
 - CSS resets or normalize stylesheets
 - Test fixture files

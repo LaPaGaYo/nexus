@@ -403,10 +403,10 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/browse` | Real browser control for QA, capture, and site workflows. |
 | `/connect-chrome` | Launch Chrome with Nexus Side Panel control. |
 | `/setup-browser-cookies` | Import browser sessions for authenticated QA. |
-| `/design-consultation` | Create a design system and product visual direction. |
-| `/design-shotgun` | Generate and compare multiple visual directions. |
-| `/design-html` | Turn approved mockups into production HTML. |
-| `/design-review` | Audit and polish the visual result in code. |
+| `/design-consultation` | Create a design system and product visual direction with integrated asset protocol and brand context. |
+| `/design-shotgun` | Generate and compare multiple visual directions, with stronger fallback direction guidance for vague briefs. |
+| `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |
+| `/design-review` | Audit and polish the visual result in code using the integrated five-lens design critique. |
 | `/investigate` | Systematic root-cause debugging. |
 | `/document-release` | Sync docs after shipping and attach `.planning/current/closeout/documentation-sync.md`. |
 | `/retro` | Project or global retrospective. Repo-scoped retros archive to `.planning/archive/retros/` and can feed fresh-run continuity. |

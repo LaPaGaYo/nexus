@@ -189,10 +189,10 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('.planning/current/<stage>/completion-advisor.json');
     expect(skills).toContain('runtime-owned next-step contract');
     expect(skills).toContain('/browse');
-    expect(skills).toContain('| `/design-consultation` | Design-system discovery and visual direction that feeds canonical lifecycle artifacts for UI-bearing runs. |');
-    expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation that feeds canonical lifecycle artifacts for UI-bearing runs. |');
-    expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
-    expect(skills).toContain('| `/design-review` | Live-site visual audit and polish that feeds canonical lifecycle artifacts for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-consultation` | Design-system discovery and visual direction, now absorbing brand asset protocol into the canonical UI-bearing workflow. |');
+    expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation with stronger fallback direction selection for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |');
     expect(skills).toContain('| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('## Legacy compatibility deep dives');
     expect(skills).not.toContain('## `/office-hours`');
