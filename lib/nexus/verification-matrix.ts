@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import {
   frameDesignIntentPath,
@@ -48,19 +48,227 @@ function normalizeReviewMode(value: unknown): ReviewScopeMode {
   return value === 'bounded_fix_cycle' ? 'bounded_fix_cycle' : 'full_acceptance';
 }
 
+const BROWSER_SURFACE_TOKENS = new Set([
+  'app',
+  'apps',
+  'client',
+  'component',
+  'components',
+  'frontend',
+  'layout',
+  'page',
+  'pages',
+  'route',
+  'routes',
+  'screen',
+  'screens',
+  'site',
+  'ui',
+  'view',
+  'views',
+  'web',
+]);
+
+const AUTH_SURFACE_TOKENS = new Set([
+  'account',
+  'auth',
+  'clerk',
+  'identity',
+  'login',
+  'middleware',
+  'oauth',
+  'session',
+  'signup',
+]);
+
+const SECURITY_SURFACE_TOKENS = new Set([
+  'admin',
+  'auth',
+  'clerk',
+  'identity',
+  'middleware',
+  'oauth',
+  'permission',
+  'permissions',
+  'rbac',
+  'secret',
+  'security',
+  'server',
+  'session',
+  'token',
+  'webhook',
+]);
+
+const BROWSER_SURFACE_EXTENSIONS = new Set([
+  'astro',
+  'css',
+  'html',
+  'jsx',
+  'scss',
+  'svelte',
+  'tsx',
+  'vue',
+]);
+
+const BROWSER_ROOT_CANDIDATES = [
+  'app',
+  'apps/web',
+  'client',
+  'frontend',
+  'pages',
+  'routes',
+  'site',
+  'src/app',
+  'src/components',
+  'src/pages',
+  'src/routes',
+  'web',
+] as const;
+
+const AUTH_ROOT_CANDIDATES = [
+  'api/auth',
+  'app/api/auth',
+  'auth',
+  'lib/auth',
+  'middleware.js',
+  'middleware.ts',
+  'server/auth',
+  'src/auth',
+  'src/lib/auth',
+  'src/server/auth',
+] as const;
+
+const SECURITY_ROOT_CANDIDATES = [
+  'api/admin',
+  'app/api/admin',
+  'app/api/webhooks',
+  'middleware.js',
+  'middleware.ts',
+  'server',
+  'src/app/api/webhooks',
+  'src/server',
+  'src/server/api',
+  'webhooks',
+] as const;
+
+const BROWSER_FRAMEWORK_DEPENDENCIES = new Set([
+  '@remix-run/react',
+  'next',
+  'react',
+  'solid-js',
+  'svelte',
+  'vue',
+]);
+
+const AUTH_DEPENDENCIES = new Set([
+  '@auth/core',
+  '@clerk/nextjs',
+  '@supabase/supabase-js',
+  'auth0',
+  'better-auth',
+  'firebase',
+  'next-auth',
+  'passport',
+]);
+
+function surfaceTokens(surface: string): string[] {
+  return surface
+    .split(/[\/._-]+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function filenameExtension(surface: string): string | null {
+  const lastDot = surface.lastIndexOf('.');
+  if (lastDot === -1 || lastDot === surface.length - 1) {
+    return null;
+  }
+
+  return surface.slice(lastDot + 1).toLowerCase();
+}
+
+function surfaceHasAnyToken(surface: string, tokens: ReadonlySet<string>): boolean {
+  return surfaceTokens(surface).some((token) => tokens.has(token));
+}
+
 function browserFacingSurface(surface: string): boolean {
-  return /(apps\/web|src\/app|src\/components|page\.(tsx|jsx|ts|js)|layout\.(tsx|jsx|ts|js))/i.test(surface);
+  return surfaceHasAnyToken(surface, BROWSER_SURFACE_TOKENS)
+    || BROWSER_SURFACE_EXTENSIONS.has(filenameExtension(surface) ?? '');
 }
 
 function authFacingSurface(surface: string): boolean {
-  return /(auth|login|signup|session|middleware|clerk|oauth)/i.test(surface);
+  return surfaceHasAnyToken(surface, AUTH_SURFACE_TOKENS);
 }
 
 function securitySensitiveSurface(surface: string): boolean {
-  return /(auth|rbac|permission|permissions|middleware|webhook|session|token|secret|oauth|clerk|login|signup|api\/admin|server\/api)/i.test(surface);
+  return surfaceHasAnyToken(surface, SECURITY_SURFACE_TOKENS);
+}
+
+function repoHasAnyPath(cwd: string, candidates: readonly string[]): boolean {
+  return candidates.some((candidate) => existsSync(join(cwd, candidate)));
+}
+
+function collectPackageManifestPaths(dir: string, depth: number, output: string[]): void {
+  if (depth < 0) {
+    return;
+  }
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.planning' || entry.name === 'dist' || entry.name === 'build') {
+      continue;
+    }
+
+    const fullPath = join(dir, entry.name);
+    if (entry.isFile() && entry.name === 'package.json') {
+      output.push(fullPath);
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      collectPackageManifestPaths(fullPath, depth - 1, output);
+    }
+  }
+}
+
+function collectRepoDependencyNames(cwd: string): Set<string> {
+  const manifestPaths: string[] = [];
+  collectPackageManifestPaths(cwd, 3, manifestPaths);
+
+  const dependencies = new Set<string>();
+  for (const manifestPath of manifestPaths) {
+    try {
+      const parsed = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
+      for (const field of ['dependencies', 'devDependencies', 'peerDependencies'] as const) {
+        const record = parsed[field];
+        if (!isObject(record)) {
+          continue;
+        }
+        for (const name of Object.keys(record)) {
+          dependencies.add(name);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return dependencies;
+}
+
+function repoHasAnyDependency(
+  dependencies: ReadonlySet<string>,
+  candidates: ReadonlySet<string>,
+): boolean {
+  for (const dependency of dependencies) {
+    if (candidates.has(dependency)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function buildDefaultVerificationMatrix(
+  cwd: string,
   runId: string,
   generatedAt: string,
   designIntent: DesignIntentRecord,
@@ -70,9 +278,17 @@ function buildDefaultVerificationMatrix(
   const verificationRequired = designIntent.verification_required;
   const qaRequired = verificationRequired || designImpact !== 'none';
   const designVerificationRequired = designImpact !== 'none';
-  const browserFacing = designImpact !== 'none' || designIntent.affected_surfaces.some(browserFacingSurface);
-  const authFacing = designIntent.affected_surfaces.some(authFacingSurface);
-  const securitySensitive = designIntent.affected_surfaces.some(securitySensitiveSurface);
+  const repoDependencyNames = collectRepoDependencyNames(cwd);
+  const browserFacing = designImpact !== 'none'
+    || designIntent.affected_surfaces.some(browserFacingSurface)
+    || repoHasAnyPath(cwd, BROWSER_ROOT_CANDIDATES)
+    || repoHasAnyDependency(repoDependencyNames, BROWSER_FRAMEWORK_DEPENDENCIES);
+  const authFacing = designIntent.affected_surfaces.some(authFacingSurface)
+    || repoHasAnyPath(cwd, AUTH_ROOT_CANDIDATES)
+    || repoHasAnyDependency(repoDependencyNames, AUTH_DEPENDENCIES);
+  const securitySensitive = designIntent.affected_surfaces.some(securitySensitiveSurface)
+    || repoHasAnyPath(cwd, SECURITY_ROOT_CANDIDATES)
+    || repoHasAnyDependency(repoDependencyNames, AUTH_DEPENDENCIES);
 
   return {
     schema_version: 1,
@@ -329,7 +545,7 @@ export function buildVerificationMatrix(
   generatedAt: string,
   reviewMode: ReviewScopeMode = 'full_acceptance',
 ): VerificationMatrixRecord {
-  return buildDefaultVerificationMatrix(runId, generatedAt, readFrameDesignIntent(cwd), reviewMode);
+  return buildDefaultVerificationMatrix(cwd, runId, generatedAt, readFrameDesignIntent(cwd), reviewMode);
 }
 
 export function readVerificationMatrix(cwd: string): VerificationMatrixRecord | null {
@@ -338,7 +554,7 @@ export function readVerificationMatrix(cwd: string): VerificationMatrixRecord | 
     return null;
   }
 
-  const fallback = buildDefaultVerificationMatrix('unknown', new Date(0).toISOString(), readFrameDesignIntent(cwd), 'full_acceptance');
+  const fallback = buildDefaultVerificationMatrix(cwd, 'unknown', new Date(0).toISOString(), readFrameDesignIntent(cwd), 'full_acceptance');
   const parsed = JSON.parse(readFileSync(path, 'utf8'));
   return normalizeMatrix(parsed, fallback);
 }
@@ -349,7 +565,7 @@ export function resolveVerificationMatrix(
   generatedAt: string,
   reviewMode: ReviewScopeMode = 'full_acceptance',
 ): VerificationMatrixRecord {
-  const fallback = buildDefaultVerificationMatrix(runId, generatedAt, readFrameDesignIntent(cwd), reviewMode);
+  const fallback = buildDefaultVerificationMatrix(cwd, runId, generatedAt, readFrameDesignIntent(cwd), reviewMode);
   const path = join(cwd, planVerificationMatrixPath());
   if (!existsSync(path)) {
     return fallback;
