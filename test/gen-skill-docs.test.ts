@@ -146,6 +146,17 @@ describe('gen-skill-docs', () => {
     }
   });
 
+  test('design consultation and finalization treat design context as DESIGN.md plus brand-spec.md', () => {
+    const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
+    const html = fs.readFileSync(path.join(ROOT, 'design-html', 'SKILL.md'), 'utf-8');
+
+    expect(consultation).toContain('Creates the project\'s integrated design context');
+    expect(consultation).toContain('`DESIGN.md` captures system-level rules');
+    expect(consultation).toContain('`brand-spec.md` captures frozen brand truth');
+    expect(html).toContain('Read the design context');
+    expect(html).toContain('Create `DESIGN.md` + `brand-spec.md`');
+  });
+
   test('generated SKILL.md contains all command categories', () => {
     const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
     const categories = new Set(Object.values(COMMAND_DESCRIPTIONS).map(d => d.category));
@@ -1282,8 +1293,9 @@ describeLegacyOfficeHours('SPEC_REVIEW_LOOP resolver', () => {
 describeLegacyOfficeHours('DESIGN_SKETCH resolver', () => {
   const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
 
-  test('references DESIGN.md for design system constraints', () => {
+  test('references integrated design context for design system constraints', () => {
     expect(content).toContain('DESIGN.md');
+    expect(content).toContain('brand-spec.md');
   });
 
   test('contains wireframe or sketch terminology', () => {

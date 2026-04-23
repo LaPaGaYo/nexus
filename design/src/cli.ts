@@ -194,10 +194,12 @@ async function main(): Promise<void> {
       }
       console.error(`Extracting design language from ${imagePath}...`);
       const extracted = await extractDesignLanguage(imagePath);
-      const proc = Bun.spawn(["git", "rev-parse", "--show-toplevel"]);
-      const repoRoot = (await new Response(proc.stdout).text()).trim();
-      if (repoRoot) {
-        updateDesignMd(repoRoot, extracted, imagePath);
+      if (flags["write-design-md"]) {
+        const proc = Bun.spawn(["git", "rev-parse", "--show-toplevel"]);
+        const repoRoot = (await new Response(proc.stdout).text()).trim();
+        if (repoRoot) {
+          updateDesignMd(repoRoot, extracted, imagePath);
+        }
       }
       console.log(JSON.stringify(extracted, null, 2));
       break;

@@ -36,7 +36,7 @@ Each item is tagged with a detection confidence level:
 - `font-size` < 16px on body text → bump to 16px
 
 **ASK** (everything else — requires design judgment):
-- All AI slop findings, typography structure, spacing choices, interaction state gaps, DESIGN.md violations
+- All AI slop findings, typography structure, spacing choices, interaction state gaps, design-context violations
 
 **LOW confidence items** → present as "Possible: [description]. Verify visually or run /design-review." Never AUTO-FIX.
 
@@ -94,7 +94,7 @@ These are the telltale signs of AI-generated UI that no designer at a respected 
 
 ### 3. Spacing & Layout (4 items)
 
-- **[MEDIUM]** Arbitrary spacing values not on a 4px or 8px scale, when DESIGN.md specifies a spacing scale. Check `margin`, `padding`, `gap` values against the stated scale. Only flag when DESIGN.md defines a scale.
+- **[MEDIUM]** Arbitrary spacing values not on a 4px or 8px scale, when the repo's design context specifies a spacing scale. Check `margin`, `padding`, `gap` values against the stated scale. Only flag when the design context defines a scale.
 
 - **[MEDIUM]** Fixed widths without responsive handling: `width: NNNpx` on containers without `max-width` or `@media` breakpoints. Risk of horizontal scroll on mobile.
 
@@ -114,11 +114,11 @@ These are the telltale signs of AI-generated UI that no designer at a respected 
 
 Only apply if `DESIGN.md`, `design-system.md`, or `brand-spec.md` exists:
 
-- **[MEDIUM]** Colors not in the stated palette. Compare color values in changed CSS against the palette defined in DESIGN.md.
+- **[MEDIUM]** Colors not in the stated palette. Compare color values in changed CSS against the palette defined in the design context (`DESIGN.md` and `brand-spec.md`).
 
-- **[MEDIUM]** Fonts not in the stated typography section. Compare `font-family` values against DESIGN.md's font list.
+- **[MEDIUM]** Fonts not in the stated typography section. Compare `font-family` values against the fonts defined in the design context.
 
-- **[MEDIUM]** Spacing values outside the stated scale. Compare `margin`/`padding`/`gap` values against DESIGN.md's spacing scale.
+- **[MEDIUM]** Spacing values outside the stated scale. Compare `margin`/`padding`/`gap` values against the scale defined in the design context.
 
 ---
 

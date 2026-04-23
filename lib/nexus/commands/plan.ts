@@ -15,6 +15,7 @@ import type { CommandContext, CommandResult } from './index';
 import { readStageStatus } from '../status';
 import { buildVerificationMatrix } from '../verification-matrix';
 import { buildCompletionAdvisorWrite, buildPlanCompletionAdvisor } from '../completion-advisor';
+import { synthesizePlanDesignContractFromRepoContext } from '../design-contract';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -66,7 +67,7 @@ function buildStatus(
     design_impact: designImpact,
     design_contract_required: frameStatus?.design_contract_required ?? false,
     design_contract_path: designContractPath,
-    design_verified: designImpact === 'none' ? null : false,
+    design_verified: null,
     state,
     decision,
     ready,
@@ -136,6 +137,12 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
 
   try {
     const normalized = normalizeGsdPlan(result);
+    if (frameStatus?.design_contract_required && !designContractPointerFromWrites(normalized.canonicalWrites)) {
+      const synthesizedDesignContract = synthesizePlanDesignContractFromRepoContext(ctx.cwd);
+      if (synthesizedDesignContract) {
+        normalized.canonicalWrites.push(synthesizedDesignContract);
+      }
+    }
     const verificationMatrix = buildVerificationMatrix(ctx.cwd, ledger.run_id, startedAt, 'full_acceptance');
     normalized.canonicalWrites.push({
       path: planVerificationMatrixPath(),

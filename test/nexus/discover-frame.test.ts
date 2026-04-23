@@ -472,7 +472,7 @@ describe('nexus discover/frame PM seams', () => {
         ready: true,
         design_impact: 'material',
         design_contract_required: true,
-        design_verified: false,
+        design_verified: null,
       });
       expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
         artifact_index: {
@@ -564,7 +564,7 @@ describe('nexus discover/frame PM seams', () => {
         design_impact: 'material',
         design_contract_required: true,
         design_contract_path: null,
-        design_verified: false,
+        design_verified: null,
       });
       expect(await run.readJson('.planning/current/plan/verification-matrix.json')).toMatchObject({
         run_id: expect.any(String),
@@ -611,6 +611,85 @@ describe('nexus discover/frame PM seams', () => {
         },
       });
       expect(() => readFileSync(join(cwd, '.planning/current/plan/design-contract.md'), 'utf8')).toThrow();
+    });
+  });
+
+  test('synthesizes the canonical plan design contract from repo design context when GSD omits one', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      const frameAdapters = makeFakeAdapters({
+        pm: {
+          frame: async () => ({
+            adapter_id: 'pm',
+            outcome: 'success',
+            raw_output: {
+              decision_brief_markdown: '# Decision Brief\n\nScope: synthesize design contract\n',
+              prd_markdown: '# PRD\n\nSuccess criteria: preserve approved design context\n',
+              design_intent: {
+                impact: 'material',
+                affected_surfaces: ['apps/web/src/app/page.tsx'],
+                design_system_source: 'mixed',
+                contract_required: true,
+                verification_required: true,
+              },
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-frame-pack',
+              absorbed_capability: 'pm-frame',
+              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+            },
+          }),
+        },
+        gsd: {
+          plan: async () => ({
+            adapter_id: 'gsd',
+            outcome: 'success',
+            raw_output: {
+              execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
+              sprint_contract: '# Sprint Contract\n\nWave 1\n',
+              design_contract: null,
+              ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-plan-pack',
+              absorbed_capability: 'gsd-plan',
+              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+            },
+          }),
+        },
+      });
+
+      await run('discover');
+      await run('frame', frameAdapters);
+      writeFileSync(join(cwd, 'DESIGN.md'), '# Design System\n\nTypography: Satoshi\n');
+      writeFileSync(join(cwd, 'brand-spec.md'), '# Brand Spec\n\nLogo: assets/logo.svg\n');
+
+      await run('plan', frameAdapters);
+
+      expect(await run.readJson('.planning/current/plan/status.json')).toMatchObject({
+        stage: 'plan',
+        state: 'completed',
+        decision: 'ready',
+        ready: true,
+        design_impact: 'material',
+        design_contract_required: true,
+        design_contract_path: '.planning/current/plan/design-contract.md',
+        design_verified: null,
+      });
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain(
+        'This canonical design contract was synthesized from the repository design context',
+      );
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Source: `DESIGN.md`');
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Source: `brand-spec.md`');
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Typography: Satoshi');
+      expect(await run.readFile('.planning/current/plan/design-contract.md')).toContain('Logo: assets/logo.svg');
     });
   });
 
@@ -678,7 +757,7 @@ describe('nexus discover/frame PM seams', () => {
         design_impact: 'material',
         design_contract_required: true,
         design_contract_path: '.planning/current/plan/design-contract.md',
-        design_verified: false,
+        design_verified: null,
       });
       expect(await run.readJson('.planning/current/plan/verification-matrix.json')).toMatchObject({
         run_id: expect.any(String),

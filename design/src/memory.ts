@@ -1,5 +1,6 @@
 /**
- * Design Memory — extract visual language from approved mockups into DESIGN.md.
+ * Design Memory — extract visual language from approved mockups into structured
+ * design tokens, with optional persistence into DESIGN.md.
  *
  * After a mockup is approved, uses GPT-4o vision to extract:
  * - Color palette (hex values)
@@ -7,8 +8,8 @@
  * - Spacing patterns (padding, margins, gaps)
  * - Layout conventions (grid, alignment, hierarchy)
  *
- * If DESIGN.md exists, merges extracted patterns with existing design system.
- * If no DESIGN.md, creates one from the extracted patterns.
+ * If DESIGN.md exists, merges extracted patterns with the existing design system.
+ * If no DESIGN.md, creates one from the extracted patterns when persistence is requested.
  */
 
 import fs from "fs";

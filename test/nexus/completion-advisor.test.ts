@@ -128,7 +128,7 @@ describe('nexus completion advisor', () => {
       ...readyStatus('frame'),
       design_impact: 'material',
       design_contract_required: true,
-      design_verified: false,
+      design_verified: null,
     };
 
     const advisor = buildFrameCompletionAdvisor(status, '2026-04-20T00:00:00.000Z');
@@ -170,13 +170,13 @@ describe('nexus completion advisor', () => {
     expect(advisor.suppressed_surfaces).toContain('/plan-ceo-review');
   });
 
-  test('plan advisor is always interactive and carries design-aware setup gaps forward', () => {
+  test('plan advisor keeps design review visible without inventing a pre-handoff verification gap', () => {
     const status: StageStatus = {
       ...readyStatus('plan'),
       design_impact: 'material',
       design_contract_required: true,
-      design_contract_path: null,
-      design_verified: false,
+      design_contract_path: '.planning/current/plan/design-contract.md',
+      design_verified: null,
     };
 
     const advisor = buildPlanCompletionAdvisor(
@@ -192,9 +192,7 @@ describe('nexus completion advisor', () => {
         kind: 'stop',
         label: 'Stop here',
       }),
-      project_setup_gaps: [
-        'Design verification is still expected before handoff on this run.',
-      ],
+      project_setup_gaps: [],
     });
     expect(advisor.recommended_side_skills).toEqual([
       expect.objectContaining({
@@ -210,15 +208,22 @@ describe('nexus completion advisor', () => {
       state: 'blocked',
       decision: 'not_ready',
       ready: false,
+      design_impact: 'material',
+      design_contract_required: true,
+      design_verified: null,
       errors: ['Missing required input artifact: docs/product/idea-brief.md'],
     }, '2026-04-20T00:00:00.000Z');
     expect(frameBlocked).toMatchObject({
-      interaction_mode: 'summary_only',
+      interaction_mode: 'recommended_choice',
       stage_outcome: 'blocked',
       default_action_id: null,
       primary_next_actions: [],
     });
     expect(frameBlocked.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
+    expect(frameBlocked.recommended_side_skills).toEqual(expect.arrayContaining([
+      expect.objectContaining({ surface: '/plan-design-review' }),
+      expect.objectContaining({ surface: '/design-consultation' }),
+    ]));
 
     const planBlocked = buildPlanCompletionAdvisor({
       ...readyStatus('plan'),
@@ -226,16 +231,22 @@ describe('nexus completion advisor', () => {
       decision: 'not_ready',
       ready: false,
       design_impact: 'material',
-      design_verified: false,
+      design_contract_required: true,
+      design_contract_path: null,
+      design_verified: null,
       errors: ['Plan is not ready for execution'],
     }, verificationMatrix('material'), '2026-04-20T00:00:00.000Z');
     expect(planBlocked).toMatchObject({
-      interaction_mode: 'summary_only',
+      interaction_mode: 'recommended_choice',
       stage_outcome: 'blocked',
       default_action_id: null,
       primary_next_actions: [],
     });
     expect(planBlocked.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
+    expect(planBlocked.recommended_side_skills).toEqual(expect.arrayContaining([
+      expect.objectContaining({ surface: '/plan-design-review' }),
+      expect.objectContaining({ surface: '/design-consultation' }),
+    ]));
 
     const handoffBlocked = buildHandoffCompletionAdvisor({
       ...readyStatus('handoff'),

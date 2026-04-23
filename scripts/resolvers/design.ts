@@ -211,7 +211,7 @@ Structure findings as an **Inferred Design System**:
 - **Heading Scale:** h1-h6 sizes. Flag skipped levels, non-systematic size jumps.
 - **Spacing Patterns:** sample padding/margin values. Flag non-scale values.
 
-After extraction, offer: *"Want me to save this as your DESIGN.md? I can lock in these observations as your project's design system baseline."*
+After extraction, offer: *"Want me to save this as your design context? I can turn these observations into \`DESIGN.md\`, and if this is a named brand or product, freeze the brand-specific rules into \`brand-spec.md\` too."*
 
 ---
 
@@ -458,7 +458,7 @@ Tie everything to user goals and product objectives. Always suggest specific imp
 1. **Think like a designer, not a QA engineer.** You care whether things feel right, look intentional, and respect the user. You do NOT just care whether things "work."
 2. **Screenshots are evidence.** Every finding needs at least one screenshot. Use annotated screenshots (\`snapshot -a\`) to highlight elements.
 3. **Be specific and actionable.** "Change X to Y because Z" — not "the spacing feels off."
-4. **Never read source code.** Evaluate the rendered site, not the implementation. (Exception: offer to write DESIGN.md from extracted observations.)
+4. **Never read source code.** Evaluate the rendered site, not the implementation. (Exception: offer to write design context from extracted observations.)
 5. **AI Slop detection is your superpower.** Most developers can't evaluate whether their site looks AI-generated. You can. Be direct about it.
 6. **Quick wins matter.** Always include a "Quick Wins" section — the 3-5 highest-impact fixes that take <30 minutes each.
 7. **Use \`snapshot -C\` for tricky UIs.** Finds clickable divs that the accessibility tree misses.
@@ -478,9 +478,10 @@ section silently.
 
 **Step 1: Gather design context**
 
-1. Check if \`DESIGN.md\` exists in the repo root. If it does, read it for design
-   system constraints (colors, typography, spacing, component patterns). Use these
-   constraints in the wireframe.
+1. Check if the design context exists in the repo root. Read \`DESIGN.md\` for
+   system constraints (colors, typography, spacing, component patterns), and read
+   \`brand-spec.md\` for frozen brand assets, palette limits, and product-specific
+   fidelity constraints. Use both in the wireframe when present.
 2. Apply core design principles:
    - **Information hierarchy** — what does the user see first, second, third?
    - **Interaction states** — loading, empty, error, success, partial
@@ -875,7 +876,8 @@ echo "DESIGN_DIR: $_DESIGN_DIR"
 
 **Step 2: Construct the design brief**
 
-Read DESIGN.md if it exists — use it to constrain the visual style. If no DESIGN.md,
+Read the design context if it exists — use \`DESIGN.md\` to constrain the system-level
+style and \`brand-spec.md\` to constrain frozen brand truth. If neither exists,
 explore wide across diverse directions.
 
 **Step 3: Generate 3 variants**

@@ -60,9 +60,9 @@ export const COMMANDS = new Map<string, {
     flags: ["--image"],
   }],
   ["extract", {
-    description: "Extract design language from approved mockup into DESIGN.md",
-    usage: "extract --image approved.png",
-    flags: ["--image"],
+    description: "Extract design language from an approved mockup",
+    usage: "extract --image approved.png [--write-design-md]",
+    flags: ["--image", "--write-design-md"],
   }],
   ["gallery", {
     description: "Generate HTML timeline of all design explorations for a project",

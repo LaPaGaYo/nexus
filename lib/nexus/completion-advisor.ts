@@ -164,6 +164,7 @@ export function buildFrameCompletionAdvisor(
   }
 
   if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    const interactionMode = sideSkills.length > 0 ? 'recommended_choice' : 'summary_only';
     return baseAdvisor(
       status,
       generatedAt,
@@ -171,8 +172,9 @@ export function buildFrameCompletionAdvisor(
         ? 'Framing was refused. Resolve the refusal before trying again.'
         : 'Framing is blocked. Resolve the blocking condition before planning.',
       {
-        interaction_mode: 'summary_only',
+        interaction_mode: interactionMode,
         default_action_id: null,
+        recommended_side_skills: sideSkills,
         stop_action: stopAction('frame'),
         project_setup_gaps: uniqueStrings([...setupGaps, ...status.errors]),
       },
@@ -224,14 +226,27 @@ export function buildPlanCompletionAdvisor(
         ),
       ]
     : [];
+  if (status.design_contract_required && !status.design_contract_path) {
+    setupGaps.push('Design work is in scope, but no canonical design contract artifact is attached yet.');
+    sideSkills.push(
+      action(
+        'run_design_consultation',
+        'support_skill',
+        '/design-consultation',
+        '/design-consultation',
+        'Run `/design-consultation`',
+        'Create or tighten the design system so planning can attach a canonical design contract before handoff.',
+        false,
+        'Material design work requires a canonical plan design contract before handoff.',
+      ),
+    );
+  }
   if (!verificationMatrix) {
     setupGaps.push('Verification matrix is missing from the planning artifacts.');
   }
-  if (designBearing(verificationMatrix?.design_impact ?? status.design_impact) && status.design_verified !== true) {
-    setupGaps.push('Design verification is still expected before handoff on this run.');
-  }
 
   if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    const interactionMode = sideSkills.length > 0 ? 'recommended_choice' : 'summary_only';
     return baseAdvisor(
       status,
       generatedAt,
@@ -239,8 +254,9 @@ export function buildPlanCompletionAdvisor(
         ? 'Planning was refused. Resolve the refusal before trying handoff.'
         : 'Planning is blocked. Resolve readiness and setup gaps before handoff.',
       {
-        interaction_mode: 'summary_only',
+        interaction_mode: interactionMode,
         default_action_id: null,
+        recommended_side_skills: sideSkills,
         stop_action: stopAction('plan'),
         project_setup_gaps: uniqueStrings([...setupGaps, ...status.errors]),
       },

@@ -961,7 +961,7 @@ describe('nexus build routing', () => {
             design_impact: 'material',
             design_contract_required: true,
             design_contract_path: '.planning/current/plan/design-contract.md',
-            design_verified: false,
+            design_verified: null,
           },
           null,
           2,

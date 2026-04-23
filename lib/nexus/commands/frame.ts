@@ -52,7 +52,7 @@ function buildStatus(
     ...executionFieldsFromLedger(ledger),
     design_impact: designImpact,
     design_contract_required: designIntent?.contract_required ?? false,
-    design_verified: designImpact === 'none' ? null : false,
+    design_verified: null,
     state,
     decision,
     ready,

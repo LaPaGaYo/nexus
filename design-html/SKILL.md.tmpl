@@ -52,9 +52,9 @@ ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1
 
 2. If found, read it. Extract: approved variant PNG path, user feedback, screen name.
 
-3. Read `DESIGN.md` and `brand-spec.md` if they exist in the repo root. These take
-   priority for system-level values, frozen brand assets, and spacing / typography
-   constraints.
+3. Read the design context — `DESIGN.md` and `brand-spec.md` if they exist in the repo
+   root. These take priority for system-level values, frozen brand assets, and
+   spacing / typography constraints.
 
 4. **Evolve mode:** Check for prior output:
 ```bash
@@ -90,8 +90,10 @@ This returns colors, typography, layout structure, and component inventory via G
 2. If `$D` is not available, read the approved PNG inline using the Read tool.
    Describe the visual layout, colors, typography, and component structure yourself.
 
-3. Read `DESIGN.md` tokens. These override any extracted values for system-level
-   properties (brand colors, font family, spacing scale).
+3. Read the design context tokens. `DESIGN.md` overrides extracted system-level
+   properties (font family, spacing scale, layout conventions). `brand-spec.md`
+   overrides extracted brand-level properties (logos, approved palette bounds,
+   frozen product/UI references).
 
 4. Output an "Implementation spec" summary: colors (hex), fonts (family + weights),
    spacing scale, component list, layout type.
@@ -177,7 +179,7 @@ For framework output, save to:
 
 **Always include in vanilla HTML:**
 - Pretext source (inlined or CDN, see above)
-- CSS custom properties for design tokens from DESIGN.md / Step 1 extraction
+- CSS custom properties for design tokens from the design context / Step 1 extraction
 - Google Fonts via `<link>` tags + `document.fonts.ready` gate before first `prepare()`
 - Semantic HTML5 (`<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`)
 - Responsive behavior via Pretext relayout (not just media queries)
@@ -446,7 +448,7 @@ Maximum 10 iterations. If the user hasn't said "done" after 10, use AskUserQuest
 
 ### Design Token Extraction
 
-If no `DESIGN.md` exists in the repo root, offer to create one from the generated HTML:
+If no design context exists in the repo root, offer to create it from the generated HTML:
 
 Extract from the HTML:
 - CSS custom properties (colors, spacing, font sizes)
@@ -455,15 +457,20 @@ Extract from the HTML:
 - Spacing scale
 - Border radius values
 - Shadow values
+- Any obvious frozen brand cues already visible in the approved mockup or finalized HTML
+  (logo treatment, product imagery rules, palette constraints)
 
 Use AskUserQuestion:
-> No DESIGN.md found. I can extract the design tokens from the HTML we just built
-> and create a DESIGN.md for your project. This means future /design-shotgun and
-> /design-html runs will be style-consistent automatically.
-> A) Create DESIGN.md from these tokens
-> B) Skip — I'll handle the design system later
+> No design context found. I can extract the tokens from the HTML we just built and
+> create `DESIGN.md` for your project. If this screen belongs to a named brand or
+> product, I can also freeze the brand-specific rules into `brand-spec.md`.
+> A) Create `DESIGN.md` only
+> B) Create `DESIGN.md` + `brand-spec.md`
+> C) Skip — I'll handle the design context later
 
 If A: write `DESIGN.md` to the repo root with the extracted tokens.
+If B: write `DESIGN.md` with system tokens and `brand-spec.md` with brand-specific
+constraints and frozen asset rules inferred from the approved mockup / finalized HTML.
 
 ### Save Metadata
 

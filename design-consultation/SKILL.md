@@ -5,11 +5,12 @@ version: 1.0.0
 description: |
   Design consultation: understands your product, researches the landscape, proposes a
   complete design system (aesthetic, typography, color, layout, spacing, motion), and
-  generates font+color preview pages. Creates DESIGN.md as your project's design source
-  of truth. For existing sites, use /plan-design-review to infer the system instead.
-  Use when asked to "design system", "brand guidelines", or "create DESIGN.md".
+  generates font+color preview pages. Creates the project's integrated design context
+  (`DESIGN.md` plus `brand-spec.md` when a named brand needs frozen asset truth). For
+  existing sites, use /plan-design-review to infer the system instead. Use when asked
+  to "design system", "brand guidelines", or "create DESIGN.md".
   Proactively suggest when starting a new project's UI with no existing
-  design system or DESIGN.md. (Nexus)
+  design system, DESIGN.md, or brand-spec.md. (Nexus)
 allowed-tools:
   - Bash
   - Read
@@ -597,7 +598,7 @@ ls DESIGN.md design-system.md brand-spec.md 2>/dev/null || echo "NO_DESIGN_FILE"
 ```
 
 - If a `DESIGN.md` or `brand-spec.md` exists: Read it. Ask the user: "You already have design context in this repo. Want to **update** it, **start fresh**, or **cancel**?"
-- If no DESIGN.md: continue.
+- If no design context exists: continue.
 
 **Gather product context from the codebase:**
 
@@ -872,7 +873,7 @@ different ones? Or adjust anything else?
 
 The SAFE/RISK breakdown is critical. Design coherence is table stakes — every product in a category can be coherent and still look identical. The real question is: where do you take creative risks? The agent should always propose at least 2 risks, each with a clear rationale for why the risk is worth taking and what the user gives up. Risks might include: an unexpected typeface for the category, a bold accent color nobody else uses, tighter or looser spacing than the norm, a layout approach that breaks from convention, motion choices that add personality.
 
-**Options:** A) Looks great — generate the preview page. B) I want to adjust [section]. C) I want different risks — show me wilder options. D) Start over with a different direction. E) Skip the preview, just write DESIGN.md.
+**Options:** A) Looks great — generate the preview page. B) I want to adjust [section]. C) I want different risks — show me wilder options. D) Start over with a different direction. E) Skip the preview, just write the design context.
 
 ### Your Design Knowledge (use to inform proposals — do NOT display as tables)
 
@@ -1076,12 +1077,12 @@ echo '{"approved_variant":"<V>","feedback":"<FB>","date":"'$(date -u +%Y-%m-%dT%
 
 After the user picks a direction:
 
-- Use `$D extract --image "$_DESIGN_DIR/variant-<CHOSEN>.png"` to analyze the approved mockup and extract design tokens (colors, typography, spacing) that will populate DESIGN.md in Phase 6. This grounds the design system in what was actually approved visually, not just what was described in text.
+- Use `$D extract --image "$_DESIGN_DIR/variant-<CHOSEN>.png"` to analyze the approved mockup and extract design tokens (colors, typography, spacing) that will populate the design context in Phase 6. This grounds the design system in what was actually approved visually, not just what was described in text.
 - If the user wants to iterate further: `$D iterate --feedback "<user's feedback>" --output "$_DESIGN_DIR/refined.png"`
 
 **Plan mode vs. implementation mode:**
-- **If in plan mode:** Add the approved mockup path (the full `$_DESIGN_DIR` path) and extracted tokens to the plan file under an "## Approved Design Direction" section. The design system gets written to DESIGN.md when the plan is implemented.
-- **If NOT in plan mode:** Proceed directly to Phase 6 and write DESIGN.md with the extracted tokens.
+- **If in plan mode:** Add the approved mockup path (the full `$_DESIGN_DIR` path) and extracted tokens to the plan file under an "## Approved Design Direction" section. The design context gets written to `DESIGN.md` and, when the work targets a named brand or product, `brand-spec.md` when the plan is implemented.
+- **If NOT in plan mode:** Proceed directly to Phase 6 and write the design context with the extracted tokens.
 
 ### Path B: HTML Preview Page (fallback if DESIGN_NOT_AVAILABLE)
 
@@ -1130,11 +1131,19 @@ If the user says skip the preview, go directly to Phase 6.
 
 ---
 
-## Phase 6: Write DESIGN.md & Confirm
+## Phase 6: Write Design Context & Confirm
 
-If `$D extract` was used in Phase 5 (Path A), use the extracted tokens as the primary source for DESIGN.md values — colors, typography, and spacing grounded in the approved mockup rather than text descriptions alone. Merge extracted tokens with the Phase 3 proposal (the proposal provides rationale and context; the extraction provides exact values).
+If `$D extract` was used in Phase 5 (Path A), use the extracted tokens as the primary source for design-context values — colors, typography, and spacing grounded in the approved mockup rather than text descriptions alone. Merge extracted tokens with the Phase 3 proposal (the proposal provides rationale and context; the extraction provides exact values).
 
-**If in plan mode:** Write the DESIGN.md content into the plan file as a "## Proposed DESIGN.md" section. Do NOT write the actual file — that happens at implementation time.
+Use this split consistently:
+- `DESIGN.md` captures system-level rules: typography, spacing, layout, motion, component conventions, and the rationale that should shape future UI work.
+- `brand-spec.md` captures frozen brand truth for a named company, product, or brand: approved logos, product renders, UI screenshots, locked brand colors, typography constraints, and asset usage rules.
+- If the work is not tied to a named brand or product, `DESIGN.md` alone is enough.
+
+**If in plan mode:** Write the design-context content into the plan file:
+- always add a `## Proposed DESIGN.md` section
+- add a `## Proposed brand-spec.md` section when the work established frozen brand truth for a named product/company
+- do NOT write the actual files — that happens at implementation time
 
 **If NOT in plan mode:** Write `DESIGN.md` to the repo root with this structure:
 
@@ -1192,24 +1201,63 @@ If `$D extract` was used in Phase 5 (Path A), use the extracted tokens as the pr
 | [today] | Initial design system created | Created by /design-consultation based on [product context / research] |
 ```
 
+If the work targets a named company, product, or brand — or you froze assets during research —
+also write `brand-spec.md` to the repo root with this structure:
+
+```markdown
+# Brand Spec — [Project Name]
+
+## Brand Core
+- **Brand promise:** [one sentence]
+- **Brand character:** [3-5 adjectives]
+- **Asset confidence:** [verified / partial / inferred]
+
+## Frozen Assets
+- **Primary logo:** [file path or official URL]
+- **Secondary lockups:** [paths/URLs or "none"]
+- **Product renders / photography:** [paths/URLs or "none"]
+- **UI references:** [paths/URLs or "none"]
+
+## Brand Palette
+- **Primary brand color:** [hex] — [usage]
+- **Secondary brand color:** [hex] — [usage]
+- **Do not invent beyond:** [rules about palette expansion]
+
+## Brand Typography Constraints
+- **Approved brand fonts:** [font names]
+- **Fallbacks:** [font names]
+- **Usage notes:** [where they can and cannot be used]
+
+## Asset Usage Rules
+- [Clear rules for logo spacing, background handling, product imagery, screenshot freshness]
+
+## Source Record
+| Source | URL or Path | Confidence | Notes |
+|--------|-------------|------------|-------|
+| [logo] | [path/url] | [high/medium/low] | [notes] |
+```
+
 **Update CLAUDE.md** (or create it if it doesn't exist) — append this section:
 
 ```markdown
 ## Design System
-Always read DESIGN.md before making any visual or UI decisions.
-All font choices, colors, spacing, and aesthetic direction are defined there.
+Always read the project's design context before making visual or UI decisions.
+`DESIGN.md` defines the system-level rules for typography, color, spacing, layout,
+motion, and component behavior.
+If `brand-spec.md` exists, treat it as the frozen source of truth for logos, brand
+assets, approved palette constraints, and product-specific visual fidelity.
 Do not deviate without explicit user approval.
-In QA mode, flag any code that doesn't match DESIGN.md.
+In QA mode, flag any code that doesn't match the design context.
 ```
 
 **AskUserQuestion Q-final — show summary and confirm:**
 
 List all decisions. Flag any that used agent defaults without explicit user confirmation (the user should know what they're shipping). Options:
-- A) Ship it — write DESIGN.md and CLAUDE.md
+- A) Ship it — write the design context (`DESIGN.md` and, when needed, `brand-spec.md`) and update CLAUDE.md
 - B) I want to change something (specify what)
 - C) Start over
 
-After shipping DESIGN.md, if the session produced screen-level mockups or page layouts
+After shipping the design context, if the session produced screen-level mockups or page layouts
 (not just system-level tokens), suggest:
 "Want to see this design system as working Pretext-native HTML? Run /design-html."
 
@@ -1223,5 +1271,5 @@ After shipping DESIGN.md, if the session produced screen-level mockups or page l
 4. **Never recommend blacklisted or overused fonts as primary.** If the user specifically requests one, comply but explain the tradeoff.
 5. **The preview page must be beautiful.** It's the first visual output and sets the tone for the whole skill.
 6. **Conversational tone.** This isn't a rigid workflow. If the user wants to talk through a decision, engage as a thoughtful design partner.
-7. **Accept the user's final choice.** Nudge on coherence issues, but never block or refuse to write a DESIGN.md because you disagree with a choice.
-8. **No AI slop in your own output.** Your recommendations, your preview page, your DESIGN.md — all should demonstrate the taste you're asking the user to adopt.
+7. **Accept the user's final choice.** Nudge on coherence issues, but never block or refuse to write the design context because you disagree with a choice.
+8. **No AI slop in your own output.** Your recommendations, your preview page, your design context — all should demonstrate the taste you're asking the user to adopt.
