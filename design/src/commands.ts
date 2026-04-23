@@ -15,7 +15,7 @@ export const COMMANDS = new Map<string, {
   flags?: string[];
 }>([
   ["generate", {
-    description: "Generate a UI mockup from a design brief",
+    description: "Generate a design deliverable frame from a design brief",
     usage: "generate --brief \"...\" --output /path.png",
     flags: ["--brief", "--brief-file", "--output", "--check", "--retry", "--size", "--quality"],
   }],
@@ -30,9 +30,9 @@ export const COMMANDS = new Map<string, {
     flags: ["--session", "--feedback", "--output"],
   }],
   ["check", {
-    description: "Vision-based quality check on a mockup",
-    usage: "check --image /path.png --brief \"...\"",
-    flags: ["--image", "--brief"],
+    description: "Vision-based quality check on a design deliverable",
+    usage: "check --image /path.png (--brief \"...\" | --brief-file /path/brief.json)",
+    flags: ["--image", "--brief", "--brief-file"],
   }],
   ["compare", {
     description: "Generate HTML comparison board for user review",
@@ -46,8 +46,8 @@ export const COMMANDS = new Map<string, {
   }],
   ["evolve", {
     description: "Generate improved mockup from existing screenshot",
-    usage: "evolve --screenshot current.png --brief \"make it calmer\" --output /path.png",
-    flags: ["--screenshot", "--brief", "--output"],
+    usage: "evolve --screenshot current.png (--brief \"make it calmer\" | --brief-file /path/brief.json) --output /path.png",
+    flags: ["--screenshot", "--brief", "--brief-file", "--output"],
   }],
   ["verify", {
     description: "Compare live site screenshot against approved mockup",
@@ -68,6 +68,36 @@ export const COMMANDS = new Map<string, {
     description: "Generate HTML timeline of all design explorations for a project",
     usage: "gallery --designs-dir ~/.nexus/projects/$SLUG/designs/ --output /path/gallery.html",
     flags: ["--designs-dir", "--output"],
+  }],
+  ["export-pdf", {
+    description: "Export an HTML slide deck to PDF",
+    usage: "export-pdf (--slides /path/slides/ | --html /path/deck.html) --out /path/output.pdf",
+    flags: ["--slides", "--html", "--out", "--width", "--height"],
+  }],
+  ["export-pptx", {
+    description: "Export HTML slides to editable PPTX",
+    usage: "export-pptx --slides /path/slides/ --out /path/output.pptx",
+    flags: ["--slides", "--out"],
+  }],
+  ["render-video", {
+    description: "Render an animation HTML file to MP4",
+    usage: "render-video --html /path/animation.html [--duration 30] [--width 1920] [--height 1080]",
+    flags: ["--html", "--duration", "--width", "--height", "--trim", "--fontwait", "--readytimeout", "--keep-chrome"],
+  }],
+  ["convert-video", {
+    description: "Derive 60fps MP4 and optimized GIF from a rendered MP4",
+    usage: "convert-video --input /path/input.mp4 [--gif-width 960] [--minterpolate]",
+    flags: ["--input", "--gif-width", "--minterpolate"],
+  }],
+  ["add-music", {
+    description: "Mix a BGM track into a rendered MP4",
+    usage: "add-music --input /path/input.mp4 [--mood tech] [--music /path/track.mp3] [--out /path/output.mp4]",
+    flags: ["--input", "--mood", "--music", "--out"],
+  }],
+  ["verify-html", {
+    description: "Verify rendered HTML output via Playwright screenshots and console checks",
+    usage: "verify-html --html /path/output.html [--viewports 1920x1080,375x667] [--slides 10]",
+    flags: ["--html", "--viewports", "--slides", "--output", "--show", "--wait"],
   }],
   ["serve", {
     description: "Serve comparison board over HTTP and collect user feedback",

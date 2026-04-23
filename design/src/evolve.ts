@@ -8,10 +8,12 @@
 import fs from "fs";
 import path from "path";
 import { requireApiKey } from "./auth";
+import { resolveBriefInput } from "./brief";
 
 export interface EvolveOptions {
   screenshot: string;  // Path to current site screenshot
-  brief: string;       // What to change ("make it calmer", "fix the hierarchy")
+  brief?: string;      // What to change ("make it calmer", "fix the hierarchy")
+  briefFile?: string;  // Structured brief for deliverable-aware evolution
   output: string;      // Output path for evolved mockup
 }
 
@@ -23,8 +25,11 @@ export interface EvolveOptions {
 export async function evolve(options: EvolveOptions): Promise<void> {
   const apiKey = requireApiKey();
   const screenshotData = fs.readFileSync(options.screenshot).toString("base64");
+  const resolvedBrief = options.briefFile
+    ? resolveBriefInput(options.briefFile, true)
+    : resolveBriefInput(options.brief || "", false);
 
-  console.error(`Evolving ${options.screenshot} with: "${options.brief}"`);
+  console.error(`Evolving ${options.screenshot} with: "${resolvedBrief.prompt}"`);
   const startTime = Date.now();
 
   // Use the Responses API with both a text prompt referencing the screenshot
@@ -44,7 +49,7 @@ export async function evolve(options: EvolveOptions): Promise<void> {
     analysis,
     "",
     "REQUESTED CHANGES:",
-    options.brief,
+    resolvedBrief.prompt,
     "",
     "Generate a new mockup that keeps the existing layout structure but applies the requested changes.",
     "The result should look like a real production UI. All text must be readable.",
@@ -91,7 +96,7 @@ export async function evolve(options: EvolveOptions): Promise<void> {
     console.log(JSON.stringify({
       outputPath: options.output,
       sourceScreenshot: options.screenshot,
-      brief: options.brief,
+      brief: resolvedBrief.prompt,
     }, null, 2));
   } finally {
     clearTimeout(timeout);

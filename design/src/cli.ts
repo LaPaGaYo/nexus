@@ -1,5 +1,5 @@
 /**
- * Nexus design CLI — stateless CLI for AI-powered design generation.
+ * Nexus design CLI — stateless CLI for AI-powered design deliverables.
  *
  * Unlike the browse binary (persistent Chromium daemon), the design binary
  * is stateless: each invocation makes API calls and writes files. Session
@@ -25,6 +25,11 @@ import { evolve } from "./evolve";
 import { generateDesignToCodePrompt } from "./design-to-code";
 import { serve } from "./serve";
 import { gallery } from "./gallery";
+import {
+  runDesignNodeScript,
+  runDesignPythonScript,
+  runDesignShellScript,
+} from "./runtime-tools";
 
 function parseArgs(argv: string[]): { command: string; flags: Record<string, string | boolean> } {
   const args = argv.slice(2); // skip bun/node and script path
@@ -54,7 +59,7 @@ function parseArgs(argv: string[]): { command: string; flags: Record<string, str
 }
 
 function printUsage(): void {
-  console.log("nexus design — AI-powered UI mockup generation\n");
+  console.log("nexus design — AI-powered design deliverables\n");
   console.log("Commands:");
   for (const [name, info] of COMMANDS) {
     console.log(`  ${name.padEnd(12)} ${info.description}`);
@@ -129,7 +134,7 @@ async function main(): Promise<void> {
       break;
 
     case "check":
-      await checkCommand(flags.image as string, flags.brief as string);
+      await checkCommand(flags.image as string, flags.brief as string, flags["brief-file"] as string);
       break;
 
     case "compare": {
@@ -236,6 +241,7 @@ async function main(): Promise<void> {
       await evolve({
         screenshot: flags.screenshot as string,
         brief: flags.brief as string,
+        briefFile: flags["brief-file"] as string,
         output: (flags.output as string) || "/tmp/nexus-evolved.png",
       });
       break;
@@ -246,6 +252,108 @@ async function main(): Promise<void> {
         output: (flags.output as string) || "/tmp/nexus-design-gallery.html",
       });
       break;
+
+    case "export-pdf": {
+      const html = flags.html as string | undefined;
+      const slides = flags.slides as string | undefined;
+      const out = flags.out as string | undefined;
+      if (!out || (!html && !slides)) {
+        console.error("--out and either --slides or --html are required");
+        process.exit(1);
+      }
+      if (html) {
+        await runDesignNodeScript("export_deck_stage_pdf.mjs", [
+          "--html",
+          html,
+          "--out",
+          out,
+          ...(flags.width ? ["--width", flags.width as string] : []),
+          ...(flags.height ? ["--height", flags.height as string] : []),
+        ]);
+      } else {
+        await runDesignNodeScript("export_deck_pdf.mjs", [
+          "--slides",
+          slides!,
+          "--out",
+          out,
+          ...(flags.width ? ["--width", flags.width as string] : []),
+          ...(flags.height ? ["--height", flags.height as string] : []),
+        ]);
+      }
+      break;
+    }
+
+    case "export-pptx": {
+      const slides = flags.slides as string | undefined;
+      const out = flags.out as string | undefined;
+      if (!slides || !out) {
+        console.error("--slides and --out are required");
+        process.exit(1);
+      }
+      await runDesignNodeScript("export_deck_pptx.mjs", ["--slides", slides, "--out", out]);
+      break;
+    }
+
+    case "render-video": {
+      const html = flags.html as string | undefined;
+      if (!html) {
+        console.error("--html is required");
+        process.exit(1);
+      }
+      const args = [html];
+      if (flags.duration) args.push(`--duration=${flags.duration as string}`);
+      if (flags.width) args.push(`--width=${flags.width as string}`);
+      if (flags.height) args.push(`--height=${flags.height as string}`);
+      if (flags.trim) args.push(`--trim=${flags.trim as string}`);
+      if (flags.fontwait) args.push(`--fontwait=${flags.fontwait as string}`);
+      if (flags.readytimeout) args.push(`--readytimeout=${flags.readytimeout as string}`);
+      if (flags["keep-chrome"]) args.push("--keep-chrome");
+      await runDesignNodeScript("render-video.js", args);
+      break;
+    }
+
+    case "convert-video": {
+      const input = flags.input as string | undefined;
+      if (!input) {
+        console.error("--input is required");
+        process.exit(1);
+      }
+      const args = [input];
+      if (flags["gif-width"]) args.push(flags["gif-width"] as string);
+      if (flags.minterpolate) args.push("--minterpolate");
+      await runDesignShellScript("convert-formats.sh", args);
+      break;
+    }
+
+    case "add-music": {
+      const input = flags.input as string | undefined;
+      if (!input) {
+        console.error("--input is required");
+        process.exit(1);
+      }
+      const args = [input];
+      if (flags.mood) args.push(`--mood=${flags.mood as string}`);
+      if (flags.music) args.push(`--music=${flags.music as string}`);
+      if (flags.out) args.push(`--out=${flags.out as string}`);
+      await runDesignShellScript("add-music.sh", args);
+      break;
+    }
+
+    case "verify-html": {
+      const html = flags.html as string | undefined;
+      if (!html) {
+        console.error("--html is required");
+        process.exit(1);
+      }
+      const args = [html];
+      if (flags.viewports) args.push("--viewports", flags.viewports as string);
+      if (flags.slides) args.push("--slides", flags.slides as string);
+      if (flags.output) args.push("--output", flags.output as string);
+      if (flags.show) args.push("--show");
+      if (flags.wait) args.push("--wait", flags.wait as string);
+      await runDesignPythonScript("verify.py", args);
+      break;
+    }
 
     case "serve":
       await serve({

@@ -4,7 +4,8 @@ preamble-tier: 2
 version: 1.0.0
 description: |
   Design shotgun: generate multiple AI design variants, open a comparison board,
-  collect structured feedback, and iterate. Standalone design exploration you can
+  collect structured feedback, and iterate across UI screens, prototypes, slide
+  decks, motion boards, and infographics. Standalone design exploration you can
   run anytime. Use when: "explore designs", "show me options", "design variants",
   "visual brainstorm", or "I don't like how this looks".
   Proactively suggest when the user describes a UI feature but hasn't seen
@@ -211,29 +212,44 @@ variable that agents do NOT inherit. Substitute the resolved absolute path (from
 Generate a design variant and save it.
 
 Design binary: {absolute path to $D binary}
-Brief: {the full variant-specific brief for this direction}
+Brief file: {_DESIGN_DIR absolute path}/brief-{letter}.json
 Output: /tmp/variant-{letter}.png
 Final location: {_DESIGN_DIR absolute path}/variant-{letter}.png
 
 Steps:
-1. Run: {$D path} generate --brief "{brief}" --output /tmp/variant-{letter}.png
-2. If the command fails with a rate limit error (429 or "rate limit"), wait 5 seconds
+1. Before generating, write {_DESIGN_DIR}/brief-{letter}.json with the variant-specific brief. Always include:
+   - goal, audience, style, elements, constraints, screenType
+   - deliverableType: one of ui-mockup | prototype | slides | motion | infographic
+   - canvas when slide / motion / infographic composition matters
+   - interactionModel when this is a product prototype
+   - storyBeats when this is a slide or motion narrative
+   - exportTargets matching the requested deliverable (for example png+html, png+pptx, png+mp4+gif, png+pdf)
+   - dataContext for infographic/data-story work
+2. Run: {$D path} generate --brief-file {_DESIGN_DIR}/brief-{letter}.json --output /tmp/variant-{letter}.png
+3. If the command fails with a rate limit error (429 or "rate limit"), wait 5 seconds
    and retry. Up to 3 retries.
-3. If the output file is missing or empty after the command succeeds, retry once.
-4. Copy: cp /tmp/variant-{letter}.png {_DESIGN_DIR}/variant-{letter}.png
-5. Quality check: {$D path} check --image {_DESIGN_DIR}/variant-{letter}.png --brief "{brief}"
+4. If the output file is missing or empty after the command succeeds, retry once.
+5. Copy: cp /tmp/variant-{letter}.png {_DESIGN_DIR}/variant-{letter}.png
+6. Quality check: {$D path} check --image {_DESIGN_DIR}/variant-{letter}.png --brief-file {_DESIGN_DIR}/brief-{letter}.json
    If quality check fails, retry generation once.
-6. Verify: ls -lh {_DESIGN_DIR}/variant-{letter}.png
-7. Report exactly one of:
+7. Verify: ls -lh {_DESIGN_DIR}/variant-{letter}.png
+8. Report exactly one of:
    VARIANT_{letter}_DONE: {file size}
    VARIANT_{letter}_FAILED: {error description}
    VARIANT_{letter}_RATE_LIMITED: exhausted retries
 ```
 
-For the evolve path, replace step 1 with:
+For the evolve path, replace step 2 with:
 ```
-{$D path} evolve --screenshot {_DESIGN_DIR}/current.png --brief "{brief}" --output /tmp/variant-{letter}.png
+{$D path} evolve --screenshot {_DESIGN_DIR}/current.png --brief-file {_DESIGN_DIR}/brief-{letter}.json --output /tmp/variant-{letter}.png
 ```
+
+Map deliverable type from the actual request:
+- product UI or app flow -> `prototype`
+- keynote, deck, narrative slide -> `slides`
+- launch animation, storyboard, motion piece -> `motion`
+- report, visual explanation, data story -> `infographic`
+- otherwise -> `ui-mockup`
 
 **Why /tmp/ then cp?** In observed sessions, `$D generate --output ~/.nexus/...`
 failed with "The operation was aborted" while `--output /tmp/...` succeeded. This is

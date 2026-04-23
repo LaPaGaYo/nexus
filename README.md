@@ -403,8 +403,8 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/browse` | Real browser control for QA, capture, and site workflows. |
 | `/connect-chrome` | Launch Chrome with Nexus Side Panel control. |
 | `/setup-browser-cookies` | Import browser sessions for authenticated QA. |
-| `/design-consultation` | Create a design system and product visual direction with integrated asset protocol and brand context. |
-| `/design-shotgun` | Generate and compare multiple visual directions with distinct-school direction architecture for vague briefs. |
+| `/design-consultation` | Create integrated design context and deliverable direction for UI, prototypes, decks, motion, and infographics. |
+| `/design-shotgun` | Generate and compare multiple design directions for UI screens, prototypes, decks, motion boards, and infographics. |
 | `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |
 | `/design-review` | Audit and polish the visual result in code using the integrated five-lens design critique. |
 | `/investigate` | Systematic root-cause debugging. |
@@ -423,6 +423,12 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/learn` | Manage project learnings across sessions. |
 | `/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state. |
 | `/codex` | Independent second-opinion review through Codex. |
+
+The absorbed Nexus design runtime under `design/` now supports five deliverable
+classes: `ui-mockup`, `prototype`, `slides`, `motion`, and `infographic`.
+It also ships internal export and verification pipelines for HTML, PDF,
+editable PPTX, MP4, GIF, and Playwright-based HTML verification without
+exposing a second design product surface.
 
 Deep dives and usage examples live in [docs/skills.md](docs/skills.md).
 

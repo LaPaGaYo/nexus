@@ -179,8 +179,8 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/cso` | Security audit and threat-modeling support skill. |
 | `/browse` | Fast browser automation and QA support. |
 | `/investigate` | Root-cause debugging workflow. |
-| `/design-consultation` | Design-system discovery and visual direction with integrated asset protocol and brand context for UI-bearing runs. |
-| `/design-shotgun` | Design exploration and option generation with distinct-school direction architecture for UI-bearing runs. |
+| `/design-consultation` | Design-system discovery plus integrated deliverable direction for UI, prototype, slide, motion, and infographic work. |
+| `/design-shotgun` | Design exploration and option generation across UI screens, prototypes, decks, motion boards, and infographics. |
 | `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |
 | `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |
 | `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
@@ -194,6 +194,12 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/careful`, `/freeze`, `/guard`, `/unfreeze` | Safety and edit-boundary controls. |
 | `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. `/setup-deploy` authors `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`, including primary and secondary deploy surfaces. |
 | `/nexus-upgrade` | Upgrade Nexus itself through the supported release-based update flow. |
+
+The absorbed Nexus design runtime under `design/` now supports five deliverable
+classes: `ui-mockup`, `prototype`, `slides`, `motion`, and `infographic`.
+It also includes internal export and verification pipelines for HTML, PDF,
+editable PPTX, MP4, GIF, and Playwright-based HTML verification without
+reintroducing a second design product surface.
 
 Governed runs may publish canonical learnings at `/closeout`.
 `/learn` surfaces both operational JSONL learnings and canonical run learnings when available.

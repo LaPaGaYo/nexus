@@ -148,6 +148,10 @@ describe('gen-skill-docs', () => {
     expect(shotgun).toContain('different schools');
     expect(shotgun).toContain('named designer or studio anchor');
     expect(consultation).toContain('fan out 3 differentiated directions from distinct schools');
+    expect(consultation).toContain('generates direction-ready briefs for UI mockups, prototypes, slides, motion, and');
+    expect(shotgun).toContain('iterate across UI screens, prototypes, slide');
+    expect(shotgun).toContain('--brief-file {_DESIGN_DIR}/brief-{letter}.json');
+    expect(consultation).toContain('"deliverableType": "[ui-mockup|prototype|slides|motion|infographic]"');
   });
 
   test('design consultation and finalization treat design context as DESIGN.md plus brand-spec.md', () => {

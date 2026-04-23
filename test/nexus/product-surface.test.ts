@@ -168,6 +168,11 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('| `/handoff` |');
     expect(readme).toContain('| `/build` |');
     expect(readme).toContain('## Nexus support surface');
+    expect(readme).toContain('| `/design-consultation` | Create integrated design context and deliverable direction for UI, prototypes, decks, motion, and infographics. |');
+    expect(readme).toContain('| `/design-shotgun` | Generate and compare multiple design directions for UI screens, prototypes, decks, motion boards, and infographics. |');
+    expect(readme).toContain('| `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |');
+    expect(readme).toContain('The absorbed Nexus design runtime under `design/` now supports five deliverable');
+    expect(readme).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
     expect(readme).not.toContain('You:    /office-hours');
     expect(readme).not.toContain('You:    /plan-ceo-review');
     expect(readme).not.toContain('You:    /plan-eng-review');
@@ -189,11 +194,13 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('.planning/current/<stage>/completion-advisor.json');
     expect(skills).toContain('runtime-owned next-step contract');
     expect(skills).toContain('/browse');
-    expect(skills).toContain('| `/design-consultation` | Design-system discovery and visual direction with integrated asset protocol and brand context for UI-bearing runs. |');
-    expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation with distinct-school direction architecture for UI-bearing runs. |');
+    expect(skills).toContain('| `/design-consultation` | Design-system discovery plus integrated deliverable direction for UI, prototype, slide, motion, and infographic work. |');
+    expect(skills).toContain('| `/design-shotgun` | Design exploration and option generation across UI screens, prototypes, decks, motion boards, and infographics. |');
     expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |');
     expect(skills).toContain('| `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |');
     expect(skills).toContain('| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
+    expect(skills).toContain('The absorbed Nexus design runtime under `design/` now supports five deliverable');
+    expect(skills).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
     expect(skills).toContain('## Legacy compatibility deep dives');
     expect(skills).not.toContain('## `/office-hours`');
     expect(skills).not.toContain('## `/plan-ceo-review`');

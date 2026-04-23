@@ -7,7 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { requireApiKey } from "./auth";
-import { parseBrief } from "./brief";
+import { resolveBriefInput } from "./brief";
 
 export interface VariantsOptions {
   brief?: string;
@@ -106,9 +106,10 @@ async function generateVariant(
  */
 export async function variants(options: VariantsOptions): Promise<void> {
   const apiKey = requireApiKey();
-  const baseBrief = options.briefFile
-    ? parseBrief(options.briefFile, true)
-    : parseBrief(options.brief!, false);
+  const resolvedBrief = options.briefFile
+    ? resolveBriefInput(options.briefFile, true)
+    : resolveBriefInput(options.brief!, false);
+  const baseBrief = resolvedBrief.prompt;
 
   const quality = options.quality || "high";
 

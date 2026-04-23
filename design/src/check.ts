@@ -5,6 +5,7 @@
 
 import fs from "fs";
 import { requireApiKey } from "./auth";
+import { parseBrief, qualityChecklistForBrief, resolveBriefInput, type DesignBrief } from "./brief";
 
 export interface CheckResult {
   pass: boolean;
@@ -14,9 +15,14 @@ export interface CheckResult {
 /**
  * Check a generated mockup against the original brief.
  */
-export async function checkMockup(imagePath: string, brief: string): Promise<CheckResult> {
+export async function checkMockup(
+  imagePath: string,
+  brief: string,
+  structuredBrief: DesignBrief | null = null,
+): Promise<CheckResult> {
   const apiKey = requireApiKey();
   const imageData = fs.readFileSync(imagePath).toString("base64");
+  const checks = qualityChecklistForBrief(structuredBrief);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
@@ -45,12 +51,7 @@ export async function checkMockup(imagePath: string, brief: string): Promise<Che
                 `Brief: ${brief}`,
                 "",
                 "Check these 6 things:",
-                "1. TEXT READABILITY: Are all labels, headings, and body text legible? Any misspellings?",
-                "2. LAYOUT COMPLETENESS: Are all requested elements present? Anything missing?",
-                "3. PHILOSOPHICAL COHERENCE: Does the design feel like one idea instead of stitched-together tropes?",
-                "4. VISUAL HIERARCHY: Is attention directed intentionally?",
-                "5. EXECUTION CRAFT: Do spacing, typography, color, and detail feel deliberate?",
-                "6. FUNCTIONAL FIT + DISTINCTIVENESS: Does it support the task and avoid generic AI-default output?",
+                ...checks,
                 "",
                 "Respond with exactly one line:",
                 "PASS — if all checks pass",
@@ -89,7 +90,10 @@ export async function checkMockup(imagePath: string, brief: string): Promise<Che
 /**
  * Standalone check command: check an existing image against a brief.
  */
-export async function checkCommand(imagePath: string, brief: string): Promise<void> {
-  const result = await checkMockup(imagePath, brief);
+export async function checkCommand(imagePath: string, brief?: string, briefFile?: string): Promise<void> {
+  const resolved = briefFile
+    ? resolveBriefInput(briefFile, true)
+    : { prompt: parseBrief(brief || "", false), structuredBrief: null };
+  const result = await checkMockup(imagePath, resolved.prompt, resolved.structuredBrief);
   console.log(JSON.stringify(result, null, 2));
 }

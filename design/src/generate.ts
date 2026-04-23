@@ -5,7 +5,7 @@
 import fs from "fs";
 import path from "path";
 import { requireApiKey } from "./auth";
-import { parseBrief } from "./brief";
+import { resolveBriefInput } from "./brief";
 import { createSession, sessionPath } from "./session";
 import { checkMockup } from "./check";
 
@@ -91,9 +91,10 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   const apiKey = requireApiKey();
 
   // Parse the brief
-  const prompt = options.briefFile
-    ? parseBrief(options.briefFile, true)
-    : parseBrief(options.brief!, false);
+  const resolvedBrief = options.briefFile
+    ? resolveBriefInput(options.briefFile, true)
+    : resolveBriefInput(options.brief!, false);
+  const prompt = resolvedBrief.prompt;
 
   const size = options.size || "1536x1024";
   const quality = options.quality || "high";
@@ -130,7 +131,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
 
     // Quality check if requested
     if (options.check) {
-      const checkResult = await checkMockup(options.output, prompt);
+      const checkResult = await checkMockup(options.output, prompt, resolvedBrief.structuredBrief);
       lastResult.checkResult = checkResult;
 
       if (checkResult.pass) {

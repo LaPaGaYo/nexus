@@ -5,10 +5,11 @@ version: 1.0.0
 description: |
   Design consultation: understands your product, researches the landscape, proposes a
   complete design system (aesthetic, typography, color, layout, spacing, motion), and
-  generates font+color preview pages. Creates the project's integrated design context
-  (`DESIGN.md` plus `brand-spec.md` when a named brand needs frozen asset truth). For
-  existing sites, use /plan-design-review to infer the system instead. Use when asked
-  to "design system", "brand guidelines", or "create DESIGN.md".
+  generates direction-ready briefs for UI mockups, prototypes, slides, motion, and
+  infographics. Creates the project's integrated design context (`DESIGN.md` plus
+  `brand-spec.md` when a named brand needs frozen asset truth). For existing sites,
+  use /plan-design-review to infer the system instead. Use when asked to "design
+  system", "brand guidelines", or "create DESIGN.md".
   Proactively suggest when starting a new project's UI with no existing
   design system, DESIGN.md, or brand-spec.md. (Nexus)
 allowed-tools:
@@ -993,13 +994,41 @@ echo "DESIGN_DIR: $_DESIGN_DIR"
 Construct a design brief from the Phase 3 proposal (aesthetic, colors, typography, spacing, layout) and the product context from Phase 1:
 
 ```bash
-$D variants --brief "<product name: [name]. Product type: [type]. Aesthetic: [direction]. Colors: primary [hex], secondary [hex], neutrals [range]. Typography: display [font], body [font]. Layout: [approach]. Show a realistic [page type] screen with [specific content for this product].>" --count 3 --output-dir "$_DESIGN_DIR/"
+cat > "$_DESIGN_DIR/brief.json" <<'EOF'
+{
+  "goal": "[product name and what this preview needs to communicate]",
+  "audience": "[primary audience]",
+  "style": "[approved aesthetic direction]",
+  "elements": ["[required element 1]", "[required element 2]", "[required element 3]"],
+  "constraints": "[important layout or brand constraints]",
+  "brandCore": "[core brand feeling]",
+  "assetContext": ["[frozen asset or product truth 1]", "[asset truth 2]"],
+  "reviewLenses": ["coherence", "hierarchy", "craft", "functional fit", "distinctiveness"],
+  "avoid": ["generic AI-default output"],
+  "screenType": "[desktop-dashboard|mobile-app|landing-page|presentation-slide|storyboard-panel|editorial-infographic]",
+  "deliverableType": "[ui-mockup|prototype|slides|motion|infographic]",
+  "canvas": "[16:9 keynote slide, iPhone frame, storyboard sheet, etc.]",
+  "interactionModel": "[only for prototype/product UI previews]",
+  "storyBeats": ["[only for slides or motion when a narrative arc matters]"],
+  "exportTargets": ["png", "[html|pptx|mp4|gif|pdf as appropriate]"],
+  "dataContext": "[only for infographic/data-heavy previews]"
+}
+EOF
+
+$D variants --brief-file "$_DESIGN_DIR/brief.json" --count 3 --output-dir "$_DESIGN_DIR/"
 ```
+
+Choose `deliverableType` from the user's actual output:
+- `prototype` for app/web product flows or believable product screens
+- `slides` for decks, keynote-style frames, or presentation storytelling
+- `motion` for launch films, animated explainers, or storyboard/keyframe work
+- `infographic` for editorial data stories, reports, or visual explanations
+- `ui-mockup` only when the request is truly a static interface exploration
 
 Run quality check on each variant:
 
 ```bash
-$D check --image "$_DESIGN_DIR/variant-A.png" --brief "<the original brief>"
+$D check --image "$_DESIGN_DIR/variant-A.png" --brief-file "$_DESIGN_DIR/brief.json"
 ```
 
 Show each variant inline (Read tool on each PNG) for instant preview.
