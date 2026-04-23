@@ -562,7 +562,33 @@ If the brief is visually vague, or existing design context is too thin:
 
 The goal is to create intentional choice, not aesthetic drift.
 
-### 3. Junior-designer execution discipline
+### 3. Direction architecture for exploration work
+
+When generating multiple directions:
+
+- default to **3 directions**, not a pile of weak variants
+- anchor each direction to a **named designer or studio**
+- the first 3 directions must come from **different schools**, not three versions
+  of the same taste
+
+Preferred school spread:
+- information architecture / editorial systems
+- motion poetics / digital atmosphere
+- minimal / luxury restraint
+- experimental / avant-garde
+- eastern or contemplative philosophy
+
+Each direction should state:
+- the direction name
+- the designer or studio anchor
+- why it fits this product
+- the core visual traits
+- the risk/tradeoff it introduces
+
+Do not present "minimal / bold / premium" as if those are distinct directions.
+The user should be able to feel the contrast immediately.
+
+### 4. Junior-designer execution discipline
 
 Do not rely on heroic one-shot design guesses.
 
@@ -572,7 +598,7 @@ Do not rely on heroic one-shot design guesses.
 - tighten with real content, real assets, and real constraints
 - iterate toward craft instead of pretending the first pass is final
 
-### 4. Five design lenses
+### 5. Five design lenses
 
 Use these lenses when proposing, reviewing, or finalizing design work:
 
@@ -873,7 +899,7 @@ different ones? Or adjust anything else?
 
 The SAFE/RISK breakdown is critical. Design coherence is table stakes — every product in a category can be coherent and still look identical. The real question is: where do you take creative risks? The agent should always propose at least 2 risks, each with a clear rationale for why the risk is worth taking and what the user gives up. Risks might include: an unexpected typeface for the category, a bold accent color nobody else uses, tighter or looser spacing than the norm, a layout approach that breaks from convention, motion choices that add personality.
 
-**Options:** A) Looks great — generate the preview page. B) I want to adjust [section]. C) I want different risks — show me wilder options. D) Start over with a different direction. E) Skip the preview, just write the design context.
+**Options:** A) Looks great — generate the preview page. B) I want to adjust [section]. C) I want different risks — fan out 3 differentiated directions from distinct schools. D) Start over with a different direction. E) Skip the preview, just write the design context.
 
 ### Your Design Knowledge (use to inform proposals — do NOT display as tables)
 
@@ -937,6 +963,13 @@ When the user wants to change a specific section, go deep on that section:
 - **Colors:** Present 2-3 palette options with hex values, explain the color theory reasoning
 - **Aesthetic:** Walk through which directions fit their product and why
 - **Layout/Spacing/Motion:** Present the approaches with concrete tradeoffs for their product type
+
+If the user asks for different risks or a restart, do not just reshuffle adjectives. Fan out 3 differentiated directions:
+- each anchored to a named designer or studio
+- each drawn from a different school
+- each with a clear fit rationale and tradeoff
+
+If the user wants to see those directions visually, route that exploration through the same direction architecture used by `/design-shotgun`.
 
 Each drill-down is one focused AskUserQuestion. After the user decides, re-check coherence with the rest of the system.
 

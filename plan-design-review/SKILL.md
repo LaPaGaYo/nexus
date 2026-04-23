@@ -599,7 +599,33 @@ If the brief is visually vague, or existing design context is too thin:
 
 The goal is to create intentional choice, not aesthetic drift.
 
-### 3. Junior-designer execution discipline
+### 3. Direction architecture for exploration work
+
+When generating multiple directions:
+
+- default to **3 directions**, not a pile of weak variants
+- anchor each direction to a **named designer or studio**
+- the first 3 directions must come from **different schools**, not three versions
+  of the same taste
+
+Preferred school spread:
+- information architecture / editorial systems
+- motion poetics / digital atmosphere
+- minimal / luxury restraint
+- experimental / avant-garde
+- eastern or contemplative philosophy
+
+Each direction should state:
+- the direction name
+- the designer or studio anchor
+- why it fits this product
+- the core visual traits
+- the risk/tradeoff it introduces
+
+Do not present "minimal / bold / premium" as if those are distinct directions.
+The user should be able to feel the contrast immediately.
+
+### 4. Junior-designer execution discipline
 
 Do not rely on heroic one-shot design guesses.
 
@@ -609,7 +635,7 @@ Do not rely on heroic one-shot design guesses.
 - tighten with real content, real assets, and real constraints
 - iterate toward craft instead of pretending the first pass is final
 
-### 4. Five design lenses
+### 5. Five design lenses
 
 Use these lenses when proposing, reviewing, or finalizing design work:
 

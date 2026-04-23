@@ -144,6 +144,10 @@ describe('gen-skill-docs', () => {
       expect(content).toContain('brand-spec.md');
       expect(content).toContain('Five design lenses');
     }
+
+    expect(shotgun).toContain('different schools');
+    expect(shotgun).toContain('named designer or studio anchor');
+    expect(consultation).toContain('fan out 3 differentiated directions from distinct schools');
   });
 
   test('design consultation and finalization treat design context as DESIGN.md plus brand-spec.md', () => {
