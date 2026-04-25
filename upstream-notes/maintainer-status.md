@@ -1,12 +1,12 @@
 # Nexus Maintainer Status
 
-Generated: `2026-04-20T20:05:26.412Z`
+Generated: `2026-04-25T21:37:37.249Z`
 
 - Status: `ready`
 - Next action: `none`
 - Summary: No maintainer action is currently required.
-- Current version: `1.0.41`
-- Current tag: `v1.0.41`
+- Current version: `1.0.42`
+- Current tag: `v1.0.42`
 - Release preflight: `blocked`
 - Remote release smoke: `ready`
 
