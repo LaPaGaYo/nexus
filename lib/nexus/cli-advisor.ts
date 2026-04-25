@@ -108,6 +108,7 @@ export function formatCompletionAdvisorForCli(advisor: CompletionAdvisorRecord):
     appendActionSection(lines, 'Stop action:', [advisor.stop_action]);
   }
   appendActionSection(lines, 'Recommended side skills:', advisor.recommended_side_skills);
+  appendActionSection(lines, 'Recommended installed skills:', advisor.recommended_external_skills ?? []);
 
   if (advisor.project_setup_gaps.length > 0) {
     lines.push('Project/setup gaps:');

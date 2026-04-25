@@ -148,6 +148,7 @@ Every canonical stage from `/frame` through `/closeout` also writes
 - Primary purpose: give interactive hosts a runtime-owned next-step contract instead of relying on prompt-only heuristics.
 - Advisor contents: interaction mode, primary next actions, alternative actions, recommended side skills, stop action, default action, project setup gaps, and whether an explicit user choice is required.
 - Design-aware surfacing: when `design_impact` and the verification matrix say a run is design-bearing, the advisor can elevate `/plan-design-review`, `/design-review`, and `/browse`.
+- External installed skills: Nexus scans installed `SKILL.md` files and can surface matching user skills as `recommended_external_skills`. These are supplemental only; they never override Nexus canonical commands or Nexus-owned support skills.
 - Hidden surfaces: compatibility aliases and utility skills remain off the stage-completion advisor unless the user invokes them directly.
 - Strong interactive stages: `/frame`, `/plan`, `/review`, `/qa`, `/ship`, and `/closeout` should surface completion choices in interactive hosts even when the canonical next step is obvious.
 

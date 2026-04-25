@@ -345,6 +345,16 @@ Each surfaced action also carries a `visibility_reason`, so the host can explain
 why that support skill is being recommended now instead of treating it like a
 flat menu.
 
+Nexus can also see user-installed skills without making them part of the
+canonical lifecycle. It scans installed `SKILL.md` files, classifies them as
+Nexus canonical, Nexus support, or external installed skills, and only surfaces
+external skills as supplemental actions when their tags match the current stage
+and run context. Nexus canonical commands always win name conflicts. Built-in
+Nexus support skills, such as `/design-review`, `/browse`, `/benchmark`, and
+`/cso`, are shown before external installed skills. External recommendations
+are written separately as `recommended_external_skills` so hosts can display
+them without confusing them with Nexus-owned workflow actions.
+
 Fresh `/discover` also accepts an explicit continuation hint when you are
 starting the next run:
 

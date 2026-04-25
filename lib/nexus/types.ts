@@ -112,6 +112,7 @@ export type CompletionAdvisorOutcome = (typeof COMPLETION_ADVISOR_OUTCOMES)[numb
 export const COMPLETION_ADVISOR_ACTION_KINDS = [
   'canonical_stage',
   'support_skill',
+  'external_installed_skill',
   'compat_alias',
   'utility',
   'disposition',
@@ -718,11 +719,24 @@ export interface CompletionAdvisorRecord {
   primary_next_actions: CompletionAdvisorActionRecord[];
   alternative_next_actions: CompletionAdvisorActionRecord[];
   recommended_side_skills: CompletionAdvisorActionRecord[];
+  recommended_external_skills?: CompletionAdvisorActionRecord[];
   stop_action: CompletionAdvisorActionRecord | null;
   project_setup_gaps: string[];
   hidden_compat_aliases: string[];
   hidden_utility_skills: string[];
   suppressed_surfaces: string[];
+}
+
+export type InstalledSkillNamespace = 'nexus_canonical' | 'nexus_support' | 'external_installed';
+
+export interface InstalledSkillRecord {
+  name: string;
+  surface: string;
+  description: string | null;
+  path: string;
+  source_root: string;
+  namespace: InstalledSkillNamespace;
+  tags: string[];
 }
 
 export interface SessionContinuationAdviceRecord {

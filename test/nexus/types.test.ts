@@ -6,6 +6,7 @@ import {
   CONTINUATION_ADVICE_OPTIONS,
   CANARY_EVIDENCE_STATUSES,
   COMPLETION_ADVISOR_INTERACTION_MODES,
+  COMPLETION_ADVISOR_ACTION_KINDS,
   DEPLOY_CONFIG_SOURCES,
   DEPLOY_RESULT_CI_STATUSES,
   DEPLOY_RESULT_FAILURE_KINDS,
@@ -403,6 +404,7 @@ describe('nexus types', () => {
       'recommended_choice',
       'summary_only',
     ]);
+    expect(COMPLETION_ADVISOR_ACTION_KINDS).toContain('external_installed_skill');
     expect(stageCompletionAdvisorPath('review')).toBe('.planning/current/review/completion-advisor.json');
 
     const advisor: CompletionAdvisorRecord = {

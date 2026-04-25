@@ -8,7 +8,9 @@ import type {
   ReviewAdvisoryDisposition,
   StageStatus,
   VerificationMatrixRecord,
+  InstalledSkillRecord,
 } from './types';
+import { discoverExternalInstalledSkills, rankExternalInstalledSkillsForAdvisor } from './external-skills';
 
 const HIDDEN_COMPAT_ALIASES = ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'] as const;
 const HIDDEN_UTILITY_SKILLS = ['/careful', '/freeze', '/guard', '/unfreeze', '/nexus-upgrade'] as const;
@@ -108,12 +110,56 @@ function baseAdvisor(
     primary_next_actions: [],
     alternative_next_actions: [],
     recommended_side_skills: [],
+    recommended_external_skills: [],
     stop_action: null,
     project_setup_gaps: [],
     hidden_compat_aliases: [...HIDDEN_COMPAT_ALIASES],
     hidden_utility_skills: [...HIDDEN_UTILITY_SKILLS],
     suppressed_surfaces: suppressedSurfaces(),
     ...overrides,
+  };
+}
+
+function advisorSurfaces(record: CompletionAdvisorRecord): string[] {
+  return uniqueStrings([
+    ...record.primary_next_actions.map((candidate) => candidate.surface),
+    ...record.alternative_next_actions.map((candidate) => candidate.surface),
+    ...record.recommended_side_skills.map((candidate) => candidate.surface),
+    ...(record.recommended_external_skills ?? []).map((candidate) => candidate.surface),
+    record.stop_action?.surface,
+    ...record.suppressed_surfaces,
+  ]);
+}
+
+export function attachExternalInstalledSkillRecommendations(
+  record: CompletionAdvisorRecord,
+  verificationMatrix: VerificationMatrixRecord | null = null,
+  externalSkills: InstalledSkillRecord[] = discoverExternalInstalledSkills(),
+): CompletionAdvisorRecord {
+  if (record.requires_user_choice || record.interaction_mode !== 'recommended_choice') {
+    return record;
+  }
+
+  const ranked = rankExternalInstalledSkillsForAdvisor({
+    stage: record.stage,
+    verification_matrix: verificationMatrix,
+    skills: externalSkills,
+    existing_surfaces: advisorSurfaces(record),
+    limit: 3,
+  });
+  if (ranked.length === 0) {
+    return {
+      ...record,
+      recommended_external_skills: record.recommended_external_skills ?? [],
+    };
+  }
+
+  return {
+    ...record,
+    recommended_external_skills: [
+      ...(record.recommended_external_skills ?? []),
+      ...ranked,
+    ],
   };
 }
 
@@ -460,6 +506,7 @@ export function buildReviewCompletionAdvisor(
   status: StageStatus,
   verificationMatrix: VerificationMatrixRecord | null,
   generatedAt: string,
+  externalSkills: InstalledSkillRecord[] = [],
 ): CompletionAdvisorRecord {
   if (status.gate_decision === 'fail') {
     const primary = action(
@@ -573,7 +620,7 @@ export function buildReviewCompletionAdvisor(
     );
   }
 
-  return baseAdvisor(
+  return attachExternalInstalledSkillRecommendations(baseAdvisor(
     status,
     generatedAt,
     'Review passed cleanly. QA is the recommended governed next step.',
@@ -585,7 +632,7 @@ export function buildReviewCompletionAdvisor(
       recommended_side_skills: sideSkills,
       stop_action: stopAction('review'),
     },
-  );
+  ), verificationMatrix, externalSkills);
 }
 
 export function buildQaCompletionAdvisor(
@@ -940,6 +987,8 @@ export function buildCloseoutCompletionAdvisor(
 }
 
 export function buildCompletionAdvisorWrite(record: CompletionAdvisorRecord): { path: string; content: string } {
+  const enriched = attachExternalInstalledSkillRecommendations(record);
+  Object.assign(record, enriched);
   return {
     path: `.planning/current/${record.stage}/completion-advisor.json`,
     content: JSON.stringify(record, null, 2) + '\n',

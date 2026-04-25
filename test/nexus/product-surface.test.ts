@@ -90,6 +90,8 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('`compact_then_continue`');
     expect(readme).toContain('`fresh_session_continue`');
     expect(readme).toContain('Use `/continue` when you want to resume from a fresh session');
+    expect(readme).toContain('recommended_external_skills');
+    expect(readme).toContain('Nexus canonical commands always win name conflicts');
     expect(installSection).toContain('/nexus-upgrade');
     expect(readme).not.toContain('git pull');
     expect(installSection).not.toContain('git pull --ff-only');
@@ -111,6 +113,8 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('`/continue` remains the');
     expect(skills).toContain('canonical fresh-session resume path.');
     expect(skills).toContain('`/learn` surfaces both operational JSONL learnings and canonical run learnings when available.');
+    expect(skills).toContain('recommended_external_skills');
+    expect(skills).toContain('they never override Nexus canonical commands');
     expect(skills).not.toContain('Manage what gstack learned');
     expect(skills).not.toContain('controlled by gstack');
 

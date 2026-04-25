@@ -331,6 +331,51 @@ describe('nexus completion advisor', () => {
     ]));
   });
 
+  test('advisor keeps external installed skills separate from Nexus support skills', () => {
+    const status: StageStatus = {
+      ...readyStatus('review'),
+      gate_decision: 'pass',
+      advisory_count: 0,
+      advisory_disposition: null,
+      review_complete: true,
+      audit_set_complete: true,
+      provenance_consistent: true,
+    };
+
+    const advisor = buildReviewCompletionAdvisor(
+      status,
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+      [
+        {
+          name: 'brand-audit',
+          surface: '/brand-audit',
+          description: 'External visual design review and brand quality audit.',
+          path: '/tmp/brand-audit/SKILL.md',
+          source_root: '/tmp',
+          namespace: 'external_installed',
+          tags: ['design', 'design-review', 'audit'],
+        },
+        {
+          name: 'review',
+          surface: '/review',
+          description: 'External code review skill.',
+          path: '/tmp/review/SKILL.md',
+          source_root: '/tmp',
+          namespace: 'nexus_canonical',
+          tags: ['code-review'],
+        },
+      ],
+    );
+
+    expect(advisor.recommended_side_skills.map((action) => action.surface)).toContain('/design-review');
+    expect(advisor.recommended_external_skills?.map((action) => action.surface)).toEqual(['/brand-audit']);
+    expect(advisor.recommended_external_skills?.[0]).toMatchObject({
+      kind: 'external_installed_skill',
+      label: 'Run installed skill `/brand-audit`',
+    });
+  });
+
   test('ship and closeout advisors surface deploy and follow-on work without exposing utilities', () => {
     const shipStatus: StageStatus = {
       ...readyStatus('ship'),
