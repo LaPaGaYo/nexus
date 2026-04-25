@@ -4,11 +4,13 @@ preamble-tier: 2
 version: 1.0.0
 description: |
   Design finalization: takes an approved AI mockup from /design-shotgun and
-  generates production-quality Pretext-native HTML/CSS. Text actually reflows,
-  heights are computed, layouts are dynamic. 30KB overhead, zero deps.
-  Smart API routing: picks the right Pretext patterns for each design type.
-  Use when: "finalize this design", "turn this mockup into HTML", "implement
-  this design", or after /design-shotgun approves a direction.
+  generates production-quality Pretext-native HTML/CSS plus downstream exports
+  for prototypes, slide decks, motion pieces, and infographics. Text actually
+  reflows, heights are computed, layouts are dynamic. 30KB overhead, zero deps.
+  Smart API routing: picks the right Pretext patterns for each design type and
+  drives PDF/PPTX/MP4/GIF/verification steps from the approved deliverable
+  metadata. Use when: "finalize this design", "turn this mockup into HTML",
+  "implement this design", or after /design-shotgun approves a direction.
   Proactively suggest when user has approved a design in /design-shotgun. (Nexus)
 allowed-tools:
   - Bash
@@ -47,10 +49,22 @@ eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
 1. Find the most recent `approved.json`:
 ```bash
 setopt +o nomatch 2>/dev/null || true
-ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1
+_APPROVED_JSON=$(ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1)
+echo "$_APPROVED_JSON"
+[ -n "$_APPROVED_JSON" ] && _DESIGN_DIR=$(dirname "$_APPROVED_JSON") && echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
 
-2. If found, read it. Extract: approved variant PNG path, user feedback, screen name.
+2. If found, read it. Extract:
+   - approved variant PNG path
+   - user feedback
+   - screen name
+   - `deliverableType`
+   - `exportTargets`
+   - `canvas`
+   - `interactionModel`
+   - `storyBeats`
+   - `dataContext`
+   - `brief_file`
 
 3. Read the design context — `DESIGN.md` and `brand-spec.md` if they exist in the repo
    root. These take priority for system-level values, frozen brand assets, and
@@ -75,7 +89,26 @@ If fresh: proceed normally.
 > A) Run /design-shotgun — explore design variants and approve one
 > B) I have a PNG — let me provide the path
 
-If B: accept a PNG file path from the user and proceed with that as the reference.
+If B: accept a PNG file path from the user, set `_DESIGN_DIR` to a fresh
+`~/.nexus/projects/$SLUG/designs/<screen-name>-YYYYMMDD/` directory, and proceed
+with that PNG as the reference.
+
+6. If `$D` is available, run the absorbed runtime doctor:
+```bash
+$D doctor
+```
+
+If the doctor reports `DEGRADED`, only treat it as a blocker when the missing
+capability matters for the approved deliverable:
+- `slides` with `pptx`/`pdf` targets
+- `motion` with `mp4`/`gif` targets
+- any run that requires `verify-html`
+
+Use AskUserQuestion:
+> The design runtime is missing [dependency], so I can still finalize the HTML stage
+> but I cannot produce [PPTX / MP4 / GIF / verification] until it's installed.
+> A) Continue with HTML-only finalization
+> B) Stop and fix the environment first
 
 ---
 
@@ -95,8 +128,12 @@ This returns colors, typography, layout structure, and component inventory via G
    overrides extracted brand-level properties (logos, approved palette bounds,
    frozen product/UI references).
 
-4. Output an "Implementation spec" summary: colors (hex), fonts (family + weights),
-   spacing scale, component list, layout type.
+4. If `brief_file` exists, read it. Treat it as the structured downstream contract.
+   The approved mockup gives you the exact look; the brief tells you whether this
+   run is a prototype, deck, motion piece, or infographic and which exports matter.
+
+5. Output an "Implementation spec" summary: colors (hex), fonts (family + weights),
+   spacing scale, component list, layout type, deliverable type, and export targets.
 
 ---
 
@@ -171,7 +208,7 @@ Run the detected install command. Then use standard imports in the component.
 
 ### HTML Generation
 
-Write a single file using the Write tool. Save to:
+Write the primary HTML stage using the Write tool. Save to:
 `~/.nexus/projects/$SLUG/designs/<screen-name>-YYYYMMDD/finalized.html`
 
 For framework output, save to:
@@ -444,7 +481,7 @@ Maximum 10 iterations. If the user hasn't said "done" after 10, use AskUserQuest
 
 ---
 
-## Step 5: Save & Next Steps
+## Step 6: Save & Next Steps
 
 ### Design Token Extraction
 
@@ -472,6 +509,58 @@ If A: write `DESIGN.md` to the repo root with the extracted tokens.
 If B: write `DESIGN.md` with system tokens and `brand-spec.md` with brand-specific
 constraints and frozen asset rules inferred from the approved mockup / finalized HTML.
 
+## Step 5: Deliverable-Specific Export + Verification
+
+Drive this from `approved.json` / `brief_file`, not guesswork.
+
+### A. `ui-mockup` or `prototype`
+- Final output is the HTML stage.
+- If `$D` is available, verify it:
+```bash
+$D verify-html --html "$_DESIGN_DIR/finalized.html" --output "$_DESIGN_DIR/verify-html.json"
+```
+
+### B. `slides`
+- Build the HTML stage as a deck, not a landing page.
+- If editable deck output is required, also write the slide fragments needed by:
+```bash
+$D export-pptx --slides "$_DESIGN_DIR/slides" --out "$_DESIGN_DIR/finalized.pptx"
+```
+- Export a shareable PDF when `pdf` is in `exportTargets`:
+```bash
+$D export-pdf --html "$_DESIGN_DIR/finalized.html" --out "$_DESIGN_DIR/finalized.pdf"
+```
+- Verify the deck HTML before declaring completion:
+```bash
+$D verify-html --html "$_DESIGN_DIR/finalized.html" --slides <slide-count> --output "$_DESIGN_DIR/verify-html.json"
+```
+
+### C. `motion`
+- Treat the HTML stage as the storyboard / keyframe source.
+- If `mp4` is requested:
+```bash
+$D render-video --html "$_DESIGN_DIR/finalized.html"
+```
+- If `gif` is requested, derive it from the rendered MP4:
+```bash
+$D convert-video --input "$_DESIGN_DIR/finalized.mp4"
+```
+- If soundtrack is requested, add it after render succeeds:
+```bash
+$D add-music --input "$_DESIGN_DIR/finalized.mp4" --mood <mood>
+```
+
+### D. `infographic`
+- Final output is HTML-backed information design.
+- Verify the HTML:
+```bash
+$D verify-html --html "$_DESIGN_DIR/finalized.html" --output "$_DESIGN_DIR/verify-html.json"
+```
+- Export PDF when requested:
+```bash
+$D export-pdf --html "$_DESIGN_DIR/finalized.html" --out "$_DESIGN_DIR/finalized.pdf"
+```
+
 ### Save Metadata
 
 Write `finalized.json` alongside the HTML:
@@ -479,6 +568,8 @@ Write `finalized.json` alongside the HTML:
 {
   "source_mockup": "<approved variant PNG path>",
   "html_file": "<path to finalized.html or component file>",
+  "deliverable_type": "<from approved.json>",
+  "export_targets": ["<from approved.json>"],
   "pretext_tier": "<selected tier>",
   "framework": "<vanilla|react|svelte|vue>",
   "iterations": <number of refinement iterations>,
@@ -514,5 +605,5 @@ Use AskUserQuestion:
 - **Real content only.** Extract text from the approved mockup. Never use "Lorem ipsum",
   "Your text here", or placeholder content.
 
-- **One page per invocation.** For multi-page designs, run /design-html once per page.
-  Each run produces one HTML file.
+- **One deliverable stage per invocation.** For multi-page designs, run /design-html once per page
+  or once per deck/storyboard. The HTML stage is the source for any PDF/PPTX/MP4/GIF outputs.

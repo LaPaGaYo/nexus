@@ -74,37 +74,65 @@ else
 fi
 _EFFECTIVE_EXECUTION=$(~/.claude/skills/nexus/bin/nexus-config effective-execution 2>/dev/null || true)
 if [ -n "$_EFFECTIVE_EXECUTION" ]; then
+  _EXECUTION_MODE=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^execution_mode:/{print $2; exit}')
+  _EXECUTION_MODE_CONFIGURED=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^execution_mode_configured:/{print $2; exit}')
   _PRIMARY_PROVIDER=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_primary_provider:/{print $2; exit}')
   _PROVIDER_TOPOLOGY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_provider_topology:/{print $2; exit}')
+  _EXECUTION_MODE_SOURCE=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^execution_mode_source:/{print $2; exit}')
   _EXECUTION_PATH=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_requested_execution_path:/{print $2; exit}')
   _CURRENT_SESSION_READY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^current_session_ready:/{print $2; exit}')
+  _REQUIRED_GOVERNED_PROVIDERS=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^required_governed_providers:/{print $2; exit}')
   _GOVERNED_READY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^governed_ready:/{print $2; exit}')
   _MOUNTED_PROVIDERS=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^mounted_providers:/{print $2; exit}')
   _MISSING_PROVIDERS=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^missing_providers:/{print $2; exit}')
+  _LOCAL_PROVIDER_CANDIDATE=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_candidate:/{print $2; exit}')
+  _LOCAL_PROVIDER_TOPOLOGY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_topology:/{print $2; exit}')
+  _LOCAL_PROVIDER_EXECUTION_PATH=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_requested_execution_path:/{print $2; exit}')
+  _LOCAL_PROVIDER_READY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_ready:/{print $2; exit}')
 else
+  _EXECUTION_MODE_SOURCE=""
   _EXECUTION_PATH=""
   _CURRENT_SESSION_READY="unknown"
+  _REQUIRED_GOVERNED_PROVIDERS=""
   _GOVERNED_READY=""
   _MOUNTED_PROVIDERS=""
   _MISSING_PROVIDERS=""
+  _LOCAL_PROVIDER_CANDIDATE=""
+  _LOCAL_PROVIDER_TOPOLOGY=""
+  _LOCAL_PROVIDER_EXECUTION_PATH=""
+  _LOCAL_PROVIDER_READY=""
 fi
 echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
 echo "EXECUTION_MODE: $_EXECUTION_MODE"
 echo "EXECUTION_MODE_CONFIGURED: $_EXECUTION_MODE_CONFIGURED"
+echo "EXECUTION_MODE_SOURCE: $_EXECUTION_MODE_SOURCE"
 echo "PRIMARY_PROVIDER: $_PRIMARY_PROVIDER"
 echo "PROVIDER_TOPOLOGY: $_PROVIDER_TOPOLOGY"
 echo "EXECUTION_PATH: $_EXECUTION_PATH"
 echo "CURRENT_SESSION_READY: $_CURRENT_SESSION_READY"
+echo "REQUIRED_GOVERNED_PROVIDERS: $_REQUIRED_GOVERNED_PROVIDERS"
 echo "GOVERNED_READY: $_GOVERNED_READY"
 echo "MOUNTED_PROVIDERS: $_MOUNTED_PROVIDERS"
 echo "MISSING_PROVIDERS: $_MISSING_PROVIDERS"
+echo "LOCAL_PROVIDER_CANDIDATE: $_LOCAL_PROVIDER_CANDIDATE"
+echo "LOCAL_PROVIDER_TOPOLOGY: $_LOCAL_PROVIDER_TOPOLOGY"
+echo "LOCAL_PROVIDER_EXECUTION_PATH: $_LOCAL_PROVIDER_EXECUTION_PATH"
+echo "LOCAL_PROVIDER_READY: $_LOCAL_PROVIDER_READY"
 source <(~/.claude/skills/nexus/bin/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -155,16 +183,20 @@ When summarizing setup or upgrade state, always keep `REPO_MODE` and `EXECUTION_
 - `EXECUTION_MODE` is runtime routing only, either `governed_ccb` or `local_provider`
 - Never describe `solo` or `collaborative` as an execution mode
 - If `EXECUTION_MODE_CONFIGURED` is `no`, say it is the current default derived from machine state, not a saved preference
+- `EXECUTION_MODE_SOURCE` explains whether the active route came from a saved preference or a machine-state default
 - `EXECUTION_PATH` is the current effective route, for example `codex-via-ccb`
 - `CURRENT_SESSION_READY` tells you whether the chosen route is runnable right now in this host/session
+- `REQUIRED_GOVERNED_PROVIDERS` is the governed provider set Nexus needs for the standard dual-audit path
 - when `EXECUTION_MODE=governed_ccb`, also surface `GOVERNED_READY`, `MOUNTED_PROVIDERS`, and `MISSING_PROVIDERS`
+- `LOCAL_PROVIDER_CANDIDATE`, `LOCAL_PROVIDER_TOPOLOGY`, `LOCAL_PROVIDER_EXECUTION_PATH`, and `LOCAL_PROVIDER_READY` describe the current-host local fallback path
 
 Whenever you summarize setup, upgrade, or first-run state, present runtime status in this order:
 - Repo mode: `REPO_MODE`
-- Execution mode: `EXECUTION_MODE` plus whether it is a saved preference or a machine-state default
+- Execution mode: `EXECUTION_MODE` plus whether it is a saved preference or a machine-state default (`EXECUTION_MODE_SOURCE`)
 - Execution path: `EXECUTION_PATH`
 - Current session ready: `CURRENT_SESSION_READY`
 - If `EXECUTION_MODE=governed_ccb`: governed ready, mounted providers, missing providers
+- If `EXECUTION_MODE=local_provider` because governed CCB is not ready, explicitly say whether that is because CCB is missing or because mounted providers are incomplete, and include the local fallback path
 - Branch: `_BRANCH`
 - Proactive: `PROACTIVE`
 
@@ -172,10 +204,10 @@ When `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY` is `no`, explicit
 - CCB not installed (`CCB_AVAILABLE=no`), or
 - CCB installed but required providers are not mounted (`MISSING_PROVIDERS` is non-empty)
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE` and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE`, `EXECUTION_MODE_SOURCE`, and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
 When `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`. Those are local-provider host preferences, not governed CCB config keys.
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `yes`, use AskUserQuestion to persist the execution preference:
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `GOVERNED_READY` is `yes`, use AskUserQuestion to persist the execution preference:
 
 > Nexus just upgraded, but this machine still has no saved execution-mode preference.
 > Repo mode only tells you whether the repo is solo or collaborative.
@@ -198,7 +230,7 @@ If B:
 ```
 Then explain that `governed_ccb` requires active CCB providers for this repo, and that the standard way to start them is `tmux` with `ccb codex gemini claude` if they are not already mounted.
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `no`, tell the user Nexus is defaulting to `local_provider` because CCB is not detected, state the effective provider/topology, and tell them they can run `./setup` later if they want Nexus to help install CCB before switching to `governed_ccb`.
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `GOVERNED_READY` is `no`, tell the user Nexus is defaulting to `local_provider` for this host/session. If `CCB_AVAILABLE` is `no`, say that CCB is not detected. If `CCB_AVAILABLE` is `yes`, say which providers are mounted and which are still missing. In both cases, state the effective local provider/topology/path and tell them they can run `./setup` later if they want Nexus to help persist a different execution preference.
 
 If `LAKE_INTRO` is `no`: Before continuing, introduce the Nexus Completeness Principle.
 Tell the user: "Nexus follows the **Completeness Principle** — when the bounded, correct

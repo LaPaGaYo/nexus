@@ -25,6 +25,8 @@ const LOCAL_PROVIDER_BINS: Record<PrimaryProvider, string> = {
   gemini: 'gemini',
 };
 
+const REQUIRED_GOVERNED_PROVIDERS: readonly PrimaryProvider[] = ['codex', 'gemini'] as const;
+
 function readConfigValue(key: string): string | null {
   const stateDir = process.env.NEXUS_STATE_DIR ?? join(homedir(), '.nexus');
   const configPath = join(stateDir, 'config.yaml');
@@ -89,6 +91,48 @@ function commandExists(command: string): boolean {
   return result.exitCode === 0;
 }
 
+function mountedCcbProviders(): PrimaryProvider[] {
+  if (!commandExists('ccb-mounted')) {
+    return [];
+  }
+
+  const result = Bun.spawnSync(['ccb-mounted', '--autostart'], {
+    stdout: 'pipe',
+    stderr: 'ignore',
+  });
+  if (result.exitCode !== 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(result.stdout.toString()) as { mounted?: unknown };
+    if (!Array.isArray(parsed.mounted)) {
+      return [];
+    }
+
+    return parsed.mounted.filter((provider): provider is PrimaryProvider => (
+      typeof provider === 'string'
+      && PRIMARY_PROVIDERS.includes(provider as PrimaryProvider)
+    ));
+  } catch {
+    return [];
+  }
+}
+
+function governedProvidersReady(): boolean {
+  if (!commandExists('ask')) {
+    return false;
+  }
+
+  const mounted = mountedCcbProviders();
+  return REQUIRED_GOVERNED_PROVIDERS.every((provider) => mounted.includes(provider));
+}
+
+function defaultLocalProvider(): PrimaryProvider {
+  return (['claude', 'codex', 'gemini'] as const).find((provider) => commandExists(LOCAL_PROVIDER_BINS[provider]))
+    ?? 'claude';
+}
+
 export function localExecutionPath(
   provider: PrimaryProvider,
   topology: ProviderTopology,
@@ -105,10 +149,10 @@ export function defaultExecutionSelection(): ExecutionSelection {
     ?? parseEnumValue(readConfigValue('primary_provider'), PRIMARY_PROVIDERS);
   const configuredTopology = parseEnumValue(process.env.NEXUS_PROVIDER_TOPOLOGY, PROVIDER_TOPOLOGIES)
     ?? parseEnumValue(readConfigValue('provider_topology'), PROVIDER_TOPOLOGIES);
-  const ccbAvailable = commandExists('ask');
+  const ccbReady = governedProvidersReady();
 
   const mode: ExecutionMode = configuredMode
-    ?? (ccbAvailable ? 'governed_ccb' : 'local_provider');
+    ?? (ccbReady ? 'governed_ccb' : 'local_provider');
 
   if (mode === 'governed_ccb') {
     return {
@@ -120,8 +164,7 @@ export function defaultExecutionSelection(): ExecutionSelection {
   }
 
   const primaryProvider = configuredProvider
-    ?? (['claude', 'codex', 'gemini'] as const).find((provider) => commandExists(LOCAL_PROVIDER_BINS[provider]))
-    ?? 'claude';
+    ?? defaultLocalProvider();
   const topology = configuredTopology ?? 'single_agent';
 
   return {

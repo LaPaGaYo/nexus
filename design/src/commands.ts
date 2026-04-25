@@ -99,6 +99,11 @@ export const COMMANDS = new Map<string, {
     usage: "verify-html --html /path/output.html [--viewports 1920x1080,375x667] [--slides 10]",
     flags: ["--html", "--viewports", "--slides", "--output", "--show", "--wait"],
   }],
+  ["doctor", {
+    description: "Check whether the absorbed design runtime is ready for slides, motion, and HTML verification",
+    usage: "doctor [--json]",
+    flags: ["--json"],
+  }],
   ["serve", {
     description: "Serve comparison board over HTTP and collect user feedback",
     usage: "serve --html /path/board.html [--timeout 600]",

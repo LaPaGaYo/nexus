@@ -86,15 +86,30 @@ Use this when you do not want to install or run CCB.
 ## Quick start
 
 1. Install Nexus into `~/.claude/skills/nexus`
-2. Run `/discover`
-3. Run `/frame`
-4. Run `/plan`
-5. Run `/handoff`
-6. Run `/build`
-7. Run `/review`
-8. Run `/qa`
-9. Run `/ship`
-10. Run `/closeout`
+2. Enter `/nexus` once at session start
+3. Let Nexus confirm the active execution substrate:
+   - `governed_ccb` when required CCB providers are actually mounted for this repo
+   - `local_provider` when CCB is missing or not session-ready yet
+4. Run `/discover`
+5. Run `/frame`
+6. Run `/plan`
+7. Run `/handoff`
+8. Run `/build`
+9. Run `/review`
+10. Run `/qa`
+11. Run `/ship`
+12. Run `/closeout`
+
+Bare `/nexus` is the workflow-harness entrypoint, not the browser tool.
+It should summarize:
+
+- execution mode
+- whether that route came from saved config or machine-state bootstrap
+- mounted CCB providers and missing governed providers when CCB is relevant
+- the current-host local fallback path when governed CCB is not ready
+
+After that bootstrap, stay in the canonical lifecycle. Use `/browse` only when
+you explicitly need browser QA.
 
 Canonical lifecycle:
 
@@ -173,8 +188,8 @@ exposes the required commands.
 
 If setup is non-interactive, the default remains:
 
-- `governed_ccb` when `ask` is installed
-- `local_provider` when `ask` is missing
+- `governed_ccb` only when `ask` is installed and the required governed providers are actually mounted for this repo
+- `local_provider` when CCB is missing or the governed route is not session-ready yet
 - `single_agent` when `provider_topology` is not already configured
 
 If neither CCB nor the selected local provider CLI is available, Nexus does not
@@ -243,8 +258,8 @@ Practical defaults:
 - interactive Claude setup also asks `single_agent` vs `subagents` when `local_provider` is selected for Claude
 - interactive Codex setup asks `single_agent` vs `subagents` vs `multi_session` when `local_provider` is selected for Codex
 - Gemini local subagents are supported through `nexus-config set primary_provider gemini` plus `nexus-config set provider_topology subagents`
-- non-interactive setup uses `governed_ccb` if `ask` is installed
-- `local_provider` if `ask` is missing
+- non-interactive defaults only choose `governed_ccb` when `ask` is installed and the required governed providers are actually mounted
+- otherwise the machine-state default is `local_provider` for the current host session
 - `primary_provider` auto-detects `claude`, then `codex`, then `gemini`
 
 ### Step 2: Add Nexus to your repo so teammates get it

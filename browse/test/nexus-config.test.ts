@@ -110,6 +110,7 @@ describe('nexus-config', () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain('execution_mode: governed_ccb');
     expect(stdout).toContain('execution_mode_configured: yes');
+    expect(stdout).toContain('execution_mode_source: persisted_preference');
     expect(stdout).toContain('ccb_available: yes');
     expect(stdout).toContain('effective_primary_provider: codex');
     expect(stdout).toContain('effective_provider_topology: multi_session');
@@ -119,6 +120,8 @@ describe('nexus-config', () => {
     expect(stdout).toContain('mounted_providers: none');
     expect(stdout).toContain('missing_providers: codex,gemini');
     expect(stdout).toContain('governed_ready: no');
+    expect(stdout).toContain('local_provider_candidate: claude');
+    expect(stdout).toContain('local_provider_topology: single_agent');
     expect(stdout).toContain('local_provider-only config keys');
   });
 
@@ -145,6 +148,41 @@ describe('nexus-config', () => {
     expect(stdout).toContain('governed_ready: yes');
   });
 
+  test('effective-execution defaults to local_provider when CCB is installed but governed providers are incomplete', () => {
+    const binDir = join(stateDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, 'ask'), '#!/usr/bin/env bash\nexit 0\n');
+    writeFileSync(join(binDir, 'claude'), '#!/usr/bin/env bash\nexit 0\n');
+    writeFileSync(
+      join(binDir, 'ccb-mounted'),
+      '#!/usr/bin/env bash\nprintf \'{"cwd":"/tmp/test","mounted":["codex","claude"]}\\n\'\n',
+    );
+    chmodSync(join(binDir, 'ask'), 0o755);
+    chmodSync(join(binDir, 'claude'), 0o755);
+    chmodSync(join(binDir, 'ccb-mounted'), 0o755);
+
+    const { exitCode, stdout } = run(['effective-execution'], {
+      PATH: `${binDir}:/bin:/usr/bin`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('execution_mode: local_provider');
+    expect(stdout).toContain('execution_mode_configured: no');
+    expect(stdout).toContain('execution_mode_source: machine_default_local_governed_not_ready');
+    expect(stdout).toContain('ccb_available: yes');
+    expect(stdout).toContain('effective_primary_provider: claude');
+    expect(stdout).toContain('effective_provider_topology: single_agent');
+    expect(stdout).toContain('effective_requested_execution_path: claude-local-single_agent');
+    expect(stdout).toContain('provider_cli_available: yes');
+    expect(stdout).toContain('current_session_ready: yes');
+    expect(stdout).toContain('required_governed_providers: codex,gemini');
+    expect(stdout).toContain('mounted_providers: codex,claude');
+    expect(stdout).toContain('missing_providers: gemini');
+    expect(stdout).toContain('governed_ready: no');
+    expect(stdout).toContain('local_provider_candidate: claude');
+    expect(stdout).toContain('local_provider_ready: yes');
+  });
+
   test('effective-execution resolves default local_provider route when CCB is missing', () => {
     const binDir = join(stateDir, 'bin');
     mkdirSync(binDir, { recursive: true });
@@ -158,12 +196,18 @@ describe('nexus-config', () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain('execution_mode: local_provider');
     expect(stdout).toContain('execution_mode_configured: no');
+    expect(stdout).toContain('execution_mode_source: machine_default_local_ccb_missing');
     expect(stdout).toContain('ccb_available: no');
     expect(stdout).toContain('effective_primary_provider: claude');
     expect(stdout).toContain('effective_provider_topology: single_agent');
     expect(stdout).toContain('effective_requested_execution_path: claude-local-single_agent');
     expect(stdout).toContain('provider_cli_available: yes');
     expect(stdout).toContain('current_session_ready: yes');
+    expect(stdout).toContain('mounted_providers: none');
+    expect(stdout).toContain('missing_providers: codex,gemini');
+    expect(stdout).toContain('governed_ready: no');
+    expect(stdout).toContain('local_provider_candidate: claude');
+    expect(stdout).toContain('local_provider_topology: single_agent');
   });
 
   test('no args shows usage and exits 1', () => {

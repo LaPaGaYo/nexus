@@ -16,6 +16,19 @@ Legacy aliases and host utilities remain documented below for migration, safety,
 but they do not own lifecycle contracts, artifact truth, or governed stage transitions.
 Legacy aliases and host utilities remain secondary compatibility surface only.
 
+## `/nexus` entrypoint
+
+`/nexus` is the workflow-harness entrypoint.
+
+- It is not the browser skill.
+- On entry it should summarize whether the current session is using `governed_ccb`
+  or `local_provider`.
+- When CCB is relevant, it should report mounted providers and missing governed
+  providers before the user starts lifecycle work.
+- When governed CCB is not session-ready, it should explain the current-host
+  local fallback path and then return the user to the canonical lifecycle.
+- Bare `/nexus` should send the user toward `/discover`, not `/browse`.
+
 ## Canonical lifecycle commands
 
 Canonical Nexus commands:

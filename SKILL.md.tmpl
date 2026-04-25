@@ -3,10 +3,10 @@ name: nexus
 preamble-tier: 1
 version: 1.1.0
 description: |
-  Fast headless browser for QA testing and site dogfooding. Navigate pages, interact with
-  elements, verify state, diff before/after, take annotated screenshots, test responsive
-  layouts, forms, uploads, dialogs, and capture bug evidence. Use when asked to open or
-  test a site, verify a deployment, dogfood a user flow, or file a bug with screenshots. (Nexus)
+  Nexus workflow harness entrypoint. Start here to confirm whether this session is using
+  governed CCB or a local provider, see which CCB providers are mounted, and route into
+  the canonical lifecycle or the right support skill without exposing transport details as
+  the main user workflow.
 allowed-tools:
   - Bash
   - Read
@@ -16,272 +16,122 @@ allowed-tools:
 
 {{PREAMBLE}}
 
+# /nexus
+
+Nexus is the workflow harness. Users should feel like they are moving through:
+
+`/discover -> /frame -> /plan -> /handoff -> /build -> /review -> /qa -> /ship -> /closeout`
+
+Provider routing is substrate, not the primary user workflow.
+
+## Session Bootstrap
+
+When the user enters `/nexus`, begin by summarizing the active runtime route before doing
+anything else.
+
+Always report, in this order:
+- Repo mode: `REPO_MODE`
+- Execution mode: `EXECUTION_MODE`
+- Execution mode source: `EXECUTION_MODE_SOURCE`
+- Execution path: `EXECUTION_PATH`
+- Current session ready: `CURRENT_SESSION_READY`
+
+When governed CCB state is relevant, also report:
+- Required governed providers: `REQUIRED_GOVERNED_PROVIDERS`
+- Mounted providers: `MOUNTED_PROVIDERS`
+- Missing providers: `MISSING_PROVIDERS`
+- Governed ready: `GOVERNED_READY`
+
+When local fallback is relevant, also report:
+- Local provider candidate: `LOCAL_PROVIDER_CANDIDATE`
+- Local topology: `LOCAL_PROVIDER_TOPOLOGY`
+- Local execution path: `LOCAL_PROVIDER_EXECUTION_PATH`
+- Local provider ready: `LOCAL_PROVIDER_READY`
+
+Interpret bootstrap state like this:
+
+- If `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY=yes`:
+  - say Nexus is using governed CCB in this session
+  - explicitly list mounted providers
+  - if `claude` is mounted in addition to `codex` and `gemini`, say so, but make it clear the standard governed dual-audit path requires `codex` and `gemini`
+
+- If `EXECUTION_MODE=local_provider` and `EXECUTION_MODE_SOURCE=machine_default_local_ccb_missing`:
+  - say CCB is not detected on this machine/session
+  - say Nexus is continuing in the current host through `local_provider`
+  - state the active local provider and topology
+
+- If `EXECUTION_MODE=local_provider` and `EXECUTION_MODE_SOURCE=machine_default_local_governed_not_ready`:
+  - say CCB exists but is not fully ready for governed execution in this session
+  - explicitly list mounted providers and missing providers
+  - say Nexus is continuing in the current host through the local fallback path for now
+
+- If `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY=no`:
+  - treat this as an explicit governed preference that is currently blocked
+  - say whether the gap is missing CCB entirely or missing governed providers
+  - mention the available local fallback path, but do not silently claim the run has switched to it
+
+Do not make the user reason about `execution_mode`, `primary_provider`, or `provider_topology`
+before they have even started the lifecycle. Present the substrate summary once, then move
+them back to the workflow.
+
+If the user invoked bare `/nexus` with no narrower task, do not default to `/browse`. Give
+the bootstrap summary, tell them the canonical starting point is `/discover`, and say that
+Nexus will surface the right support skills as the run progresses.
+
+## Lifecycle Routing
+
 If `PROACTIVE` is `false`: do NOT proactively invoke or suggest other Nexus skills during
 this session. Only run skills the user explicitly invokes. This preference persists across
 sessions via `nexus-config`.
 
-If `PROACTIVE` is `true` (default): **invoke the Skill tool** when the user's request
-matches a skill's purpose. Do NOT answer directly when a skill exists for the task.
-Use the Skill tool to invoke it. The skill has specialized workflows, checklists, and
-quality gates that produce better results than answering inline.
+If `PROACTIVE` is `true` (default): invoke the matching Nexus skill instead of answering
+inline when the request clearly maps to a canonical stage or support surface.
 
 **Routing rules — when you see these patterns, INVOKE the skill via the Skill tool:**
-- User describes a new idea, asks "is this worth building", wants to brainstorm → invoke `/discover`
-- User asks about strategy, scope, non-goals, or success criteria → invoke `/frame`
-- User asks to review architecture, lock in execution readiness, or turn scope into a plan → invoke `/plan`
-- User asks about design system, brand, visual identity → invoke `/design-consultation`
-- User asks to review design of a plan → invoke `/plan-design-review`
-- User asks for governed routing or handoff packaging → invoke `/handoff`
-- User wants a bounded implementation executed → invoke `/build`
-- User reports a bug, error, broken behavior, asks "why is this broken" → invoke `/investigate`
-- User asks to test the site, find bugs, QA → invoke `/qa`
-- User asks to review code, audit an implementation result, or check governed review output → invoke `/review`
-- User asks about visual polish, design audit of a live site → invoke `/design-review`
-- User asks to ship, gate release readiness, or decide merge readiness → invoke `/ship`
-- User asks to formally conclude reviewed work or verify final governed state → invoke `/closeout`
-- User asks to update docs after shipping → invoke `/document-release`
-- User asks for a weekly retro, what did we ship → invoke `/retro`
-- User asks for a second opinion, codex review → invoke `/codex`
-- User asks for safety mode, careful mode → invoke `/careful` or `/guard`
-- User asks to restrict edits to a directory → invoke `/freeze` or `/unfreeze`
-- User asks to upgrade Nexus → invoke `/nexus-upgrade`
+- New idea, "is this worth building", brainstorming, product ambiguity → invoke `/discover`
+- Strategy, scope, non-goals, success criteria, product brief → invoke `/frame`
+- Turn scope into an execution-ready plan, architecture readiness, verification path → invoke `/plan`
+- Design system, visual identity, brand direction → invoke `/design-consultation`
+- Review the design quality of a plan before build → invoke `/plan-design-review`
+- Freeze governed routing, provenance intent, fallback policy → invoke `/handoff`
+- Execute a bounded implementation contract → invoke `/build`
+- Broken behavior, bug, root-cause debugging → invoke `/investigate`
+- Governed audit, code review, implementation validation → invoke `/review`
+- QA, site testing, bug-finding, validation → invoke `/qa`
+- Visual audit or polish of a live site → invoke `/design-review`
+- Release readiness, PR gate, merge readiness → invoke `/ship`
+- Final governed verification and closure → invoke `/closeout`
+- Update docs after shipping → invoke `/document-release`
+- Weekly retro or shipped-work summary → invoke `/retro`
+- Performance regression / baseline work → invoke `/benchmark`
+- Security review / threat analysis → invoke `/cso`
+- Browser-based QA or authenticated browser testing → invoke `/browse`, `/connect-chrome`, or `/setup-browser-cookies`
+- Safety controls or edit boundaries → invoke `/careful`, `/guard`, `/freeze`, or `/unfreeze`
+- Upgrade Nexus itself → invoke `/nexus-upgrade`
 
-**Do NOT answer the user's question directly when a matching skill exists.** The skill
-provides a structured, multi-step workflow that is always better than an ad-hoc answer.
-Invoke the skill first. If no skill matches, answer directly as usual.
+If a matching skill exists, do not answer with an ad-hoc explanation first. Route to the
+skill. If no skill matches, answer directly.
 
-If the user opts out of suggestions, run `nexus-config set proactive false`.
-If they opt back in, run `nexus-config set proactive true`.
+## Support Surface Positioning
 
-# nexus browse: QA Testing & Dogfooding
+Support skills are stage-context tools, not a second workflow:
 
-Persistent headless Chromium. First call auto-starts (~3s), then ~100-200ms per command.
-Auto-shuts down after 30 min idle. State persists between calls (cookies, tabs, sessions).
+- early design work: `/design-consultation`, `/plan-design-review`
+- debugging: `/investigate`
+- visual polish: `/design-review`
+- browser QA: `/browse`, `/connect-chrome`, `/setup-browser-cookies`
+- performance/security: `/benchmark`, `/cso`
+- release tail: `/document-release`, `/land-and-deploy`, `/canary`, `/retro`, `/learn`
 
-{{BROWSE_SETUP}}
+Do not present these as a flat tool menu unless the user asks for that explicitly.
+Surface them when they materially help the current lifecycle stage.
 
-## IMPORTANT
+## Important Boundaries
 
-- Use the compiled binary via Bash: `$B <command>`
-- NEVER use `mcp__claude-in-chrome__*` tools. They are slow and unreliable.
-- Browser persists between calls — cookies, login sessions, and tabs carry over.
-- Dialogs (alert/confirm/prompt) are auto-accepted by default — no browser lockup.
-- **Show screenshots:** After `$B screenshot`, `$B snapshot -a -o`, or `$B responsive`, always use the Read tool on the output PNG(s) so the user can see them. Without this, screenshots are invisible.
-
-## QA Workflows
-
-> **Credential safety:** Use environment variables for test credentials.
-> Set them before running: `export TEST_EMAIL="..." TEST_PASSWORD="..."`
-
-### Test a user flow (login, signup, checkout, etc.)
-
-```bash
-# 1. Go to the page
-$B goto https://app.example.com/login
-
-# 2. See what's interactive
-$B snapshot -i
-
-# 3. Fill the form using refs
-$B fill @e3 "$TEST_EMAIL"
-$B fill @e4 "$TEST_PASSWORD"
-$B click @e5
-
-# 4. Verify it worked
-$B snapshot -D              # diff shows what changed after clicking
-$B is visible ".dashboard"  # assert the dashboard appeared
-$B screenshot /tmp/after-login.png
-```
-
-### Verify a deployment / check prod
-
-```bash
-$B goto https://yourapp.com
-$B text                          # read the page — does it load?
-$B console                       # any JS errors?
-$B network                       # any failed requests?
-$B js "document.title"           # correct title?
-$B is visible ".hero-section"    # key elements present?
-$B screenshot /tmp/prod-check.png
-```
-
-### Dogfood a feature end-to-end
-
-```bash
-# Navigate to the feature
-$B goto https://app.example.com/new-feature
-
-# Take annotated screenshot — shows every interactive element with labels
-$B snapshot -i -a -o /tmp/feature-annotated.png
-
-# Find ALL clickable things (including divs with cursor:pointer)
-$B snapshot -C
-
-# Walk through the flow
-$B snapshot -i          # baseline
-$B click @e3            # interact
-$B snapshot -D          # what changed? (unified diff)
-
-# Check element states
-$B is visible ".success-toast"
-$B is enabled "#next-step-btn"
-$B is checked "#agree-checkbox"
-
-# Check console for errors after interactions
-$B console
-```
-
-### Test responsive layouts
-
-```bash
-# Quick: 3 screenshots at mobile/tablet/desktop
-$B goto https://yourapp.com
-$B responsive /tmp/layout
-
-# Manual: specific viewport
-$B viewport 375x812     # iPhone
-$B screenshot /tmp/mobile.png
-$B viewport 1440x900    # Desktop
-$B screenshot /tmp/desktop.png
-
-# Element screenshot (crop to specific element)
-$B screenshot "#hero-banner" /tmp/hero.png
-$B snapshot -i
-$B screenshot @e3 /tmp/button.png
-
-# Region crop
-$B screenshot --clip 0,0,800,600 /tmp/above-fold.png
-
-# Viewport only (no scroll)
-$B screenshot --viewport /tmp/viewport.png
-```
-
-### Test file upload
-
-```bash
-$B goto https://app.example.com/upload
-$B snapshot -i
-$B upload @e3 /path/to/test-file.pdf
-$B is visible ".upload-success"
-$B screenshot /tmp/upload-result.png
-```
-
-### Test forms with validation
-
-```bash
-$B goto https://app.example.com/form
-$B snapshot -i
-
-# Submit empty — check validation errors appear
-$B click @e10                        # submit button
-$B snapshot -D                       # diff shows error messages appeared
-$B is visible ".error-message"
-
-# Fill and resubmit
-$B fill @e3 "valid input"
-$B click @e10
-$B snapshot -D                       # diff shows errors gone, success state
-```
-
-### Test dialogs (delete confirmations, prompts)
-
-```bash
-# Set up dialog handling BEFORE triggering
-$B dialog-accept              # will auto-accept next alert/confirm
-$B click "#delete-button"     # triggers confirmation dialog
-$B dialog                     # see what dialog appeared
-$B snapshot -D                # verify the item was deleted
-
-# For prompts that need input
-$B dialog-accept "my answer"  # accept with text
-$B click "#rename-button"     # triggers prompt
-```
-
-### Test authenticated pages (import real browser cookies)
-
-```bash
-# Import cookies from your real browser (opens interactive picker)
-$B cookie-import-browser
-
-# Or import a specific domain directly
-$B cookie-import-browser comet --domain .github.com
-
-# Now test authenticated pages
-$B goto https://github.com/settings/profile
-$B snapshot -i
-$B screenshot /tmp/github-profile.png
-```
-
-> **Cookie safety:** `cookie-import-browser` transfers real session data.
-> Only import cookies from browsers you control.
-
-### Compare two pages / environments
-
-```bash
-$B diff https://staging.app.com https://prod.app.com
-```
-
-### Multi-step chain (efficient for long flows)
-
-```bash
-echo '[
-  ["goto","https://app.example.com"],
-  ["snapshot","-i"],
-  ["fill","@e3","$TEST_EMAIL"],
-  ["fill","@e4","$TEST_PASSWORD"],
-  ["click","@e5"],
-  ["snapshot","-D"],
-  ["screenshot","/tmp/result.png"]
-]' | $B chain
-```
-
-## Quick Assertion Patterns
-
-```bash
-# Element exists and is visible
-$B is visible ".modal"
-
-# Button is enabled/disabled
-$B is enabled "#submit-btn"
-$B is disabled "#submit-btn"
-
-# Checkbox state
-$B is checked "#agree"
-
-# Input is editable
-$B is editable "#name-field"
-
-# Element has focus
-$B is focused "#search-input"
-
-# Page contains text
-$B js "document.body.textContent.includes('Success')"
-
-# Element count
-$B js "document.querySelectorAll('.list-item').length"
-
-# Specific attribute value
-$B attrs "#logo"    # returns all attributes as JSON
-
-# CSS property
-$B css ".button" "background-color"
-```
-
-## Snapshot System
-
-{{SNAPSHOT_FLAGS}}
-
-## Command Reference
-
-{{COMMAND_REFERENCE}}
-
-## Tips
-
-1. **Navigate once, query many times.** `goto` loads the page; then `text`, `js`, `screenshot` all hit the loaded page instantly.
-2. **Use `snapshot -i` first.** See all interactive elements, then click/fill by ref. No CSS selector guessing.
-3. **Use `snapshot -D` to verify.** Baseline → action → diff. See exactly what changed.
-4. **Use `is` for assertions.** `is visible .modal` is faster and more reliable than parsing page text.
-5. **Use `snapshot -a` for evidence.** Annotated screenshots are great for bug reports.
-6. **Use `snapshot -C` for tricky UIs.** Finds clickable divs that the accessibility tree misses.
-7. **Check `console` after actions.** Catch JS errors that don't surface visually.
-8. **Use `chain` for long flows.** Single command, no per-step CLI overhead.
+- `/nexus` is the workflow harness entrypoint, not the browser skill
+- use `/browse` for direct browser work
+- use `/discover` to start a new governed product/software run
+- compatibility aliases like `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, and `/autoplan`
+  are not primary entrypoints
+- provider/transport details belong to bootstrap summary and blocked-route explanation, not to the
+  main lifecycle narration

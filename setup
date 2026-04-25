@@ -17,6 +17,7 @@ INSTALL_NEXUS_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_NEXUS_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 INSTALL_SKILLS_DIR="$(dirname "$INSTALL_NEXUS_DIR")"
 BROWSE_BIN="$SOURCE_NEXUS_DIR/browse/dist/browse"
+DESIGN_BIN="$SOURCE_NEXUS_DIR/design/dist/design"
 CODEX_SKILLS="$HOME/.codex/skills"
 CODEX_NEXUS="$CODEX_SKILLS/nexus"
 FACTORY_SKILLS="$HOME/.factory/skills"
@@ -548,6 +549,14 @@ ensure_playwright_browser() {
   fi
 }
 
+run_design_runtime_doctor() {
+  [ -x "$DESIGN_BIN" ] || return 0
+  echo "Checking design runtime..."
+  if ! "$DESIGN_BIN" doctor; then
+    echo "  warning: design runtime doctor failed unexpectedly" >&2
+  fi
+}
+
 # 1. Build browse binary if needed (smart rebuild: stale sources, package.json, lock)
 NEEDS_BUILD=0
 if [ ! -x "$BROWSE_BIN" ]; then
@@ -640,6 +649,8 @@ if ! ensure_playwright_browser; then
   fi
   exit 1
 fi
+
+run_design_runtime_doctor
 
 # 3. Ensure ~/.nexus global state directory exists
 NEXUS_STATE_DIR="$HOME/.nexus"

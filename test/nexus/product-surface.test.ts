@@ -173,6 +173,10 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('| `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |');
     expect(readme).toContain('The absorbed Nexus design runtime under `design/` now supports five deliverable');
     expect(readme).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
+    expect(readme).toContain('Enter `/nexus` once at session start');
+    expect(readme).toContain('Bare `/nexus` is the workflow-harness entrypoint, not the browser tool.');
+    expect(readme).toContain('`governed_ccb` when required CCB providers are actually mounted for this repo');
+    expect(readme).toContain('`local_provider` when CCB is missing or not session-ready yet');
     expect(readme).not.toContain('You:    /office-hours');
     expect(readme).not.toContain('You:    /plan-ceo-review');
     expect(readme).not.toContain('You:    /plan-eng-review');
@@ -201,6 +205,8 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
     expect(skills).toContain('The absorbed Nexus design runtime under `design/` now supports five deliverable');
     expect(skills).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
+    expect(skills).toContain('## `/nexus` entrypoint');
+    expect(skills).toContain('Bare `/nexus` should send the user toward `/discover`, not `/browse`.');
     expect(skills).toContain('## Legacy compatibility deep dives');
     expect(skills).not.toContain('## `/office-hours`');
     expect(skills).not.toContain('## `/plan-ceo-review`');

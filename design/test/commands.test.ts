@@ -35,5 +35,6 @@ describe('design command registry', () => {
     expect(COMMANDS.get('convert-video')?.description).toBe('Derive 60fps MP4 and optimized GIF from a rendered MP4');
     expect(COMMANDS.get('add-music')?.description).toBe('Mix a BGM track into a rendered MP4');
     expect(COMMANDS.get('verify-html')?.description).toBe('Verify rendered HTML output via Playwright screenshots and console checks');
+    expect(COMMANDS.get('doctor')?.description).toBe('Check whether the absorbed design runtime is ready for slides, motion, and HTML verification');
   });
 });

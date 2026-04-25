@@ -94,15 +94,29 @@ read_mounted_providers_csv() {
   printf '%s' "$mounted_csv"
 }
 
+default_local_provider() {
+  if command_exists claude; then
+    printf 'claude'
+  elif command_exists codex; then
+    printf 'codex'
+  elif command_exists gemini; then
+    printf 'gemini'
+  else
+    printf 'claude'
+  fi
+}
+
 print_effective_execution() {
   local configured_mode configured_provider configured_topology ccb_available
   local mode primary_provider provider_topology requested_execution_path mode_configured
   local mounted_providers_csv missing_providers_csv required_governed_providers governed_ready
-  local provider_cli_available current_session_ready
+  local provider_cli_available current_session_ready execution_mode_source
+  local local_provider local_provider_topology local_provider_requested_execution_path local_provider_ready
 
   configured_mode="$(get_value execution_mode)"
   configured_provider="$(get_value primary_provider)"
   configured_topology="$(get_value provider_topology)"
+  required_governed_providers="codex,gemini"
 
   if command_exists ask; then
     ccb_available="yes"
@@ -110,15 +124,61 @@ print_effective_execution() {
     ccb_available="no"
   fi
 
+  mounted_providers_csv=""
+  missing_providers_csv=""
+  governed_ready="no"
+  if [ "$ccb_available" = "yes" ]; then
+    mounted_providers_csv="$(read_mounted_providers_csv)"
+    if [ -n "$mounted_providers_csv" ]; then
+      for provider in codex gemini; do
+        if ! csv_contains "$mounted_providers_csv" "$provider"; then
+          missing_providers_csv="${missing_providers_csv:+$missing_providers_csv,}$provider"
+        fi
+      done
+    else
+      missing_providers_csv="$required_governed_providers"
+    fi
+    if [ -z "$missing_providers_csv" ]; then
+      governed_ready="yes"
+    fi
+  else
+    missing_providers_csv="$required_governed_providers"
+  fi
+
+  if [ -n "$configured_provider" ]; then
+    local_provider="$configured_provider"
+  else
+    local_provider="$(default_local_provider)"
+  fi
+  if [ -n "$configured_topology" ]; then
+    local_provider_topology="$configured_topology"
+  else
+    local_provider_topology="single_agent"
+  fi
+  local_provider_requested_execution_path="${local_provider}-local-${local_provider_topology}"
+  if command_exists "$local_provider"; then
+    provider_cli_available="yes"
+    local_provider_ready="yes"
+  else
+    provider_cli_available="no"
+    local_provider_ready="no"
+  fi
+
   if [ -n "$configured_mode" ]; then
     mode="$configured_mode"
     mode_configured="yes"
+    execution_mode_source="persisted_preference"
   else
     mode_configured="no"
-    if [ "$ccb_available" = "yes" ]; then
+    if [ "$governed_ready" = "yes" ]; then
       mode="governed_ccb"
+      execution_mode_source="machine_default_governed_ready"
+    elif [ "$ccb_available" = "yes" ]; then
+      mode="local_provider"
+      execution_mode_source="machine_default_local_governed_not_ready"
     else
       mode="local_provider"
+      execution_mode_source="machine_default_local_ccb_missing"
     fi
   fi
 
@@ -126,34 +186,12 @@ print_effective_execution() {
     primary_provider="codex"
     provider_topology="multi_session"
     requested_execution_path="codex-via-ccb"
-    required_governed_providers="codex,gemini"
-    mounted_providers_csv=""
-    missing_providers_csv=""
-    governed_ready="no"
-
-    if [ "$ccb_available" = "yes" ]; then
-      mounted_providers_csv="$(read_mounted_providers_csv)"
-      if [ -n "$mounted_providers_csv" ]; then
-        for provider in codex gemini; do
-          if ! csv_contains "$mounted_providers_csv" "$provider"; then
-            missing_providers_csv="${missing_providers_csv:+$missing_providers_csv,}$provider"
-          fi
-        done
-      else
-        missing_providers_csv="$required_governed_providers"
-      fi
-      if [ -z "$missing_providers_csv" ]; then
-        governed_ready="yes"
-      fi
-    else
-      missing_providers_csv="$required_governed_providers"
-    fi
-
     current_session_ready="$governed_ready"
 
     cat <<EOF
 execution_mode: $mode
 execution_mode_configured: $mode_configured
+execution_mode_source: $execution_mode_source
 ccb_available: $ccb_available
 effective_primary_provider: $primary_provider
 effective_provider_topology: $provider_topology
@@ -163,47 +201,39 @@ required_governed_providers: $required_governed_providers
 mounted_providers: ${mounted_providers_csv:-none}
 missing_providers: ${missing_providers_csv:-none}
 governed_ready: $governed_ready
+local_provider_candidate: $local_provider
+local_provider_topology: $local_provider_topology
+local_provider_requested_execution_path: $local_provider_requested_execution_path
+local_provider_ready: $local_provider_ready
+provider_cli_available: $provider_cli_available
 note: primary_provider and provider_topology are local_provider-only config keys and may be unset when execution_mode=governed_ccb
 EOF
     return 0
   fi
 
-  if [ -n "$configured_provider" ]; then
-    primary_provider="$configured_provider"
-  elif command_exists claude; then
-    primary_provider="claude"
-  elif command_exists codex; then
-    primary_provider="codex"
-  elif command_exists gemini; then
-    primary_provider="gemini"
-  else
-    primary_provider="claude"
-  fi
-
-  if [ -n "$configured_topology" ]; then
-    provider_topology="$configured_topology"
-  else
-    provider_topology="single_agent"
-  fi
-
-  requested_execution_path="${primary_provider}-local-${provider_topology}"
-  if command_exists "$primary_provider"; then
-    provider_cli_available="yes"
-    current_session_ready="yes"
-  else
-    provider_cli_available="no"
-    current_session_ready="no"
-  fi
+  primary_provider="$local_provider"
+  provider_topology="$local_provider_topology"
+  requested_execution_path="$local_provider_requested_execution_path"
+  current_session_ready="$local_provider_ready"
 
   cat <<EOF
 execution_mode: $mode
 execution_mode_configured: $mode_configured
+execution_mode_source: $execution_mode_source
 ccb_available: $ccb_available
 effective_primary_provider: $primary_provider
 effective_provider_topology: $provider_topology
 effective_requested_execution_path: $requested_execution_path
 provider_cli_available: $provider_cli_available
 current_session_ready: $current_session_ready
+required_governed_providers: $required_governed_providers
+mounted_providers: ${mounted_providers_csv:-none}
+missing_providers: ${missing_providers_csv:-none}
+governed_ready: $governed_ready
+local_provider_candidate: $local_provider
+local_provider_topology: $local_provider_topology
+local_provider_requested_execution_path: $local_provider_requested_execution_path
+local_provider_ready: $local_provider_ready
 EOF
 }
 

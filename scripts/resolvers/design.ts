@@ -944,7 +944,34 @@ If \`"regenerated": false\`: proceed with the approved variant.
 **Step 6: Save approved choice**
 
 \`\`\`bash
-echo '{"approved_variant":"<VARIANT>","feedback":"<FEEDBACK>","date":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","screen":"mockup","branch":"'$(git branch --show-current 2>/dev/null)'"}' > "$_DESIGN_DIR/approved.json"
+_APPROVED_VARIANT="<VARIANT>"
+_APPROVED_LETTER=$(basename "$_APPROVED_VARIANT" | sed -E 's/.*variant-([A-Z]).*/\1/')
+_APPROVED_BRIEF="$_DESIGN_DIR/brief-"$_APPROVED_LETTER".json"
+bun -e '
+const fs = require("fs");
+const [dir, variant, feedback, screen, branch, briefPath] = process.argv.slice(1);
+let brief = {};
+try {
+  if (briefPath && fs.existsSync(briefPath)) {
+    brief = JSON.parse(fs.readFileSync(briefPath, "utf8"));
+  }
+} catch {}
+const approved = {
+  approved_variant: variant,
+  feedback,
+  date: new Date().toISOString(),
+  screen,
+  branch,
+  deliverableType: brief.deliverableType ?? "ui-mockup",
+  exportTargets: Array.isArray(brief.exportTargets) ? brief.exportTargets : ["png"],
+  canvas: brief.canvas ?? null,
+  interactionModel: brief.interactionModel ?? null,
+  storyBeats: Array.isArray(brief.storyBeats) ? brief.storyBeats : [],
+  dataContext: brief.dataContext ?? null,
+  brief_file: briefPath && fs.existsSync(briefPath) ? briefPath : null,
+};
+fs.writeFileSync(dir + "/approved.json", JSON.stringify(approved, null, 2) + "\n");
+' "$_DESIGN_DIR" "$_APPROVED_VARIANT" "<FEEDBACK>" "mockup" "$(git branch --show-current 2>/dev/null)" "$_APPROVED_BRIEF"
 \`\`\`
 
 Reference the saved mockup in the design doc or plan.`;
@@ -1050,6 +1077,33 @@ Use AskUserQuestion to verify before proceeding.
 
 **Save the approved choice:**
 \`\`\`bash
-echo '{"approved_variant":"<V>","feedback":"<FB>","date":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","screen":"<SCREEN>","branch":"'$(git branch --show-current 2>/dev/null)'"}' > "$_DESIGN_DIR/approved.json"
+_APPROVED_VARIANT="<V>"
+_APPROVED_LETTER=$(basename "$_APPROVED_VARIANT" | sed -E 's/.*variant-([A-Z]).*/\1/')
+_APPROVED_BRIEF="$_DESIGN_DIR/brief-"$_APPROVED_LETTER".json"
+bun -e '
+const fs = require("fs");
+const [dir, variant, feedback, screen, branch, briefPath] = process.argv.slice(1);
+let brief = {};
+try {
+  if (briefPath && fs.existsSync(briefPath)) {
+    brief = JSON.parse(fs.readFileSync(briefPath, "utf8"));
+  }
+} catch {}
+const approved = {
+  approved_variant: variant,
+  feedback,
+  date: new Date().toISOString(),
+  screen,
+  branch,
+  deliverableType: brief.deliverableType ?? "ui-mockup",
+  exportTargets: Array.isArray(brief.exportTargets) ? brief.exportTargets : ["png"],
+  canvas: brief.canvas ?? null,
+  interactionModel: brief.interactionModel ?? null,
+  storyBeats: Array.isArray(brief.storyBeats) ? brief.storyBeats : [],
+  dataContext: brief.dataContext ?? null,
+  brief_file: briefPath && fs.existsSync(briefPath) ? briefPath : null,
+};
+fs.writeFileSync(dir + "/approved.json", JSON.stringify(approved, null, 2) + "\n");
+' "$_DESIGN_DIR" "$_APPROVED_VARIANT" "<FB>" "<SCREEN>" "$(git branch --show-current 2>/dev/null)" "$_APPROVED_BRIEF"
 \`\`\``;
 }

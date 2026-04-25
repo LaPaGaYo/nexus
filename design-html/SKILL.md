@@ -4,11 +4,13 @@ preamble-tier: 2
 version: 1.0.0
 description: |
   Design finalization: takes an approved AI mockup from /design-shotgun and
-  generates production-quality Pretext-native HTML/CSS. Text actually reflows,
-  heights are computed, layouts are dynamic. 30KB overhead, zero deps.
-  Smart API routing: picks the right Pretext patterns for each design type.
-  Use when: "finalize this design", "turn this mockup into HTML", "implement
-  this design", or after /design-shotgun approves a direction.
+  generates production-quality Pretext-native HTML/CSS plus downstream exports
+  for prototypes, slide decks, motion pieces, and infographics. Text actually
+  reflows, heights are computed, layouts are dynamic. 30KB overhead, zero deps.
+  Smart API routing: picks the right Pretext patterns for each design type and
+  drives PDF/PPTX/MP4/GIF/verification steps from the approved deliverable
+  metadata. Use when: "finalize this design", "turn this mockup into HTML",
+  "implement this design", or after /design-shotgun approves a direction.
   Proactively suggest when user has approved a design in /design-shotgun. (Nexus)
 allowed-tools:
   - Bash
@@ -83,37 +85,65 @@ else
 fi
 _EFFECTIVE_EXECUTION=$(~/.claude/skills/nexus/bin/nexus-config effective-execution 2>/dev/null || true)
 if [ -n "$_EFFECTIVE_EXECUTION" ]; then
+  _EXECUTION_MODE=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^execution_mode:/{print $2; exit}')
+  _EXECUTION_MODE_CONFIGURED=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^execution_mode_configured:/{print $2; exit}')
   _PRIMARY_PROVIDER=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_primary_provider:/{print $2; exit}')
   _PROVIDER_TOPOLOGY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_provider_topology:/{print $2; exit}')
+  _EXECUTION_MODE_SOURCE=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^execution_mode_source:/{print $2; exit}')
   _EXECUTION_PATH=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^effective_requested_execution_path:/{print $2; exit}')
   _CURRENT_SESSION_READY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^current_session_ready:/{print $2; exit}')
+  _REQUIRED_GOVERNED_PROVIDERS=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^required_governed_providers:/{print $2; exit}')
   _GOVERNED_READY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^governed_ready:/{print $2; exit}')
   _MOUNTED_PROVIDERS=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^mounted_providers:/{print $2; exit}')
   _MISSING_PROVIDERS=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^missing_providers:/{print $2; exit}')
+  _LOCAL_PROVIDER_CANDIDATE=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_candidate:/{print $2; exit}')
+  _LOCAL_PROVIDER_TOPOLOGY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_topology:/{print $2; exit}')
+  _LOCAL_PROVIDER_EXECUTION_PATH=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_requested_execution_path:/{print $2; exit}')
+  _LOCAL_PROVIDER_READY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_ready:/{print $2; exit}')
 else
+  _EXECUTION_MODE_SOURCE=""
   _EXECUTION_PATH=""
   _CURRENT_SESSION_READY="unknown"
+  _REQUIRED_GOVERNED_PROVIDERS=""
   _GOVERNED_READY=""
   _MOUNTED_PROVIDERS=""
   _MISSING_PROVIDERS=""
+  _LOCAL_PROVIDER_CANDIDATE=""
+  _LOCAL_PROVIDER_TOPOLOGY=""
+  _LOCAL_PROVIDER_EXECUTION_PATH=""
+  _LOCAL_PROVIDER_READY=""
 fi
 echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
 echo "EXECUTION_MODE: $_EXECUTION_MODE"
 echo "EXECUTION_MODE_CONFIGURED: $_EXECUTION_MODE_CONFIGURED"
+echo "EXECUTION_MODE_SOURCE: $_EXECUTION_MODE_SOURCE"
 echo "PRIMARY_PROVIDER: $_PRIMARY_PROVIDER"
 echo "PROVIDER_TOPOLOGY: $_PROVIDER_TOPOLOGY"
 echo "EXECUTION_PATH: $_EXECUTION_PATH"
 echo "CURRENT_SESSION_READY: $_CURRENT_SESSION_READY"
+echo "REQUIRED_GOVERNED_PROVIDERS: $_REQUIRED_GOVERNED_PROVIDERS"
 echo "GOVERNED_READY: $_GOVERNED_READY"
 echo "MOUNTED_PROVIDERS: $_MOUNTED_PROVIDERS"
 echo "MISSING_PROVIDERS: $_MISSING_PROVIDERS"
+echo "LOCAL_PROVIDER_CANDIDATE: $_LOCAL_PROVIDER_CANDIDATE"
+echo "LOCAL_PROVIDER_TOPOLOGY: $_LOCAL_PROVIDER_TOPOLOGY"
+echo "LOCAL_PROVIDER_EXECUTION_PATH: $_LOCAL_PROVIDER_EXECUTION_PATH"
+echo "LOCAL_PROVIDER_READY: $_LOCAL_PROVIDER_READY"
 source <(~/.claude/skills/nexus/bin/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -164,16 +194,20 @@ When summarizing setup or upgrade state, always keep `REPO_MODE` and `EXECUTION_
 - `EXECUTION_MODE` is runtime routing only, either `governed_ccb` or `local_provider`
 - Never describe `solo` or `collaborative` as an execution mode
 - If `EXECUTION_MODE_CONFIGURED` is `no`, say it is the current default derived from machine state, not a saved preference
+- `EXECUTION_MODE_SOURCE` explains whether the active route came from a saved preference or a machine-state default
 - `EXECUTION_PATH` is the current effective route, for example `codex-via-ccb`
 - `CURRENT_SESSION_READY` tells you whether the chosen route is runnable right now in this host/session
+- `REQUIRED_GOVERNED_PROVIDERS` is the governed provider set Nexus needs for the standard dual-audit path
 - when `EXECUTION_MODE=governed_ccb`, also surface `GOVERNED_READY`, `MOUNTED_PROVIDERS`, and `MISSING_PROVIDERS`
+- `LOCAL_PROVIDER_CANDIDATE`, `LOCAL_PROVIDER_TOPOLOGY`, `LOCAL_PROVIDER_EXECUTION_PATH`, and `LOCAL_PROVIDER_READY` describe the current-host local fallback path
 
 Whenever you summarize setup, upgrade, or first-run state, present runtime status in this order:
 - Repo mode: `REPO_MODE`
-- Execution mode: `EXECUTION_MODE` plus whether it is a saved preference or a machine-state default
+- Execution mode: `EXECUTION_MODE` plus whether it is a saved preference or a machine-state default (`EXECUTION_MODE_SOURCE`)
 - Execution path: `EXECUTION_PATH`
 - Current session ready: `CURRENT_SESSION_READY`
 - If `EXECUTION_MODE=governed_ccb`: governed ready, mounted providers, missing providers
+- If `EXECUTION_MODE=local_provider` because governed CCB is not ready, explicitly say whether that is because CCB is missing or because mounted providers are incomplete, and include the local fallback path
 - Branch: `_BRANCH`
 - Proactive: `PROACTIVE`
 
@@ -181,10 +215,10 @@ When `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY` is `no`, explicit
 - CCB not installed (`CCB_AVAILABLE=no`), or
 - CCB installed but required providers are not mounted (`MISSING_PROVIDERS` is non-empty)
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE` and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE`, `EXECUTION_MODE_SOURCE`, and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
 When `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`. Those are local-provider host preferences, not governed CCB config keys.
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `yes`, use AskUserQuestion to persist the execution preference:
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `GOVERNED_READY` is `yes`, use AskUserQuestion to persist the execution preference:
 
 > Nexus just upgraded, but this machine still has no saved execution-mode preference.
 > Repo mode only tells you whether the repo is solo or collaborative.
@@ -207,7 +241,7 @@ If B:
 ```
 Then explain that `governed_ccb` requires active CCB providers for this repo, and that the standard way to start them is `tmux` with `ccb codex gemini claude` if they are not already mounted.
 
-If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `CCB_AVAILABLE` is `no`, tell the user Nexus is defaulting to `local_provider` because CCB is not detected, state the effective provider/topology, and tell them they can run `./setup` later if they want Nexus to help install CCB before switching to `governed_ccb`.
+If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no` and `GOVERNED_READY` is `no`, tell the user Nexus is defaulting to `local_provider` for this host/session. If `CCB_AVAILABLE` is `no`, say that CCB is not detected. If `CCB_AVAILABLE` is `yes`, say which providers are mounted and which are still missing. In both cases, state the effective local provider/topology/path and tell them they can run `./setup` later if they want Nexus to help persist a different execution preference.
 
 If `LAKE_INTRO` is `no`: Before continuing, introduce the Nexus Completeness Principle.
 Tell the user: "Nexus follows the **Completeness Principle** — when the bounded, correct
@@ -369,14 +403,18 @@ Include `Completeness: X/10` for each option (10=all edge cases, 7=happy path, 3
 
 - `REPO_MODE`: repo ownership, for example `solo`, `collaborative`, or `unknown`
 - `EXECUTION_MODE`: runtime routing, either `governed_ccb` or `local_provider`
+- `EXECUTION_MODE_SOURCE`: whether the active route is coming from saved config or from the machine-state bootstrap default
 - `PRIMARY_PROVIDER`: the active local provider when `EXECUTION_MODE=local_provider`
 - `PROVIDER_TOPOLOGY`: the active local topology when `EXECUTION_MODE=local_provider`
 - `EXECUTION_PATH`: the current effective route, for example `codex-via-ccb`
 - `CURRENT_SESSION_READY`: whether this host/session is ready to run the chosen route right now
 - `CCB_AVAILABLE`: whether `ask` is installed on this machine
+- `REQUIRED_GOVERNED_PROVIDERS`: which providers Nexus expects for the standard governed dual-audit path
 - `GOVERNED_READY`: whether the governed route is runnable right now
 - `MOUNTED_PROVIDERS`: which governed CCB providers are currently mounted
 - `MISSING_PROVIDERS`: which governed providers are still missing for the current route
+- `LOCAL_PROVIDER_CANDIDATE`, `LOCAL_PROVIDER_TOPOLOGY`, and `LOCAL_PROVIDER_EXECUTION_PATH`: the current-host fallback local route
+- `LOCAL_PROVIDER_READY`: whether that fallback local route is runnable right now
 - when `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`
 - `primary_provider` and `provider_topology` are local-provider host preferences, not governed CCB config
 - governed route intent and reviewed provenance belong to canonical `.planning/` route artifacts, not host config keys
@@ -385,9 +423,11 @@ Include `Completeness: X/10` for each option (10=all edge cases, 7=happy path, 3
 Whenever you summarize the current state, show both:
 - Repo mode: `REPO_MODE`
 - Execution mode: `EXECUTION_MODE`
+- Execution mode source: `EXECUTION_MODE_SOURCE`
 - Execution path: `EXECUTION_PATH`
 - Current session ready: `CURRENT_SESSION_READY`
 - If governed: governed ready, mounted providers, missing providers
+- If local because governed is not session-ready: mounted providers, missing providers, and the local fallback route
 
 If `EXECUTION_MODE_CONFIGURED` is `no`, explicitly say the execution mode is a default derived from machine state, not a persisted preference.
 
@@ -684,10 +724,22 @@ eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
 1. Find the most recent `approved.json`:
 ```bash
 setopt +o nomatch 2>/dev/null || true
-ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1
+_APPROVED_JSON=$(ls -t ~/.nexus/projects/$SLUG/designs/*/approved.json 2>/dev/null | head -1)
+echo "$_APPROVED_JSON"
+[ -n "$_APPROVED_JSON" ] && _DESIGN_DIR=$(dirname "$_APPROVED_JSON") && echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
 
-2. If found, read it. Extract: approved variant PNG path, user feedback, screen name.
+2. If found, read it. Extract:
+   - approved variant PNG path
+   - user feedback
+   - screen name
+   - `deliverableType`
+   - `exportTargets`
+   - `canvas`
+   - `interactionModel`
+   - `storyBeats`
+   - `dataContext`
+   - `brief_file`
 
 3. Read the design context — `DESIGN.md` and `brand-spec.md` if they exist in the repo
    root. These take priority for system-level values, frozen brand assets, and
@@ -712,7 +764,26 @@ If fresh: proceed normally.
 > A) Run /design-shotgun — explore design variants and approve one
 > B) I have a PNG — let me provide the path
 
-If B: accept a PNG file path from the user and proceed with that as the reference.
+If B: accept a PNG file path from the user, set `_DESIGN_DIR` to a fresh
+`~/.nexus/projects/$SLUG/designs/<screen-name>-YYYYMMDD/` directory, and proceed
+with that PNG as the reference.
+
+6. If `$D` is available, run the absorbed runtime doctor:
+```bash
+$D doctor
+```
+
+If the doctor reports `DEGRADED`, only treat it as a blocker when the missing
+capability matters for the approved deliverable:
+- `slides` with `pptx`/`pdf` targets
+- `motion` with `mp4`/`gif` targets
+- any run that requires `verify-html`
+
+Use AskUserQuestion:
+> The design runtime is missing [dependency], so I can still finalize the HTML stage
+> but I cannot produce [PPTX / MP4 / GIF / verification] until it's installed.
+> A) Continue with HTML-only finalization
+> B) Stop and fix the environment first
 
 ---
 
@@ -732,8 +803,12 @@ This returns colors, typography, layout structure, and component inventory via G
    overrides extracted brand-level properties (logos, approved palette bounds,
    frozen product/UI references).
 
-4. Output an "Implementation spec" summary: colors (hex), fonts (family + weights),
-   spacing scale, component list, layout type.
+4. If `brief_file` exists, read it. Treat it as the structured downstream contract.
+   The approved mockup gives you the exact look; the brief tells you whether this
+   run is a prototype, deck, motion piece, or infographic and which exports matter.
+
+5. Output an "Implementation spec" summary: colors (hex), fonts (family + weights),
+   spacing scale, component list, layout type, deliverable type, and export targets.
 
 ---
 
@@ -808,7 +883,7 @@ Run the detected install command. Then use standard imports in the component.
 
 ### HTML Generation
 
-Write a single file using the Write tool. Save to:
+Write the primary HTML stage using the Write tool. Save to:
 `~/.nexus/projects/$SLUG/designs/<screen-name>-YYYYMMDD/finalized.html`
 
 For framework output, save to:
@@ -1081,7 +1156,7 @@ Maximum 10 iterations. If the user hasn't said "done" after 10, use AskUserQuest
 
 ---
 
-## Step 5: Save & Next Steps
+## Step 6: Save & Next Steps
 
 ### Design Token Extraction
 
@@ -1109,6 +1184,58 @@ If A: write `DESIGN.md` to the repo root with the extracted tokens.
 If B: write `DESIGN.md` with system tokens and `brand-spec.md` with brand-specific
 constraints and frozen asset rules inferred from the approved mockup / finalized HTML.
 
+## Step 5: Deliverable-Specific Export + Verification
+
+Drive this from `approved.json` / `brief_file`, not guesswork.
+
+### A. `ui-mockup` or `prototype`
+- Final output is the HTML stage.
+- If `$D` is available, verify it:
+```bash
+$D verify-html --html "$_DESIGN_DIR/finalized.html" --output "$_DESIGN_DIR/verify-html.json"
+```
+
+### B. `slides`
+- Build the HTML stage as a deck, not a landing page.
+- If editable deck output is required, also write the slide fragments needed by:
+```bash
+$D export-pptx --slides "$_DESIGN_DIR/slides" --out "$_DESIGN_DIR/finalized.pptx"
+```
+- Export a shareable PDF when `pdf` is in `exportTargets`:
+```bash
+$D export-pdf --html "$_DESIGN_DIR/finalized.html" --out "$_DESIGN_DIR/finalized.pdf"
+```
+- Verify the deck HTML before declaring completion:
+```bash
+$D verify-html --html "$_DESIGN_DIR/finalized.html" --slides <slide-count> --output "$_DESIGN_DIR/verify-html.json"
+```
+
+### C. `motion`
+- Treat the HTML stage as the storyboard / keyframe source.
+- If `mp4` is requested:
+```bash
+$D render-video --html "$_DESIGN_DIR/finalized.html"
+```
+- If `gif` is requested, derive it from the rendered MP4:
+```bash
+$D convert-video --input "$_DESIGN_DIR/finalized.mp4"
+```
+- If soundtrack is requested, add it after render succeeds:
+```bash
+$D add-music --input "$_DESIGN_DIR/finalized.mp4" --mood <mood>
+```
+
+### D. `infographic`
+- Final output is HTML-backed information design.
+- Verify the HTML:
+```bash
+$D verify-html --html "$_DESIGN_DIR/finalized.html" --output "$_DESIGN_DIR/verify-html.json"
+```
+- Export PDF when requested:
+```bash
+$D export-pdf --html "$_DESIGN_DIR/finalized.html" --out "$_DESIGN_DIR/finalized.pdf"
+```
+
 ### Save Metadata
 
 Write `finalized.json` alongside the HTML:
@@ -1116,6 +1243,8 @@ Write `finalized.json` alongside the HTML:
 {
   "source_mockup": "<approved variant PNG path>",
   "html_file": "<path to finalized.html or component file>",
+  "deliverable_type": "<from approved.json>",
+  "export_targets": ["<from approved.json>"],
   "pretext_tier": "<selected tier>",
   "framework": "<vanilla|react|svelte|vue>",
   "iterations": <number of refinement iterations>,
@@ -1151,5 +1280,5 @@ Use AskUserQuestion:
 - **Real content only.** Extract text from the approved mockup. Never use "Lorem ipsum",
   "Your text here", or placeholder content.
 
-- **One page per invocation.** For multi-page designs, run /design-html once per page.
-  Each run produces one HTML file.
+- **One deliverable stage per invocation.** For multi-page designs, run /design-html once per page
+  or once per deck/storyboard. The HTML stage is the source for any PDF/PPTX/MP4/GIF outputs.
