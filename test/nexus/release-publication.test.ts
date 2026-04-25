@@ -132,6 +132,13 @@ describe('nexus release publication', () => {
           }
 
           if (spec.argv[0] === 'bun' && spec.argv[1] === 'run' && spec.argv[2] === 'maintainer:check') {
+            if (!spec.env?.NEXUS_EXISTING_TAGS?.split('\n').includes('v1.0.31')) {
+              return {
+                exitCode: 1,
+                stdout: 'BLOCKED 1.0.31 v1.0.31\n- tag v1.0.31 is not visible to maintainer check\n',
+                stderr: 'stale tag snapshot\n',
+              };
+            }
             return { exitCode: 0, stdout: 'READY none\n', stderr: '' };
           }
 
@@ -151,6 +158,11 @@ describe('nexus release publication', () => {
       expect(result.version).toBe('1.0.31');
       expect(result.tag).toBe('v1.0.31');
       expect(result.post_publish_refresh_commit).toBe(true);
+      expect(calls.find((call) => call.argv.join(' ') === 'bun run maintainer:check')?.env).toMatchObject({
+        NEXUS_EXISTING_TAGS: 'v1.0.30\nv1.0.31',
+        NEXUS_GIT_STATUS_LINES: '',
+        NEXUS_REMOTE_RELEASE_MODE: 'live',
+      });
       expect(calls.map((call) => call.argv.join(' '))).toEqual([
         'git branch --show-current',
         'bun run gen:skill-docs',

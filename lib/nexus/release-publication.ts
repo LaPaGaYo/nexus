@@ -77,6 +77,15 @@ function parseStatusLines(stdout: string): string[] {
     .filter(Boolean);
 }
 
+function postPublishMaintainerEnv(existingTags: string[], publishedTag: string): Record<string, string> {
+  const currentTags = [...new Set([...existingTags, publishedTag])];
+  return {
+    NEXUS_EXISTING_TAGS: currentTags.join('\n'),
+    NEXUS_GIT_STATUS_LINES: '',
+    NEXUS_REMOTE_RELEASE_MODE: 'live',
+  };
+}
+
 export async function executePreparedReleasePublication(
   options: ExecutePreparedReleasePublicationOptions,
 ): Promise<ReleasePublicationReport> {
@@ -195,6 +204,7 @@ export async function executePreparedReleasePublication(
       {
         argv: ['bun', 'run', 'maintainer:check'],
         cwd: rootDir,
+        env: postPublishMaintainerEnv(options.existingTags, preflight.tag),
       },
       'maintainer check failed after publication',
     );
