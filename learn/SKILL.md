@@ -726,3 +726,23 @@ Then log it:
 ```bash
 ~/.claude/skills/nexus/bin/nexus-learnings-log '{"skill":"learn","type":"TYPE","key":"KEY","insight":"INSIGHT","confidence":N,"source":"user-stated","files":["FILE1"]}'
 ```
+
+## Output Contract
+
+Return one of these outputs:
+
+- Current/search/stats: a concise user-facing report summarizing the matching learnings.
+- Prune: a list of stale or conflicting entries plus the user-approved action taken for each.
+- Export: a markdown `## Project Learnings` section, or the saved file path if the user asks to persist it.
+- Manual add: the new learning key, type, confidence, and related files.
+
+Do not report completion until the requested learning action has been shown to the user or written to the requested destination.
+
+## Verification Evidence
+
+Before finishing, verify the evidence matches the command:
+
+- Search/current/stats: confirm the displayed output came from `nexus-learnings-search` or the raw learning store.
+- Prune: confirm removed entries no longer appear in the raw JSONL store, or that updated entries were appended.
+- Export: confirm the exported markdown includes the expected learning categories.
+- Manual add: confirm the new entry was accepted by `nexus-learnings-log` and appears in a follow-up search when practical.

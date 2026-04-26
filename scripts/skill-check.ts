@@ -10,6 +10,7 @@
 
 import { validateSkill } from '../test/helpers/skill-parser';
 import { discoverTemplates, discoverSkillFiles } from './discover-skills';
+import { analyzeSkillFile, type SkillAnatomyResult } from './skill-anatomy';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -20,6 +21,7 @@ const ROOT = path.resolve(import.meta.dir, '..');
 const SKILL_FILES = discoverSkillFiles(ROOT);
 
 let hasErrors = false;
+const rubricStrict = process.env.NEXUS_SKILL_RUBRIC_STRICT === '1';
 
 // ─── Skills ─────────────────────────────────────────────────
 
@@ -50,6 +52,47 @@ for (const file of SKILL_FILES) {
     console.log(`  \u2705 ${file.padEnd(30)} — ${totalValid} commands, all valid`);
   }
 }
+
+// ─── Skill Anatomy Rubric ──────────────────────────────────
+
+function formatRubricGaps(result: SkillAnatomyResult): string {
+  return result.missing.map((criterion) => criterion.id).join(', ');
+}
+
+console.log('\n  Support Skill Rubric (source templates):');
+const anatomyTargets = discoverTemplates(ROOT)
+  .map(({ tmpl }) => tmpl)
+  .map((tmpl) => ({ tmpl, result: analyzeSkillFile(tmpl, ROOT) }))
+  .filter(({ result }) => result.category === 'support');
+
+let rubricPass = 0;
+let rubricWarn = 0;
+let rubricFail = 0;
+
+for (const { tmpl, result } of anatomyTargets) {
+  const label = `${result.score}/${result.maxScore}`;
+  if (result.status === 'pass') {
+    rubricPass++;
+    console.log(`  \u2705 ${tmpl.padEnd(30)} — ${result.category}, ${label}`);
+    continue;
+  }
+
+  if (result.status === 'warn') {
+    rubricWarn++;
+    console.log(`  \u26a0\ufe0f  ${tmpl.padEnd(30)} — ${result.category}, ${label}; gaps: ${formatRubricGaps(result)}`);
+    continue;
+  }
+
+  rubricFail++;
+  if (rubricStrict) {
+    hasErrors = true;
+    console.log(`  \u274c ${tmpl.padEnd(30)} — ${result.category}, ${label}; gaps: ${formatRubricGaps(result)}`);
+  } else {
+    console.log(`  \u26a0\ufe0f  ${tmpl.padEnd(30)} — ${result.category}, ${label}; gaps: ${formatRubricGaps(result)} (strict: NEXUS_SKILL_RUBRIC_STRICT=1)`);
+  }
+}
+
+console.log(`  Total: ${rubricPass} pass, ${rubricWarn} warn, ${rubricFail} fail${rubricStrict ? ' (strict)' : ' (non-blocking)'}`);
 
 // ─── Templates ──────────────────────────────────────────────
 

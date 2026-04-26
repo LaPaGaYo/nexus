@@ -28,6 +28,11 @@ sensitive: true
 
 # /freeze — Restrict Edits to a Directory
 
+## Overview
+
+This skill creates a session edit boundary. It is a safety tool for reducing
+accidental scope creep, not a replacement for code review or shell discipline.
+
 Lock file edits to a specific directory. Any Edit or Write operation targeting
 a file outside the allowed path will be **blocked** (not just warned).
 
@@ -74,3 +79,25 @@ script reads it on every Edit/Write invocation.
 - Freeze applies to Edit and Write tools only — Read, Bash, Glob, Grep are unaffected
 - This prevents accidental edits, not a security boundary — Bash commands like `sed` can still modify files outside the boundary
 - To deactivate, run `/unfreeze` or end the conversation
+
+## Output Contract
+
+Report the absolute freeze boundary path and the active enforcement behavior:
+
+- `Edit` and `Write` outside the boundary are blocked.
+- Read/search/shell tools are not blocked by this skill.
+- `/unfreeze` clears the boundary.
+
+Do not claim freeze is active unless `freeze-dir.txt` was written successfully.
+
+## Verification Evidence
+
+Verify by reading or echoing the saved state file after setup:
+
+```bash
+STATE_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.nexus}"
+cat "$STATE_DIR/freeze-dir.txt"
+```
+
+The reported path must exactly match the absolute directory boundary with a
+trailing slash.

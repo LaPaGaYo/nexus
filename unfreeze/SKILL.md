@@ -15,7 +15,20 @@ allowed-tools:
 
 # /unfreeze — Clear Freeze Boundary
 
+## Overview
+
+This skill clears the session edit boundary created by `/freeze` or `/guard`.
+It changes only the freeze state file; it does not disable other safety checks.
+
 Remove the edit restriction set by `/freeze`, allowing edits to all directories.
+
+## Workflow
+
+1. Locate the freeze state directory.
+2. If `freeze-dir.txt` exists, read the previous boundary for reporting.
+3. Delete only `freeze-dir.txt`.
+4. If no state file exists, report that no freeze boundary was active.
+5. Tell the user whether edits are now unrestricted.
 
 ## Clear the boundary
 
@@ -33,3 +46,29 @@ fi
 Tell the user the result. Note that `/freeze` hooks are still registered for the
 session — they will just allow everything since no state file exists. To re-freeze,
 run `/freeze` again.
+
+## Safety Boundaries
+
+Do not remove any files except `freeze-dir.txt`. Do not claim `/careful` or other
+session hooks were disabled; `/unfreeze` only clears the edit boundary.
+
+## Output Contract
+
+Return one of:
+
+- `Freeze boundary cleared (was: <absolute-path>/). Edits are now allowed everywhere.`
+- `No freeze boundary was set.`
+
+Include the previous path when it existed so the user can audit what changed.
+
+## Verification Evidence
+
+After clearing, verify the state file is absent:
+
+```bash
+STATE_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.nexus}"
+test ! -f "$STATE_DIR/freeze-dir.txt" && echo "FREEZE_CLEARED"
+```
+
+Do not report success until the file absence check succeeds or the command has
+reported that no boundary was set.

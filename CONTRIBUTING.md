@@ -226,9 +226,18 @@ bun run gen:skill-docs --host codex
 # 3. Check health (reports both Claude and Codex)
 bun run skill:check
 
+# Optional: make support-skill anatomy gaps fail the check
+NEXUS_SKILL_RUBRIC_STRICT=1 bun run skill:check
+
 # Or use watch mode — auto-regenerates on save
 bun run dev:skill
 ```
+
+`skill:check` also scores Nexus support skill templates against the
+[skill anatomy rubric](docs/skill-anatomy-rubric.md). The default mode reports
+rubric gaps without failing so existing support-skill debt is visible but does
+not block unrelated releases. New or heavily edited support skills should target
+`10/10`.
 
 For template authoring best practices (natural language over bash-isms, dynamic branch detection, `{{BASE_BRANCH_DETECT}}` usage), see CLAUDE.md's "Writing SKILL templates" section.
 

@@ -75,3 +75,26 @@ Tell the user:
 
 See `/careful` for the full list of destructive command patterns and safe exceptions.
 See `/freeze` for how edit boundary enforcement works.
+
+## Output Contract
+
+Report both protections and their current state:
+
+- Destructive Bash command warnings are active through the `/careful` hook.
+- Edit and Write operations are restricted to the absolute freeze boundary path.
+- `/unfreeze` clears only the edit boundary; ending the session clears all hook state.
+
+Do not claim guard mode is active unless the freeze boundary was written and the
+destructive-command hook is part of this skill configuration.
+
+## Verification Evidence
+
+After setup, verify the boundary state file:
+
+```bash
+STATE_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.nexus}"
+cat "$STATE_DIR/freeze-dir.txt"
+```
+
+The final response must include the saved absolute boundary path and confirm that
+Bash commands will still be checked for destructive patterns.

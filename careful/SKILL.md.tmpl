@@ -22,9 +22,23 @@ sensitive: true
 
 # /careful — Destructive Command Guardrails
 
+## Overview
+
+This skill enables a bash preflight safety check. It does not prohibit all risky
+work; it forces an explicit warning and user decision before known destructive
+command patterns run.
+
 Safety mode is now **active**. Every bash command will be checked for destructive
 patterns before running. If a destructive command is detected, you'll be warned
 and can choose to proceed or cancel.
+
+## Workflow
+
+1. Confirm `/careful` is active for the current session.
+2. Continue normal work.
+3. When a destructive Bash command is detected, stop and show the warning.
+4. Run the command only if the user explicitly chooses to proceed.
+5. If the command is not needed, choose a safer alternative and explain it.
 
 ## What's protected
 
@@ -51,3 +65,17 @@ patterns above, and returns `permissionDecision: "ask"` with a warning message
 if a match is found. You can always override the warning and proceed.
 
 To deactivate, end the conversation or start a new one. Hooks are session-scoped.
+
+## Output Contract
+
+When activated, report that destructive-command checking is active and list the
+most important protected categories for the current task. If a warning triggers,
+the output must state the exact risky command category and whether the user chose
+to proceed or cancel.
+
+## Verification Evidence
+
+Before claiming the guardrail is available, verify the skill hook is present in
+this skill file and that destructive categories are documented above. During use,
+the evidence is the hook warning before the command runs, plus the user's explicit
+decision for that command.
