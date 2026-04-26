@@ -814,7 +814,7 @@ create_agents_sidecar() {
   mkdir -p "$agents_nexus"
 
   # Sidecar directories that skills reference at runtime
-  for asset in bin browse review qa; do
+  for asset in bin browse design review qa; do
     local src="$SOURCE_NEXUS_DIR/$asset"
     local dst="$agents_nexus/$asset"
     if [ -d "$src" ] || [ -f "$src" ]; then
@@ -853,7 +853,7 @@ create_codex_runtime_root() {
     rm -rf "$codex_nexus"
   fi
 
-  mkdir -p "$codex_nexus" "$codex_nexus/browse" "$codex_nexus/nexus-upgrade" "$codex_nexus/review"
+  mkdir -p "$codex_nexus" "$codex_nexus/browse" "$codex_nexus/design" "$codex_nexus/nexus-upgrade" "$codex_nexus/review"
 
   if [ -f "$agents_dir/nexus/SKILL.md" ]; then
     ln -snf "$agents_dir/nexus/SKILL.md" "$codex_nexus/SKILL.md"
@@ -866,6 +866,12 @@ create_codex_runtime_root() {
   fi
   if [ -d "$nexus_dir/browse/bin" ]; then
     ln -snf "$nexus_dir/browse/bin" "$codex_nexus/browse/bin"
+  fi
+  if [ -d "$nexus_dir/design/dist" ]; then
+    ln -snf "$nexus_dir/design/dist" "$codex_nexus/design/dist"
+  fi
+  if [ -d "$nexus_dir/design/references" ]; then
+    ln -snf "$nexus_dir/design/references" "$codex_nexus/design/references"
   fi
   if [ -f "$agents_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$agents_dir/nexus-upgrade/SKILL.md" "$codex_nexus/nexus-upgrade/SKILL.md"
@@ -893,7 +899,7 @@ create_factory_runtime_root() {
     rm -rf "$factory_nexus"
   fi
 
-  mkdir -p "$factory_nexus" "$factory_nexus/browse" "$factory_nexus/nexus-upgrade" "$factory_nexus/review"
+  mkdir -p "$factory_nexus" "$factory_nexus/browse" "$factory_nexus/design" "$factory_nexus/nexus-upgrade" "$factory_nexus/review"
 
   if [ -f "$factory_dir/nexus/SKILL.md" ]; then
     ln -snf "$factory_dir/nexus/SKILL.md" "$factory_nexus/SKILL.md"
@@ -906,6 +912,12 @@ create_factory_runtime_root() {
   fi
   if [ -d "$nexus_dir/browse/bin" ]; then
     ln -snf "$nexus_dir/browse/bin" "$factory_nexus/browse/bin"
+  fi
+  if [ -d "$nexus_dir/design/dist" ]; then
+    ln -snf "$nexus_dir/design/dist" "$factory_nexus/design/dist"
+  fi
+  if [ -d "$nexus_dir/design/references" ]; then
+    ln -snf "$nexus_dir/design/references" "$factory_nexus/design/references"
   fi
   if [ -f "$factory_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$factory_dir/nexus-upgrade/SKILL.md" "$factory_nexus/nexus-upgrade/SKILL.md"
@@ -1034,10 +1046,12 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   KIRO_NEXUS="$KIRO_SKILLS/nexus"
   # Remove old whole-dir symlink from previous installs
   [ -L "$KIRO_NEXUS" ] && rm -f "$KIRO_NEXUS"
-  mkdir -p "$KIRO_NEXUS" "$KIRO_NEXUS/browse" "$KIRO_NEXUS/nexus-upgrade" "$KIRO_NEXUS/review"
+  mkdir -p "$KIRO_NEXUS" "$KIRO_NEXUS/browse" "$KIRO_NEXUS/design" "$KIRO_NEXUS/nexus-upgrade" "$KIRO_NEXUS/review"
   ln -snf "$SOURCE_NEXUS_DIR/bin" "$KIRO_NEXUS/bin"
   ln -snf "$SOURCE_NEXUS_DIR/browse/dist" "$KIRO_NEXUS/browse/dist"
   ln -snf "$SOURCE_NEXUS_DIR/browse/bin" "$KIRO_NEXUS/browse/bin"
+  [ -d "$SOURCE_NEXUS_DIR/design/dist" ] && ln -snf "$SOURCE_NEXUS_DIR/design/dist" "$KIRO_NEXUS/design/dist"
+  [ -d "$SOURCE_NEXUS_DIR/design/references" ] && ln -snf "$SOURCE_NEXUS_DIR/design/references" "$KIRO_NEXUS/design/references"
   # ETHOS.md — referenced by "Search Before Building" in all skill preambles
   if [ -f "$SOURCE_NEXUS_DIR/ETHOS.md" ]; then
     ln -snf "$SOURCE_NEXUS_DIR/ETHOS.md" "$KIRO_NEXUS/ETHOS.md"

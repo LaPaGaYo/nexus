@@ -154,6 +154,27 @@ describe('gen-skill-docs', () => {
     expect(consultation).toContain('"deliverableType": "[ui-mockup|prototype|slides|motion|infographic]"');
   });
 
+  test('design heavy guidance is lazy-loaded from sidecar references', () => {
+    const review = fs.readFileSync(path.join(ROOT, 'design-review', 'SKILL.md'), 'utf-8');
+    const planReview = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
+
+    for (const ref of [
+      'design/references/governance.md',
+      'design/references/design-review-methodology.md',
+      'design/references/hard-rules.md',
+      'design/references/outside-voices.md',
+      'design/references/shotgun-loop.md',
+    ]) {
+      expect(fs.existsSync(path.join(ROOT, ref))).toBe(true);
+    }
+
+    expect(review).toContain('design/references/design-review-methodology.md');
+    expect(planReview).toContain('design/references/hard-rules.md');
+    expect(planReview).toContain('design/references/outside-voices.md');
+    expect(consultation).toContain('design/references/shotgun-loop.md');
+  });
+
   test('design consultation and finalization treat design context as DESIGN.md plus brand-spec.md', () => {
     const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
     const html = fs.readFileSync(path.join(ROOT, 'design-html', 'SKILL.md'), 'utf-8');
@@ -2424,12 +2445,13 @@ describe('setup script validation', () => {
   });
 
   test('create_agents_sidecar links runtime assets', () => {
-    // Sidecar must link bin, browse, review, qa
+    // Sidecar must link runtime dirs and lazy-loaded reference dirs.
     const fnStart = setupContent.indexOf('create_agents_sidecar()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('done', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('bin');
     expect(fnBody).toContain('browse');
+    expect(fnBody).toContain('design');
     expect(fnBody).toContain('review');
     expect(fnBody).toContain('qa');
   });
@@ -2441,6 +2463,8 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('nexus/SKILL.md');
     expect(fnBody).toContain('browse/dist');
     expect(fnBody).toContain('browse/bin');
+    expect(fnBody).toContain('design/dist');
+    expect(fnBody).toContain('design/references');
     expect(fnBody).toContain('nexus-upgrade/SKILL.md');
     // Review runtime assets (individual files, not the whole dir)
     expect(fnBody).toContain('checklist.md');

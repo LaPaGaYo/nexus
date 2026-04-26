@@ -562,105 +562,15 @@ around obstacles.
 
 ## Nexus Design Governance
 
-Use these rules across all design-bearing work. They are part of the integrated
-Nexus design surface, not optional side guidance.
+Read the full governance reference before design-bearing work:
+`~/.claude/skills/nexus/design/references/governance.md`
 
-### 1. Core asset protocol (required for named brands or products)
-
-If the work targets a specific company, product, or named brand:
-
-- Ask for the full asset set up front:
-  - logo
-  - product renders / photography for physical products
-  - UI screenshots for digital products
-  - color palette
-  - typography
-  - brand guidelines
-- If assets are missing, search official channels before improvising:
-  - `<brand>.com/brand`
-  - `<brand>.com/press`
-  - `brand.<brand>.com`
-  - product pages, launch films, app-store screenshots
-- Prefer real logo / product / UI assets over inferred colors or "brand vibes".
-- Verify fidelity before use:
-  - logo fidelity
-  - image resolution
-  - UI freshness
-  - extracted colors from real assets
-- Freeze the result to `brand-spec.md` so later design work consumes the same
-  truth instead of re-guessing.
-
-Asset importance order:
-1. Logo
-2. Product renders for physical products
-3. UI screenshots for digital products
-4. Color values
-5. Fonts
-
-If brand assets cannot be verified, say so explicitly. Do not fake "brand
-accuracy" from memory.
-
-### 2. Direction fallback for vague briefs
-
-If the brief is visually vague, or existing design context is too thin:
-
-- do not jump straight to one generic mockup
-- propose 3 differentiated directions
-- make them genuinely different in composition, typography, palette, and tone
-- explain why each direction fits the product and what tradeoff it makes
-
-The goal is to create intentional choice, not aesthetic drift.
-
-### 3. Direction architecture for exploration work
-
-When generating multiple directions:
-
-- default to **3 directions**, not a pile of weak variants
-- anchor each direction to a **named designer or studio**
-- the first 3 directions must come from **different schools**, not three versions
-  of the same taste
-
-Preferred school spread:
-- information architecture / editorial systems
-- motion poetics / digital atmosphere
-- minimal / luxury restraint
-- experimental / avant-garde
-- eastern or contemplative philosophy
-
-Each direction should state:
-- the direction name
-- the designer or studio anchor
-- why it fits this product
-- the core visual traits
-- the risk/tradeoff it introduces
-
-Do not present "minimal / bold / premium" as if those are distinct directions.
-The user should be able to feel the contrast immediately.
-
-### 4. Junior-designer execution discipline
-
-Do not rely on heroic one-shot design guesses.
-
-- start with assumptions and placeholders when needed
-- surface reasoning early
-- show the user something concrete quickly
-- tighten with real content, real assets, and real constraints
-- iterate toward craft instead of pretending the first pass is final
-
-### 5. Five design lenses
-
-Use these lenses when proposing, reviewing, or finalizing design work:
-
-1. **Philosophical coherence** — does the system feel like one idea?
-2. **Visual hierarchy** — is the user's attention directed intentionally?
-3. **Execution craft** — spacing, typography, motion, and detail quality
-4. **Functional fit** — does the design help the task instead of just decorating it?
-5. **Distinctiveness** — does it avoid generic AI-default output?
-
-When critiquing, bias toward:
-- **Keep** — what is already working
-- **Fix** — what materially breaks the experience
-- **Quick wins** — high-leverage improvements that can land immediately
+Apply these non-optional anchors:
+- **Core asset protocol** for named brands/products: real assets first, verify fidelity, and freeze brand truth to `brand-spec.md`.
+- Direction fallback: vague briefs get 3 genuinely different directions from different schools, not one generic mockup.
+- Direction architecture: use named designer or studio anchors, clear visual traits, and explicit tradeoffs.
+- Junior-designer discipline: show concrete work early, then tighten with real content, real assets, and constraints.
+- **Five design lenses**: philosophical coherence, visual hierarchy, execution craft, functional fit, and distinctiveness.
 
 ## DESIGN SETUP (run this check BEFORE any design mockup command)
 
@@ -684,26 +594,13 @@ else
 fi
 ```
 
-If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
-existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
-progressive enhancement, not a hard requirement.
+If `DESIGN_NOT_AVAILABLE`: skip visual mockups and fall back to HTML wireframes.
+If `BROWSE_NOT_AVAILABLE`: use `open file://...` for comparison boards.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+Core commands: `$D generate`, `$D variants`, `$D compare --serve`, `$D check`, `$D iterate`.
 
-If `DESIGN_READY`: the design binary is available for visual mockup generation.
-Commands:
-- `$D generate --brief "..." --output /path.png` — generate a single mockup
-- `$D variants --brief "..." --count 3 --output-dir /path/` — generate N style variants
-- `$D compare --images "a.png,b.png,c.png" --output /path/board.html --serve` — comparison board + HTTP server
-- `$D serve --html /path/board.html` — serve comparison board and collect feedback via HTTP
-- `$D check --image /path.png --brief "..."` — vision quality gate
-- `$D iterate --session /path/session.json --feedback "..." --output /path.png` — iterate
-
-**CRITICAL PATH RULE:** All design artifacts (mockups, comparison boards, approved.json)
-MUST be saved to `~/.nexus/projects/$SLUG/designs/`, NEVER to `.context/`,
-`docs/designs/`, `/tmp/`, or any project-local directory. Design artifacts are USER
-data, not project files. They persist across branches, conversations, and workspaces.
+**Critical path rule:** save mockups, comparison boards, and `approved.json` under
+`~/.nexus/projects/$SLUG/designs/`, never under project-local paths.
 
 ## SETUP (run this check BEFORE any browse command)
 
@@ -945,124 +842,12 @@ For framework output, save to:
 
 ### Pretext Wiring Patterns
 
-Use these patterns based on the tier selected in Step 2. These are the correct
-Pretext API usage patterns. Follow them exactly.
-
-**Pattern 1: Basic height computation (Simple layout, Card/grid)**
-```js
-import { prepare, layout } from './pretext-inline.js'
-// Or if inlined: const { prepare, layout } = window.Pretext
-
-// 1. PREPARE — one-time, after fonts load
-await document.fonts.ready
-const elements = document.querySelectorAll('[data-pretext]')
-const prepared = new Map()
-
-for (const el of elements) {
-  const text = el.textContent
-  const font = getComputedStyle(el).font
-  prepared.set(el, prepare(text, font))
-}
-
-// 2. LAYOUT — cheap, call on every resize
-function relayout() {
-  for (const [el, handle] of prepared) {
-    const { height } = layout(handle, el.clientWidth, parseFloat(getComputedStyle(el).lineHeight))
-    el.style.height = `${height}px`
-  }
-}
-
-// 3. RESIZE-AWARE
-new ResizeObserver(() => relayout()).observe(document.body)
-relayout()
-
-// 4. CONTENT-EDITABLE — re-prepare when text changes
-for (const el of elements) {
-  if (el.contentEditable === 'true') {
-    new MutationObserver(() => {
-      const font = getComputedStyle(el).font
-      prepared.set(el, prepare(el.textContent, font))
-      relayout()
-    }).observe(el, { characterData: true, subtree: true, childList: true })
-  }
-}
-```
-
-**Pattern 2: Shrinkwrap / tight-fit containers (Chat bubbles)**
-```js
-import { prepareWithSegments, walkLineRanges } from './pretext-inline.js'
-
-// Find the tightest width that produces the same line count
-function shrinkwrap(text, font, maxWidth, lineHeight) {
-  const segs = prepareWithSegments(text, font)
-  let bestWidth = maxWidth
-  walkLineRanges(segs, maxWidth, (lineCount, startIdx, endIdx) => {
-    // walkLineRanges calls back with progressively narrower widths
-    // The first call gives us the line count at maxWidth
-    // We want the narrowest width that still produces this line count
-  })
-  // Binary search for tightest width with same line count
-  const { lineCount: targetLines } = layout(prepare(text, font), maxWidth, lineHeight)
-  let lo = 0, hi = maxWidth
-  while (hi - lo > 1) {
-    const mid = (lo + hi) / 2
-    const { lineCount } = layout(prepare(text, font), mid, lineHeight)
-    if (lineCount === targetLines) hi = mid
-    else lo = mid
-  }
-  return hi
-}
-```
-
-**Pattern 3: Text around obstacles (Editorial layout)**
-```js
-import { prepareWithSegments, layoutNextLine } from './pretext-inline.js'
-
-function layoutAroundObstacles(text, font, containerWidth, lineHeight, obstacles) {
-  const segs = prepareWithSegments(text, font)
-  let state = null
-  let y = 0
-  const lines = []
-
-  while (true) {
-    // Calculate available width at current y position, accounting for obstacles
-    let availWidth = containerWidth
-    for (const obs of obstacles) {
-      if (y >= obs.top && y < obs.top + obs.height) {
-        availWidth -= obs.width
-      }
-    }
-
-    const result = layoutNextLine(segs, state, availWidth, lineHeight)
-    if (!result) break
-
-    lines.push({ text: result.text, width: result.width, x: 0, y })
-    state = result.state
-    y += lineHeight
-  }
-
-  return { lines, totalHeight: y }
-}
-```
-
-**Pattern 4: Full line-by-line rendering (Complex editorial)**
-```js
-import { prepareWithSegments, layoutWithLines } from './pretext-inline.js'
-
-const segs = prepareWithSegments(text, font)
-const { lines, height } = layoutWithLines(segs, containerWidth, lineHeight)
-
-// lines = [{ text, width, x, y }, ...]
-// Use for Canvas/SVG rendering or custom DOM positioning
-for (const line of lines) {
-  const span = document.createElement('span')
-  span.textContent = line.text
-  span.style.position = 'absolute'
-  span.style.left = `${line.x}px`
-  span.style.top = `${line.y}px`
-  container.appendChild(span)
-}
-```
+Read `design/references/pretext-html-engine.md` for the exact wiring patterns.
+Choose the pattern that matches the tier from Step 2:
+- Basic height computation: `prepare(text, font)` + `layout(handle, width, lineHeight)`
+- Shrinkwrap/tight-fit: `prepareWithSegments(text, font)` + `walkLineRanges(...)`
+- Text around obstacles: `layoutNextLine(...)`
+- Complex editorial rendering: `layoutWithLines(...)`
 
 ### Pretext API Reference
 

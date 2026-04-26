@@ -262,7 +262,7 @@ This phase generates visual previews of the proposed design system. Two paths de
 
 ### Path A: AI Mockups (if DESIGN_READY)
 
-Generate AI-rendered mockups showing the proposed design system applied to realistic screens for this product. This is far more powerful than an HTML preview — the user sees what their product could actually look like.
+Generate AI-rendered mockups showing the proposed design system applied to realistic product screens.
 
 ```bash
 eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
@@ -271,7 +271,7 @@ mkdir -p "$_DESIGN_DIR"
 echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
 
-Construct a design brief from the Phase 3 proposal (aesthetic, colors, typography, spacing, layout) and the product context from Phase 1:
+Create a compact brief from Phase 3 plus product context:
 
 ```bash
 cat > "$_DESIGN_DIR/brief.json" <<'EOF'
@@ -279,10 +279,6 @@ cat > "$_DESIGN_DIR/brief.json" <<'EOF'
   "goal": "[product name and what this preview needs to communicate]",
   "audience": "[primary audience]",
   "style": "[approved aesthetic direction]",
-  "elements": ["[required element 1]", "[required element 2]", "[required element 3]"],
-  "constraints": "[important layout or brand constraints]",
-  "brandCore": "[core brand feeling]",
-  "assetContext": ["[frozen asset or product truth 1]", "[asset truth 2]"],
   "reviewLenses": ["coherence", "hierarchy", "craft", "functional fit", "distinctiveness"],
   "avoid": ["generic AI-default output"],
   "screenType": "[desktop-dashboard|mobile-app|landing-page|presentation-slide|storyboard-panel|editorial-infographic]",
@@ -298,22 +294,13 @@ EOF
 $D variants --brief-file "$_DESIGN_DIR/brief.json" --count 3 --output-dir "$_DESIGN_DIR/"
 ```
 
-Choose `deliverableType` from the user's actual output:
-- `prototype` for app/web product flows or believable product screens
-- `slides` for decks, keynote-style frames, or presentation storytelling
-- `motion` for launch films, animated explainers, or storyboard/keyframe work
-- `infographic` for editorial data stories, reports, or visual explanations
-- `ui-mockup` only when the request is truly a static interface exploration
-
-Run quality check on each variant:
+Choose `deliverableType` from the user's real output. Run quality checks:
 
 ```bash
 $D check --image "$_DESIGN_DIR/variant-A.png" --brief-file "$_DESIGN_DIR/brief.json"
 ```
 
-Show each variant inline (Read tool on each PNG) for instant preview.
-
-Tell the user: "I've generated 3 visual directions applying your design system to a realistic [product type] screen. Pick your favorite in the comparison board that just opened in your browser. You can also remix elements across variants."
+Tell the user the comparison board is the chooser and supports ratings, comments, remix, and regeneration.
 
 {{DESIGN_SHOTGUN_LOOP}}
 

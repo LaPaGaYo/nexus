@@ -27,6 +27,15 @@ export type SkillDoctorIssue = {
   recommendation: string;
 };
 
+export type SkillDoctorSizeProfile = {
+  totalLineCount: number;
+  activeLineCount: number;
+  scaffoldLineCount: number;
+  budgetLineCount: number;
+  budgetBasis: 'total' | 'active_body';
+  activeBodyStartLine: number | null;
+};
+
 export type SkillDoctorTarget = {
   path: string;
   content: string;
@@ -40,6 +49,7 @@ export type SkillDoctorResult = {
   category: SkillAnatomyCategory;
   targetKind: SkillDoctorTargetKind;
   lineCount: number;
+  size: SkillDoctorSizeProfile;
   anatomy: SkillAnatomyResult;
   issues: SkillDoctorIssue[];
 };
@@ -162,6 +172,61 @@ function lineCount(content: string): number {
   return content.split(/\r?\n/).length;
 }
 
+function activeBodyStartLine(content: string): number | null {
+  const lines = content.split(/\r?\n/);
+  const titleMarkerIndex = lines.findIndex((line) => line.trim() === '# {Title}');
+  const h1AfterMarker = titleMarkerIndex >= 0
+    ? lines.findIndex((line, index) => index > titleMarkerIndex && /^#\s+\S/.test(line.trim()) && line.trim() !== '# {Title}')
+    : -1;
+  if (h1AfterMarker >= 0) {
+    return h1AfterMarker + 1;
+  }
+
+  const commandH1Index = lines.findIndex((line) => /^#\s+\/\S+/.test(line.trim()));
+  if (commandH1Index >= 0) {
+    return commandH1Index + 1;
+  }
+
+  return null;
+}
+
+function sizeProfile(content: string, targetKind: SkillDoctorTargetKind): SkillDoctorSizeProfile {
+  const totalLineCount = lineCount(content);
+  if (targetKind === 'source_template') {
+    return {
+      totalLineCount,
+      activeLineCount: totalLineCount,
+      scaffoldLineCount: 0,
+      budgetLineCount: totalLineCount,
+      budgetBasis: 'total',
+      activeBodyStartLine: 1,
+    };
+  }
+
+  const startLine = activeBodyStartLine(content);
+  if (!startLine) {
+    return {
+      totalLineCount,
+      activeLineCount: totalLineCount,
+      scaffoldLineCount: 0,
+      budgetLineCount: totalLineCount,
+      budgetBasis: 'total',
+      activeBodyStartLine: null,
+    };
+  }
+
+  const scaffoldLineCount = Math.max(0, startLine - 1);
+  const activeLineCount = Math.max(0, totalLineCount - scaffoldLineCount);
+  return {
+    totalLineCount,
+    activeLineCount,
+    scaffoldLineCount,
+    budgetLineCount: activeLineCount,
+    budgetBasis: 'active_body',
+    activeBodyStartLine: startLine,
+  };
+}
+
 function issue(input: {
   kind: SkillDoctorIssueKind;
   severity: SkillDoctorSeverity;
@@ -184,17 +249,20 @@ export function analyzeSkillDoctorTarget(input: SkillDoctorTarget & SkillDoctorO
   const frontmatter = parseFrontmatter(input.content);
   const skillName = normalizeName(frontmatter.name ?? firstSkillSegment(input.path));
   const lines = lineCount(input.content);
+  const size = sizeProfile(input.content, targetKind);
   const longSkillLineThreshold = input.longSkillLineThreshold ?? DEFAULT_LONG_SKILL_LINE_THRESHOLD;
   const issues: SkillDoctorIssue[] = [];
 
-  if (lines > longSkillLineThreshold) {
+  if (size.budgetLineCount > longSkillLineThreshold) {
     issues.push(issue({
       kind: 'too_long',
       severity: 'warn',
       path: input.path,
       skillName,
-      evidence: `${lines} lines exceeds ${longSkillLineThreshold}-line doctor threshold`,
-      recommendation: 'Split reference material, examples, or command tables into support files so the active skill stays focused.',
+      evidence: targetKind === 'generated_host' && size.budgetBasis === 'active_body'
+        ? `${size.activeLineCount} active-body lines exceeds ${longSkillLineThreshold}-line doctor threshold (${lines} total, ${size.scaffoldLineCount} shared scaffold lines ignored)`
+        : `${lines} lines exceeds ${longSkillLineThreshold}-line doctor threshold`,
+      recommendation: 'Split reference material, examples, or command tables into lazy-loaded reference sidecars so the active skill stays focused.',
     }));
   }
 
@@ -243,6 +311,7 @@ export function analyzeSkillDoctorTarget(input: SkillDoctorTarget & SkillDoctorO
     category,
     targetKind,
     lineCount: lines,
+    size,
     anatomy,
     issues,
   };

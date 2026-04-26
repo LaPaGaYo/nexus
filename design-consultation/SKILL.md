@@ -575,105 +575,15 @@ You are a senior product designer with strong opinions about typography, color, 
 
 ## Nexus Design Governance
 
-Use these rules across all design-bearing work. They are part of the integrated
-Nexus design surface, not optional side guidance.
+Read the full governance reference before design-bearing work:
+`~/.claude/skills/nexus/design/references/governance.md`
 
-### 1. Core asset protocol (required for named brands or products)
-
-If the work targets a specific company, product, or named brand:
-
-- Ask for the full asset set up front:
-  - logo
-  - product renders / photography for physical products
-  - UI screenshots for digital products
-  - color palette
-  - typography
-  - brand guidelines
-- If assets are missing, search official channels before improvising:
-  - `<brand>.com/brand`
-  - `<brand>.com/press`
-  - `brand.<brand>.com`
-  - product pages, launch films, app-store screenshots
-- Prefer real logo / product / UI assets over inferred colors or "brand vibes".
-- Verify fidelity before use:
-  - logo fidelity
-  - image resolution
-  - UI freshness
-  - extracted colors from real assets
-- Freeze the result to `brand-spec.md` so later design work consumes the same
-  truth instead of re-guessing.
-
-Asset importance order:
-1. Logo
-2. Product renders for physical products
-3. UI screenshots for digital products
-4. Color values
-5. Fonts
-
-If brand assets cannot be verified, say so explicitly. Do not fake "brand
-accuracy" from memory.
-
-### 2. Direction fallback for vague briefs
-
-If the brief is visually vague, or existing design context is too thin:
-
-- do not jump straight to one generic mockup
-- propose 3 differentiated directions
-- make them genuinely different in composition, typography, palette, and tone
-- explain why each direction fits the product and what tradeoff it makes
-
-The goal is to create intentional choice, not aesthetic drift.
-
-### 3. Direction architecture for exploration work
-
-When generating multiple directions:
-
-- default to **3 directions**, not a pile of weak variants
-- anchor each direction to a **named designer or studio**
-- the first 3 directions must come from **different schools**, not three versions
-  of the same taste
-
-Preferred school spread:
-- information architecture / editorial systems
-- motion poetics / digital atmosphere
-- minimal / luxury restraint
-- experimental / avant-garde
-- eastern or contemplative philosophy
-
-Each direction should state:
-- the direction name
-- the designer or studio anchor
-- why it fits this product
-- the core visual traits
-- the risk/tradeoff it introduces
-
-Do not present "minimal / bold / premium" as if those are distinct directions.
-The user should be able to feel the contrast immediately.
-
-### 4. Junior-designer execution discipline
-
-Do not rely on heroic one-shot design guesses.
-
-- start with assumptions and placeholders when needed
-- surface reasoning early
-- show the user something concrete quickly
-- tighten with real content, real assets, and real constraints
-- iterate toward craft instead of pretending the first pass is final
-
-### 5. Five design lenses
-
-Use these lenses when proposing, reviewing, or finalizing design work:
-
-1. **Philosophical coherence** — does the system feel like one idea?
-2. **Visual hierarchy** — is the user's attention directed intentionally?
-3. **Execution craft** — spacing, typography, motion, and detail quality
-4. **Functional fit** — does the design help the task instead of just decorating it?
-5. **Distinctiveness** — does it avoid generic AI-default output?
-
-When critiquing, bias toward:
-- **Keep** — what is already working
-- **Fix** — what materially breaks the experience
-- **Quick wins** — high-leverage improvements that can land immediately
+Apply these non-optional anchors:
+- **Core asset protocol** for named brands/products: real assets first, verify fidelity, and freeze brand truth to `brand-spec.md`.
+- Direction fallback: vague briefs get 3 genuinely different directions from different schools, not one generic mockup.
+- Direction architecture: use named designer or studio anchors, clear visual traits, and explicit tradeoffs.
+- Junior-designer discipline: show concrete work early, then tighten with real content, real assets, and constraints.
+- **Five design lenses**: philosophical coherence, visual hierarchy, execution craft, functional fit, and distinctiveness.
 
 ---
 
@@ -773,26 +683,13 @@ else
 fi
 ```
 
-If `DESIGN_NOT_AVAILABLE`: skip visual mockup generation and fall back to the
-existing HTML wireframe approach (`DESIGN_SKETCH`). Design mockups are a
-progressive enhancement, not a hard requirement.
+If `DESIGN_NOT_AVAILABLE`: skip visual mockups and fall back to HTML wireframes.
+If `BROWSE_NOT_AVAILABLE`: use `open file://...` for comparison boards.
 
-If `BROWSE_NOT_AVAILABLE`: use `open file://...` instead of `$B goto` to open
-comparison boards. The user just needs to see the HTML file in any browser.
+Core commands: `$D generate`, `$D variants`, `$D compare --serve`, `$D check`, `$D iterate`.
 
-If `DESIGN_READY`: the design binary is available for visual mockup generation.
-Commands:
-- `$D generate --brief "..." --output /path.png` — generate a single mockup
-- `$D variants --brief "..." --count 3 --output-dir /path/` — generate N style variants
-- `$D compare --images "a.png,b.png,c.png" --output /path/board.html --serve` — comparison board + HTTP server
-- `$D serve --html /path/board.html` — serve comparison board and collect feedback via HTTP
-- `$D check --image /path.png --brief "..."` — vision quality gate
-- `$D iterate --session /path/session.json --feedback "..." --output /path.png` — iterate
-
-**CRITICAL PATH RULE:** All design artifacts (mockups, comparison boards, approved.json)
-MUST be saved to `~/.nexus/projects/$SLUG/designs/`, NEVER to `.context/`,
-`docs/designs/`, `/tmp/`, or any project-local directory. Design artifacts are USER
-data, not project files. They persist across branches, conversations, and workspaces.
+**Critical path rule:** save mockups, comparison boards, and `approved.json` under
+`~/.nexus/projects/$SLUG/designs/`, never under project-local paths.
 
 If `DESIGN_READY`: Phase 5 will generate AI mockups of your proposed design system applied to real screens, instead of just an HTML preview page. Much more powerful — the user sees what their product could actually look like.
 
@@ -864,69 +761,35 @@ If the user said no research, skip entirely and proceed to Phase 3 using your bu
 
 ## Design Outside Voices (parallel)
 
+Read the full outside-voices contract:
+`~/.claude/skills/nexus/design/references/outside-voices.md`
+
+Mode: `design-consultation`
+Reasoning: `model_reasoning_effort="medium"`
+Codex output header: `CODEX SAYS (design direction):`
+
 Use AskUserQuestion:
-> "Want outside design voices? Codex evaluates against OpenAI's design hard rules + litmus checks; Claude subagent does an independent design direction proposal."
+> "Want outside design voices? Codex evaluates OpenAI hard rules and litmus checks; Claude subagent gives an independent design direction."
 >
 > A) Yes — run outside design voices
 > B) No — proceed without
-
-If user chooses B, skip this step and continue.
 
 **Check Codex availability:**
 ```bash
 which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
 ```
 
-**If Codex is available**, launch both voices simultaneously:
+If Codex is available, launch Codex and a Claude subagent simultaneously. In the Codex prompt, tell it to read `~/.claude/skills/nexus/design/references/outside-voices.md` and execute the `design-consultation` section.
 
-1. **Codex design voice** (via Bash):
 ```bash
 TMPERR_DESIGN=$(mktemp /tmp/codex-design-XXXXXXXX)
 _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
-codex exec "Given this product context, propose a complete design direction:
-- Visual thesis: one sentence describing mood, material, and energy
-- Typography: specific font names (not defaults — no Inter/Roboto/Arial/system) + hex colors
-- Color system: CSS variables for background, surface, primary text, muted text, accent
-- Layout: composition-first, not component-first. First viewport as poster, not document
-- Differentiation: 2 deliberate departures from category norms
-- Anti-slop: no purple gradients, no 3-column icon grids, no centered everything, no decorative blobs
-
-Be opinionated. Be specific. Do not hedge. This is YOUR design direction — own it." -C "$_REPO_ROOT" -s read-only -c 'model_reasoning_effort="medium"' --enable web_search_cached 2>"$TMPERR_DESIGN"
-```
-Use a 5-minute timeout (`timeout: 300000`). After the command completes, read stderr:
-```bash
-cat "$TMPERR_DESIGN" && rm -f "$TMPERR_DESIGN"
+codex exec "Read ~/.claude/skills/nexus/design/references/outside-voices.md and run the design-consultation Codex design voice. Return the required findings and LITMUS SCORECARD where applicable." -C "$_REPO_ROOT" -s read-only -c 'model_reasoning_effort="medium"' --enable web_search_cached 2>"$TMPERR_DESIGN"
 ```
 
-2. **Claude design subagent** (via Agent tool):
-Dispatch a subagent with this prompt:
-"Given this product context, propose a design direction that would SURPRISE. What would the cool indie studio do that the enterprise UI team wouldn't?
-- Propose an aesthetic direction, typography stack (specific font names), color palette (hex values)
-- 2 deliberate departures from category norms
-- What emotional reaction should the user have in the first 3 seconds?
+After completion: `cat "$TMPERR_DESIGN" && rm -f "$TMPERR_DESIGN"`. On auth failure, timeout, or empty response, proceed with the available voice and tag it `[single-model]`.
 
-Be bold. Be specific. No hedging."
-
-**Error handling (all non-blocking):**
-- **Auth failure:** If stderr contains "auth", "login", "unauthorized", or "API key": "Codex authentication failed. Run `codex login` to authenticate."
-- **Timeout:** "Codex timed out after 5 minutes."
-- **Empty response:** "Codex returned no response."
-- On any Codex error: proceed with Claude subagent output only, tagged `[single-model]`.
-- If Claude subagent also fails: "Outside voices unavailable — continuing with primary review."
-
-Present Codex output under a `CODEX SAYS (design direction):` header.
-Present subagent output under a `CLAUDE SUBAGENT (design direction):` header.
-
-**Synthesis:** Claude main references both Codex and subagent proposals in the Phase 3 proposal. Present:
-- Areas of agreement between all three voices (Claude main + Codex + subagent)
-- Genuine divergences as creative alternatives for the user to choose from
-- "Codex and I agree on X. Codex suggested Y where I'm proposing Z — here's why..."
-
-**Log the result:**
-```bash
-~/.claude/skills/nexus/bin/nexus-review-log '{"skill":"design-outside-voices","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","status":"STATUS","source":"SOURCE","commit":"'"$(git rev-parse --short HEAD)"'"}'
-```
-Replace STATUS with "clean" or "issues_found", SOURCE with "codex+subagent", "codex-only", "subagent-only", or "unavailable".
+**Synthesis:** Produce the `DESIGN OUTSIDE VOICES — LITMUS SCORECARD` for plan/review modes, merge findings with `[codex]`, `[subagent]`, or `[cross-model]` tags, and log `design-outside-voices` with `nexus-review-log`.
 
 ## Phase 3: The Complete Proposal
 
@@ -1043,7 +906,7 @@ This phase generates visual previews of the proposed design system. Two paths de
 
 ### Path A: AI Mockups (if DESIGN_READY)
 
-Generate AI-rendered mockups showing the proposed design system applied to realistic screens for this product. This is far more powerful than an HTML preview — the user sees what their product could actually look like.
+Generate AI-rendered mockups showing the proposed design system applied to realistic product screens.
 
 ```bash
 eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
@@ -1052,7 +915,7 @@ mkdir -p "$_DESIGN_DIR"
 echo "DESIGN_DIR: $_DESIGN_DIR"
 ```
 
-Construct a design brief from the Phase 3 proposal (aesthetic, colors, typography, spacing, layout) and the product context from Phase 1:
+Create a compact brief from Phase 3 plus product context:
 
 ```bash
 cat > "$_DESIGN_DIR/brief.json" <<'EOF'
@@ -1060,10 +923,6 @@ cat > "$_DESIGN_DIR/brief.json" <<'EOF'
   "goal": "[product name and what this preview needs to communicate]",
   "audience": "[primary audience]",
   "style": "[approved aesthetic direction]",
-  "elements": ["[required element 1]", "[required element 2]", "[required element 3]"],
-  "constraints": "[important layout or brand constraints]",
-  "brandCore": "[core brand feeling]",
-  "assetContext": ["[frozen asset or product truth 1]", "[asset truth 2]"],
   "reviewLenses": ["coherence", "hierarchy", "craft", "functional fit", "distinctiveness"],
   "avoid": ["generic AI-default output"],
   "screenType": "[desktop-dashboard|mobile-app|landing-page|presentation-slide|storyboard-panel|editorial-infographic]",
@@ -1079,152 +938,26 @@ EOF
 $D variants --brief-file "$_DESIGN_DIR/brief.json" --count 3 --output-dir "$_DESIGN_DIR/"
 ```
 
-Choose `deliverableType` from the user's actual output:
-- `prototype` for app/web product flows or believable product screens
-- `slides` for decks, keynote-style frames, or presentation storytelling
-- `motion` for launch films, animated explainers, or storyboard/keyframe work
-- `infographic` for editorial data stories, reports, or visual explanations
-- `ui-mockup` only when the request is truly a static interface exploration
-
-Run quality check on each variant:
+Choose `deliverableType` from the user's real output. Run quality checks:
 
 ```bash
 $D check --image "$_DESIGN_DIR/variant-A.png" --brief-file "$_DESIGN_DIR/brief.json"
 ```
 
-Show each variant inline (Read tool on each PNG) for instant preview.
-
-Tell the user: "I've generated 3 visual directions applying your design system to a realistic [product type] screen. Pick your favorite in the comparison board that just opened in your browser. You can also remix elements across variants."
+Tell the user the comparison board is the chooser and supports ratings, comments, remix, and regeneration.
 
 ### Comparison Board + Feedback Loop
 
-Create the comparison board and serve it over HTTP:
+Read the full comparison-board loop:
+`~/.claude/skills/nexus/design/references/shotgun-loop.md`
 
-```bash
-$D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DESIGN_DIR/variant-C.png" --output "$_DESIGN_DIR/design-board.html" --serve
-```
-
-This command generates the board HTML, starts an HTTP server on a random port,
-and opens it in the user's default browser. **Run it in the background** with `&`
-because the server needs to stay running while the user interacts with the board.
-
-Parse the port from stderr output: `SERVE_STARTED: port=XXXXX`. You need this
-for the board URL and for reloading during regeneration cycles.
-
-**PRIMARY WAIT: AskUserQuestion with board URL**
-
-After the board is serving, use AskUserQuestion to wait for the user. Include the
-board URL so they can click it if they lost the browser tab:
-
-"I've opened a comparison board with the design variants:
-http://127.0.0.1:<PORT>/ — Rate them, leave comments, remix
-elements you like, and click Submit when you're done. Let me know when you've
-submitted your feedback (or paste your preferences here). If you clicked
-Regenerate or Remix on the board, tell me and I'll generate new variants."
-
-**Do NOT use AskUserQuestion to ask which variant the user prefers.** The comparison
-board IS the chooser. AskUserQuestion is just the blocking wait mechanism.
-
-**After the user responds to AskUserQuestion:**
-
-Check for feedback files next to the board HTML:
-- `$_DESIGN_DIR/feedback.json` — written when user clicks Submit (final choice)
-- `$_DESIGN_DIR/feedback-pending.json` — written when user clicks Regenerate/Remix/More Like This
-
-```bash
-if [ -f "$_DESIGN_DIR/feedback.json" ]; then
-  echo "SUBMIT_RECEIVED"
-  cat "$_DESIGN_DIR/feedback.json"
-elif [ -f "$_DESIGN_DIR/feedback-pending.json" ]; then
-  echo "REGENERATE_RECEIVED"
-  cat "$_DESIGN_DIR/feedback-pending.json"
-  rm "$_DESIGN_DIR/feedback-pending.json"
-else
-  echo "NO_FEEDBACK_FILE"
-fi
-```
-
-The feedback JSON has this shape:
-```json
-{
-  "preferred": "A",
-  "ratings": { "A": 4, "B": 3, "C": 2 },
-  "comments": { "A": "Love the spacing" },
-  "overall": "Go with A, bigger CTA",
-  "regenerated": false
-}
-```
-
-**If `feedback.json` found:** The user clicked Submit on the board.
-Read `preferred`, `ratings`, `comments`, `overall` from the JSON. Proceed with
-the approved variant.
-
-**If `feedback-pending.json` found:** The user clicked Regenerate/Remix on the board.
-1. Read `regenerateAction` from the JSON (`"different"`, `"match"`, `"more_like_B"`,
-   `"remix"`, or custom text)
-2. If `regenerateAction` is `"remix"`, read `remixSpec` (e.g. `{"layout":"A","colors":"B"}`)
-3. Generate new variants with `$D iterate` or `$D variants` using updated brief
-4. Create new board: `$D compare --images "..." --output "$_DESIGN_DIR/design-board.html"`
-5. Reload the board in the user's browser (same tab):
-   `curl -s -X POST http://127.0.0.1:PORT/api/reload -H 'Content-Type: application/json' -d '{"html":"$_DESIGN_DIR/design-board.html"}'`
-6. The board auto-refreshes. **AskUserQuestion again** with the same board URL to
-   wait for the next round of feedback. Repeat until `feedback.json` appears.
-
-**If `NO_FEEDBACK_FILE`:** The user typed their preferences directly in the
-AskUserQuestion response instead of using the board. Use their text response
-as the feedback.
-
-**POLLING FALLBACK:** Only use polling if `$D serve` fails (no port available).
-In that case, show each variant inline using the Read tool (so the user can see them),
-then use AskUserQuestion:
-"The comparison board server failed to start. I've shown the variants above.
-Which do you prefer? Any feedback?"
-
-**After receiving feedback (any path):** Output a clear summary confirming
-what was understood:
-
-"Here's what I understood from your feedback:
-PREFERRED: Variant [X]
-RATINGS: [list]
-YOUR NOTES: [comments]
-DIRECTION: [overall]
-
-Is this right?"
-
-Use AskUserQuestion to verify before proceeding.
-
-**Save the approved choice:**
-```bash
-_APPROVED_VARIANT="<V>"
-_APPROVED_LETTER=$(basename "$_APPROVED_VARIANT" | sed -E 's/.*variant-([A-Z]).*//')
-_APPROVED_BRIEF="$_DESIGN_DIR/brief-"$_APPROVED_LETTER".json"
-bun -e '
-const fs = require("fs");
-const [dir, variant, feedback, screen, branch, briefPath] = process.argv.slice(1);
-let brief = {};
-try {
-  if (briefPath && fs.existsSync(briefPath)) {
-    brief = JSON.parse(fs.readFileSync(briefPath, "utf8"));
-  }
-} catch {}
-const approved = {
-  approved_variant: variant,
-  feedback,
-  date: new Date().toISOString(),
-  screen,
-  branch,
-  deliverableType: brief.deliverableType ?? "ui-mockup",
-  exportTargets: Array.isArray(brief.exportTargets) ? brief.exportTargets : ["png"],
-  canvas: brief.canvas ?? null,
-  interactionModel: brief.interactionModel ?? null,
-  storyBeats: Array.isArray(brief.storyBeats) ? brief.storyBeats : [],
-  dataContext: brief.dataContext ?? null,
-  brief_file: briefPath && fs.existsSync(briefPath) ? briefPath : null,
-};
-fs.writeFileSync(dir + "/approved.json", JSON.stringify(approved, null, 2) + "
-");
-' "$_DESIGN_DIR" "$_APPROVED_VARIANT" "<FB>" "<SCREEN>" "$(git branch --show-current 2>/dev/null)" "$_APPROVED_BRIEF"
-```
+Minimum active flow:
+1. Run `$D compare --images "$_DESIGN_DIR/variant-A.png,$_DESIGN_DIR/variant-B.png,$_DESIGN_DIR/variant-C.png" --output "$_DESIGN_DIR/design-board.html" --serve`.
+2. Parse `SERVE_STARTED: port=XXXXX`, then use AskUserQuestion only as the blocking wait with the board URL.
+3. Read `feedback.json` or `feedback-pending.json`.
+4. If submitted, summarize preferred variant, ratings, comments, and direction.
+5. If regenerate/remix/more-like-this, run `$D iterate` or `$D variants`, reload the same board, and wait again.
+6. Save the final `approved.json` next to the board assets.
 
 After the user picks a direction:
 

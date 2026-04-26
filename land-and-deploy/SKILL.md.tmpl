@@ -310,9 +310,9 @@ gh run list --branch <base> --limit 5 --json name,status,workflowName,headSha
 
 ## Step 5: Deploy Strategy
 
-Run deploy bootstrap and diff scope:
-
-{{DEPLOY_BOOTSTRAP}}
+Reuse the deploy bootstrap result from Step 1. If Step 1 was skipped in this
+session or the deploy contract changed, rerun the Step 1 bootstrap before
+choosing a deploy strategy.
 
 ```bash
 eval $(~/.claude/skills/nexus/bin/nexus-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)

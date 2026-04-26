@@ -150,6 +150,100 @@ description: Use when doing work.
     expect(rendered).toContain('.agents/skills/nexus-heavy/SKILL.md');
   });
 
+  test('generated host length budget ignores shared scaffold before the active skill body', () => {
+    const generatedHostSkill = `---
+name: nexus-compact
+description: Use when compact support work needs verification.
+---
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+
+## Preamble (run first)
+
+\`\`\`bash
+echo setup
+\`\`\`
+
+${Array.from({ length: 20 }, (_, index) => `Shared scaffold line ${index}`).join('\n')}
+
+# {Title}
+
+Template issue body.
+
+# /compact
+
+## Workflow
+
+1. Do focused work.
+
+## Output Contract
+
+Write a report.
+
+## Verification
+
+Run the relevant checks.
+
+## Safety
+
+Do not touch unrelated files.
+`;
+
+    const result = analyzeSkillDoctorTarget({
+      path: '.agents/skills/nexus-compact/SKILL.md',
+      content: generatedHostSkill,
+      targetKind: 'generated_host',
+      longSkillLineThreshold: 20,
+    });
+
+    expect(result.lineCount).toBeGreaterThan(20);
+    expect(result.size.budgetBasis).toBe('active_body');
+    expect(result.size.scaffoldLineCount).toBeGreaterThan(15);
+    expect(result.issues.map((issue) => issue.kind)).not.toContain('too_long');
+  });
+
+  test('generated host length budget still flags long active skill bodies', () => {
+    const generatedHostSkill = `---
+name: nexus-heavy
+description: Use when heavy support work needs verification.
+---
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+
+# {Title}
+
+Template issue body.
+
+# /heavy
+
+## Workflow
+
+${Array.from({ length: 20 }, (_, index) => `${index + 1}. Step ${index + 1}.`).join('\n')}
+
+## Output Contract
+
+Write a report.
+
+## Verification
+
+Run the relevant checks.
+
+## Safety
+
+Do not touch unrelated files.
+`;
+
+    const result = analyzeSkillDoctorTarget({
+      path: '.agents/skills/nexus-heavy/SKILL.md',
+      content: generatedHostSkill,
+      targetKind: 'generated_host',
+      longSkillLineThreshold: 15,
+    });
+    const tooLong = result.issues.find((issue) => issue.kind === 'too_long');
+
+    expect(tooLong).toBeDefined();
+    expect(tooLong?.evidence).toContain('active-body lines');
+    expect(tooLong?.evidence).toContain('shared scaffold');
+  });
+
   test('cli emits json output and strict mode fails on warnings', () => {
     const jsonResult = spawnSync(process.execPath, ['run', 'scripts/skill-doctor.ts', '--json'], {
       cwd: ROOT,
