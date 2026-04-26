@@ -1,4 +1,4 @@
-import type { ArtifactPointer, CanonicalCommandId } from './types';
+import { LOCAL_REVIEW_PERSONA_ROLES, type ArtifactPointer, type CanonicalCommandId, type LocalReviewPersonaRole } from './types';
 
 export const CURRENT_ROOT = '.planning/current';
 export const AUDIT_ROOT = '.planning/audits/current';
@@ -62,6 +62,18 @@ export function reviewAdvisoriesPath(): string {
 
 export function reviewAdvisoryDispositionPath(): string {
   return `${CURRENT_ROOT}/review/advisory-disposition.json`;
+}
+
+export function reviewPersonaAuditRootPath(): string {
+  return `${CURRENT_ROOT}/review/persona-audits`;
+}
+
+export function reviewPersonaAuditPath(role: LocalReviewPersonaRole): string {
+  return `${reviewPersonaAuditRootPath()}/${role}.md`;
+}
+
+export function reviewPersonaAuditPaths(): string[] {
+  return LOCAL_REVIEW_PERSONA_ROLES.map((role) => reviewPersonaAuditPath(role));
 }
 
 export function reviewAttemptsRootPath(): string {

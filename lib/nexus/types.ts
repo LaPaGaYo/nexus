@@ -676,6 +676,7 @@ export interface ReviewMetaRecord {
   handoff_from: string;
   handoff_to: string;
   review_scope?: ReviewScopeRecord;
+  local_persona_review?: LocalPersonaReviewStatusRecord | null;
 }
 
 export interface ReviewAdvisoriesRecord {
@@ -781,6 +782,17 @@ export interface PullRequestRecord {
   reason?: string | null;
 }
 
+export const LOCAL_REVIEW_PERSONA_ROLES = ['code', 'test', 'security', 'design'] as const;
+export type LocalReviewPersonaRole = (typeof LOCAL_REVIEW_PERSONA_ROLES)[number];
+
+export interface LocalPersonaReviewStatusRecord {
+  enabled: boolean;
+  roles: LocalReviewPersonaRole[];
+  artifact_paths: string[];
+  gate_affecting_roles: LocalReviewPersonaRole[];
+  advisory_only_roles: LocalReviewPersonaRole[];
+}
+
 export interface StageStatus {
   run_id: string;
   stage: CanonicalCommandId;
@@ -829,6 +841,7 @@ export interface StageStatus {
   advisory_count?: number;
   advisory_disposition?: ReviewAdvisoryDisposition | null;
   advisory_disposition_path?: string | null;
+  local_persona_review?: LocalPersonaReviewStatusRecord | null;
   pull_request?: PullRequestRecord | null;
 }
 

@@ -9,7 +9,15 @@ import {
   buildReviewAuditPrompt,
 } from './prompt-contracts';
 import { createBuildStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
-import type { ActualRouteRecord, ConflictRecord, LearningCandidate, PrimaryProvider, ProviderTopology } from '../types';
+import type {
+  ActualRouteRecord,
+  ConflictRecord,
+  LearningCandidate,
+  LocalReviewPersonaRole,
+  PrimaryProvider,
+  ProviderTopology,
+} from '../types';
+import { reviewPersonaAuditPath } from '../artifacts';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
 export interface LocalResolveRouteRaw {
@@ -36,6 +44,8 @@ export interface LocalExecuteAuditRaw {
   dispatch_command?: string;
   dispatch_commands?: string[];
   agent_roles?: string[];
+  persona_group?: 'code_test' | 'security_design';
+  persona_audits?: LocalReviewPersonaAuditRaw[];
 }
 
 export interface LocalExecuteQaRaw {
@@ -279,6 +289,19 @@ interface LocalRoleAgent {
   systemPrompt: string;
 }
 
+interface LocalReviewPersonaAgent extends LocalRoleAgent {
+  role: LocalReviewPersonaRole;
+  gateAffecting: boolean;
+}
+
+export interface LocalReviewPersonaAuditRaw {
+  role: LocalReviewPersonaRole;
+  markdown: string;
+  verdict: 'pass' | 'fail';
+  gate_affecting: boolean;
+  artifact_path: string;
+}
+
 function localCommandFailureMessage(label: string, result: LocalCommandResult): string {
   const detail = result.stderr.trim() || result.stdout.trim() || `exit code ${result.exit_code}`;
   return `${label} failed: ${detail}`;
@@ -307,6 +330,158 @@ function buildAuditPrompt(ctx: NexusAdapterContext, slot: 'a' | 'b'): string {
     `Perform local Nexus /review audit pass ${slot.toUpperCase()}.`,
     `# Local Audit ${slot.toUpperCase()}`,
   );
+}
+
+function titleCaseRole(role: LocalReviewPersonaRole): string {
+  return role[0].toUpperCase() + role.slice(1);
+}
+
+function reviewPersonaFocus(role: LocalReviewPersonaRole): string {
+  switch (role) {
+    case 'code':
+      return 'Correctness, implementation completeness, architecture fit, error handling, data integrity, and acceptance criteria.';
+    case 'test':
+      return 'Test coverage, regression evidence, verification commands, missing contract tests, and unverified behavior.';
+    case 'security':
+      return 'Auth, authorization, secrets, injection, data exposure, unsafe filesystem or network behavior, and destructive operations.';
+    case 'design':
+      return 'UI/UX contract adherence, visual hierarchy, interaction states, accessibility, responsive behavior, and design-system consistency.';
+  }
+}
+
+function designPersonaGateAffecting(ctx: NexusAdapterContext): boolean {
+  return ctx.predecessor_artifacts.some((artifact) => artifact.path === '.planning/current/plan/design-contract.md');
+}
+
+function buildLocalReviewPersonaAgent(
+  role: LocalReviewPersonaRole,
+  gateAffecting: boolean,
+): LocalReviewPersonaAgent {
+  const title = titleCaseRole(role);
+  return {
+    role,
+    gateAffecting,
+    name: `nexus_review_${role}`,
+    description: `Performs the ${title} perspective in Nexus local-provider review fan-out.`,
+    systemPrompt: [
+      `You are the Nexus local review ${title} persona.`,
+      `Review focus: ${reviewPersonaFocus(role)}`,
+      gateAffecting
+        ? 'This persona is gate-affecting: explicit blocking defects may return Result: fail.'
+        : 'This persona is advisory-only for this run: always return Result: pass and put concerns under Advisories.',
+      'Stay within repo-visible artifacts and the current review scope. Do not edit files.',
+      'Reply exactly in the requested markdown shape.',
+    ].join('\n'),
+  };
+}
+
+function buildLocalReviewPersonaPrompt(
+  ctx: NexusAdapterContext,
+  agent: LocalReviewPersonaAgent,
+): string {
+  const title = titleCaseRole(agent.role);
+  return [
+    buildPromptContextPreamble(ctx, 'Nexus local persona review'),
+    `Perform the ${title} persona pass for Nexus /review.`,
+    `Focus only on: ${reviewPersonaFocus(agent.role)}`,
+    agent.gateAffecting
+      ? 'This persona is gate-affecting. Use Result: fail only for material blocking defects in this persona domain.'
+      : 'This persona is advisory-only for this run. Return Result: pass even when concerns exist; list those concerns under Advisories.',
+    'Do not broaden into unrelated domains. Do not modify repository files.',
+    'Reply with markdown only in this exact shape:',
+    `# Local Review Persona: ${title}`,
+    '',
+    'Result: pass | fail',
+    '',
+    'Findings:',
+    '- ...',
+    '',
+    'If there are no material findings, say "- none".',
+    '',
+    'Advisories:',
+    '- ...',
+    '',
+    'If there are no advisories, say "- none".',
+  ].join('\n');
+}
+
+function localReviewPersonaAgentsForSlot(
+  ctx: NexusAdapterContext,
+  slot: 'a' | 'b',
+): LocalReviewPersonaAgent[] {
+  if (slot === 'a') {
+    return [
+      buildLocalReviewPersonaAgent('code', true),
+      buildLocalReviewPersonaAgent('test', true),
+    ];
+  }
+
+  return [
+    buildLocalReviewPersonaAgent('security', true),
+    buildLocalReviewPersonaAgent('design', designPersonaGateAffecting(ctx)),
+  ];
+}
+
+function parseLocalPersonaVerdict(markdown: string, label: string): 'pass' | 'fail' {
+  const matches = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)];
+  const verdict = matches.at(-1)?.[1]?.toLowerCase();
+  if (!verdict) {
+    throw new Error(`${label} persona audit is missing a canonical Result: pass|fail line`);
+  }
+
+  return verdict as 'pass' | 'fail';
+}
+
+function buildLocalPersonaGroupMarkdown(
+  slot: 'a' | 'b',
+  personaAudits: LocalReviewPersonaAuditRaw[],
+): string {
+  const gateFailures = personaAudits.filter((audit) => audit.gate_affecting && audit.verdict === 'fail');
+  const advisoryOnlyFailures = personaAudits.filter((audit) => !audit.gate_affecting && audit.verdict === 'fail');
+  const result = gateFailures.length === 0 ? 'pass' : 'fail';
+
+  return [
+    `# Local Persona Audit ${slot.toUpperCase()}`,
+    '',
+    `Result: ${result}`,
+    '',
+    'Findings:',
+    ...(gateFailures.length === 0
+      ? ['- none']
+      : gateFailures.map((audit) => `- [${audit.role}] Gate-affecting persona failed. See ${audit.artifact_path}.`)),
+    '',
+    'Advisories:',
+    ...(advisoryOnlyFailures.length === 0
+      ? ['- none']
+      : advisoryOnlyFailures.map((audit) => `- [${audit.role}] Advisory-only persona reported concerns. See ${audit.artifact_path}.`)),
+    '',
+    'Persona evidence:',
+    ...personaAudits.map((audit) =>
+      `- ${audit.role}: ${audit.verdict}; gate_affecting=${audit.gate_affecting}; artifact=${audit.artifact_path}`),
+  ].join('\n');
+}
+
+function defaultLocalPersonaAudits(
+  ctx: NexusAdapterContext,
+  slot: 'a' | 'b',
+): LocalReviewPersonaAuditRaw[] {
+  return localReviewPersonaAgentsForSlot(ctx, slot).map((agent) => ({
+    role: agent.role,
+    markdown: [
+      `# Local Review Persona: ${titleCaseRole(agent.role)}`,
+      '',
+      'Result: pass',
+      '',
+      'Findings:',
+      '- none',
+      '',
+      'Advisories:',
+      '- none',
+    ].join('\n'),
+    verdict: 'pass',
+    gate_affecting: agent.gateAffecting,
+    artifact_path: reviewPersonaAuditPath(agent.role),
+  }));
 }
 
 function buildQaPrompt(ctx: NexusAdapterContext): string {
@@ -443,14 +618,6 @@ function buildClaudeVerifierAgent(): LocalRoleAgent {
   };
 }
 
-function buildClaudeAuditAgent(slot: 'a' | 'b'): LocalRoleAgent {
-  return {
-    name: slot === 'a' ? 'nexus_audit_a' : 'nexus_audit_b',
-    description: `Performs independent local Nexus review audit ${slot.toUpperCase()}.`,
-    systemPrompt: `You are the Nexus local review audit ${slot.toUpperCase()} subagent. Review independently and reply exactly in the requested markdown format. If the transport supports it, optional learning_candidates may be included in the raw response contract for durable reusable learnings.`,
-  };
-}
-
 function buildClaudeQaAgent(): LocalRoleAgent {
   return {
     name: 'nexus_qa',
@@ -552,6 +719,53 @@ function combineBuildSummary(builderSummary: string, verifierSummary: string): s
   }
 
   return `${normalizedBuilder}\n${normalizedVerifier}`;
+}
+
+async function runLocalReviewPersonaSlot(
+  ctx: NexusAdapterContext,
+  slot: 'a' | 'b',
+  mode: ActiveLocalTopology['mode'],
+  cwd: string,
+  timeoutMs: number,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{
+  markdown: string;
+  persona_audits: LocalReviewPersonaAuditRaw[];
+  dispatch_commands: string[];
+  agent_roles: string[];
+}> {
+  const runLocalSubagent = localRoleRunnerForMode(mode);
+  if (!runLocalSubagent) {
+    throw new Error(`no local role runner for topology ${mode}`);
+  }
+
+  const agents = localReviewPersonaAgentsForSlot(ctx, slot);
+  const executions = await Promise.all(agents.map((agent) =>
+    runLocalSubagent(
+      agent,
+      buildLocalReviewPersonaPrompt(ctx, agent),
+      cwd,
+      timeoutMs,
+      runCommand,
+    )));
+
+  const personaAudits = agents.map((agent, index): LocalReviewPersonaAuditRaw => {
+    const markdown = executions[index]?.stdout.trim() ?? '';
+    return {
+      role: agent.role,
+      markdown,
+      verdict: parseLocalPersonaVerdict(markdown, titleCaseRole(agent.role)),
+      gate_affecting: agent.gateAffecting,
+      artifact_path: reviewPersonaAuditPath(agent.role),
+    };
+  });
+
+  return {
+    markdown: buildLocalPersonaGroupMarkdown(slot, personaAudits),
+    persona_audits: personaAudits,
+    dispatch_commands: executions.map((execution) => describeCommand(execution.argv)),
+    agent_roles: agents.map((agent) => agent.name),
+  };
 }
 
 async function verifyClaudeSubagentSupport(
@@ -808,11 +1022,19 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         );
       }
 
+      const personaAudits = topology.mode === 'single_agent' ? [] : defaultLocalPersonaAudits(ctx, 'a');
+
       return successResult<LocalExecuteAuditRaw>(
         {
-          markdown: reviewPack.buildAuditMarkdown('local_a'),
+          markdown: topology.mode === 'single_agent'
+            ? reviewPack.buildAuditMarkdown('local_a')
+            : buildLocalPersonaGroupMarkdown('a', personaAudits),
           receipt: `local-review-a-${ctx.ledger.execution.primary_provider}`,
-          agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_audit_a'],
+          agent_roles: topology.mode === 'single_agent'
+            ? undefined
+            : personaAudits.map((audit) => `nexus_review_${audit.role}`),
+          persona_group: topology.mode === 'single_agent' ? undefined : 'code_test',
+          persona_audits: topology.mode === 'single_agent' ? undefined : personaAudits,
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -842,11 +1064,19 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         );
       }
 
+      const personaAudits = topology.mode === 'single_agent' ? [] : defaultLocalPersonaAudits(ctx, 'b');
+
       return successResult<LocalExecuteAuditRaw>(
         {
-          markdown: reviewPack.buildAuditMarkdown('local_b'),
+          markdown: topology.mode === 'single_agent'
+            ? reviewPack.buildAuditMarkdown('local_b')
+            : buildLocalPersonaGroupMarkdown('b', personaAudits),
           receipt: `local-review-b-${ctx.ledger.execution.primary_provider}`,
-          agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_audit_b'],
+          agent_roles: topology.mode === 'single_agent'
+            ? undefined
+            : personaAudits.map((audit) => `nexus_review_${audit.role}`),
+          persona_group: topology.mode === 'single_agent' ? undefined : 'security_design',
+          persona_audits: topology.mode === 'single_agent' ? undefined : personaAudits,
         },
         buildActualRoute(
           ctx.ledger.execution.primary_provider,
@@ -1146,14 +1376,10 @@ export function createRuntimeLocalAdapter(
 
       try {
         if (topology.mode !== 'single_agent') {
-          const agent = buildClaudeAuditAgent('a');
-          const runLocalSubagent = localRoleRunnerForMode(topology.mode);
-          if (!runLocalSubagent) {
-            throw new Error(`no local role runner for topology ${topology.mode}`);
-          }
-          const execution = await runLocalSubagent(
-            agent,
-            buildAuditPrompt(ctx, 'a'),
+          const personaSlot = await runLocalReviewPersonaSlot(
+            ctx,
+            'a',
+            topology.mode,
             executionCwd,
             DEFAULT_TIMEOUTS_MS.review,
             runCommand,
@@ -1161,11 +1387,13 @@ export function createRuntimeLocalAdapter(
 
           return successResult<LocalExecuteAuditRaw>(
             {
-              markdown: execution.stdout.trim(),
+              markdown: personaSlot.markdown,
               receipt: `local-review-a-${provider}-${sanitizeTimestamp(now())}`,
-              dispatch_command: describeCommand(execution.argv),
-              dispatch_commands: [describeCommand(execution.argv)],
-              agent_roles: [agent.name],
+              dispatch_command: personaSlot.dispatch_commands[0],
+              dispatch_commands: personaSlot.dispatch_commands,
+              agent_roles: personaSlot.agent_roles,
+              persona_group: 'code_test',
+              persona_audits: personaSlot.persona_audits,
             },
             buildActualRoute(provider, ctx.requested_route?.evaluator_a ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'review'),
             ctx.requested_route,
@@ -1223,14 +1451,10 @@ export function createRuntimeLocalAdapter(
 
       try {
         if (topology.mode !== 'single_agent') {
-          const agent = buildClaudeAuditAgent('b');
-          const runLocalSubagent = localRoleRunnerForMode(topology.mode);
-          if (!runLocalSubagent) {
-            throw new Error(`no local role runner for topology ${topology.mode}`);
-          }
-          const execution = await runLocalSubagent(
-            agent,
-            buildAuditPrompt(ctx, 'b'),
+          const personaSlot = await runLocalReviewPersonaSlot(
+            ctx,
+            'b',
+            topology.mode,
             executionCwd,
             DEFAULT_TIMEOUTS_MS.review,
             runCommand,
@@ -1238,11 +1462,13 @@ export function createRuntimeLocalAdapter(
 
           return successResult<LocalExecuteAuditRaw>(
             {
-              markdown: execution.stdout.trim(),
+              markdown: personaSlot.markdown,
               receipt: `local-review-b-${provider}-${sanitizeTimestamp(now())}`,
-              dispatch_command: describeCommand(execution.argv),
-              dispatch_commands: [describeCommand(execution.argv)],
-              agent_roles: [agent.name],
+              dispatch_command: personaSlot.dispatch_commands[0],
+              dispatch_commands: personaSlot.dispatch_commands,
+              agent_roles: personaSlot.agent_roles,
+              persona_group: 'security_design',
+              persona_audits: personaSlot.persona_audits,
             },
             buildActualRoute(provider, ctx.requested_route?.evaluator_b ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'review'),
             ctx.requested_route,

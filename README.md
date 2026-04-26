@@ -186,6 +186,12 @@ role-specific Codex passes for build, review, and QA.
 Interactive Codex setup also offers `multi_session` when the installed Codex CLI
 exposes the required commands.
 
+When `local_provider` uses a subagent-capable topology, `/review` fans out to
+four Nexus-native local personas: code, test, security, and design. Persona
+evidence is persisted under `.planning/current/review/persona-audits/`; the
+canonical audit set remains `.planning/audits/current/` so closeout and
+provenance checks stay compatible with governed CCB runs.
+
 If setup is non-interactive, the default remains:
 
 - `governed_ccb` only when `ask` is installed and the required governed providers are actually mounted for this repo

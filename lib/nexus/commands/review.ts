@@ -10,6 +10,8 @@ import {
   currentAuditPointer,
   reviewLearningCandidatesPath,
   reviewAttemptAuditMarkdownPath,
+  reviewPersonaAuditPath,
+  reviewPersonaAuditPaths,
   stageCompletionAdvisorPath,
   stageStatusPath,
 } from '../artifacts';
@@ -48,6 +50,8 @@ import type {
   CommandHistoryVia,
   ConflictRecord,
   LearningCandidate,
+  LocalPersonaReviewStatusRecord,
+  LocalReviewPersonaRole,
   ReviewMetaRecord,
   RunLedger,
   StageStatus,
@@ -345,6 +349,45 @@ function collectReviewLearningCandidates(
   return candidates;
 }
 
+function collectLocalPersonaAudits(
+  auditAResult: Pick<LocalExecuteAuditRaw, 'persona_audits'>,
+  auditBResult: Pick<LocalExecuteAuditRaw, 'persona_audits'>,
+): NonNullable<LocalExecuteAuditRaw['persona_audits']> {
+  const audits = [
+    ...(auditAResult.persona_audits ?? []),
+    ...(auditBResult.persona_audits ?? []),
+  ];
+  const byRole = new Map<LocalReviewPersonaRole, NonNullable<LocalExecuteAuditRaw['persona_audits']>[number]>();
+
+  for (const audit of audits) {
+    byRole.set(audit.role, audit);
+  }
+
+  return (['code', 'test', 'security', 'design'] as const)
+    .map((role) => byRole.get(role))
+    .filter((audit): audit is NonNullable<LocalExecuteAuditRaw['persona_audits']>[number] => Boolean(audit));
+}
+
+function buildLocalPersonaReviewStatus(
+  personaAudits: NonNullable<LocalExecuteAuditRaw['persona_audits']>,
+): LocalPersonaReviewStatusRecord | null {
+  if (personaAudits.length === 0) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    roles: personaAudits.map((audit) => audit.role),
+    artifact_paths: personaAudits.map((audit) => reviewPersonaAuditPath(audit.role)),
+    gate_affecting_roles: personaAudits
+      .filter((audit) => audit.gate_affecting)
+      .map((audit) => audit.role),
+    advisory_only_roles: personaAudits
+      .filter((audit) => !audit.gate_affecting)
+      .map((audit) => audit.role),
+  };
+}
+
 function planDesignContractPointer(planStatus: StageStatus | null | undefined): ArtifactPointer | null {
   return planStatus?.design_contract_path ? artifactPointerFor(planStatus.design_contract_path) : null;
 }
@@ -465,6 +508,7 @@ export async function runReviewWithWriteAtomicFile(
     learningCandidatesPath,
     advisoriesPath,
     advisoryDispositionPath,
+    ...reviewPersonaAuditPaths(),
   ];
 
   if (planStatus?.design_impact === 'material') {
@@ -903,6 +947,13 @@ export async function runReviewWithWriteAtomicFile(
     ? boundedFixCycleReviewScopeFromAudits(codexMarkdown, geminiMarkdown)
     : inheritedReviewScope;
   const learningCandidates = collectReviewLearningCandidates(auditAResult.raw_output, auditBResult.raw_output);
+  const localPersonaAudits = ledger.execution.mode === 'local_provider'
+    ? collectLocalPersonaAudits(
+        auditAResult.raw_output as LocalExecuteAuditRaw,
+        auditBResult.raw_output as LocalExecuteAuditRaw,
+      )
+    : [];
+  const localPersonaReview = buildLocalPersonaReviewStatus(localPersonaAudits);
   const advisoriesRecord = buildReviewAdvisoriesRecord(
     ledger.run_id,
     startedAt,
@@ -987,6 +1038,7 @@ export async function runReviewWithWriteAtomicFile(
     handoff_from: '.planning/current/handoff/governed-handoff.md',
     handoff_to: '.planning/audits/current/',
     review_scope: reviewScope,
+    local_persona_review: localPersonaReview,
   };
 
   const outputs = [
@@ -995,6 +1047,7 @@ export async function runReviewWithWriteAtomicFile(
     currentAuditPointer('synthesis'),
     currentAuditPointer('gate-decision'),
     currentAuditPointer('meta'),
+    ...localPersonaAudits.map((audit) => artifactPointerFor(reviewPersonaAuditPath(audit.role))),
     ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
     ...(advisoriesRecord ? [artifactPointerFor(advisoriesPath), artifactPointerFor(advisoryDispositionPath)] : []),
     artifactPointerFor(completionAdvisorPath),
@@ -1027,6 +1080,7 @@ export async function runReviewWithWriteAtomicFile(
     advisory_count: advisoriesRecord?.advisories.length ?? 0,
     advisory_disposition: advisoryDispositionRecord?.selected ?? null,
     advisory_disposition_path: advisoryDispositionRecord ? advisoryDispositionPath : null,
+    local_persona_review: localPersonaReview,
     workspace,
     review_complete: true,
     audit_set_complete: true,
@@ -1050,6 +1104,10 @@ export async function runReviewWithWriteAtomicFile(
     [synthesisPath]: currentAuditPointer('synthesis'),
     [gateDecisionPath]: currentAuditPointer('gate-decision'),
     [metaPath]: currentAuditPointer('meta'),
+    ...Object.fromEntries(localPersonaAudits.map((audit) => {
+      const path = reviewPersonaAuditPath(audit.role);
+      return [path, artifactPointerFor(path)];
+    })),
     ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
     ...(advisoriesRecord
       ? {
@@ -1067,6 +1125,11 @@ export async function runReviewWithWriteAtomicFile(
     delete next.artifact_index[advisoriesPath];
     delete next.artifact_index[advisoryDispositionPath];
   }
+  if (localPersonaAudits.length === 0) {
+    for (const path of reviewPersonaAuditPaths()) {
+      delete next.artifact_index[path];
+    }
+  }
 
   await applyNormalizationPlan({
     cwd: ctx.cwd,
@@ -1078,6 +1141,10 @@ export async function runReviewWithWriteAtomicFile(
       { path: synthesisPath, content: synthesisMarkdown },
       { path: gateDecisionPath, content: gateDecisionMarkdown },
       { path: metaPath, content: JSON.stringify(meta, null, 2) + '\n' },
+      ...localPersonaAudits.map((audit) => ({
+        path: reviewPersonaAuditPath(audit.role),
+        content: `${audit.markdown.trimEnd()}\n`,
+      })),
       ...(learningCandidatesRecord
         ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
         : []),
@@ -1090,6 +1157,7 @@ export async function runReviewWithWriteAtomicFile(
       buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
     ],
     removeWrites: [
+      ...(localPersonaAudits.length > 0 ? [] : reviewPersonaAuditPaths()),
       ...(learningCandidatesRecord ? [] : [learningCandidatesPath]),
       ...(advisoriesRecord ? [] : [advisoriesPath, advisoryDispositionPath]),
     ],
@@ -1110,6 +1178,7 @@ export async function runReviewWithWriteAtomicFile(
           synthesisPath,
           gateDecisionPath,
           metaPath,
+          ...localPersonaAudits.map((audit) => reviewPersonaAuditPath(audit.role)),
           ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
           completionAdvisorPath,
         ],

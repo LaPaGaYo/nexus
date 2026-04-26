@@ -629,16 +629,13 @@ describe('nexus local_provider mode', () => {
                 stdout: '- Verification: verifier checked the resulting repo state\n',
                 stderr: '',
               };
-            case 'nexus_audit_a':
+            case 'nexus_review_code':
+            case 'nexus_review_test':
+            case 'nexus_review_security':
+            case 'nexus_review_design':
               return {
                 exit_code: 0,
-                stdout: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
-                stderr: '',
-              };
-            case 'nexus_audit_b':
-              return {
-                exit_code: 0,
-                stdout: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
+                stdout: `# Local Review Persona: ${agent.replace('nexus_review_', '')}\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n`,
                 stderr: '',
               };
             case 'nexus_qa':
@@ -668,8 +665,10 @@ describe('nexus local_provider mode', () => {
         'claude --help',
         expect.stringContaining('--agent nexus_builder'),
         expect.stringContaining('--agent nexus_verifier'),
-        expect.stringContaining('--agent nexus_audit_a'),
-        expect.stringContaining('--agent nexus_audit_b'),
+        expect.stringContaining('--agent nexus_review_code'),
+        expect.stringContaining('--agent nexus_review_test'),
+        expect.stringContaining('--agent nexus_review_security'),
+        expect.stringContaining('--agent nexus_review_design'),
         expect.stringContaining('--agent nexus_qa'),
       ]);
 
@@ -680,6 +679,130 @@ describe('nexus local_provider mode', () => {
           provider: 'claude',
           route: 'claude-local-subagents',
           transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('persists local review persona fan-out evidence for claude subagents', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: Array<{ argv: string[]; stdin_text?: string }> = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        now: () => '2026-04-11T00:00:00.000Z',
+        runCommand: async (spec) => {
+          calls.push({ argv: spec.argv, stdin_text: spec.stdin_text });
+
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/claude\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === 'claude' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: claude [options]\n  --agent <agent>\n  --agents <json>\n',
+              stderr: '',
+            };
+          }
+
+          const agentIndex = spec.argv.indexOf('--agent');
+          const agent = agentIndex >= 0 ? spec.argv[agentIndex + 1] : null;
+
+          switch (agent) {
+            case 'nexus_builder':
+              return {
+                exit_code: 0,
+                stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: applied local subagent build\n- Files touched: README.md\n- Verification: pending verifier\n',
+                stderr: '',
+              };
+            case 'nexus_verifier':
+              return {
+                exit_code: 0,
+                stdout: '- Verification: verifier checked the resulting repo state\n',
+                stderr: '',
+              };
+            case 'nexus_review_code':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Code\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_review_test':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Test\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_review_security':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Security\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_review_design':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Design\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            default:
+              throw new Error(`unexpected agent invocation: ${spec.argv.join(' ')}`);
+          }
+        },
+      });
+
+      await run('plan', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('build', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('review', adapters, LOCAL_SUBAGENT_EXECUTION);
+
+      expect(calls.map((call) => call.argv.join(' '))).toEqual([
+        'which claude',
+        'claude --help',
+        expect.stringContaining('--agent nexus_builder'),
+        expect.stringContaining('--agent nexus_verifier'),
+        expect.stringContaining('--agent nexus_review_code'),
+        expect.stringContaining('--agent nexus_review_test'),
+        expect.stringContaining('--agent nexus_review_security'),
+        expect.stringContaining('--agent nexus_review_design'),
+      ]);
+
+      expect(await run.readFile('.planning/current/review/persona-audits/code.md')).toContain(
+        '# Local Review Persona: Code',
+      );
+      expect(await run.readFile('.planning/current/review/persona-audits/test.md')).toContain(
+        '# Local Review Persona: Test',
+      );
+      expect(await run.readFile('.planning/current/review/persona-audits/security.md')).toContain(
+        '# Local Review Persona: Security',
+      );
+      expect(await run.readFile('.planning/current/review/persona-audits/design.md')).toContain(
+        '# Local Review Persona: Design',
+      );
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        execution_mode: 'local_provider',
+        provider_topology: 'subagents',
+        local_persona_review: {
+          enabled: true,
+          roles: ['code', 'test', 'security', 'design'],
+          artifact_paths: [
+            '.planning/current/review/persona-audits/code.md',
+            '.planning/current/review/persona-audits/test.md',
+            '.planning/current/review/persona-audits/security.md',
+            '.planning/current/review/persona-audits/design.md',
+          ],
+        },
+      });
+
+      expect(await run.readJson('.planning/audits/current/meta.json')).toMatchObject({
+        local_persona_review: {
+          enabled: true,
+          roles: ['code', 'test', 'security', 'design'],
         },
       });
     });
@@ -718,10 +841,14 @@ describe('nexus local_provider mode', () => {
             payload = '# Build Execution Summary\n\n- Status: completed\n- Actions: applied codex local subagent build\n- Files touched: README.md\n- Verification: pending verifier\n';
           } else if (prompt.includes('nexus_verifier')) {
             payload = '- Verification: verifier checked the resulting repo state\n';
-          } else if (prompt.includes('nexus_audit_a')) {
-            payload = '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n';
-          } else if (prompt.includes('nexus_audit_b')) {
-            payload = '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n';
+          } else if (prompt.includes('nexus_review_code')) {
+            payload = '# Local Review Persona: Code\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
+          } else if (prompt.includes('nexus_review_test')) {
+            payload = '# Local Review Persona: Test\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
+          } else if (prompt.includes('nexus_review_security')) {
+            payload = '# Local Review Persona: Security\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
+          } else if (prompt.includes('nexus_review_design')) {
+            payload = '# Local Review Persona: Design\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
           } else if (prompt.includes('nexus_qa')) {
             payload = JSON.stringify({
               ready: true,
@@ -754,14 +881,18 @@ describe('nexus local_provider mode', () => {
         'codex',
         'codex',
         'codex',
+        'codex',
+        'codex',
       ]);
       expect(calls.slice(1).every((call) => call.argv.includes('exec'))).toBe(true);
       expect(calls.slice(1).every((call) => call.argv.includes('--output-last-message'))).toBe(true);
       expect(calls[1]?.stdin_text).toContain('nexus_builder');
       expect(calls[2]?.stdin_text).toContain('nexus_verifier');
-      expect(calls[3]?.stdin_text).toContain('nexus_audit_a');
-      expect(calls[4]?.stdin_text).toContain('nexus_audit_b');
-      expect(calls[5]?.stdin_text).toContain('nexus_qa');
+      expect(calls[3]?.stdin_text).toContain('nexus_review_code');
+      expect(calls[4]?.stdin_text).toContain('nexus_review_test');
+      expect(calls[5]?.stdin_text).toContain('nexus_review_security');
+      expect(calls[6]?.stdin_text).toContain('nexus_review_design');
+      expect(calls[7]?.stdin_text).toContain('nexus_qa');
 
       expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
         execution_mode: 'local_provider',
@@ -817,10 +948,14 @@ describe('nexus local_provider mode', () => {
             payload = '# Build Execution Summary\n\n- Status: completed\n- Actions: applied codex local multi-session build\n- Files touched: README.md\n- Verification: pending verifier\n';
           } else if (prompt.includes('nexus_verifier')) {
             payload = '- Verification: verifier checked the resulting repo state\n';
-          } else if (prompt.includes('nexus_audit_a')) {
-            payload = '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n';
-          } else if (prompt.includes('nexus_audit_b')) {
-            payload = '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n';
+          } else if (prompt.includes('nexus_review_code')) {
+            payload = '# Local Review Persona: Code\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
+          } else if (prompt.includes('nexus_review_test')) {
+            payload = '# Local Review Persona: Test\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
+          } else if (prompt.includes('nexus_review_security')) {
+            payload = '# Local Review Persona: Security\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
+          } else if (prompt.includes('nexus_review_design')) {
+            payload = '# Local Review Persona: Design\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n';
           } else if (prompt.includes('nexus_qa')) {
             payload = JSON.stringify({
               ready: true,
@@ -854,14 +989,18 @@ describe('nexus local_provider mode', () => {
         'codex',
         'codex',
         'codex',
+        'codex',
+        'codex',
       ]);
       expect(calls[1]?.argv.join(' ')).toContain('codex --help');
       expect(calls.slice(2).every((call) => call.argv.includes('exec'))).toBe(true);
       expect(calls[2]?.stdin_text).toContain('nexus_builder');
       expect(calls[3]?.stdin_text).toContain('nexus_verifier');
-      expect(calls[4]?.stdin_text).toContain('nexus_audit_a');
-      expect(calls[5]?.stdin_text).toContain('nexus_audit_b');
-      expect(calls[6]?.stdin_text).toContain('nexus_qa');
+      expect(calls[4]?.stdin_text).toContain('nexus_review_code');
+      expect(calls[5]?.stdin_text).toContain('nexus_review_test');
+      expect(calls[6]?.stdin_text).toContain('nexus_review_security');
+      expect(calls[7]?.stdin_text).toContain('nexus_review_design');
+      expect(calls[8]?.stdin_text).toContain('nexus_qa');
 
       expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
         execution_mode: 'local_provider',
@@ -914,17 +1053,31 @@ describe('nexus local_provider mode', () => {
               stderr: '',
             };
           }
-          if (prompt.includes('nexus_audit_a')) {
+          if (prompt.includes('nexus_review_code')) {
             return {
               exit_code: 0,
-              stdout: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
+              stdout: '# Local Review Persona: Code\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
               stderr: '',
             };
           }
-          if (prompt.includes('nexus_audit_b')) {
+          if (prompt.includes('nexus_review_test')) {
             return {
               exit_code: 0,
-              stdout: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
+              stdout: '# Local Review Persona: Test\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('nexus_review_security')) {
+            return {
+              exit_code: 0,
+              stdout: '# Local Review Persona: Security\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('nexus_review_design')) {
+            return {
+              exit_code: 0,
+              stdout: '# Local Review Persona: Design\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
               stderr: '',
             };
           }
@@ -956,13 +1109,17 @@ describe('nexus local_provider mode', () => {
         'gemini',
         'gemini',
         'gemini',
+        'gemini',
+        'gemini',
       ]);
       expect(calls.slice(1).every((call) => call.argv.includes('-p'))).toBe(true);
       expect(calls[1]?.argv.join(' ')).toContain('nexus_builder');
       expect(calls[2]?.argv.join(' ')).toContain('nexus_verifier');
-      expect(calls[3]?.argv.join(' ')).toContain('nexus_audit_a');
-      expect(calls[4]?.argv.join(' ')).toContain('nexus_audit_b');
-      expect(calls[5]?.argv.join(' ')).toContain('nexus_qa');
+      expect(calls[3]?.argv.join(' ')).toContain('nexus_review_code');
+      expect(calls[4]?.argv.join(' ')).toContain('nexus_review_test');
+      expect(calls[5]?.argv.join(' ')).toContain('nexus_review_security');
+      expect(calls[6]?.argv.join(' ')).toContain('nexus_review_design');
+      expect(calls[7]?.argv.join(' ')).toContain('nexus_qa');
 
       expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
         execution_mode: 'local_provider',
