@@ -1715,6 +1715,12 @@ describe('preamble execution mode guidance', () => {
     expect(shipContent).toContain('nexus-config set primary_provider "$_LOCAL_PROVIDER_CANDIDATE"');
     expect(shipContent).toContain('nexus-config set provider_topology "$_LOCAL_PROVIDER_TOPOLOGY"');
   });
+
+  test('plan-mode Codex operations are gated by provider route', () => {
+    expect(shipContent).toContain('only when the active provider route allows Codex');
+    expect(shipContent).toContain('in `local_provider` with a non-Codex');
+    expect(shipContent).toContain('use the host/local subagent path instead');
+  });
 });
 
 describe('Nexus-first wrapper language', () => {

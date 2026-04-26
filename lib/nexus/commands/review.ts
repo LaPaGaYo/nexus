@@ -972,7 +972,18 @@ export async function runReviewWithWriteAtomicFile(
         candidates: learningCandidates,
       }
     : null;
-  const synthesisMarkdown = buildReviewSynthesisMarkdown(disciplineSummary, codexMarkdown, geminiMarkdown, gateDecision);
+  const synthesisMarkdown = buildReviewSynthesisMarkdown(
+    disciplineSummary,
+    codexMarkdown,
+    geminiMarkdown,
+    gateDecision,
+    ledger.execution.mode === 'local_provider'
+      ? {
+          auditA: 'Local audit A (code/test)',
+          auditB: 'Local audit B (security/design)',
+        }
+      : undefined,
+  );
   const gateDecisionMarkdown = buildReviewGateDecisionMarkdown(gateDecision);
   const meta: ReviewMetaRecord = {
     run_id: ledger.run_id,

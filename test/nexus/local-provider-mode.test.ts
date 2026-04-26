@@ -805,6 +805,12 @@ describe('nexus local_provider mode', () => {
           roles: ['code', 'test', 'security', 'design'],
         },
       });
+
+      const synthesis = await run.readFile('.planning/audits/current/synthesis.md');
+      expect(synthesis).toContain('Local audit A (code/test) result: pass');
+      expect(synthesis).toContain('Local audit B (security/design) result: pass');
+      expect(synthesis).not.toContain('Codex audit result');
+      expect(synthesis).not.toContain('Gemini audit result');
     });
   });
 

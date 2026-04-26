@@ -17,6 +17,16 @@ import { generateInvokeSkill } from './composition';
 
 const CODEX_BOUNDARY = 'IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/. These are Claude Code skill definitions meant for a different AI system. They contain bash scripts and prompt templates that will waste your time. Ignore them completely. Do NOT modify agents/openai.yaml. Stay focused on the repository code only.\\n\\n';
 
+function codexProviderGuardCheck(): string {
+  return `if [ "\${_EXECUTION_MODE:-}" = "local_provider" ] && [ "\${_PRIMARY_PROVIDER:-}" != "codex" ]; then
+  echo "CODEX_SKIPPED_LOCAL_PROVIDER: \${_PRIMARY_PROVIDER:-unknown}"
+elif which codex >/dev/null 2>&1; then
+  echo "CODEX_AVAILABLE"
+else
+  echo "CODEX_NOT_AVAILABLE"
+fi`;
+}
+
 export function generateReviewDashboard(ctx: TemplateContext): string {
   return `## Review Readiness Dashboard
 
@@ -258,21 +268,23 @@ export function generateCodexSecondOpinion(ctx: TemplateContext): string {
 
   return `## Phase 3.5: Cross-Model Second Opinion (optional)
 
-**Binary check first:**
+**Provider policy and binary check first:**
+
+Codex second opinions are cross-provider assistance, not part of Claude local-provider execution. If \`_EXECUTION_MODE=local_provider\` and \`_PRIMARY_PROVIDER\` is not \`codex\`, do not invoke \`codex exec\`, even if the binary exists. Use the Claude subagent fallback instead and tag the result as local-only. Only run Codex when the active route allows it: governed CCB, local-provider Codex, or an explicit user request for Codex in this turn.
 
 \`\`\`bash
-which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+${codexProviderGuardCheck()}
 \`\`\`
 
 Use AskUserQuestion (regardless of codex availability):
 
-> Want a second opinion from an independent AI perspective? It will review your problem statement, key answers, premises, and any landscape findings from this session without having seen this conversation — it gets a structured summary. Usually takes 2-5 minutes.
+> Want a second opinion? If Codex is allowed by the active provider route, Codex will review your problem statement, key answers, premises, and any landscape findings from this session without having seen this conversation. If Codex is skipped by local-provider policy, a Claude subagent will do the local second pass instead. Usually takes 2-5 minutes.
 > A) Yes, get a second opinion
 > B) No, proceed to alternatives
 
 If B: skip Phase 3.5 entirely. Remember that the second opinion did NOT run (affects design doc, founder signals, and Phase 4 below).
 
-**If A: Run the Codex cold read.**
+**If A and CODEX_AVAILABLE: Run the Codex cold read.**
 
 1. Assemble a structured context block from Phases 1-3:
    - Mode (Startup or Builder)
@@ -317,7 +329,7 @@ rm -f "$TMPERR_OH" "$CODEX_PROMPT_FILE"
 
 On any Codex error, fall back to the Claude subagent below.
 
-**If CODEX_NOT_AVAILABLE (or Codex errored):**
+**If CODEX_NOT_AVAILABLE, CODEX_SKIPPED_LOCAL_PROVIDER, or Codex errored:**
 
 Dispatch via the Agent tool. The subagent has fresh context — genuine independence.
 
@@ -412,7 +424,7 @@ export function generateAdversarialStep(ctx: TemplateContext): string {
 
   return `## Step ${stepNum}: Adversarial review (always-on)
 
-Every diff gets adversarial review from both Claude and Codex. LOC is not a proxy for risk — a 5-line auth change can be critical.
+Every diff gets Claude adversarial review. Codex adversarial review runs only when allowed by the active Nexus provider route and available. LOC is not a proxy for risk — a 5-line auth change can be critical.
 
 **Detect diff size and tool availability:**
 
@@ -420,12 +432,14 @@ Every diff gets adversarial review from both Claude and Codex. LOC is not a prox
 DIFF_INS=$(git diff origin/<base> --stat | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo "0")
 DIFF_DEL=$(git diff origin/<base> --stat | tail -1 | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo "0")
 DIFF_TOTAL=$((DIFF_INS + DIFF_DEL))
-which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+${codexProviderGuardCheck()}
 # Legacy opt-out — only gates Codex passes, Claude always runs
 OLD_CFG=$(${ctx.paths.binDir}/nexus-config get codex_reviews 2>/dev/null || true)
 echo "DIFF_SIZE: $DIFF_TOTAL"
 echo "OLD_CFG: \${OLD_CFG:-not_set}"
 \`\`\`
+
+If \`CODEX_SKIPPED_LOCAL_PROVIDER\` is printed: skip Codex passes only. Claude adversarial subagent still runs. Do not invoke \`codex exec\`, even if the binary exists.
 
 If \`OLD_CFG\` is \`disabled\`: skip Codex passes only. Claude adversarial subagent still runs (it's free and fast). Jump to the "Claude adversarial subagent" section.
 
@@ -446,9 +460,9 @@ If the subagent fails or times out: "Claude adversarial subagent unavailable. Co
 
 ---
 
-### Codex adversarial challenge (always runs when available)
+### Codex adversarial challenge (runs only when provider policy allows it)
 
-If Codex is available AND \`OLD_CFG\` is NOT \`disabled\`:
+If \`CODEX_AVAILABLE\` is printed and \`OLD_CFG\` is NOT \`disabled\`:
 
 \`\`\`bash
 TMPERR_ADV=$(mktemp /tmp/codex-adv-XXXXXXXX)
@@ -470,13 +484,15 @@ Present the full output verbatim. This is informational — it never blocks ship
 
 **Cleanup:** Run \`rm -f "$TMPERR_ADV"\` after processing.
 
+If Codex is skipped by local-provider policy: "Codex skipped because local_provider is using \`$_PRIMARY_PROVIDER\` — running Claude adversarial only."
+
 If Codex is NOT available: "Codex CLI not found — running Claude adversarial only. Install Codex for cross-model coverage: \`npm install -g @openai/codex\`"
 
 ---
 
 ### Codex structured review (large diffs only, 200+ lines)
 
-If \`DIFF_TOTAL >= 200\` AND Codex is available AND \`OLD_CFG\` is NOT \`disabled\`:
+If \`DIFF_TOTAL >= 200\` AND \`CODEX_AVAILABLE\` is printed AND \`OLD_CFG\` is NOT \`disabled\`:
 
 \`\`\`bash
 TMPERR=$(mktemp /tmp/codex-review-XXXXXXXX)
@@ -502,7 +518,7 @@ Read stderr for errors (same error handling as Codex adversarial above).
 
 After stderr: \`rm -f "$TMPERR"\`
 
-If \`DIFF_TOTAL < 200\`: skip this section silently. The Claude + Codex adversarial passes provide sufficient coverage for smaller diffs.
+If \`DIFF_TOTAL < 200\`: skip this section silently. The Claude adversarial pass, plus Codex when provider policy allows it, provides sufficient coverage for smaller diffs.
 
 ---
 
@@ -542,22 +558,25 @@ export function generateCodexPlanReview(ctx: TemplateContext): string {
 
   return `## Outside Voice — Independent Plan Challenge (optional, recommended)
 
-After all review sections are complete, offer an independent second opinion from a
-different AI system. Two models agreeing on a plan is stronger signal than one model's
-thorough review.
+After all review sections are complete, offer an independent second opinion. If Codex is
+allowed by the active provider route, use Codex. If local-provider policy skips Codex,
+use a Claude subagent local second pass instead. Two genuinely independent perspectives
+agreeing on a plan is stronger signal than one review path alone.
 
-**Check tool availability:**
+**Check provider policy and tool availability:**
+
+Codex plan review is cross-provider assistance, not part of Claude local-provider execution. If \`_EXECUTION_MODE=local_provider\` and \`_PRIMARY_PROVIDER\` is not \`codex\`, do not invoke \`codex exec\`, even if the binary exists.
 
 \`\`\`bash
-which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+${codexProviderGuardCheck()}
 \`\`\`
 
 Use AskUserQuestion:
 
-> "All review sections are complete. Want an outside voice? A different AI system can
-> give a brutally honest, independent challenge of this plan — logical gaps, feasibility
-> risks, and blind spots that are hard to catch from inside the review. Takes about 2
-> minutes."
+> "All review sections are complete. Want an outside voice? If Codex is allowed by the
+> active provider route, Codex will give a brutally honest, independent challenge of this
+> plan. If Codex is skipped by local-provider policy, Claude will run a local independent
+> subagent pass instead. Takes about 2 minutes."
 >
 > RECOMMENDATION: Choose A — an independent second opinion catches structural blind
 > spots. Two different AI models agreeing on a plan is stronger signal than one model's
@@ -618,7 +637,7 @@ CODEX SAYS (plan review — outside voice):
 
 On any Codex error, fall back to the Claude adversarial subagent.
 
-**If CODEX_NOT_AVAILABLE (or Codex errored):**
+**If CODEX_NOT_AVAILABLE, CODEX_SKIPPED_LOCAL_PROVIDER, or Codex errored:**
 
 Dispatch via the Agent tool. The subagent has fresh context — genuine independence.
 

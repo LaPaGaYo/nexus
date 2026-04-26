@@ -505,6 +505,10 @@ export function buildReviewSynthesisMarkdown(
   codexMarkdown: string,
   geminiMarkdown: string,
   gateDecision: 'pass' | 'fail',
+  labels?: {
+    auditA: string;
+    auditB: string;
+  },
 ): string {
   const resultFromMarkdown = (markdown: string): string => {
     const matches = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)];
@@ -512,14 +516,16 @@ export function buildReviewSynthesisMarkdown(
   };
   const codexResult = resultFromMarkdown(codexMarkdown);
   const geminiResult = resultFromMarkdown(geminiMarkdown);
+  const auditALabel = labels?.auditA ?? 'Codex audit';
+  const auditBLabel = labels?.auditB ?? 'Gemini audit';
 
   return [
     '# Synthesis',
     '',
     `Discipline: ${disciplineSummary}`,
     '',
-    `Codex audit result: ${codexResult}`,
-    `Gemini audit result: ${geminiResult}`,
+    `${auditALabel} result: ${codexResult}`,
+    `${auditBLabel} result: ${geminiResult}`,
     '',
     `Result: ${gateDecision === 'pass' ? 'review complete' : 'fix cycle required'}`,
     '',

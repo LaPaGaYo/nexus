@@ -398,7 +398,9 @@ artifacts that inform the plan, not code changes:
 
 - `$B` commands (browse: screenshots, page inspection, navigation, snapshots)
 - `$D` commands (design: generate mockups, variants, comparison boards, iterate)
-- `codex exec` / `codex review` (outside voice, plan review, adversarial challenge)
+- `codex exec` / `codex review` only when the active provider route allows Codex
+  or the user explicitly asks for Codex; in `local_provider` with a non-Codex
+  primary, use the host/local subagent path instead
 - Writing to `~/.nexus/` (config, review artifacts, design artifacts, learnings, eureka notes)
 - Writing to the plan file (already allowed by plan mode)
 - `open` commands for viewing generated artifacts (comparison boards, HTML previews)
