@@ -24,13 +24,24 @@ export function generateDesignReviewLite(ctx: TemplateContext): string {
   // Codex block only for Claude host
   const codexBlock = ctx.host === 'codex' ? '' : `
 
-7. **Codex design voice** (optional, automatic if available):
+7. **Codex design voice** (optional, automatic only when allowed by the active Nexus provider route):
+
+Respect the preamble provider state before checking the binary:
+- If \`_EXECUTION_MODE=local_provider\` and \`_PRIMARY_PROVIDER\` is not \`codex\`, do not invoke \`codex exec\`, even if the binary exists.
+- In that case, print \`CODEX_SKIPPED_LOCAL_PROVIDER: $_PRIMARY_PROVIDER\` and continue with the local review only.
+- If the user explicitly asks for a Codex outside voice in this turn, that explicit request overrides the local-provider skip.
 
 \`\`\`bash
-which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+if [ "\${_EXECUTION_MODE:-}" = "local_provider" ] && [ "\${_PRIMARY_PROVIDER:-}" != "codex" ]; then
+  echo "CODEX_SKIPPED_LOCAL_PROVIDER: \${_PRIMARY_PROVIDER:-unknown}"
+elif which codex >/dev/null 2>&1; then
+  echo "CODEX_AVAILABLE"
+else
+  echo "CODEX_NOT_AVAILABLE"
+fi
 \`\`\`
 
-If Codex is available, run a lightweight design check on the diff:
+If Codex is available and not skipped by the provider guard, run a lightweight design check on the diff:
 
 \`\`\`bash
 TMPERR_DRL=$(mktemp /tmp/codex-drl-XXXXXXXX)
@@ -165,17 +176,34 @@ The screenshot file at \`/tmp/nexus-sketch.png\` can be referenced by downstream
 
 After the wireframe is approved, offer outside design perspectives:
 
+Respect the active Nexus provider route before checking Codex:
+- If \`_EXECUTION_MODE=local_provider\` and \`_PRIMARY_PROVIDER\` is not \`codex\`, do not invoke \`codex exec\`, even if the binary exists.
+- In that case, offer only the Claude/local design perspective and label Codex as skipped by provider policy.
+- If the user explicitly asks for a Codex outside voice in this turn, that explicit request overrides the local-provider skip.
+
 \`\`\`bash
-which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+if [ "\${_EXECUTION_MODE:-}" = "local_provider" ] && [ "\${_PRIMARY_PROVIDER:-}" != "codex" ]; then
+  echo "CODEX_SKIPPED_LOCAL_PROVIDER: \${_PRIMARY_PROVIDER:-unknown}"
+elif which codex >/dev/null 2>&1; then
+  echo "CODEX_AVAILABLE"
+else
+  echo "CODEX_NOT_AVAILABLE"
+fi
 \`\`\`
 
-If Codex is available, use AskUserQuestion:
+If Codex is skipped by provider policy, use AskUserQuestion:
+> "Want a local design perspective on the chosen approach? A Claude subagent proposes an alternative aesthetic direction."
+>
+> A) Yes — get local design perspective
+> B) No — proceed without
+
+If Codex is available and not skipped, use AskUserQuestion:
 > "Want outside design perspectives on the chosen approach? Codex proposes a visual thesis, content plan, and interaction ideas. A Claude subagent proposes an alternative aesthetic direction."
 >
 > A) Yes — get outside design voices
 > B) No — proceed without
 
-If user chooses A, launch both voices simultaneously:
+If user chooses A and Codex is available and not skipped, launch both voices simultaneously:
 
 1. **Codex** (via Bash, \`model_reasoning_effort="medium"\`):
 \`\`\`bash
@@ -187,6 +215,8 @@ Use a 5-minute timeout (\`timeout: 300000\`). After completion: \`cat "$TMPERR_S
 
 2. **Claude subagent** (via Agent tool):
 "For this product approach, what design direction would you recommend? What aesthetic, typography, and interaction patterns fit? What would make this approach feel inevitable to the user? Be specific — font names, hex colors, spacing values."
+
+If Codex is skipped by provider policy, launch only the Claude subagent and present \`CODEX SAYS (design sketch): [skipped — local_provider uses $_PRIMARY_PROVIDER]\`.
 
 Present Codex output under \`CODEX SAYS (design sketch):\` and subagent output under \`CLAUDE SUBAGENT (design direction):\`.
 Error handling: all non-blocking. On failure, skip and continue.`;
@@ -217,18 +247,34 @@ Mode: \`${mode}\`
 Reasoning: \`model_reasoning_effort="${reasoningEffort}"\`
 Codex output header: \`CODEX SAYS (design ${directionLabel}):\`
 
-${isDesignReview ? '**Automatic:** Outside voices run automatically when Codex is available. No opt-in needed.' : `Use AskUserQuestion:
+**Runtime provider guard:** Codex outside voices are cross-provider assistance, not part of Claude local-provider execution. If \`_EXECUTION_MODE=local_provider\` and \`_PRIMARY_PROVIDER\` is not \`codex\`, do not invoke \`codex exec\`, even if the binary exists. Use only the host/local Claude voice and label the Codex line \`[skipped — local_provider uses $_PRIMARY_PROVIDER]\`. Only run Codex when the active route allows it: governed CCB, local-provider Codex, or an explicit user request for Codex in this turn.
+
+${isDesignReview ? '**Automatic:** Outside voices run automatically only when Codex is allowed by the runtime provider guard and available. No opt-in needed.' : `Before asking, evaluate the runtime provider guard. If Codex is skipped by local-provider policy, offer a local-only design perspective instead of a Codex outside voice.
+
+Use AskUserQuestion when Codex is allowed:
 > "Want outside design voices${isPlanDesignReview ? ' before the detailed review' : ''}? Codex evaluates OpenAI hard rules and litmus checks; Claude subagent gives an independent ${isDesignConsultation ? 'design direction' : 'completeness review'}."
 >
 > A) Yes — run outside design voices
+> B) No — proceed without
+
+Use AskUserQuestion when Codex is skipped by local-provider policy:
+> "Want a local ${isDesignConsultation ? 'design direction' : 'design review'} second pass? Claude will use an independent local perspective without Codex."
+>
+> A) Yes — run local second pass
 > B) No — proceed without`}
 
-**Check Codex availability:**
+**Check Codex availability and provider policy:**
 \`\`\`bash
-which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+if [ "\${_EXECUTION_MODE:-}" = "local_provider" ] && [ "\${_PRIMARY_PROVIDER:-}" != "codex" ]; then
+  echo "CODEX_SKIPPED_LOCAL_PROVIDER: \${_PRIMARY_PROVIDER:-unknown}"
+elif which codex >/dev/null 2>&1; then
+  echo "CODEX_AVAILABLE"
+else
+  echo "CODEX_NOT_AVAILABLE"
+fi
 \`\`\`
 
-If Codex is available, launch Codex and a Claude subagent simultaneously. In the Codex prompt, tell it to read \`${designReference(ctx, 'outside-voices.md')}\` and execute the \`${mode}\` section.
+If Codex is available and not skipped by the provider guard, launch Codex and a Claude subagent simultaneously. In the Codex prompt, tell it to read \`${designReference(ctx, 'outside-voices.md')}\` and execute the \`${mode}\` section.
 
 \`\`\`bash
 TMPERR_DESIGN=$(mktemp /tmp/codex-design-XXXXXXXX)
@@ -237,6 +283,8 @@ codex exec "Read ${designReference(ctx, 'outside-voices.md')} and run the ${mode
 \`\`\`
 
 After completion: \`cat "$TMPERR_DESIGN" && rm -f "$TMPERR_DESIGN"\`. On auth failure, timeout, or empty response, proceed with the available voice and tag it \`[single-model]\`.
+
+If Codex is skipped by provider policy, do not run the command above. Launch only the Claude/local perspective and present \`CODEX SAYS (design ${directionLabel}): [skipped — local_provider uses $_PRIMARY_PROVIDER]\`.
 
 **Synthesis:** Produce the \`DESIGN OUTSIDE VOICES — LITMUS SCORECARD\` for plan/review modes, merge findings with \`[codex]\`, \`[subagent]\`, or \`[cross-model]\` tags, and log \`design-outside-voices\` with \`nexus-review-log\`.`;
 }

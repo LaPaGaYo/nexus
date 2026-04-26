@@ -1756,6 +1756,16 @@ describe('DESIGN_OUTSIDE_VOICES resolver', () => {
     expect(content).toContain('design direction');
   });
 
+  test('design outside voices respect local-provider routing before invoking Codex', () => {
+    for (const skill of ['plan-design-review', 'design-review', 'design-consultation']) {
+      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      expect(content).toContain('Runtime provider guard');
+      expect(content).toContain('CODEX_SKIPPED_LOCAL_PROVIDER');
+      expect(content).toContain('do not invoke `codex exec`, even if the binary exists');
+      expect(content).toContain('[skipped — local_provider uses $_PRIMARY_PROVIDER]');
+    }
+  });
+
   test('branches correctly per skillName — different prompts', () => {
     const planContent = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
     const consultContent = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
