@@ -14,10 +14,11 @@ import type {
   ConflictRecord,
   LearningCandidate,
   LocalReviewPersonaRole,
+  LocalShipPersonaRole,
   PrimaryProvider,
   ProviderTopology,
 } from '../types';
-import { reviewPersonaAuditPath } from '../artifacts';
+import { reviewPersonaAuditPath, shipPersonaGatePath } from '../artifacts';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
 export interface LocalResolveRouteRaw {
@@ -46,6 +47,16 @@ export interface LocalExecuteAuditRaw {
   agent_roles?: string[];
   persona_group?: 'code_test' | 'security_design';
   persona_audits?: LocalReviewPersonaAuditRaw[];
+}
+
+export interface LocalExecuteShipPersonasRaw {
+  release_gate_record: string;
+  merge_ready: boolean;
+  persona_gates: LocalShipPersonaGateRaw[];
+  receipt: string;
+  dispatch_command?: string;
+  dispatch_commands?: string[];
+  agent_roles?: string[];
 }
 
 export interface LocalExecuteQaRaw {
@@ -83,6 +94,7 @@ const DEFAULT_TIMEOUTS_MS = {
   build: 1_810_000,
   review: 910_000,
   qa: 910_000,
+  ship: 910_000,
 } as const;
 
 interface ActiveLocalTopology {
@@ -253,7 +265,7 @@ function buildActualRoute(
   provider: PrimaryProvider,
   route: string | null,
   substrate: string | null,
-  stage: 'handoff' | 'build' | 'review' | 'qa',
+  stage: 'handoff' | 'build' | 'review' | 'qa' | 'ship',
 ): ActualRouteRecord {
   return {
     provider,
@@ -294,8 +306,21 @@ interface LocalReviewPersonaAgent extends LocalRoleAgent {
   gateAffecting: boolean;
 }
 
+interface LocalShipPersonaAgent extends LocalRoleAgent {
+  role: LocalShipPersonaRole;
+  gateAffecting: boolean;
+}
+
 export interface LocalReviewPersonaAuditRaw {
   role: LocalReviewPersonaRole;
+  markdown: string;
+  verdict: 'pass' | 'fail';
+  gate_affecting: boolean;
+  artifact_path: string;
+}
+
+export interface LocalShipPersonaGateRaw {
+  role: LocalShipPersonaRole;
   markdown: string;
   verdict: 'pass' | 'fail';
   gate_affecting: boolean;
@@ -481,6 +506,130 @@ function defaultLocalPersonaAudits(
     verdict: 'pass',
     gate_affecting: agent.gateAffecting,
     artifact_path: reviewPersonaAuditPath(agent.role),
+  }));
+}
+
+function shipPersonaLabel(role: LocalShipPersonaRole): string {
+  switch (role) {
+    case 'release':
+      return 'Release';
+    case 'qa':
+      return 'QA';
+    case 'security':
+      return 'Security';
+    case 'docs_deploy':
+      return 'Docs/Deploy';
+  }
+}
+
+function shipPersonaFocus(role: LocalShipPersonaRole): string {
+  switch (role) {
+    case 'release':
+      return 'Final release readiness, unresolved blockers, scope closure, review/QA gate consistency, and whether the run can safely move to merge/deploy.';
+    case 'qa':
+      return 'Validation sufficiency, verification matrix obligations, browser/manual evidence, regression coverage, and unverified release-critical behavior.';
+    case 'security':
+      return 'Release-blocking security risk, auth and permission boundaries, secrets exposure, dependency or deploy risk, and unsafe operational actions.';
+    case 'docs_deploy':
+      return 'PR/deploy handoff quality, deploy contract readiness, release notes or documentation obligations, rollback/canary evidence, and operational clarity.';
+  }
+}
+
+function buildLocalShipPersonaAgent(role: LocalShipPersonaRole): LocalShipPersonaAgent {
+  const label = shipPersonaLabel(role);
+  return {
+    role,
+    gateAffecting: true,
+    name: `nexus_ship_${role}`,
+    description: `Performs the ${label} perspective in Nexus local-provider ship release-gate fan-out.`,
+    systemPrompt: [
+      `You are the Nexus local ship ${label} persona.`,
+      `Release-gate focus: ${shipPersonaFocus(role)}`,
+      'This persona is gate-affecting: explicit release blockers must return Result: fail.',
+      'Stay within repo-visible artifacts and the current ship scope. Do not edit files.',
+      'Reply exactly in the requested markdown shape.',
+    ].join('\n'),
+  };
+}
+
+function buildLocalShipPersonaPrompt(
+  ctx: NexusAdapterContext,
+  agent: LocalShipPersonaAgent,
+): string {
+  const label = shipPersonaLabel(agent.role);
+  return [
+    buildPromptContextPreamble(ctx, 'Nexus local persona ship'),
+    `Perform the ${label} persona pass for Nexus /ship.`,
+    `Focus only on: ${shipPersonaFocus(agent.role)}`,
+    'This is a release gate, not a broad code review. Fail only for material blockers that should stop merge/deploy readiness.',
+    'Do not broaden into unrelated domains. Do not modify repository files.',
+    'Reply with markdown only in this exact shape:',
+    `# Local Ship Persona: ${label}`,
+    '',
+    'Result: pass | fail',
+    '',
+    'Findings:',
+    '- ...',
+    '',
+    'If there are no material findings, say "- none".',
+    '',
+    'Advisories:',
+    '- ...',
+    '',
+    'If there are no advisories, say "- none".',
+  ].join('\n');
+}
+
+function localShipPersonaAgents(): LocalShipPersonaAgent[] {
+  return [
+    buildLocalShipPersonaAgent('release'),
+    buildLocalShipPersonaAgent('qa'),
+    buildLocalShipPersonaAgent('security'),
+    buildLocalShipPersonaAgent('docs_deploy'),
+  ];
+}
+
+function buildLocalShipPersonaGateMarkdown(personaGates: LocalShipPersonaGateRaw[]): string {
+  const gateFailures = personaGates.filter((gate) => gate.gate_affecting && gate.verdict === 'fail');
+  const result = gateFailures.length === 0 ? 'pass' : 'fail';
+
+  return [
+    '# Local Ship Persona Release Gate',
+    '',
+    `Result: ${result}`,
+    `Merge ready: ${result === 'pass' ? 'yes' : 'no'}`,
+    '',
+    'Findings:',
+    ...(gateFailures.length === 0
+      ? ['- none']
+      : gateFailures.map((gate) => `- [${gate.role}] Gate-affecting persona failed. See ${gate.artifact_path}.`)),
+    '',
+    'Advisories:',
+    '- none',
+    '',
+    'Persona evidence:',
+    ...personaGates.map((gate) =>
+      `- ${gate.role}: ${gate.verdict}; gate_affecting=${gate.gate_affecting}; artifact=${gate.artifact_path}`),
+  ].join('\n');
+}
+
+function defaultLocalShipPersonaGates(): LocalShipPersonaGateRaw[] {
+  return localShipPersonaAgents().map((agent) => ({
+    role: agent.role,
+    markdown: [
+      `# Local Ship Persona: ${shipPersonaLabel(agent.role)}`,
+      '',
+      'Result: pass',
+      '',
+      'Findings:',
+      '- none',
+      '',
+      'Advisories:',
+      '- none',
+    ].join('\n'),
+    verdict: 'pass',
+    gate_affecting: agent.gateAffecting,
+    artifact_path: shipPersonaGatePath(agent.role),
   }));
 }
 
@@ -763,6 +912,55 @@ async function runLocalReviewPersonaSlot(
   return {
     markdown: buildLocalPersonaGroupMarkdown(slot, personaAudits),
     persona_audits: personaAudits,
+    dispatch_commands: executions.map((execution) => describeCommand(execution.argv)),
+    agent_roles: agents.map((agent) => agent.name),
+  };
+}
+
+async function runLocalShipPersonas(
+  ctx: NexusAdapterContext,
+  mode: ActiveLocalTopology['mode'],
+  cwd: string,
+  timeoutMs: number,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{
+  release_gate_record: string;
+  merge_ready: boolean;
+  persona_gates: LocalShipPersonaGateRaw[];
+  dispatch_commands: string[];
+  agent_roles: string[];
+}> {
+  const runLocalSubagent = localRoleRunnerForMode(mode);
+  if (!runLocalSubagent) {
+    throw new Error(`no local role runner for topology ${mode}`);
+  }
+
+  const agents = localShipPersonaAgents();
+  const executions = await Promise.all(agents.map((agent) =>
+    runLocalSubagent(
+      agent,
+      buildLocalShipPersonaPrompt(ctx, agent),
+      cwd,
+      timeoutMs,
+      runCommand,
+    )));
+
+  const personaGates = agents.map((agent, index): LocalShipPersonaGateRaw => {
+    const markdown = executions[index]?.stdout.trim() ?? '';
+    const label = shipPersonaLabel(agent.role);
+    return {
+      role: agent.role,
+      markdown,
+      verdict: parseLocalPersonaVerdict(markdown, label),
+      gate_affecting: agent.gateAffecting,
+      artifact_path: shipPersonaGatePath(agent.role),
+    };
+  });
+
+  return {
+    release_gate_record: buildLocalShipPersonaGateMarkdown(personaGates),
+    merge_ready: personaGates.every((gate) => !gate.gate_affecting || gate.verdict === 'pass'),
+    persona_gates: personaGates,
     dispatch_commands: executions.map((execution) => describeCommand(execution.argv)),
     agent_roles: agents.map((agent) => agent.name),
   };
@@ -1124,6 +1322,49 @@ export function createDefaultLocalAdapter(): LocalAdapter {
         ),
         ctx.requested_route,
         localTraceability('local-provider-qa'),
+      );
+    },
+    execute_ship_personas: async (ctx) => {
+      const topology = activeLocalTopology(
+        ctx.ledger.execution.primary_provider,
+        ctx.ledger.execution.provider_topology,
+      );
+      if (typeof topology === 'string') {
+        return blockedResult(
+          ctx.stage,
+          topology,
+          {
+            release_gate_record: '',
+            merge_ready: false,
+            persona_gates: [],
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-ship-personas'),
+        );
+      }
+
+      const personaGates = topology.mode === 'single_agent' ? [] : defaultLocalShipPersonaGates();
+      const releaseGateRecord = personaGates.length === 0 ? '' : buildLocalShipPersonaGateMarkdown(personaGates);
+
+      return successResult<LocalExecuteShipPersonasRaw>(
+        {
+          release_gate_record: releaseGateRecord,
+          merge_ready: personaGates.every((gate) => !gate.gate_affecting || gate.verdict === 'pass'),
+          persona_gates: personaGates,
+          receipt: `local-ship-personas-${ctx.ledger.execution.primary_provider}`,
+          agent_roles: topology.mode === 'single_agent'
+            ? undefined
+            : personaGates.map((gate) => `nexus_ship_${gate.role}`),
+        },
+        buildActualRoute(
+          ctx.ledger.execution.primary_provider,
+          ctx.requested_route?.generator ?? `${ctx.ledger.execution.requested_path}-ship`,
+          ctx.requested_route?.substrate ?? 'superpowers-core',
+          'ship',
+        ),
+        ctx.requested_route,
+        localTraceability('local-provider-ship-personas'),
       );
     },
   };
@@ -1587,6 +1828,77 @@ export function createRuntimeLocalAdapter(
           },
           ctx.requested_route,
           localTraceability('local-provider-qa'),
+        );
+      }
+    },
+    execute_ship_personas: async (ctx) => {
+      const provider = ctx.ledger.execution.primary_provider;
+      const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);
+      const executionCwd = executionWorkspacePath(ctx);
+      if (typeof topology === 'string') {
+        return blockedResult(
+          ctx.stage,
+          topology,
+          {
+            release_gate_record: '',
+            merge_ready: false,
+            persona_gates: [],
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-ship-personas'),
+        );
+      }
+
+      try {
+        if (topology.mode !== 'single_agent') {
+          const personaGate = await runLocalShipPersonas(
+            ctx,
+            topology.mode,
+            executionCwd,
+            DEFAULT_TIMEOUTS_MS.ship,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteShipPersonasRaw>(
+            {
+              release_gate_record: personaGate.release_gate_record,
+              merge_ready: personaGate.merge_ready,
+              persona_gates: personaGate.persona_gates,
+              receipt: `local-ship-personas-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: personaGate.dispatch_commands[0],
+              dispatch_commands: personaGate.dispatch_commands,
+              agent_roles: personaGate.agent_roles,
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? `${ctx.ledger.execution.requested_path}-ship`, ctx.requested_route?.substrate ?? 'superpowers-core', 'ship'),
+            ctx.requested_route,
+            localTraceability('local-provider-ship-personas'),
+          );
+        }
+
+        return successResult<LocalExecuteShipPersonasRaw>(
+          {
+            release_gate_record: '',
+            merge_ready: true,
+            persona_gates: [],
+            receipt: `local-ship-personas-${provider}-${sanitizeTimestamp(now())}`,
+          },
+          buildActualRoute(provider, ctx.requested_route?.generator ?? `${ctx.ledger.execution.requested_path}-ship`, ctx.requested_route?.substrate ?? 'superpowers-core', 'ship'),
+          ctx.requested_route,
+          localTraceability('local-provider-ship-personas'),
+        );
+      } catch (error) {
+        return blockedResult(
+          ctx.stage,
+          error instanceof Error ? error.message : String(error),
+          {
+            release_gate_record: '',
+            merge_ready: false,
+            persona_gates: [],
+            receipt: '',
+          },
+          ctx.requested_route,
+          localTraceability('local-provider-ship-personas'),
         );
       }
     },

@@ -192,6 +192,11 @@ evidence is persisted under `.planning/current/review/persona-audits/`; the
 canonical audit set remains `.planning/audits/current/` so closeout and
 provenance checks stay compatible with governed CCB runs.
 
+The same local-provider fallback applies at `/ship` with release-oriented
+personas: release, QA, security, and docs/deploy. Their gate evidence is
+persisted under `.planning/current/ship/persona-gates/`; any gate-affecting
+failure records a blocked release gate instead of marking the run merge-ready.
+
 If setup is non-interactive, the default remains:
 
 - `governed_ccb` only when `ask` is installed and the required governed providers are actually mounted for this repo

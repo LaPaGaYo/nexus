@@ -23,6 +23,7 @@ describe('nexus adapter registry', () => {
     expect(registry.qa.ccb).toBe('active');
     expect(registry.qa.local).toBe('active');
     expect(registry.ship.superpowers).toBe('active');
+    expect(registry.ship.local).toBe('active');
     expect(registry.closeout.gsd).toBe('active');
   });
 });

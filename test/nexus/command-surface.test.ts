@@ -31,5 +31,6 @@ describe('nexus command dispatcher', () => {
     expect(resolveInvocation('qa').contract.implementation).toBe('implemented');
     expect(resolveInvocation('ship').contract.implementation).toBe('implemented');
     expect(getDefaultNexusAdapters().registry.ship.superpowers).toBe('active');
+    expect(getDefaultNexusAdapters().registry.ship.local).toBe('active');
   });
 });

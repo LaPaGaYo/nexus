@@ -72,6 +72,7 @@ export interface LocalAdapter {
   execute_audit_a(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_audit_b(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_qa(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
+  execute_ship_personas(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
 export interface AdapterRegistryShape {
@@ -82,7 +83,7 @@ export interface AdapterRegistryShape {
   build: { superpowers: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
   review: { superpowers: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
   qa: { ccb: AdapterActivationState; local: AdapterActivationState };
-  ship: { superpowers: AdapterActivationState };
+  ship: { superpowers: AdapterActivationState; local: AdapterActivationState };
   closeout: { gsd: AdapterActivationState };
 }
 

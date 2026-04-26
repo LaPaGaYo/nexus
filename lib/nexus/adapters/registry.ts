@@ -13,7 +13,7 @@ const DEFAULT_REGISTRY: AdapterRegistryShape = {
   build: { superpowers: 'active', ccb: 'active', local: 'active' },
   review: { superpowers: 'active', ccb: 'active', local: 'active' },
   qa: { ccb: 'active', local: 'active' },
-  ship: { superpowers: 'active' },
+  ship: { superpowers: 'active', local: 'active' },
   closeout: { gsd: 'active' },
 };
 

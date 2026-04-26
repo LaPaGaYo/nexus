@@ -271,6 +271,7 @@ describe('nexus runtime activation authority', () => {
     expect(registry.review.ccb).toBe('active');
     expect(registry.qa.ccb).toBe('active');
     expect(registry.ship.superpowers).toBe('active');
+    expect(registry.ship.local).toBe('active');
     expect(registry.build.superpowers).toBe('active');
     expect(registry.build.ccb).toBe('active');
     expect(registry.handoff.ccb).toBe('active');

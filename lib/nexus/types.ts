@@ -785,12 +785,23 @@ export interface PullRequestRecord {
 export const LOCAL_REVIEW_PERSONA_ROLES = ['code', 'test', 'security', 'design'] as const;
 export type LocalReviewPersonaRole = (typeof LOCAL_REVIEW_PERSONA_ROLES)[number];
 
+export const LOCAL_SHIP_PERSONA_ROLES = ['release', 'qa', 'security', 'docs_deploy'] as const;
+export type LocalShipPersonaRole = (typeof LOCAL_SHIP_PERSONA_ROLES)[number];
+
 export interface LocalPersonaReviewStatusRecord {
   enabled: boolean;
   roles: LocalReviewPersonaRole[];
   artifact_paths: string[];
   gate_affecting_roles: LocalReviewPersonaRole[];
   advisory_only_roles: LocalReviewPersonaRole[];
+}
+
+export interface LocalPersonaShipStatusRecord {
+  enabled: boolean;
+  roles: LocalShipPersonaRole[];
+  artifact_paths: string[];
+  gate_affecting_roles: LocalShipPersonaRole[];
+  advisory_only_roles: LocalShipPersonaRole[];
 }
 
 export interface StageStatus {
@@ -842,6 +853,7 @@ export interface StageStatus {
   advisory_disposition?: ReviewAdvisoryDisposition | null;
   advisory_disposition_path?: string | null;
   local_persona_review?: LocalPersonaReviewStatusRecord | null;
+  local_persona_ship?: LocalPersonaShipStatusRecord | null;
   pull_request?: PullRequestRecord | null;
 }
 

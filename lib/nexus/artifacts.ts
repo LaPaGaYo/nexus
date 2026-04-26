@@ -1,4 +1,11 @@
-import { LOCAL_REVIEW_PERSONA_ROLES, type ArtifactPointer, type CanonicalCommandId, type LocalReviewPersonaRole } from './types';
+import {
+  LOCAL_REVIEW_PERSONA_ROLES,
+  LOCAL_SHIP_PERSONA_ROLES,
+  type ArtifactPointer,
+  type CanonicalCommandId,
+  type LocalReviewPersonaRole,
+  type LocalShipPersonaRole,
+} from './types';
 
 export const CURRENT_ROOT = '.planning/current';
 export const AUDIT_ROOT = '.planning/audits/current';
@@ -128,6 +135,19 @@ export function shipDeployResultPath(): string {
 
 export function shipLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/ship/learning-candidates.json`;
+}
+
+export function shipPersonaGateRootPath(): string {
+  return `${CURRENT_ROOT}/ship/persona-gates`;
+}
+
+export function shipPersonaGatePath(role: LocalShipPersonaRole): string {
+  const fileStem = role === 'docs_deploy' ? 'docs-deploy' : role;
+  return `${shipPersonaGateRootPath()}/${fileStem}.md`;
+}
+
+export function shipPersonaGatePaths(): string[] {
+  return LOCAL_SHIP_PERSONA_ROLES.map((role) => shipPersonaGatePath(role));
 }
 
 export function deployContractJsonPath(): string {

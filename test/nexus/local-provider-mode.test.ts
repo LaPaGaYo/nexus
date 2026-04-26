@@ -808,6 +808,176 @@ describe('nexus local_provider mode', () => {
     });
   });
 
+  test('uses local ship personas as a release gate for claude subagents', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: Array<{ argv: string[]; stdin_text?: string }> = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        now: () => '2026-04-11T00:00:00.000Z',
+        runCommand: async (spec) => {
+          calls.push({ argv: spec.argv, stdin_text: spec.stdin_text });
+
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/claude\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] === 'claude' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: claude [options]\n  --agent <agent>\n  --agents <json>\n',
+              stderr: '',
+            };
+          }
+
+          const agentIndex = spec.argv.indexOf('--agent');
+          const agent = agentIndex >= 0 ? spec.argv[agentIndex + 1] : null;
+
+          switch (agent) {
+            case 'nexus_builder':
+              return {
+                exit_code: 0,
+                stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: applied local subagent build\n- Files touched: README.md\n- Verification: pending verifier\n',
+                stderr: '',
+              };
+            case 'nexus_verifier':
+              return {
+                exit_code: 0,
+                stdout: '- Verification: verifier checked the resulting repo state\n',
+                stderr: '',
+              };
+            case 'nexus_review_code':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Code\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_review_test':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Test\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_review_security':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Security\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_review_design':
+              return {
+                exit_code: 0,
+                stdout: '# Local Review Persona: Design\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_qa':
+              return {
+                exit_code: 0,
+                stdout: JSON.stringify({
+                  ready: true,
+                  findings: [],
+                  report_markdown: '# QA Report\n\nResult: pass\n',
+                }),
+                stderr: '',
+              };
+            case 'nexus_ship_release':
+              return {
+                exit_code: 0,
+                stdout: '# Local Ship Persona: Release\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_ship_qa':
+              return {
+                exit_code: 0,
+                stdout: '# Local Ship Persona: QA\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_ship_security':
+              return {
+                exit_code: 0,
+                stdout: '# Local Ship Persona: Security\n\nResult: fail\n\nFindings:\n- Release is blocked by an unresolved secret exposure risk.\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            case 'nexus_ship_docs_deploy':
+              return {
+                exit_code: 0,
+                stdout: '# Local Ship Persona: Docs/Deploy\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            default:
+              throw new Error(`unexpected agent invocation: ${spec.argv.join(' ')}`);
+          }
+        },
+      });
+
+      await run('plan', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('handoff', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('build', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('review', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('qa', adapters, LOCAL_SUBAGENT_EXECUTION);
+      await run('ship', adapters, LOCAL_SUBAGENT_EXECUTION);
+
+      expect(calls.map((call) => call.argv.join(' '))).toEqual([
+        'which claude',
+        'claude --help',
+        expect.stringContaining('--agent nexus_builder'),
+        expect.stringContaining('--agent nexus_verifier'),
+        expect.stringContaining('--agent nexus_review_code'),
+        expect.stringContaining('--agent nexus_review_test'),
+        expect.stringContaining('--agent nexus_review_security'),
+        expect.stringContaining('--agent nexus_review_design'),
+        expect.stringContaining('--agent nexus_qa'),
+        expect.stringContaining('--agent nexus_ship_release'),
+        expect.stringContaining('--agent nexus_ship_qa'),
+        expect.stringContaining('--agent nexus_ship_security'),
+        expect.stringContaining('--agent nexus_ship_docs_deploy'),
+      ]);
+
+      expect(await run.readFile('.planning/current/ship/persona-gates/release.md')).toContain(
+        '# Local Ship Persona: Release',
+      );
+      expect(await run.readFile('.planning/current/ship/persona-gates/qa.md')).toContain(
+        '# Local Ship Persona: QA',
+      );
+      expect(await run.readFile('.planning/current/ship/persona-gates/security.md')).toContain(
+        'Result: fail',
+      );
+      expect(await run.readFile('.planning/current/ship/persona-gates/docs-deploy.md')).toContain(
+        '# Local Ship Persona: Docs/Deploy',
+      );
+      expect(await run.readFile('.planning/current/ship/release-gate-record.md')).toContain(
+        '# Local Ship Persona Release Gate',
+      );
+
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        execution_mode: 'local_provider',
+        provider_topology: 'subagents',
+        ready: false,
+        errors: ['Local ship persona release gate failed'],
+        local_persona_ship: {
+          enabled: true,
+          roles: ['release', 'qa', 'security', 'docs_deploy'],
+          artifact_paths: [
+            '.planning/current/ship/persona-gates/release.md',
+            '.planning/current/ship/persona-gates/qa.md',
+            '.planning/current/ship/persona-gates/security.md',
+            '.planning/current/ship/persona-gates/docs-deploy.md',
+          ],
+          gate_affecting_roles: ['release', 'qa', 'security', 'docs_deploy'],
+          advisory_only_roles: [],
+        },
+      });
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'ship',
+        status: 'blocked',
+      });
+    });
+  });
+
   test('uses codex role-specific passes for local subagent execution at runtime', async () => {
     await runInTempRepo(async ({ run }) => {
       const calls: Array<{ argv: string[]; stdin_text?: string }> = [];

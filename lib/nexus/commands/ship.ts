@@ -8,6 +8,8 @@ import {
   qaDesignVerificationPath,
   shipLearningCandidatesPath,
   shipChecklistPath,
+  shipPersonaGatePath,
+  shipPersonaGatePaths,
   shipPullRequestPath,
   shipReleaseGateRecordPath,
   stageCompletionAdvisorPath,
@@ -32,11 +34,14 @@ import {
   reviewHasAdvisories,
 } from '../review-advisories';
 import type { SuperpowersShipDisciplineRaw } from '../adapters/superpowers';
-import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
+import type { LocalExecuteShipPersonasRaw } from '../adapters/local';
+import { LEARNING_SOURCES, LEARNING_TYPES, LOCAL_SHIP_PERSONA_ROLES } from '../types';
 import type {
   ArtifactPointer,
   ConflictRecord,
   LearningCandidate,
+  LocalPersonaShipStatusRecord,
+  LocalShipPersonaRole,
   RunLedger,
   StageLearningCandidatesRecord,
   StageStatus,
@@ -198,6 +203,56 @@ function buildShipLearningCandidatesRecord(
   };
 }
 
+function collectLocalShipPersonaGates(
+  rawOutput: Pick<LocalExecuteShipPersonasRaw, 'persona_gates'> | null,
+): LocalExecuteShipPersonasRaw['persona_gates'] {
+  const gates = rawOutput?.persona_gates ?? [];
+  const byRole = new Map<LocalShipPersonaRole, LocalExecuteShipPersonasRaw['persona_gates'][number]>();
+
+  for (const gate of gates) {
+    byRole.set(gate.role, gate);
+  }
+
+  return LOCAL_SHIP_PERSONA_ROLES
+    .map((role) => byRole.get(role))
+    .filter((gate): gate is LocalExecuteShipPersonasRaw['persona_gates'][number] => Boolean(gate));
+}
+
+function buildLocalPersonaShipStatus(
+  personaGates: LocalExecuteShipPersonasRaw['persona_gates'],
+): LocalPersonaShipStatusRecord | null {
+  if (personaGates.length === 0) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    roles: personaGates.map((gate) => gate.role),
+    artifact_paths: personaGates.map((gate) => shipPersonaGatePath(gate.role)),
+    gate_affecting_roles: personaGates
+      .filter((gate) => gate.gate_affecting)
+      .map((gate) => gate.role),
+    advisory_only_roles: personaGates
+      .filter((gate) => !gate.gate_affecting)
+      .map((gate) => gate.role),
+  };
+}
+
+function localShipPersonaGatePassed(personaGates: LocalExecuteShipPersonasRaw['persona_gates']): boolean {
+  return personaGates.every((gate) => !gate.gate_affecting || gate.verdict === 'pass');
+}
+
+function shipErrors(baseMergeReady: boolean, localPersonaMergeReady: boolean): string[] {
+  if (baseMergeReady && localPersonaMergeReady) {
+    return [];
+  }
+
+  return [
+    ...(baseMergeReady ? [] : ['Release gate remains blocked']),
+    ...(localPersonaMergeReady ? [] : ['Local ship persona release gate failed']),
+  ];
+}
+
 function shipStatusTracePayload(
   status: Pick<
     StageStatus,
@@ -212,6 +267,7 @@ function shipStatusTracePayload(
     | 'deploy_contract_path'
     | 'learning_candidates_path'
     | 'learnings_recorded'
+    | 'local_persona_ship'
     | 'pull_request'
   >,
 ): Record<string, unknown> {
@@ -227,6 +283,7 @@ function shipStatusTracePayload(
     deploy_contract_path: status.deploy_contract_path ?? null,
     learning_candidates_path: status.learning_candidates_path ?? null,
     learnings_recorded: status.learnings_recorded ?? false,
+    local_persona_ship: status.local_persona_ship ?? null,
     pull_request: status.pull_request ?? null,
   };
 }
@@ -252,6 +309,9 @@ function nextLedger(
 function clearShipLearningArtifactIndex(ledger: RunLedger): RunLedger {
   const nextArtifactIndex = { ...ledger.artifact_index };
   delete nextArtifactIndex[shipLearningCandidatesPath()];
+  for (const path of shipPersonaGatePaths()) {
+    delete nextArtifactIndex[path];
+  }
 
   return {
     ...ledger,
@@ -431,7 +491,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       stage: 'ship',
       statusPath,
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
-      removeWrites: [learningCandidatesPath],
+      removeWrites: [learningCandidatesPath, ...shipPersonaGatePaths()],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -495,7 +555,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       stage: 'ship',
       statusPath,
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
-      removeWrites: [learningCandidatesPath],
+      removeWrites: [learningCandidatesPath, ...shipPersonaGatePaths()],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -524,25 +584,109 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     throw new Error(message);
   }
 
-  const checklist = augmentChecklist(
+  const localShipPersonaResult = ledger.execution.mode === 'local_provider'
+    ? await ctx.adapters.local.execute_ship_personas({
+        cwd: ctx.cwd,
+        workspace,
+        run_id: ledger.run_id,
+        command: 'ship',
+        stage: 'ship',
+        ledger: ledgerWithExecution,
+        manifest,
+        predecessor_artifacts: predecessorArtifacts,
+        requested_route: null,
+      })
+    : null;
+
+  if (localShipPersonaResult && localShipPersonaResult.outcome !== 'success') {
+    const message = 'Local ship persona release gate blocked';
+    const status = blockedShipStatus(
+      ledgerWithExecution,
+      startedAt,
+      predecessorArtifacts,
+      message,
+      designImpact,
+      designContractPath,
+      designVerified,
+    );
+    const conflict: ConflictRecord = {
+      stage: 'ship',
+      adapter: 'local',
+      kind: 'backend_conflict',
+      message,
+      canonical_paths: [completionAdvisorPath, statusPath],
+      trace_paths: [
+        '.planning/current/ship/adapter-request.json',
+        '.planning/current/ship/adapter-output.json',
+        '.planning/current/ship/normalization.json',
+      ],
+    };
+
+    const completionAdvisor = buildShipCompletionAdvisor(status, verificationMatrix, null, startedAt);
+    await applyNormalizationPlan({
+      cwd: ctx.cwd,
+      stage: 'ship',
+      statusPath,
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
+      removeWrites: [learningCandidatesPath, ...shipPersonaGatePaths()],
+      traceWrites: buildShipStageTraceabilityPayloads(
+        ledger.run_id,
+        predecessorArtifacts.map((artifact) => artifact.path),
+        workspace,
+        result,
+        {
+          outcome: 'blocked',
+          error: message,
+          local_ship_persona_result: localShipPersonaResult,
+          learning_candidates_path: null,
+          learnings_recorded: false,
+          status: {
+            ...shipStatusTracePayload(status),
+          },
+        },
+      ),
+      status,
+      mirrorWorkspace: workspace,
+      ledger: (() => {
+        const next = clearShipLearningArtifactIndex(nextLedger(ledgerWithExecution, previousStage, 'blocked', startedAt, ctx.via));
+        next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
+        return next;
+      })(),
+      conflicts: [conflict, ...localShipPersonaResult.conflict_candidates, ...result.conflict_candidates],
+    });
+
+    throw new Error(message);
+  }
+
+  const localShipPersonaRaw = localShipPersonaResult?.raw_output as LocalExecuteShipPersonasRaw | null | undefined;
+  const localShipPersonaGates = collectLocalShipPersonaGates(localShipPersonaRaw ?? null);
+  const localPersonaShip = buildLocalPersonaShipStatus(localShipPersonaGates);
+  const localPersonaMergeReady = localShipPersonaGatePassed(localShipPersonaGates);
+  const finalMergeReady = result.raw_output.merge_ready && localPersonaMergeReady;
+  const checklist = {
+    ...augmentChecklist(
     result.raw_output.checklist,
     designImpact,
     designContractPath,
     designVerified,
     perfVerificationPath,
-  );
+    ),
+    merge_ready: finalMergeReady,
+    local_persona_ship: localPersonaShip,
+  };
   const learningCandidatesRecord = buildShipLearningCandidatesRecord(
     ledger.run_id,
     startedAt,
     result.raw_output.learning_candidates,
   );
   const deployReadiness = resolveDeployReadiness(ctx.cwd, ledger.run_id, startedAt);
+  const localShipPersonaReleaseGateRecord = localShipPersonaRaw?.release_gate_record?.trim();
   const releaseGateRecord = `${result.raw_output.release_gate_record.trimEnd()}${designVerificationSummary(
     designImpact,
     designContractPath,
     designVerified,
-  )}${perfVerificationSummary(perfVerificationPath)}`;
-  const pullRequest = await resolveShipPullRequest(workspace.path, result.raw_output.merge_ready, ctx.run_command);
+  )}${perfVerificationSummary(perfVerificationPath)}${localShipPersonaReleaseGateRecord ? `\n${localShipPersonaReleaseGateRecord}\n` : ''}`;
+  const pullRequest = await resolveShipPullRequest(workspace.path, finalMergeReady, ctx.run_command);
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'ship',
@@ -555,26 +699,28 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     deploy_contract_path: deployReadiness.contract_path,
     state: 'completed',
     decision: 'ship_recorded',
-    ready: result.raw_output.merge_ready,
+    ready: finalMergeReady,
     inputs: predecessorArtifacts,
     outputs: [
       artifactPointerFor(releaseGateRecordPath),
       artifactPointerFor(checklistPath),
       artifactPointerFor(deployReadinessPath),
       artifactPointerFor(pullRequestPath),
+      ...localShipPersonaGates.map((gate) => artifactPointerFor(shipPersonaGatePath(gate.role))),
       ...(learningCandidatesRecord ? [artifactPointerFor(learningCandidatesPath)] : []),
       artifactPointerFor(completionAdvisorPath),
       artifactPointerFor(statusPath),
     ],
     started_at: startedAt,
     completed_at: startedAt,
-    errors: result.raw_output.merge_ready ? [] : ['Release gate remains blocked'],
+    errors: shipErrors(result.raw_output.merge_ready, localPersonaMergeReady),
     workspace,
     pull_request: pullRequest,
     learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
     learnings_recorded: Boolean(learningCandidatesRecord),
+    local_persona_ship: localPersonaShip,
   };
-  const next = nextLedger(ledgerWithExecution, previousStage, result.raw_output.merge_ready ? 'active' : 'blocked', startedAt, ctx.via);
+  const next = nextLedger(ledgerWithExecution, previousStage, finalMergeReady ? 'active' : 'blocked', startedAt, ctx.via);
   const completionAdvisor = buildShipCompletionAdvisor(status, verificationMatrix, deployReadiness, startedAt);
   next.artifact_index = {
     ...next.artifact_index,
@@ -582,12 +728,21 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     [checklistPath]: artifactPointerFor(checklistPath),
     [deployReadinessPath]: artifactPointerFor(deployReadinessPath),
     [pullRequestPath]: artifactPointerFor(pullRequestPath),
+    ...Object.fromEntries(localShipPersonaGates.map((gate) => {
+      const path = shipPersonaGatePath(gate.role);
+      return [path, artifactPointerFor(path)];
+    })),
     ...(learningCandidatesRecord ? { [learningCandidatesPath]: artifactPointerFor(learningCandidatesPath) } : {}),
     [completionAdvisorPath]: artifactPointerFor(completionAdvisorPath),
     [statusPath]: artifactPointerFor(statusPath),
   };
   if (!learningCandidatesRecord) {
     delete next.artifact_index[learningCandidatesPath];
+  }
+  if (localShipPersonaGates.length === 0) {
+    for (const path of shipPersonaGatePaths()) {
+      delete next.artifact_index[path];
+    }
   }
 
   await applyNormalizationPlan({
@@ -599,12 +754,19 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       { path: checklistPath, content: JSON.stringify(checklist, null, 2) + '\n' },
       { path: deployReadinessPath, content: JSON.stringify(deployReadiness, null, 2) + '\n' },
       { path: pullRequestPath, content: JSON.stringify(pullRequest, null, 2) + '\n' },
+      ...localShipPersonaGates.map((gate) => ({
+        path: shipPersonaGatePath(gate.role),
+        content: `${gate.markdown.trimEnd()}\n`,
+      })),
       ...(learningCandidatesRecord
         ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
         : []),
       buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
     ],
-    removeWrites: learningCandidatesRecord ? [] : [learningCandidatesPath],
+    removeWrites: [
+      ...(localShipPersonaGates.length > 0 ? [] : shipPersonaGatePaths()),
+      ...(learningCandidatesRecord ? [] : [learningCandidatesPath]),
+    ],
     traceWrites: buildShipStageTraceabilityPayloads(
       ledger.run_id,
       predecessorArtifacts.map((artifact) => artifact.path),
@@ -617,6 +779,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
           checklistPath,
           deployReadinessPath,
           pullRequestPath,
+          ...localShipPersonaGates.map((gate) => shipPersonaGatePath(gate.role)),
           ...(learningCandidatesRecord ? [learningCandidatesPath] : []),
           completionAdvisorPath,
         ],
@@ -627,6 +790,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
         status: shipStatusTracePayload(status),
         pull_request: pullRequest,
         checklist,
+        local_ship_persona_result: localShipPersonaResult,
       },
     ),
     status,

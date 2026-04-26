@@ -136,6 +136,7 @@ describe('nexus absorbed runtime', () => {
     expect(registry.review.ccb).toBe('active');
     expect(registry.qa.ccb).toBe('active');
     expect(registry.ship.superpowers).toBe('active');
+    expect(registry.ship.local).toBe('active');
   });
 
   test('review qa and ship stage packs expose absorbed source traceability', () => {
