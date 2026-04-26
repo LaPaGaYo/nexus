@@ -2,8 +2,6 @@
 
 ## Unreleased
 
-- Completion advisors now keep verification-matrix context when surfacing external installed skills, `/build` elevates design/browser follow-ons into `recommended_choice`, and `--output interactive` renders a host-independent terminal chooser for stage-completion decisions.
-
 ## Nexus Patch Release Index
 
 The initial Nexus baseline is recorded below as `v1.0.0`. Incremental Nexus
@@ -11,6 +9,7 @@ patch releases ship as standalone release notes under `docs/releases/`; this
 index gives the quick user-facing delta without forcing users to hunt through
 tags.
 
+- **[v1.0.44](docs/releases/2026-04-26-nexus-v1.0.44.md)** — completion advisors now keep verification-matrix context when surfacing external installed skills, `/build` elevates design/browser follow-ons into `recommended_choice`, and `--output interactive` renders a host-independent terminal chooser for stage-completion decisions.
 - **[v1.0.43](docs/releases/2026-04-26-nexus-v1.0.43.md)** — release publication now refreshes post-publish maintainer status with a live tag snapshot and live remote release check, preventing successful releases from being reported as blocked after tag creation.
 - **[v1.0.42](docs/releases/2026-04-25-nexus-v1.0.42.md)** — Nexus now bootstraps sessions into governed CCB or explicit local-provider mode, absorbs the design deliverable engine into the Nexus-native design surface, and surfaces matching user-installed skills as supplemental advisor recommendations without overriding Nexus canonical or support commands.
 - **[v1.0.41](docs/releases/2026-04-20-nexus-v1.0.41.md)** — verification matrices now expose structured support-skill signals for design, browser, benchmark, security, and authenticated QA flows; stage advisors consume those signals; and `bin/nexus.ts` now supports standardized `json-with-advisor`, `json`, and `human` output modes.
