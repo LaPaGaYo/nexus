@@ -23,10 +23,10 @@ beforeAll(async () => {
   await bm.launch();
 });
 
-afterAll(() => {
+afterAll(async () => {
+  try { await bm.close(); } catch {}
   try { testServer.server.stop(); } catch {}
-  setTimeout(() => process.exit(0), 500);
-});
+}, 10000);
 
 // ─── Unit Tests: Failure Tracking (no browser needed) ────────────
 

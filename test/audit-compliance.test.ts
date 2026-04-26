@@ -93,6 +93,20 @@ describe('Audit compliance', () => {
     expect(between.toLowerCase()).toContain('untrusted');
   });
 
+  test('browse integration tests do not terminate the shared test runner', () => {
+    const testPaths = [
+      'browse/test/commands.test.ts',
+      'browse/test/compare-board.test.ts',
+      'browse/test/snapshot.test.ts',
+      'browse/test/handoff.test.ts',
+    ];
+
+    for (const testPath of testPaths) {
+      const source = readFileSync(join(ROOT, testPath), 'utf-8');
+      expect(source).not.toContain('process.exit(');
+    }
+  });
+
   // Round 2 Fix 2: Trust boundary markers + helper + wrapping in all paths
   test('browse wraps untrusted content with trust boundary markers', () => {
     const commands = readFileSync(join(ROOT, 'browse/src/commands.ts'), 'utf-8');

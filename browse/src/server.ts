@@ -139,6 +139,8 @@ let messageQueue: Array<{message: string, ts: string, extensionUrl?: string | nu
 let currentMessage: string | null = null;
 // Per-tab chat buffers — each browser tab gets its own conversation
 const chatBuffers = new Map<number, ChatEntry[]>(); // tabId -> entries
+// Legacy single-buffer alias for session load/clear
+let chatBuffer: ChatEntry[] = [];
 let chatNextId = 0;
 let agentTabId: number | null = null; // which tab the current agent is working on
 
@@ -153,14 +155,35 @@ function getTabAgentStatus(tabId: number): 'idle' | 'processing' | 'hung' {
   return tabAgents.has(tabId) ? tabAgents.get(tabId)!.status : 'idle';
 }
 
+function resetAgentRuntimeState(options: { clearQueues?: boolean } = {}): void {
+  agentProcess = null;
+  agentStartTime = null;
+  currentMessage = null;
+  agentStatus = 'idle';
+  agentTabId = null;
+  if (options.clearQueues) {
+    messageQueue = [];
+    tabAgents.clear();
+  } else {
+    for (const state of tabAgents.values()) {
+      state.status = 'idle';
+      state.startTime = null;
+      state.currentMessage = null;
+    }
+  }
+}
+
+function resetChatRuntimeState(): void {
+  chatBuffer = [];
+  chatBuffers.clear();
+  chatNextId = 0;
+}
+
 function getChatBuffer(tabId?: number): ChatEntry[] {
   const id = tabId ?? browserManager?.getActiveTabId?.() ?? 0;
   if (!chatBuffers.has(id)) chatBuffers.set(id, []);
   return chatBuffers.get(id)!;
 }
-
-// Legacy single-buffer alias for session load/clear
-let chatBuffer: ChatEntry[] = [];
 
 // Find the browse binary for the claude subprocess system prompt
 function findBrowseBin(): string {
@@ -363,8 +386,7 @@ function createSession(): SidebarSession {
   fs.writeFileSync(path.join(sessionDir, 'session.json'), JSON.stringify(session, null, 2));
   fs.writeFileSync(path.join(sessionDir, 'chat.jsonl'), '');
   fs.writeFileSync(path.join(SESSIONS_DIR, 'active.json'), JSON.stringify({ id }));
-  chatBuffer = [];
-  chatNextId = 0;
+  resetChatRuntimeState();
   return session;
 }
 
@@ -524,10 +546,7 @@ function killAgent(): void {
     try { agentProcess.kill('SIGTERM'); } catch {}
     setTimeout(() => { try { agentProcess?.kill('SIGKILL'); } catch {} }, 3000);
   }
-  agentProcess = null;
-  agentStartTime = null;
-  currentMessage = null;
-  agentStatus = 'idle';
+  resetAgentRuntimeState();
 }
 
 // Agent health check — detect hung processes
@@ -856,7 +875,7 @@ async function shutdown() {
   // Stop watch mode if active
   if (browserManager.isWatching()) browserManager.stopWatch();
   killAgent();
-  messageQueue = [];
+  resetAgentRuntimeState({ clearQueues: true });
   saveSession(); // Persist chat history before exit
   if (sidebarSession?.worktreePath) removeWorktree(sidebarSession.worktreePath);
   if (agentHealthInterval) clearInterval(agentHealthInterval);
@@ -1185,8 +1204,7 @@ async function start() {
         if (!validateAuth(req)) {
           return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
         }
-        chatBuffer = [];
-        chatNextId = 0;
+        resetChatRuntimeState();
         if (sidebarSession) {
           try { fs.writeFileSync(path.join(SESSIONS_DIR, sidebarSession.id, 'chat.jsonl'), ''); } catch {}
         }
@@ -1252,7 +1270,7 @@ async function start() {
           return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
         }
         killAgent();
-        messageQueue = [];
+        resetAgentRuntimeState({ clearQueues: true });
         // Clean up old session's worktree before creating new one
         if (sidebarSession?.worktreePath) removeWorktree(sidebarSession.worktreePath);
         sidebarSession = createSession();

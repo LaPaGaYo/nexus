@@ -132,7 +132,8 @@ describe('sidebar-command → queue', () => {
     expect(lines.length).toBeGreaterThan(0);
     const entry = JSON.parse(lines[lines.length - 1]);
     expect(entry.pageUrl).toBe('https://example.com/test-page');
-    expect(entry.prompt).toContain('https://example.com/test-page');
+    expect(entry.prompt).toContain('what is on this page?');
+    expect(entry.prompt).not.toContain('https://example.com/test-page');
 
     await api('/sidebar-agent/kill', { method: 'POST' });
   });
@@ -185,12 +186,12 @@ describe('sidebar-agent/event → chat buffer', () => {
   test('agent events appear in /sidebar-chat', async () => {
     await resetState();
 
-    // Post mock agent events using Claude's streaming format
+    // Post the normalized event shape emitted by sidebar-agent.ts.
     await api('/sidebar-agent/event', {
       method: 'POST',
       body: JSON.stringify({
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'Hello from mock agent' }] },
+        type: 'text',
+        text: 'Hello from mock agent',
       }),
     });
 
