@@ -488,7 +488,7 @@ Read and summarize:
 If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
 `summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
 
-If the session is interactive and `interaction_mode` is not `summary_only`, Always use
+If the session is interactive and `interaction_mode` is not `summary_only`, always use
 AskUserQuestion for `/plan` completion.
 
 If the host cannot display AskUserQuestion, rerun `/plan` with `--output interactive`
@@ -505,12 +505,16 @@ If `interaction_mode` is `recommended_choice`, present:
 
 If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
 
-Use each action's `label` and `description`. If an action has `visibility_reason`, include it in
-the explanation so the user sees why it is showing up now.
+Use each action's `label` and `description`. If an action has `visibility_reason`,
+`why_this_skill`, or `evidence_signal`, include it in the explanation so the user sees
+why it is showing up now.
+
+After the user chooses an action, run the selected `invocation` unless the selected action
+is `stop_action` or has no invocation.
 
 If the advisor surfaces `/plan-design-review`, that is design-driven follow-on work inferred from
 `design_impact` and the verification matrix. Keep the canonical execution path anchored on
 `/handoff`.
 
-If the session is non-interactive, do not call AskUserQuestion. Print the advisor `summary` and
-the invocation for the `default_action_id` when one exists.
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id` when one exists.

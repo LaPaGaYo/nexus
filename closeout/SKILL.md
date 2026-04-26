@@ -499,14 +499,12 @@ Read and summarize:
 If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
 `summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
 
-If the session is interactive and `interaction_mode` is not `summary_only`, Always use
+If the session is interactive and `interaction_mode` is not `summary_only`, always use
 AskUserQuestion for `/closeout` completion.
 
 If the host cannot display AskUserQuestion, rerun `/closeout` with `--output interactive`
 to print the same runtime-owned chooser in the terminal. Do not reconstruct choices
 from `status.json`.
-
-If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
 
 If `interaction_mode` is `recommended_choice`, present:
 
@@ -516,8 +514,14 @@ If `interaction_mode` is `recommended_choice`, present:
 4. recommended side skills
 5. `stop_action`
 
-Use each action's `label` and `description`. If an action has `visibility_reason`, include it in
-the explanation so the user sees why it is showing up now.
+If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
+
+Use each action's `label` and `description`. If an action has `visibility_reason`,
+`why_this_skill`, or `evidence_signal`, include it in the explanation so the user sees
+why it is showing up now.
+
+After the user chooses an action, run the selected `invocation` unless the selected action
+is `stop_action` or has no invocation.
 
 The closeout advisor should be the single place where you surface:
 

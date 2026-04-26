@@ -474,11 +474,45 @@ envelope before falling back to disk. Treat that advisor as the canonical next-s
 Read and summarize:
 
 - `summary`
+- `stage_outcome`
+- `interaction_mode`
+- `requires_user_choice`
 - `primary_next_actions`
 - `alternative_next_actions`
 - `recommended_side_skills`
+- `stop_action`
+- `project_setup_gaps`
 - `default_action_id`
 
+If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
+`summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
+
+If the session is interactive and `interaction_mode` is not `summary_only`, always use
+AskUserQuestion for `/handoff` completion.
+
+If the host cannot display AskUserQuestion, rerun `/handoff` with `--output interactive`
+to print the same runtime-owned chooser in the terminal. Do not reconstruct choices
+from `status.json`.
+
+If `interaction_mode` is `recommended_choice`, present:
+
+1. recommended primary action
+2. other primary actions
+3. alternatives
+4. recommended side skills
+5. `stop_action`
+
+If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
+
+Use each action's `label` and `description`. If an action has `visibility_reason`,
+`why_this_skill`, or `evidence_signal`, include it in the explanation so the user sees
+why it is showing up now.
+
+After the user chooses an action, run the selected `invocation` unless the selected action
+is `stop_action` or has no invocation.
+
 `/handoff` normally has a single canonical continuation into `/build`. Do not manufacture extra
-choices when the advisor has no real branching. In non-interactive sessions, print the advisor
-`summary` and the invocation for the `default_action_id`.
+choices when the advisor has no real branching.
+
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id` when one exists.

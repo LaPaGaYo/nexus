@@ -150,7 +150,8 @@ describe('nexus cli advisor rendering', () => {
     expect(rendered).toContain('   Evidence: verification_matrix');
     expect(rendered).toContain('3. Run installed skill `/brand-audit`');
     expect(rendered).toContain('4. Stop here');
-    expect(rendered).toContain('Run the selected command manually; Nexus will not auto-execute a choice from this renderer.');
+    expect(rendered).toContain('Reply with the number to choose when an agent is mediating this output');
+    expect(rendered).toContain('Nexus will not auto-execute a choice from this renderer without an agent/user action.');
   });
 
   test('blocked frame CLI output includes the advisor summary and suppresses ready-path actions', () => {

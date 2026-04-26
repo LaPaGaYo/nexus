@@ -18,6 +18,7 @@ import { generateConfidenceCalibration } from './confidence';
 import { generateInvokeSkill } from './composition';
 import { generateReviewArmy } from './review-army';
 import { generateNexusRunCommand } from './nexus-run-command';
+import { generateNexusCompletionAdvisor } from './completion-advisor';
 import {
   generateNexusStageOverview,
   generateNexusStageChecklist,
@@ -72,4 +73,5 @@ export const RESOLVERS: Record<string, ResolverFn> = {
   NEXUS_STAGE_ARTIFACT_CONTRACT: generateNexusStageArtifactContract,
   NEXUS_STAGE_ROUTING: generateNexusStageRouting,
   NEXUS_RUN_COMMAND: generateNexusRunCommand,
+  NEXUS_COMPLETION_ADVISOR: generateNexusCompletionAdvisor,
 };

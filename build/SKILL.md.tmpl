@@ -35,41 +35,4 @@ Run:
 {{NEXUS_RUN_COMMAND:build}}
 ```
 
-## Completion Advisor
-
-After `/build` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
-filesystem access, or the field is absent, fall back to `.planning/current/build/completion-advisor.json`.
-If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
-envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
-
-Read and summarize:
-
-- `summary`
-- `stage_outcome`
-- `interaction_mode`
-- `requires_user_choice`
-- `primary_next_actions`
-- `alternative_next_actions`
-- `recommended_side_skills`
-- `recommended_external_skills`
-- `stop_action`
-- `project_setup_gaps`
-- `default_action_id`
-
-If the session is interactive and the advisor exposes multiple meaningful next actions, use
-AskUserQuestion. Present each option using the advisor action's `label` and `description`.
-
-If the host cannot display AskUserQuestion, rerun `/build` with `--output interactive`
-to print the same runtime-owned chooser in the terminal. Do not reconstruct choices
-from `status.json`.
-
-For design-bearing runs, the advisor may surface `/design-review` and `/browse` based on
-`design_impact` and the verification matrix. Keep `/review` first when the build is ready.
-
-If the build is blocked, do not invent your own routing. Follow the advisor:
-
-- stale handoff / route issues -> `/handoff`
-- implementation ambiguity or deeper failure analysis -> `/investigate`
-
-If the session is non-interactive, print the advisor `summary` and the invocation for the
-`default_action_id`.
+{{NEXUS_COMPLETION_ADVISOR:build}}

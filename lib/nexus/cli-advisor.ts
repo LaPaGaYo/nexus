@@ -199,7 +199,8 @@ export function formatCompletionAdvisorForInteractiveCli(advisor: CompletionAdvi
     }
   }
 
-  lines.push('Run the selected command manually; Nexus will not auto-execute a choice from this renderer.');
+  lines.push('Reply with the number to choose when an agent is mediating this output, or run the selected command manually.');
+  lines.push('Nexus will not auto-execute a choice from this renderer without an agent/user action.');
   return lines.join('\n');
 }
 

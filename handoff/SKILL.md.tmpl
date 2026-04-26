@@ -35,21 +35,4 @@ Run:
 {{NEXUS_RUN_COMMAND:handoff}}
 ```
 
-## Completion Advisor
-
-After `/handoff` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
-filesystem access, or the field is absent, fall back to `.planning/current/handoff/completion-advisor.json`.
-If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
-envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
-
-Read and summarize:
-
-- `summary`
-- `primary_next_actions`
-- `alternative_next_actions`
-- `recommended_side_skills`
-- `default_action_id`
-
-`/handoff` normally has a single canonical continuation into `/build`. Do not manufacture extra
-choices when the advisor has no real branching. In non-interactive sessions, print the advisor
-`summary` and the invocation for the `default_action_id`.
+{{NEXUS_COMPLETION_ADVISOR:handoff}}

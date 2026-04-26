@@ -2047,6 +2047,18 @@ describe('Codex generation (--host codex)', () => {
     expect(content).toContain('nexus-config set provider_topology "$_LOCAL_PROVIDER_TOPOLOGY"');
   });
 
+  test('Codex completion advisors render as text choices instead of Claude popups', () => {
+    for (const skillName of ['nexus-frame', 'nexus-plan', 'nexus-build', 'nexus-review', 'nexus-qa', 'nexus-ship', 'nexus-closeout']) {
+      const content = fs.readFileSync(path.join(AGENTS_DIR, skillName, 'SKILL.md'), 'utf-8');
+      expect(content).toContain('render a plain');
+      expect(content).toContain('numbered chooser directly in the Codex CLI conversation');
+      expect(content).toContain('Reply with the number to choose, or reply "stop" to stop here.');
+      expect(content).toContain('After the user replies with a number, run the selected `invocation`');
+      expect(content).not.toContain(`AskUserQuestion for \`/${skillName.replace(/^nexus-/, '')}\` completion`);
+      expect(content).not.toContain('If the host cannot display AskUserQuestion');
+    }
+  });
+
   test('Codex root nexus skill describes blocked governed choice without Claude-only AskUserQuestion wording', () => {
     const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus', 'SKILL.md'), 'utf-8');
     expect(content).toContain("preamble's blocked-governed route choice prompt");
