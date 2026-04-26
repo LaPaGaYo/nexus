@@ -507,7 +507,7 @@ export async function runReviewWithWriteAtomicFile(
         cwd: ctx.cwd,
         stage: 'review',
         statusPath: reviewStatusPath,
-        canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+        canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
         removeWrites: currentAuditPaths,
         traceWrites: buildReviewTraceabilityPayloads(
           ledger.run_id,
@@ -586,7 +586,7 @@ export async function runReviewWithWriteAtomicFile(
       cwd: ctx.cwd,
       stage: 'review',
       statusPath: reviewStatusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
       removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
@@ -653,7 +653,7 @@ export async function runReviewWithWriteAtomicFile(
       cwd: ctx.cwd,
       stage: 'review',
       statusPath: reviewStatusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
       removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
@@ -776,7 +776,7 @@ export async function runReviewWithWriteAtomicFile(
         cwd: ctx.cwd,
         stage: 'review',
         statusPath: reviewStatusPath,
-        canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+        canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
         removeWrites: currentAuditPaths,
         traceWrites: buildReviewTraceabilityPayloads(
           ledger.run_id,
@@ -854,7 +854,7 @@ export async function runReviewWithWriteAtomicFile(
       cwd: ctx.cwd,
       stage: 'review',
       statusPath: reviewStatusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
       removeWrites: currentAuditPaths,
       traceWrites: buildReviewTraceabilityPayloads(
         ledger.run_id,
@@ -1087,7 +1087,7 @@ export async function runReviewWithWriteAtomicFile(
             { path: advisoryDispositionPath, content: JSON.stringify(advisoryDispositionRecord, null, 2) + '\n' },
           ]
         : []),
-      buildCompletionAdvisorWrite(completionAdvisor),
+      buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
     ],
     removeWrites: [
       ...(learningCandidatesRecord ? [] : [learningCandidatesPath]),

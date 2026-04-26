@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Completion advisors now keep verification-matrix context when surfacing external installed skills, `/build` elevates design/browser follow-ons into `recommended_choice`, and `--output interactive` renders a host-independent terminal chooser for stage-completion decisions.
+
 ## Nexus Patch Release Index
 
 The initial Nexus baseline is recorded below as `v1.0.0`. Incremental Nexus

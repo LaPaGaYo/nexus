@@ -417,7 +417,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       statusPath,
       canonicalWrites: [
         buildRequestWrite,
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: [
@@ -553,7 +553,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       statusPath,
       canonicalWrites: [
         buildRequestWrite,
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildBuildStageTraceabilityPayloads(
@@ -642,7 +642,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       statusPath,
       canonicalWrites: [
         buildRequestWrite,
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildBuildStageTraceabilityPayloads(
@@ -752,7 +752,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       statusPath,
       canonicalWrites: [
         buildRequestWrite,
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildBuildStageTraceabilityPayloads(
@@ -848,7 +848,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
       statusPath,
       canonicalWrites: [
         buildRequestWrite,
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildBuildStageTraceabilityPayloads(
@@ -957,7 +957,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     canonicalWrites: [
       buildRequestWrite,
       buildResultWrite,
-      buildCompletionAdvisorWrite(completionAdvisor),
+      buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
       ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
     ],
     traceWrites: buildBuildStageTraceabilityPayloads(

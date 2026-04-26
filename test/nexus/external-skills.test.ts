@@ -108,4 +108,28 @@ describe('external installed skill discovery and ranking', () => {
     });
     expect(ranked[0]?.visibility_reason).toContain('design');
   });
+
+  test('deduplicates ranked external skills by command surface across install roots', () => {
+    const first = classifyInstalledSkill({
+      name: 'brand-audit',
+      description: 'External visual design review and brand quality audit.',
+      path: '/tmp/root-a/brand-audit/SKILL.md',
+      source_root: '/tmp/root-a',
+    });
+    const duplicate = {
+      ...first,
+      path: '/tmp/root-b/brand-audit/SKILL.md',
+      source_root: '/tmp/root-b',
+    };
+
+    const ranked = rankExternalInstalledSkillsForAdvisor({
+      stage: 'qa',
+      verification_matrix: matrixWithSignals(),
+      skills: [first, duplicate],
+      existing_surfaces: ['/design-review'],
+      limit: 3,
+    });
+
+    expect(ranked.map((skill) => skill.surface)).toEqual(['/brand-audit']);
+  });
 });

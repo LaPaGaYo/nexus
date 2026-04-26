@@ -363,7 +363,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       stage: 'qa',
       statusPath,
       canonicalWrites: [
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildQaTraceabilityPayloads(
@@ -427,7 +427,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       stage: 'qa',
       statusPath,
       canonicalWrites: [
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildQaTraceabilityPayloads(
@@ -491,7 +491,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       stage: 'qa',
       statusPath,
       canonicalWrites: [
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
         ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       ],
       traceWrites: buildQaTraceabilityPayloads(
@@ -603,7 +603,7 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     stage: 'qa',
     statusPath,
     canonicalWrites: [
-      buildCompletionAdvisorWrite(completionAdvisor),
+      buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
       ...(reviewAdvisoryDispositionWrite ? [reviewAdvisoryDispositionWrite] : []),
       { path: reportPath, content: `${reportMarkdown}\n` },
       ...(designVerificationMarkdown

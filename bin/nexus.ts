@@ -2,21 +2,23 @@
 import { getRuntimeNexusAdapters } from '../lib/nexus/adapters/registry';
 import {
   buildCliErrorEnvelope,
+  formatCompletionAdvisorForInteractiveCli,
   formatCliCompletionContextForCli,
   resolveCliCompletionContext,
 } from '../lib/nexus/cli-advisor';
 import { resolveInvocation } from '../lib/nexus/commands/index';
 import { defaultExecutionSelection } from '../lib/nexus/execution-topology';
 import { resolveRuntimeInvocation } from '../lib/nexus/runtime-invocation';
+import type { RuntimeOutputMode } from '../lib/nexus/runtime-invocation';
 import { resolveRuntimeCwd } from '../lib/nexus/runtime-cwd';
 import type { CanonicalCommandId } from '../lib/nexus/types';
 
 const cwd = resolveRuntimeCwd();
 let command: CanonicalCommandId | null = null;
-let outputMode: 'json-with-advisor' | 'json' | 'human' = 'json-with-advisor';
+let outputMode: RuntimeOutputMode = 'json-with-advisor';
 
 function emitSuccess(payload: unknown, advisorSummary: string | null): void {
-  if (outputMode === 'human') {
+  if (outputMode === 'human' || outputMode === 'interactive') {
     if (advisorSummary) {
       console.log(advisorSummary);
       return;
@@ -32,7 +34,7 @@ function emitSuccess(payload: unknown, advisorSummary: string | null): void {
 }
 
 function emitFailure(message: string, payload: unknown, advisorSummary: string | null): void {
-  if (outputMode === 'human') {
+  if (outputMode === 'human' || outputMode === 'interactive') {
     console.log(message);
     if (advisorSummary) {
       console.log(`\n${advisorSummary}`);
@@ -46,7 +48,18 @@ function emitFailure(message: string, payload: unknown, advisorSummary: string |
       console.error(`\n${advisorSummary}`);
     }
   }
+
   console.log(JSON.stringify(payload, null, 2));
+}
+
+function formatCompletionContextForOutput(
+  context: ReturnType<typeof resolveCliCompletionContext>,
+): string | null {
+  if (outputMode === 'interactive' && context.advisor) {
+    return formatCompletionAdvisorForInteractiveCli(context.advisor);
+  }
+
+  return formatCliCompletionContextForCli(context);
 }
 
 try {
@@ -64,7 +77,7 @@ try {
     review_advisory_disposition_override: runtimeInvocation.reviewAdvisoryDispositionOverride,
   });
 
-  const advisorSummary = formatCliCompletionContextForCli(
+  const advisorSummary = formatCompletionContextForOutput(
     resolveCliCompletionContext(cwd, invocation.command, {
       completionAdvisor: result.completion_advisor ?? null,
       status: result.status,
@@ -74,7 +87,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   const completionContext = command ? resolveCliCompletionContext(cwd, command) : null;
-  const advisorSummary = completionContext ? formatCliCompletionContextForCli(completionContext) : null;
+  const advisorSummary = completionContext ? formatCompletionContextForOutput(completionContext) : null;
   emitFailure(message, buildCliErrorEnvelope(message, completionContext, command), advisorSummary);
   process.exit(1);
 }

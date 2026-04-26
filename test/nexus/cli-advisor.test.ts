@@ -5,6 +5,7 @@ import { join } from 'path';
 import {
   buildCliErrorEnvelope,
   formatCompletionAdvisorForCli,
+  formatCompletionAdvisorForInteractiveCli,
   resolveCliCompletionContext,
 } from '../../lib/nexus/cli-advisor';
 import type { CompletionAdvisorRecord } from '../../lib/nexus/types';
@@ -83,6 +84,43 @@ describe('nexus cli advisor rendering', () => {
     expect(rendered).toContain('Run `/plan-design-review`');
     expect(rendered).toContain('Project/setup gaps:');
     expect(rendered).toContain('Design contract is still missing.');
+  });
+
+  test('formats advisor records into a host-independent interactive chooser', () => {
+    const rendered = formatCompletionAdvisorForInteractiveCli(sampleAdvisor({
+      recommended_side_skills: [
+        {
+          id: 'run_plan_design_review',
+          kind: 'support_skill',
+          surface: '/plan-design-review',
+          invocation: '/plan-design-review',
+          label: 'Run `/plan-design-review`',
+          description: 'Tighten the design contract before execution.',
+          recommended: false,
+          visibility_reason: 'The run is design-bearing.',
+        },
+      ],
+      recommended_external_skills: [
+        {
+          id: 'run_external_brand_audit',
+          kind: 'external_installed_skill',
+          surface: '/brand-audit',
+          invocation: '/brand-audit',
+          label: 'Run installed skill `/brand-audit`',
+          description: 'External visual design audit.',
+          recommended: false,
+          visibility_reason: 'Installed skill matches /frame because it is tagged design.',
+        },
+      ],
+    }));
+
+    expect(rendered).toContain('Nexus interactive chooser: /frame');
+    expect(rendered).toContain('Default: 1');
+    expect(rendered).toContain('1. Run `/plan` (recommended)');
+    expect(rendered).toContain('2. Run `/plan-design-review`');
+    expect(rendered).toContain('3. Run installed skill `/brand-audit`');
+    expect(rendered).toContain('4. Stop here');
+    expect(rendered).toContain('Run the selected command manually; Nexus will not auto-execute a choice from this renderer.');
   });
 
   test('blocked frame CLI output includes the advisor summary and suppresses ready-path actions', () => {
@@ -177,6 +215,33 @@ describe('nexus cli advisor rendering', () => {
       expect(result.exitCode).toBe(1);
       expect(stdout).toContain('Missing required input artifact: docs/product/idea-brief.md');
       expect(stdout).toContain('Completion advisor: /frame');
+      expect(stdout).not.toContain('"ok": false');
+      expect(result.stderr.toString()).toBe('');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('interactive output mode prints a chooser to stdout instead of json', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'nexus-cli-advisor-'));
+
+    try {
+      mkdirSync(join(repo, '.planning'), { recursive: true });
+
+      const result = Bun.spawnSync(['bun', 'run', SCRIPT, 'frame', '--output', 'interactive'], {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          NEXUS_PROJECT_CWD: repo,
+        },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+
+      const stdout = result.stdout.toString();
+      expect(result.exitCode).toBe(1);
+      expect(stdout).toContain('Missing required input artifact: docs/product/idea-brief.md');
+      expect(stdout).toContain('Nexus interactive chooser: /frame');
       expect(stdout).not.toContain('"ok": false');
       expect(result.stderr.toString()).toBe('');
     } finally {

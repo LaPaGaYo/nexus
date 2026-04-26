@@ -303,6 +303,7 @@ export function rankExternalInstalledSkillsForAdvisor(input: {
   limit?: number;
 }): CompletionAdvisorActionRecord[] {
   const existing = new Set(input.existing_surfaces);
+  const emitted = new Set<string>();
   return input.skills
     .filter((skill) => skill.namespace === 'external_installed')
     .filter((skill) => !existing.has(skill.surface))
@@ -312,6 +313,13 @@ export function rankExternalInstalledSkillsForAdvisor(input: {
     }))
     .filter((ranked) => ranked.score >= 2)
     .sort((a, b) => b.score - a.score || a.skill.name.localeCompare(b.skill.name))
+    .filter((ranked) => {
+      if (emitted.has(ranked.skill.surface)) {
+        return false;
+      }
+      emitted.add(ranked.skill.surface);
+      return true;
+    })
     .slice(0, input.limit ?? 3)
     .map(({ skill }) => externalAction(skill, input.stage, input.verification_matrix));
 }

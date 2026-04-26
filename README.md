@@ -337,6 +337,11 @@ next action, `interaction_mode`, any required user choice, a `stop_action`,
 project setup gaps, recommended side skills, and the short descriptions that
 should back stage-completion prompts.
 
+Direct CLI users can also run any stage with `--output interactive` to print a
+host-independent chooser from the same advisor record. That path is for shells
+or hosts that cannot show `AskUserQuestion`; it does not auto-execute the
+selected command.
+
 Design-bearing runs use that advisor to surface design-aware follow-on work.
 That means `/plan-design-review`, `/design-review`, and `/browse` appear when
 `design_impact` and the verification matrix say they matter, while compatibility

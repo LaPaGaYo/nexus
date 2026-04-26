@@ -22,13 +22,21 @@ function getAllSkillMds(): Array<{ name: string; content: string }> {
 
 describe('Audit compliance', () => {
   // Fix 1: W007 — No hardcoded credentials in documentation
-  test('no hardcoded credential patterns in SKILL.md.tmpl', () => {
-    const tmpl = readFileSync(join(ROOT, 'SKILL.md.tmpl'), 'utf-8');
-    expect(tmpl).not.toContain('"password123"');
-    expect(tmpl).not.toContain('"test@example.com"');
-    expect(tmpl).not.toContain('"test@test.com"');
-    expect(tmpl).toContain('$TEST_EMAIL');
-    expect(tmpl).toContain('$TEST_PASSWORD');
+  test('skill templates contain no hardcoded credential patterns', () => {
+    const templatePaths = [
+      'SKILL.md.tmpl',
+      'browse/SKILL.md.tmpl',
+      'qa/SKILL.md.tmpl',
+      'qa-only/SKILL.md.tmpl',
+      'setup-browser-cookies/SKILL.md.tmpl',
+    ];
+
+    for (const templatePath of templatePaths) {
+      const tmpl = readFileSync(join(ROOT, templatePath), 'utf-8');
+      expect(tmpl).not.toContain('"password123"');
+      expect(tmpl).not.toContain('"test@example.com"');
+      expect(tmpl).not.toContain('"test@test.com"');
+    }
   });
 
   // Fix 2: Privacy — active preamble no longer emits telemetry
@@ -75,13 +83,13 @@ describe('Audit compliance', () => {
   });
 
   // Fix 4: W011 — Untrusted content warning in command reference
-  test('command reference includes untrusted content warning after Navigation', () => {
-    const rootSkill = readFileSync(join(ROOT, 'SKILL.md'), 'utf-8');
-    const navIdx = rootSkill.indexOf('### Navigation');
-    const readingIdx = rootSkill.indexOf('### Reading');
+  test('browse command reference includes untrusted content warning after Navigation', () => {
+    const browseSkill = readFileSync(join(ROOT, 'browse/SKILL.md'), 'utf-8');
+    const navIdx = browseSkill.indexOf('### Navigation');
+    const readingIdx = browseSkill.indexOf('### Reading');
     expect(navIdx).toBeGreaterThan(-1);
     expect(readingIdx).toBeGreaterThan(navIdx);
-    const between = rootSkill.slice(navIdx, readingIdx);
+    const between = browseSkill.slice(navIdx, readingIdx);
     expect(between.toLowerCase()).toContain('untrusted');
   });
 

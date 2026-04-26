@@ -5,7 +5,7 @@ import {
   type ReviewAdvisoryDisposition,
 } from './types';
 
-export const RUNTIME_OUTPUT_MODES = ['json-with-advisor', 'json', 'human'] as const;
+export const RUNTIME_OUTPUT_MODES = ['json-with-advisor', 'json', 'human', 'interactive'] as const;
 export type RuntimeOutputMode = (typeof RUNTIME_OUTPUT_MODES)[number];
 
 function parseContinuationMode(value: string | undefined | null): ContinuationMode | null {

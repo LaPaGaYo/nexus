@@ -378,7 +378,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'closeout',
       statusPath: closeoutStatusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       removeWrites: [
         closeoutLearningsMarkdownPath(),
         closeoutLearningsJsonPath(),
@@ -543,7 +543,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
           content: JSON.stringify(followOnEvidence, null, 2) + '\n',
         },
         ...bootstrapWrites,
-        buildCompletionAdvisorWrite(completionAdvisor),
+        buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd }),
       ],
       removeWrites: closeoutLearningRecord
         ? []
@@ -618,7 +618,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'closeout',
       statusPath: closeoutStatusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       removeWrites: [
         closeoutLearningsMarkdownPath(),
         closeoutLearningsJsonPath(),

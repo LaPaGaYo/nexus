@@ -430,7 +430,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'ship',
       statusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
       removeWrites: [learningCandidatesPath],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
@@ -494,7 +494,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'ship',
       statusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd })],
       removeWrites: [learningCandidatesPath],
       traceWrites: buildShipStageTraceabilityPayloads(
         ledger.run_id,
@@ -602,7 +602,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
       ...(learningCandidatesRecord
         ? [{ path: learningCandidatesPath, content: JSON.stringify(learningCandidatesRecord, null, 2) + '\n' }]
         : []),
-      buildCompletionAdvisorWrite(completionAdvisor),
+      buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
     ],
     removeWrites: learningCandidatesRecord ? [] : [learningCandidatesPath],
     traceWrites: buildShipStageTraceabilityPayloads(

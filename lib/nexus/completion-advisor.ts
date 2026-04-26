@@ -11,6 +11,7 @@ import type {
   InstalledSkillRecord,
 } from './types';
 import { discoverExternalInstalledSkills, rankExternalInstalledSkillsForAdvisor } from './external-skills';
+import { readVerificationMatrix } from './verification-matrix';
 
 const HIDDEN_COMPAT_ALIASES = ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'] as const;
 const HIDDEN_UTILITY_SKILLS = ['/careful', '/freeze', '/guard', '/unfreeze', '/nexus-upgrade'] as const;
@@ -161,6 +162,13 @@ export function attachExternalInstalledSkillRecommendations(
       ...ranked,
     ],
   };
+}
+
+export interface CompletionAdvisorWriteOptions {
+  verificationMatrix?: VerificationMatrixRecord | null;
+  externalSkills?: InstalledSkillRecord[];
+  cwd?: string;
+  home?: string;
 }
 
 export function buildFrameCompletionAdvisor(
@@ -460,9 +468,11 @@ export function buildBuildCompletionAdvisor(
     generatedAt,
     'Build is ready. Formal review is the canonical next stage.',
     {
+      interaction_mode: sideSkills.length > 0 ? 'recommended_choice' : 'summary_only',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       recommended_side_skills: sideSkills,
+      stop_action: sideSkills.length > 0 ? stopAction('build') : null,
     },
   );
 }
@@ -986,8 +996,17 @@ export function buildCloseoutCompletionAdvisor(
   );
 }
 
-export function buildCompletionAdvisorWrite(record: CompletionAdvisorRecord): { path: string; content: string } {
-  const enriched = attachExternalInstalledSkillRecommendations(record);
+export function buildCompletionAdvisorWrite(
+  record: CompletionAdvisorRecord,
+  options: CompletionAdvisorWriteOptions = {},
+): { path: string; content: string } {
+  const cwd = options.cwd ?? process.env.NEXUS_PROJECT_CWD ?? process.cwd();
+  const verificationMatrix = options.verificationMatrix ?? readVerificationMatrix(cwd);
+  const externalSkills = options.externalSkills ?? discoverExternalInstalledSkills({
+    cwd,
+    home: options.home,
+  });
+  const enriched = attachExternalInstalledSkillRecommendations(record, verificationMatrix, externalSkills);
   Object.assign(record, enriched);
   return {
     path: `.planning/current/${record.stage}/completion-advisor.json`,

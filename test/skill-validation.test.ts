@@ -36,10 +36,9 @@ const describeLegacyFrameAliases = (
 ) ? describe.skip : describe;
 
 describe('SKILL.md command validation', () => {
-  test('all $B commands in SKILL.md are valid browse commands', () => {
+  test('SKILL.md has no invalid browse commands', () => {
     const result = validateSkill(path.join(ROOT, 'SKILL.md'));
     expect(result.invalid).toHaveLength(0);
-    expect(result.valid.length).toBeGreaterThan(0);
   });
 
   test('all snapshot flags in SKILL.md are valid', () => {

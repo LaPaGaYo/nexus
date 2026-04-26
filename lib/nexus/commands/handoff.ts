@@ -275,7 +275,10 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'handoff',
       statusPath,
-      canonicalWrites: [...canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [
+        ...canonicalWrites,
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
+      ],
       traceWrites: buildCcbTraceabilityPayloads(
         'handoff',
         ledger.run_id,
@@ -310,7 +313,10 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
     cwd: ctx.cwd,
     stage: 'handoff',
     statusPath,
-    canonicalWrites: [...canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
+    canonicalWrites: [
+      ...canonicalWrites,
+      buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
+    ],
     traceWrites: buildCcbTraceabilityPayloads(
       'handoff',
       ledger.run_id,

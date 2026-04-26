@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  buildBuildCompletionAdvisor,
   buildCloseoutCompletionAdvisor,
+  buildCompletionAdvisorWrite,
   buildFrameCompletionAdvisor,
   buildHandoffCompletionAdvisor,
   buildPlanCompletionAdvisor,
@@ -200,6 +202,53 @@ describe('nexus completion advisor', () => {
         visibility_reason: 'The verification matrix marks this run as design-bearing.',
       }),
     ]);
+  });
+
+  test('build advisor uses recommended choice mode when design follow-ups are surfaced', () => {
+    const advisor = buildBuildCompletionAdvisor(
+      readyStatus('build'),
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    expect(advisor.interaction_mode).toBe('recommended_choice');
+    expect(advisor.default_action_id).toBe('run_review');
+    expect(advisor.primary_next_actions).toEqual([
+      expect.objectContaining({ surface: '/review' }),
+    ]);
+    expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
+      expect.objectContaining({ surface: '/design-review' }),
+      expect.objectContaining({ surface: '/browse' }),
+    ]));
+  });
+
+  test('completion advisor write preserves verification-matrix context for external installed skill ranking', () => {
+    const advisor = buildQaCompletionAdvisor(
+      readyStatus('qa'),
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    const write = buildCompletionAdvisorWrite(advisor, {
+      verificationMatrix: verificationMatrix('material'),
+      externalSkills: [
+        {
+          name: 'brand-audit',
+          surface: '/brand-audit',
+          description: 'External brand audit for design-bearing interface work.',
+          path: '/tmp/brand-audit/SKILL.md',
+          source_root: '/tmp',
+          namespace: 'external_installed',
+          tags: ['design', 'design-review'],
+        },
+      ],
+    });
+    const persisted = JSON.parse(write.content) as CompletionAdvisorRecord;
+
+    expect(persisted.recommended_external_skills?.map((action) => action.surface)).toEqual([
+      '/brand-audit',
+    ]);
+    expect(persisted.recommended_external_skills?.[0].visibility_reason).toContain('design');
   });
 
   test('blocked front-half advisors do not surface ready-path actions', () => {

@@ -105,7 +105,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: [],
       status,
       mirrorWorkspace: ledger.execution.workspace,
@@ -132,7 +132,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,
@@ -155,7 +155,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,
@@ -189,7 +189,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [...normalized.canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [...normalized.canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,
@@ -233,7 +233,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: buildPmTraceabilityPayloads(
         'frame',
         ledger.run_id,

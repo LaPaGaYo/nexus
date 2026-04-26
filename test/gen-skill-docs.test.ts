@@ -538,6 +538,7 @@ describe('gen-skill-docs', () => {
     expect(frameContent).toContain('stop_action');
     expect(frameContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(frameContent).toContain('If the session is interactive and `interaction_mode` is not `summary_only`');
+    expect(frameContent).toContain('--output interactive');
     expect(frameContent).toContain('/plan-design-review');
     expect(frameContent).toContain('/design-consultation');
     expect(frameContent).toContain('suppressed_surfaces');
@@ -550,6 +551,7 @@ describe('gen-skill-docs', () => {
     expect(planContent).toContain('stop_action');
     expect(planContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(planContent).toContain('If the session is interactive and `interaction_mode` is not `summary_only`');
+    expect(planContent).toContain('--output interactive');
     expect(planContent).toContain('/plan-design-review');
     expect(planContent).toContain('design_impact');
     expect(planContent).toContain('verification matrix');
@@ -564,6 +566,7 @@ describe('gen-skill-docs', () => {
     expect(reviewContent).toContain('interaction_mode');
     expect(reviewContent).toContain('stop_action');
     expect(reviewContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(reviewContent).toContain('--output interactive');
     expect(reviewContent).toContain('Do not reconstruct advisory logic from `status.json`.');
     expect(reviewContent).toContain('AskUserQuestion');
     expect(reviewContent).toContain('/cso');
@@ -582,6 +585,9 @@ describe('gen-skill-docs', () => {
     expect(buildContent).toContain('.planning/current/build/completion-advisor.json');
     expect(buildContent).toContain('prefer the runtime JSON field `completion_advisor`');
     expect(buildContent).toContain('completion_context.completion_advisor');
+    expect(buildContent).toContain('interaction_mode');
+    expect(buildContent).toContain('recommended_external_skills');
+    expect(buildContent).toContain('--output interactive');
     expect(buildContent).toContain('AskUserQuestion');
     expect(buildContent).toContain('/review');
     expect(buildContent).toContain('/design-review');
@@ -597,6 +603,7 @@ describe('gen-skill-docs', () => {
     expect(qaContent).toContain('interaction_mode');
     expect(qaContent).toContain('stop_action');
     expect(qaContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(qaContent).toContain('--output interactive');
     expect(qaContent).toContain('/design-review');
     expect(qaContent).toContain('/benchmark');
     expect(qaContent).toContain('/browse');
@@ -615,6 +622,7 @@ describe('gen-skill-docs', () => {
     expect(shipContent).toContain('interaction_mode');
     expect(shipContent).toContain('stop_action');
     expect(shipContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(shipContent).toContain('--output interactive');
     expect(shipContent).toContain('/closeout');
     expect(shipContent).toContain('/land-and-deploy');
     expect(shipContent).toContain('/setup-deploy');
@@ -629,6 +637,7 @@ describe('gen-skill-docs', () => {
     expect(closeoutContent).toContain('interaction_mode');
     expect(closeoutContent).toContain('stop_action');
     expect(closeoutContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(closeoutContent).toContain('--output interactive');
     expect(closeoutContent).toContain('/discover');
     expect(closeoutContent).toContain('/land-and-deploy');
     expect(closeoutContent).toContain('/retro');

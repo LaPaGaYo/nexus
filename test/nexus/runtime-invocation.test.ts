@@ -44,6 +44,12 @@ describe('resolveRuntimeInvocation', () => {
     expect(resolved.outputMode).toBe('human');
   });
 
+  test('parses interactive output mode from the CLI flag', () => {
+    const resolved = resolveRuntimeInvocation(['qa', '--output', 'interactive'], {});
+
+    expect(resolved.outputMode).toBe('interactive');
+  });
+
   test('prefers the CLI output mode over NEXUS_OUTPUT_MODE', () => {
     const resolved = resolveRuntimeInvocation(
       ['qa', '--output', 'json'],

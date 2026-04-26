@@ -116,7 +116,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'plan',
       statusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
@@ -188,7 +188,10 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'plan',
       statusPath,
-      canonicalWrites: [...normalized.canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [
+        ...normalized.canonicalWrites,
+        buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
+      ],
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,
@@ -250,7 +253,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       cwd: ctx.cwd,
       stage: 'plan',
       statusPath,
-      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor)],
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
       traceWrites: buildGsdTraceabilityPayloads(
         'plan',
         runId,

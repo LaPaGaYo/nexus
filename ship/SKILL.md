@@ -481,6 +481,10 @@ If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the 
 If the session is interactive and `interaction_mode` is not `summary_only`, Always use
 AskUserQuestion for `/ship` completion.
 
+If the host cannot display AskUserQuestion, rerun `/ship` with `--output interactive`
+to print the same runtime-owned chooser in the terminal. Do not reconstruct choices
+from `status.json`.
+
 If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
 
 If `interaction_mode` is `recommended_choice`, present:
