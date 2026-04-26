@@ -359,7 +359,7 @@ function branchExists(repoRoot: string, branch: string): boolean {
 }
 
 function freshRunBranch(runId: string): string {
-  return `codex/${runId}`;
+  return `branch/${runId}`;
 }
 
 function isRunOwnedWorkspace(workspace: WorkspaceRecord): boolean {
@@ -367,6 +367,7 @@ function isRunOwnedWorkspace(workspace: WorkspaceRecord): boolean {
     && (
       workspace.source === 'allocated:fresh_run'
       || workspace.run_id !== undefined
+      || workspace.branch?.startsWith('branch/run-') === true
       || workspace.branch?.startsWith('codex/run-') === true
     );
 }

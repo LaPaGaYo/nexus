@@ -286,7 +286,7 @@ describe('nexus workspace substrate', () => {
       expect(workspace).toMatchObject({
         path: realpathSync.native(join(cwd, '.nexus-worktrees', 'run-2026-04-13T00-00-00-000Z')),
         kind: 'worktree',
-        branch: 'codex/run-2026-04-13T00-00-00-000Z',
+        branch: 'branch/run-2026-04-13T00-00-00-000Z',
         source: 'allocated:fresh_run',
         run_id: 'run-2026-04-13T00-00-00-000Z',
         retirement_state: 'active',
@@ -308,7 +308,7 @@ describe('nexus workspace substrate', () => {
       expect(workspace).toMatchObject({
         path: realpathSync.native(join(cwd, '.nexus-worktrees', 'run-2026-04-13T00-00-00-001Z')),
         kind: 'worktree',
-        branch: 'codex/run-2026-04-13T00-00-00-001Z',
+        branch: 'branch/run-2026-04-13T00-00-00-001Z',
         source: 'allocated:fresh_run',
         run_id: 'run-2026-04-13T00-00-00-001Z',
         retirement_state: 'active',

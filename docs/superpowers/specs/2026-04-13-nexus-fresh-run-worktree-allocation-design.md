@@ -149,7 +149,11 @@ Default source branch:
 
 Default branch naming:
 
-- `codex/run-<timestamp-or-slug>`
+- `branch/run-<timestamp-or-slug>`
+
+Legacy compatibility:
+
+- existing `codex/run-*` workspaces remain recognized as run-owned workspaces
 
 Default worktree location:
 
@@ -236,7 +240,7 @@ The run ledger and stage status records should carry:
   "workspace": {
     "path": "/repo/.nexus-worktrees/run-2026-04-13-phase-2",
     "kind": "worktree",
-    "branch": "codex/run-2026-04-13-phase-2",
+    "branch": "branch/run-2026-04-13-phase-2",
     "source": "allocated:fresh_run",
     "run_id": "run-2026-04-13T22-14-17-306Z",
     "retirement_state": "active"

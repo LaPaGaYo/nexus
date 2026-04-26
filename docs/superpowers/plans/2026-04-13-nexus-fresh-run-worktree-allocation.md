@@ -175,7 +175,7 @@ Add tests that prove:
 ```ts
 test('allocates a fresh run workspace under .nexus-worktrees for a new run', async () => {
   // close out one run, start discover again
-  // expect a new run_id, a new worktree path, and a new codex/run-* branch
+  // expect a new run_id, a new worktree path, and a new branch/run-* branch
 });
 
 test('does not reuse prior phase feature/implement worktree for a fresh run', async () => {
@@ -197,7 +197,7 @@ export function resolveRepositoryPrimaryBranch(repoRoot: string): string {
 }
 
 export function allocateFreshRunWorkspace(repoRoot: string, runId: string): WorkspaceRecord {
-  // create codex/run-<slug> from primary branch
+  // create branch/run-<slug> from primary branch
   // git worktree add <repo>/.nexus-worktrees/<slug> -b <branch> <primary>
   // return WorkspaceRecord with source=allocated:fresh_run, run_id, retirement_state=active
 }

@@ -913,7 +913,7 @@ describe('nexus discover/frame PM seams', () => {
           workspace: {
             path: realpathSync.native(join(cwd, '.nexus-worktrees', nextLedger.run_id)),
             kind: 'worktree',
-            branch: `codex/${nextLedger.run_id}`,
+            branch: `branch/${nextLedger.run_id}`,
             source: 'allocated:fresh_run',
             run_id: nextLedger.run_id,
             retirement_state: 'active',
@@ -1241,7 +1241,7 @@ describe('nexus discover/frame PM seams', () => {
       expect(nextLedger.execution.workspace).toMatchObject({
         path: realpathSync.native(join(cwd, '.nexus-worktrees', nextLedger.run_id)),
         kind: 'worktree',
-        branch: `codex/${nextLedger.run_id}`,
+        branch: `branch/${nextLedger.run_id}`,
         source: 'allocated:fresh_run',
         run_id: nextLedger.run_id,
         retirement_state: 'active',

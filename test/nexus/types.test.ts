@@ -145,7 +145,7 @@ describe('nexus types', () => {
     const workspace: WorkspaceRecord = {
       path: '/tmp/nexus-worktree',
       kind: 'worktree',
-      branch: 'codex/run-1',
+      branch: 'branch/run-1',
       source: 'allocated:fresh_run',
       run_id: 'run-1',
       retirement_state: 'active',
@@ -333,7 +333,7 @@ describe('nexus types', () => {
     const workspace: WorkspaceRecord = {
       path: '/Users/henry/Documents/nexus/.nexus-worktrees/run-1',
       kind: 'worktree',
-      branch: 'codex/run-1',
+      branch: 'branch/run-1',
       source: 'allocated:fresh_run',
       run_id: 'run-1',
       retirement_state: 'active',
