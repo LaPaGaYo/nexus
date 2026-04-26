@@ -560,6 +560,12 @@ plan's living status.
 
 # /connect-chrome — Launch Real Chrome with Side Panel
 
+## Overview
+
+This skill connects Nexus browser automation to a visible Playwright Chromium
+window with the Nexus Side Panel, so users can watch and steer browser QA in
+real time.
+
 Connect Claude to a visible Chrome window with the Nexus extension auto-loaded.
 You see every click, every navigation, every action in real time.
 
@@ -776,3 +782,14 @@ Tell the user:
 
 Then proceed with whatever the user asked to do. If they didn't specify a task,
 ask what they'd like to test or browse.
+
+## Output Contract
+
+Return a connection report:
+
+- Browser mode and `$B status` result.
+- Side Panel port, expected to be `34567`.
+- Extension path or `NOT FOUND`.
+- User confirmation state: Side Panel visible, extension troubleshooting needed, or connection failed.
+
+Do not claim the browser is connected until `$B status` confirms headed mode.

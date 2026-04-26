@@ -560,6 +560,12 @@ plan's living status.
 
 # Systematic Debugging
 
+## Overview
+
+This skill is the root-cause debugging path for Nexus. It exists to prevent
+symptom fixes by requiring evidence, hypothesis testing, and regression coverage
+before implementation.
+
 ## Iron Law
 
 **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**

@@ -550,6 +550,11 @@ plan's living status.
 
 # /design-html: Pretext-Native HTML Engine
 
+## Overview
+
+This skill turns an approved design direction into production-quality HTML and
+downstream exports while preserving the approved visual system.
+
 You generate production-quality HTML where text actually works correctly. Not CSS
 approximations. Computed layout via Pretext. Text reflows on resize, heights adjust
 to content, cards size themselves, chat bubbles shrinkwrap, editorial spreads flow

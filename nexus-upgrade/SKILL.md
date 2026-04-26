@@ -15,6 +15,12 @@ allowed-tools:
 
 # /nexus-upgrade
 
+## Overview
+
+This skill upgrades an installed, managed Nexus release from a published release
+bundle. It is intentionally release-channel based: install tagged Nexus bundles,
+not arbitrary branch heads.
+
 Upgrade Nexus to the latest published release and show what's new.
 
 `/nexus-upgrade` follows the release contract resolved by `nexus-update-check`.
@@ -134,3 +140,15 @@ When invoked directly as `/nexus-upgrade`:
 2. If the output is `UPGRADE_AVAILABLE <old> <new>`, follow Steps 1-4 above.
 
 3. If there is no output, tell the user they are already on the latest version.
+
+## Verification Evidence
+
+Before reporting completion, verify the installed release state:
+
+```bash
+"$NEXUS_ROOT/bin/nexus-version" 2>/dev/null || cat "$NEXUS_ROOT/VERSION" 2>/dev/null
+cat "$NEXUS_ROOT/.nexus-install.json" 2>/dev/null
+```
+
+If the upgrade ran, the reported version must match the installed release tag.
+If no upgrade was available, the fresh update check output is the evidence.

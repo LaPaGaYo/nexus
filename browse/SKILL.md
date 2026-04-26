@@ -762,3 +762,15 @@ $B prettyscreenshot --cleanup --scroll-to ".pricing" --width 1440 ~/Desktop/hero
 | `state save|load <name>` | Save/load browser state (cookies + URLs) |
 | `status` | Health check |
 | `stop` | Shutdown server |
+
+## Output Contract
+
+Every browser QA run should return evidence, not just a narrative:
+
+- URL or route tested.
+- Commands run or the user flow exercised.
+- Final page state assertion, console/network summary, and screenshot path when visual evidence was captured.
+- Any blocker requiring `/connect-chrome`, `/setup-browser-cookies`, or user handoff.
+
+For screenshots, always read the generated PNG so the user can inspect the actual
+browser evidence.

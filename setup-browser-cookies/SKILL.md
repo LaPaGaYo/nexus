@@ -441,6 +441,12 @@ plan's living status.
 
 # Setup Browser Cookies
 
+## Overview
+
+This skill imports authenticated browser session cookies into the Nexus browse
+session so QA can test logged-in flows without asking the user to re-authenticate
+inside headless Chromium.
+
 Import logged-in sessions from your real Chromium browser into the headless browse session.
 
 ## CDP mode check
@@ -540,3 +546,13 @@ Show the user a summary of imported cookies (domain counts).
 - Cookie picker is served on the same port as the browse server (no extra process)
 - Only domain names and cookie counts are shown in the UI — no cookie values are exposed
 - The browse session persists cookies between commands, so imported cookies work immediately
+
+## Output Contract
+
+Return a concise cookie import report:
+
+- Browser mode: CDP already connected, picker import, or direct domain import.
+- Imported domains and cookie counts from `$B cookies`.
+- Any dependency or permission issue that blocked import.
+
+Never print cookie values. Only report domains and counts.

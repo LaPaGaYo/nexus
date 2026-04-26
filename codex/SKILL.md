@@ -747,6 +747,18 @@ findings_fixed (count of findings that were addressed/fixed before shipping).
 rm -f "$TMPERR"
 ```
 
+## Output Contract
+
+Every `/codex` run must return the selected mode, the Codex output, and the
+resulting decision or handoff:
+
+- Review mode: `GATE: PASS` or `GATE: FAIL`, finding count, token/cost summary when available, and persisted review log status.
+- Challenge mode: adversarial findings grouped by risk, with a clear action recommendation.
+- Consult mode: Codex's answer plus any follow-up prompt needed to continue the same session.
+
+Do not summarize away Codex's substantive findings. Preserve its technical claims
+so the user can compare them with Nexus review evidence.
+
 ## Plan File Review Report
 
 After displaying the Review Readiness Dashboard in conversation output, also update the
