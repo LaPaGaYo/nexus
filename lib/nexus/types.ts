@@ -231,9 +231,34 @@ export interface VerificationMatrixAttachedEvidenceRecord {
   required: boolean;
 }
 
+export const VERIFICATION_CHECKLIST_CATEGORIES = [
+  'testing',
+  'security',
+  'performance',
+  'accessibility',
+  'design',
+] as const;
+export type VerificationChecklistCategory = (typeof VERIFICATION_CHECKLIST_CATEGORIES)[number];
+
+export interface VerificationMatrixChecklistRecord {
+  category: VerificationChecklistCategory;
+  source_path: string;
+  applies: boolean;
+  rationale: string;
+  triggers: string[];
+  support_surfaces: string[];
+}
+
+export interface VerificationMatrixChecklistRationaleRecord {
+  category: VerificationChecklistCategory;
+  source_path: string;
+  rationale: string;
+}
+
 export interface VerificationMatrixSupportSkillSignalRecord {
   suggested: boolean;
   reason: string | null;
+  checklist_rationale: VerificationMatrixChecklistRationaleRecord[];
 }
 
 export interface VerificationMatrixBuildObligationRecord {
@@ -284,6 +309,7 @@ export interface VerificationMatrixRecord {
     canary: VerificationMatrixAttachedEvidenceRecord;
     qa_only: VerificationMatrixAttachedEvidenceRecord;
   };
+  checklists: Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord>;
   support_skill_signals: {
     design_review: VerificationMatrixSupportSkillSignalRecord;
     browse: VerificationMatrixSupportSkillSignalRecord;
@@ -704,6 +730,22 @@ export interface CompletionAdvisorActionRecord {
   description: string;
   recommended: boolean;
   visibility_reason: string | null;
+  why_this_skill: string | null;
+  evidence_signal: CompletionAdvisorEvidenceSignalRecord | null;
+}
+
+export interface CompletionAdvisorEvidenceSignalRecord {
+  kind:
+    | 'lifecycle'
+    | 'verification_matrix'
+    | 'stage_status'
+    | 'review_advisory'
+    | 'deploy_readiness'
+    | 'installed_skill'
+    | 'project_setup';
+  summary: string;
+  source_paths: string[];
+  checklist_categories: VerificationChecklistCategory[];
 }
 
 export interface CompletionAdvisorRecord {

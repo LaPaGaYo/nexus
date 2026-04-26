@@ -35,13 +35,63 @@ function matrixWithSignals(): VerificationMatrixRecord {
       canary: { supported: true, required: false },
       qa_only: { supported: true, required: false },
     },
+    checklists: {
+      testing: {
+        category: 'testing',
+        source_path: 'review/specialists/testing.md',
+        applies: true,
+        rationale: 'Testing checklist is always-on.',
+        triggers: ['always_on'],
+        support_surfaces: ['/browse'],
+      },
+      security: {
+        category: 'security',
+        source_path: 'review/specialists/security.md',
+        applies: false,
+        rationale: 'Security checklist applies to auth and backend surfaces.',
+        triggers: [],
+        support_surfaces: ['/cso'],
+      },
+      performance: {
+        category: 'performance',
+        source_path: 'review/specialists/performance.md',
+        applies: false,
+        rationale: 'Performance checklist applies to frontend and backend surfaces.',
+        triggers: [],
+        support_surfaces: ['/benchmark'],
+      },
+      accessibility: {
+        category: 'accessibility',
+        source_path: 'review/design-checklist.md',
+        applies: true,
+        rationale: 'Accessibility checklist applies to browser-facing UI.',
+        triggers: ['browser_facing'],
+        support_surfaces: ['/browse', '/connect-chrome'],
+      },
+      design: {
+        category: 'design',
+        source_path: 'review/design-checklist.md',
+        applies: true,
+        rationale: 'Design checklist applies to design-bearing UI work.',
+        triggers: ['design_impact'],
+        support_surfaces: ['/design-review'],
+      },
+    },
     support_skill_signals: {
-      design_review: { suggested: true, reason: 'Design-bearing work.' },
-      browse: { suggested: true, reason: 'Browser-facing surface.' },
-      benchmark: { suggested: false, reason: null },
-      cso: { suggested: false, reason: null },
-      connect_chrome: { suggested: false, reason: null },
-      setup_browser_cookies: { suggested: false, reason: null },
+      design_review: {
+        suggested: true,
+        reason: 'Design-bearing work.',
+        checklist_rationale: [{ category: 'design', source_path: 'review/design-checklist.md', rationale: 'Design checklist applies to design-bearing UI work.' }],
+      },
+      browse: {
+        suggested: true,
+        reason: 'Browser-facing surface.',
+        checklist_rationale: [{ category: 'accessibility', source_path: 'review/design-checklist.md', rationale: 'Accessibility checklist applies to browser-facing UI.' }],
+      },
+      benchmark: { suggested: false, reason: null, checklist_rationale: [] },
+      cso: { suggested: false, reason: null, checklist_rationale: [] },
+      connect_chrome: { suggested: false, reason: null, checklist_rationale: [] },
+      setup_browser_cookies: { suggested: false, reason: null, checklist_rationale: [] },
     },
   };
 }
@@ -107,6 +157,12 @@ describe('external installed skill discovery and ranking', () => {
       recommended: false,
     });
     expect(ranked[0]?.visibility_reason).toContain('design');
+    expect(ranked[0]?.why_this_skill).toContain('installed skill matches');
+    expect(ranked[0]?.evidence_signal).toMatchObject({
+      kind: 'installed_skill',
+      source_paths: ['/tmp/brand-audit/SKILL.md'],
+      checklist_categories: ['design'],
+    });
   });
 
   test('deduplicates ranked external skills by command surface across install roots', () => {

@@ -16,6 +16,8 @@ import type {
   DeployReadinessRecord,
   PullRequestRecord,
   StageStatus,
+  VerificationChecklistCategory,
+  VerificationMatrixChecklistRecord,
   VerificationMatrixRecord,
 } from '../../lib/nexus/types';
 import { makeFakeAdapters } from './helpers/fake-adapters';
@@ -46,6 +48,57 @@ function readyStatus(stage: StageStatus['stage']): StageStatus {
     completed_at: '2026-04-20T00:00:00.000Z',
     errors: [],
   };
+}
+
+const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord> = {
+  testing: {
+    category: 'testing',
+    source_path: 'review/specialists/testing.md',
+    applies: true,
+    rationale: 'Testing checklist is always-on for review and release readiness.',
+    triggers: ['always_on'],
+    support_surfaces: ['/browse'],
+  },
+  security: {
+    category: 'security',
+    source_path: 'review/specialists/security.md',
+    applies: false,
+    rationale: 'Security checklist applies when auth, backend, or trust-boundary surfaces are in scope.',
+    triggers: [],
+    support_surfaces: ['/cso', '/setup-browser-cookies'],
+  },
+  performance: {
+    category: 'performance',
+    source_path: 'review/specialists/performance.md',
+    applies: true,
+    rationale: 'Performance checklist applies to frontend and backend execution surfaces.',
+    triggers: ['frontend_surface'],
+    support_surfaces: ['/benchmark'],
+  },
+  accessibility: {
+    category: 'accessibility',
+    source_path: 'review/design-checklist.md',
+    applies: true,
+    rationale: 'Accessibility checklist applies to browser-facing UI and interaction states.',
+    triggers: ['browser_facing'],
+    support_surfaces: ['/browse', '/connect-chrome', '/setup-browser-cookies', '/design-review'],
+  },
+  design: {
+    category: 'design',
+    source_path: 'review/design-checklist.md',
+    applies: true,
+    rationale: 'Design checklist applies to design-bearing UI work and visual system changes.',
+    triggers: ['design_impact'],
+    support_surfaces: ['/design-review'],
+  },
+};
+
+function checklistRationale(...categories: Array<keyof typeof CHECKLISTS>) {
+  return categories.map((category) => ({
+    category,
+    source_path: CHECKLISTS[category].source_path,
+    rationale: CHECKLISTS[category].rationale,
+  }));
 }
 
 function verificationMatrix(designImpact: VerificationMatrixRecord['design_impact']): VerificationMatrixRecord {
@@ -89,36 +142,63 @@ function verificationMatrix(designImpact: VerificationMatrixRecord['design_impac
       canary: { supported: true, required: false },
       qa_only: { supported: true, required: false },
     },
+    checklists: {
+      testing: CHECKLISTS.testing,
+      security: CHECKLISTS.security,
+      performance: CHECKLISTS.performance,
+      accessibility: {
+        ...CHECKLISTS.accessibility,
+        applies: designImpact !== 'none',
+        triggers: designImpact !== 'none' ? ['browser_facing'] : [],
+      },
+      design: {
+        ...CHECKLISTS.design,
+        applies: designImpact !== 'none',
+        triggers: designImpact !== 'none' ? ['design_impact'] : [],
+      },
+    },
     support_skill_signals: {
       design_review: {
         suggested: designImpact !== 'none',
         reason: designImpact !== 'none'
           ? 'Design-bearing work should expose `/design-review` as a first-class follow-on.'
           : null,
+        checklist_rationale: designImpact !== 'none'
+          ? checklistRationale('design', 'accessibility')
+          : [],
       },
       browse: {
         suggested: designImpact !== 'none',
         reason: designImpact !== 'none'
           ? 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.'
           : null,
+        checklist_rationale: designImpact !== 'none'
+          ? checklistRationale('testing', 'accessibility')
+          : [],
       },
       benchmark: {
         suggested: true,
         reason: 'The verification matrix supports benchmark evidence for this run.',
+        checklist_rationale: checklistRationale('performance'),
       },
       cso: {
         suggested: false,
         reason: null,
+        checklist_rationale: [],
       },
       connect_chrome: {
         suggested: designImpact !== 'none',
         reason: designImpact !== 'none'
           ? 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.'
           : null,
+        checklist_rationale: designImpact !== 'none'
+          ? checklistRationale('testing', 'accessibility')
+          : [],
       },
       setup_browser_cookies: {
         suggested: false,
         reason: null,
+        checklist_rationale: [],
       },
     },
   };
@@ -220,6 +300,40 @@ describe('nexus completion advisor', () => {
       expect.objectContaining({ surface: '/design-review' }),
       expect.objectContaining({ surface: '/browse' }),
     ]));
+    expect(advisor.recommended_side_skills.find((action) => action.surface === '/design-review')?.visibility_reason)
+      .toContain('Checklist-backed rationale: design review/design-checklist.md');
+    expect(advisor.recommended_side_skills.find((action) => action.surface === '/browse')?.visibility_reason)
+      .toContain('Checklist-backed rationale: testing review/specialists/testing.md');
+  });
+
+  test('support skill recommendations expose human why and structured evidence signals', () => {
+    const advisor = buildBuildCompletionAdvisor(
+      readyStatus('build'),
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    const designReview = advisor.recommended_side_skills.find((action) => action.surface === '/design-review');
+    const browse = advisor.recommended_side_skills.find((action) => action.surface === '/browse');
+
+    expect(designReview).toMatchObject({
+      why_this_skill: 'Use this because the verification matrix ties this run to the design and accessibility checklists.',
+      evidence_signal: {
+        kind: 'verification_matrix',
+        source_paths: ['review/design-checklist.md'],
+        checklist_categories: ['design', 'accessibility'],
+        summary: expect.stringContaining('design'),
+      },
+    });
+    expect(browse).toMatchObject({
+      why_this_skill: 'Use this because the verification matrix ties this run to the testing and accessibility checklists.',
+      evidence_signal: {
+        kind: 'verification_matrix',
+        source_paths: ['review/specialists/testing.md', 'review/design-checklist.md'],
+        checklist_categories: ['testing', 'accessibility'],
+        summary: expect.stringContaining('testing'),
+      },
+    });
   });
 
   test('completion advisor write preserves verification-matrix context for external installed skill ranking', () => {
@@ -367,15 +481,15 @@ describe('nexus completion advisor', () => {
     expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
       expect.objectContaining({
         surface: '/design-review',
-        visibility_reason: 'Design-bearing work should expose `/design-review` as a first-class follow-on.',
+        visibility_reason: expect.stringContaining('Checklist-backed rationale: design review/design-checklist.md'),
       }),
       expect.objectContaining({
         surface: '/browse',
-        visibility_reason: 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.',
+        visibility_reason: expect.stringContaining('Checklist-backed rationale: testing review/specialists/testing.md'),
       }),
       expect.objectContaining({
         surface: '/connect-chrome',
-        visibility_reason: 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.',
+        visibility_reason: expect.stringContaining('Checklist-backed rationale: testing review/specialists/testing.md'),
       }),
     ]));
   });
@@ -487,6 +601,15 @@ describe('nexus completion advisor', () => {
       '/setup-deploy',
       '/document-release',
     ]);
+    expect(shipAdvisor.recommended_side_skills.find((action) => action.surface === '/setup-deploy')).toMatchObject({
+      why_this_skill: expect.stringContaining('deploy contract is still missing'),
+      evidence_signal: {
+        kind: 'stage_status',
+        summary: expect.stringContaining('primary deploy contract is still missing'),
+        source_paths: [],
+        checklist_categories: [],
+      },
+    });
 
     const closeoutStatus: StageStatus = {
       ...readyStatus('closeout'),

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { basename, join, resolve } from 'path';
-import { CANONICAL_COMMANDS, type CanonicalCommandId, type CompletionAdvisorActionRecord, type InstalledSkillNamespace, type InstalledSkillRecord, type VerificationMatrixRecord } from './types';
+import { CANONICAL_COMMANDS, type CanonicalCommandId, type CompletionAdvisorActionRecord, type InstalledSkillNamespace, type InstalledSkillRecord, type VerificationChecklistCategory, type VerificationMatrixRecord } from './types';
 
 const NEXUS_SUPPORT_SKILLS = new Set([
   'benchmark',
@@ -76,6 +76,13 @@ const TAG_KEYWORDS: Array<{ tag: string; patterns: RegExp[] }> = [
 ];
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'coverage']);
+const CHECKLIST_TAGS = new Set<VerificationChecklistCategory>([
+  'testing',
+  'security',
+  'performance',
+  'accessibility',
+  'design',
+]);
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
@@ -283,6 +290,9 @@ function externalAction(skill: InstalledSkillRecord, stage: CanonicalCommandId, 
   const reason = matchedTags.length > 0
     ? `Installed skill matches /${stage} because it is tagged ${matchedTags.join(', ')}.`
     : `Installed skill matches /${stage} by stage intent.`;
+  const checklistCategories = matchedTags.filter((tag): tag is VerificationChecklistCategory =>
+    CHECKLIST_TAGS.has(tag as VerificationChecklistCategory)
+  );
   return {
     id: `run_external_${skill.name.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`,
     kind: 'external_installed_skill',
@@ -292,6 +302,17 @@ function externalAction(skill: InstalledSkillRecord, stage: CanonicalCommandId, 
     description: skill.description ?? `Run the installed ${skill.surface} skill as supporting context.`,
     recommended: false,
     visibility_reason: reason,
+    why_this_skill: matchedTags.length > 0
+      ? `Use this because the installed skill matches ${matchedTags.join(', ')} context for /${stage}.`
+      : `Use this because the installed skill matches /${stage} stage intent.`,
+    evidence_signal: {
+      kind: 'installed_skill',
+      summary: matchedTags.length > 0
+        ? `Installed skill tags matched: ${matchedTags.join(', ')}.`
+        : `Installed skill was selected from /${stage} stage intent.`,
+      source_paths: [skill.path],
+      checklist_categories: checklistCategories,
+    },
   };
 }
 

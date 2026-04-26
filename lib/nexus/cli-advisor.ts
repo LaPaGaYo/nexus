@@ -47,6 +47,19 @@ function formatAction(action: CompletionAdvisorActionRecord): string[] {
     lines.push(`  Command: ${action.invocation}`);
   }
   lines.push(`  ${action.description}`);
+  if (action.why_this_skill) {
+    lines.push(`  Why this skill: ${action.why_this_skill}`);
+  }
+  if (action.evidence_signal) {
+    lines.push(`  Evidence: ${action.evidence_signal.kind}`);
+    lines.push(`  Evidence summary: ${action.evidence_signal.summary}`);
+    if (action.evidence_signal.source_paths.length > 0) {
+      lines.push(`  Evidence sources: ${action.evidence_signal.source_paths.join(', ')}`);
+    }
+    if (action.evidence_signal.checklist_categories.length > 0) {
+      lines.push(`  Checklist signals: ${action.evidence_signal.checklist_categories.join(', ')}`);
+    }
+  }
   if (action.visibility_reason) {
     lines.push(`  Reason: ${action.visibility_reason}`);
   }
@@ -160,6 +173,19 @@ export function formatCompletionAdvisorForInteractiveCli(advisor: CompletionAdvi
         lines.push(`   Command: ${action.invocation}`);
       }
       lines.push(`   ${action.description}`);
+      if (action.why_this_skill) {
+        lines.push(`   Why this skill: ${action.why_this_skill}`);
+      }
+      if (action.evidence_signal) {
+        lines.push(`   Evidence: ${action.evidence_signal.kind}`);
+        lines.push(`   Evidence summary: ${action.evidence_signal.summary}`);
+        if (action.evidence_signal.source_paths.length > 0) {
+          lines.push(`   Evidence sources: ${action.evidence_signal.source_paths.join(', ')}`);
+        }
+        if (action.evidence_signal.checklist_categories.length > 0) {
+          lines.push(`   Checklist signals: ${action.evidence_signal.checklist_categories.join(', ')}`);
+        }
+      }
       if (action.visibility_reason) {
         lines.push(`   Reason: ${action.visibility_reason}`);
       }

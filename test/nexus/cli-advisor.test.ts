@@ -35,6 +35,8 @@ function sampleAdvisor(overrides: Partial<CompletionAdvisorRecord> = {}): Comple
         description: 'Turn framing into an execution-ready packet.',
         recommended: true,
         visibility_reason: 'Framing is complete and planning is the canonical next lifecycle step.',
+        why_this_skill: null,
+        evidence_signal: null,
       },
     ],
     alternative_next_actions: [],
@@ -48,6 +50,8 @@ function sampleAdvisor(overrides: Partial<CompletionAdvisorRecord> = {}): Comple
       description: 'Do not advance yet. Keep the current artifacts as-is and decide on the next step later.',
       recommended: false,
       visibility_reason: 'Always available as the minimal non-advancing choice after a completed stage.',
+      why_this_skill: null,
+      evidence_signal: null,
     },
     project_setup_gaps: [],
     hidden_compat_aliases: [],
@@ -70,6 +74,13 @@ describe('nexus cli advisor rendering', () => {
           description: 'Tighten the design contract before execution.',
           recommended: false,
           visibility_reason: 'The run is design-bearing.',
+          why_this_skill: 'Use this because the run has material UI work.',
+          evidence_signal: {
+            kind: 'verification_matrix',
+            summary: 'Design checklist applies to material UI work.',
+            source_paths: ['review/design-checklist.md'],
+            checklist_categories: ['design'],
+          },
         },
       ],
       project_setup_gaps: ['Design contract is still missing.'],
@@ -82,6 +93,9 @@ describe('nexus cli advisor rendering', () => {
     expect(rendered).toContain('Run `/plan`');
     expect(rendered).toContain('Recommended side skills:');
     expect(rendered).toContain('Run `/plan-design-review`');
+    expect(rendered).toContain('Why this skill: Use this because the run has material UI work.');
+    expect(rendered).toContain('Evidence: verification_matrix');
+    expect(rendered).toContain('review/design-checklist.md');
     expect(rendered).toContain('Project/setup gaps:');
     expect(rendered).toContain('Design contract is still missing.');
   });
@@ -98,6 +112,13 @@ describe('nexus cli advisor rendering', () => {
           description: 'Tighten the design contract before execution.',
           recommended: false,
           visibility_reason: 'The run is design-bearing.',
+          why_this_skill: 'Use this because the run has material UI work.',
+          evidence_signal: {
+            kind: 'verification_matrix',
+            summary: 'Design checklist applies to material UI work.',
+            source_paths: ['review/design-checklist.md'],
+            checklist_categories: ['design'],
+          },
         },
       ],
       recommended_external_skills: [
@@ -110,6 +131,13 @@ describe('nexus cli advisor rendering', () => {
           description: 'External visual design audit.',
           recommended: false,
           visibility_reason: 'Installed skill matches /frame because it is tagged design.',
+          why_this_skill: 'Use this because the installed skill matches design context.',
+          evidence_signal: {
+            kind: 'installed_skill',
+            summary: 'Installed skill tags matched: design.',
+            source_paths: ['/tmp/brand-audit/SKILL.md'],
+            checklist_categories: [],
+          },
         },
       ],
     }));
@@ -118,6 +146,8 @@ describe('nexus cli advisor rendering', () => {
     expect(rendered).toContain('Default: 1');
     expect(rendered).toContain('1. Run `/plan` (recommended)');
     expect(rendered).toContain('2. Run `/plan-design-review`');
+    expect(rendered).toContain('   Why this skill: Use this because the run has material UI work.');
+    expect(rendered).toContain('   Evidence: verification_matrix');
     expect(rendered).toContain('3. Run installed skill `/brand-audit`');
     expect(rendered).toContain('4. Stop here');
     expect(rendered).toContain('Run the selected command manually; Nexus will not auto-execute a choice from this renderer.');

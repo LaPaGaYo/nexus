@@ -11,7 +11,17 @@ import {
   shipReleaseGateRecordPath,
   stageStatusPath,
 } from './artifacts';
-import type { DesignImpact, DesignIntentRecord, ReviewScopeMode, VerificationMatrixRecord } from './types';
+import {
+  VERIFICATION_CHECKLIST_CATEGORIES,
+  type DesignImpact,
+  type DesignIntentRecord,
+  type ReviewScopeMode,
+  type VerificationChecklistCategory,
+  type VerificationMatrixChecklistRecord,
+  type VerificationMatrixChecklistRationaleRecord,
+  type VerificationMatrixRecord,
+  type VerificationMatrixSupportSkillSignalRecord,
+} from './types';
 
 function defaultDesignIntent(): DesignIntentRecord {
   return {
@@ -38,6 +48,14 @@ function normalizeStringArray(value: unknown, fallback: string[]): string[] {
 
   const strings = value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
   return strings.length > 0 ? strings : [...fallback];
+}
+
+function normalizeStringArrayAllowEmpty(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return [...fallback];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
 }
 
 function normalizeDesignImpact(value: unknown): DesignImpact {
@@ -99,6 +117,21 @@ const SECURITY_SURFACE_TOKENS = new Set([
   'webhook',
 ]);
 
+const BACKEND_SURFACE_TOKENS = new Set([
+  'api',
+  'backend',
+  'database',
+  'db',
+  'handler',
+  'migration',
+  'repository',
+  'server',
+  'service',
+  'services',
+  'worker',
+  'workers',
+]);
+
 const BROWSER_SURFACE_EXTENSIONS = new Set([
   'astro',
   'css',
@@ -149,6 +182,21 @@ const SECURITY_ROOT_CANDIDATES = [
   'src/server',
   'src/server/api',
   'webhooks',
+] as const;
+
+const BACKEND_ROOT_CANDIDATES = [
+  'api',
+  'db',
+  'migrations',
+  'packages/db',
+  'server',
+  'services',
+  'src/api',
+  'src/db',
+  'src/server',
+  'src/services',
+  'worker',
+  'workers',
 ] as const;
 
 const BROWSER_FRAMEWORK_DEPENDENCIES = new Set([
@@ -202,6 +250,10 @@ function authFacingSurface(surface: string): boolean {
 
 function securitySensitiveSurface(surface: string): boolean {
   return surfaceHasAnyToken(surface, SECURITY_SURFACE_TOKENS);
+}
+
+function backendFacingSurface(surface: string): boolean {
+  return surfaceHasAnyToken(surface, BACKEND_SURFACE_TOKENS);
 }
 
 function repoHasAnyPath(cwd: string, candidates: readonly string[]): boolean {
@@ -267,6 +319,94 @@ function repoHasAnyDependency(
   return false;
 }
 
+const CHECKLIST_DEFINITIONS: Record<VerificationChecklistCategory, {
+  source_path: string;
+  rationale: string;
+  support_surfaces: string[];
+}> = {
+  testing: {
+    source_path: 'review/specialists/testing.md',
+    rationale: 'Testing checklist is always-on for negative paths, edge cases, isolation, and regression coverage.',
+    support_surfaces: ['/browse', '/connect-chrome'],
+  },
+  security: {
+    source_path: 'review/specialists/security.md',
+    rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
+    support_surfaces: ['/cso', '/setup-browser-cookies'],
+  },
+  performance: {
+    source_path: 'review/specialists/performance.md',
+    rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
+    support_surfaces: ['/benchmark'],
+  },
+  accessibility: {
+    source_path: 'review/design-checklist.md',
+    rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
+    support_surfaces: ['/browse', '/connect-chrome', '/setup-browser-cookies', '/design-review'],
+  },
+  design: {
+    source_path: 'review/design-checklist.md',
+    rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
+    support_surfaces: ['/design-review', '/plan-design-review'],
+  },
+};
+
+function checklistRecord(
+  category: VerificationChecklistCategory,
+  applies: boolean,
+  triggers: string[],
+): VerificationMatrixChecklistRecord {
+  const definition = CHECKLIST_DEFINITIONS[category];
+  return {
+    category,
+    source_path: definition.source_path,
+    applies,
+    rationale: definition.rationale,
+    triggers,
+    support_surfaces: definition.support_surfaces,
+  };
+}
+
+function checklistRationale(
+  checklists: Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord>,
+  categories: VerificationChecklistCategory[],
+): VerificationMatrixChecklistRationaleRecord[] {
+  return categories
+    .map((category) => checklists[category])
+    .filter((checklist) => checklist.applies)
+    .map((checklist) => ({
+      category: checklist.category,
+      source_path: checklist.source_path,
+      rationale: checklist.rationale,
+    }));
+}
+
+function renderChecklistBackedReason(
+  baseReason: string,
+  rationale: VerificationMatrixChecklistRationaleRecord[],
+): string {
+  if (rationale.length === 0) {
+    return baseReason;
+  }
+
+  const rendered = rationale
+    .map((entry) => `${entry.category} ${entry.source_path} - ${entry.rationale}`)
+    .join('; ');
+  return `${baseReason} Checklist-backed rationale: ${rendered}`;
+}
+
+function skillSignal(
+  suggested: boolean,
+  baseReason: string,
+  rationale: VerificationMatrixChecklistRationaleRecord[],
+): VerificationMatrixSupportSkillSignalRecord {
+  return {
+    suggested,
+    reason: suggested ? renderChecklistBackedReason(baseReason, rationale) : null,
+    checklist_rationale: suggested ? rationale : [],
+  };
+}
+
 function buildDefaultVerificationMatrix(
   cwd: string,
   runId: string,
@@ -289,6 +429,41 @@ function buildDefaultVerificationMatrix(
   const securitySensitive = designIntent.affected_surfaces.some(securitySensitiveSurface)
     || repoHasAnyPath(cwd, SECURITY_ROOT_CANDIDATES)
     || repoHasAnyDependency(repoDependencyNames, AUTH_DEPENDENCIES);
+  const backendFacing = designIntent.affected_surfaces.some(backendFacingSurface)
+    || repoHasAnyPath(cwd, BACKEND_ROOT_CANDIDATES);
+  const performanceSensitive = browserFacing || backendFacing;
+  const checklists: Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord> = {
+    testing: checklistRecord('testing', true, ['always_on']),
+    security: checklistRecord(
+      'security',
+      securitySensitive,
+      [
+        ...(authFacing ? ['auth_surface'] : []),
+        ...(securitySensitive ? ['security_sensitive_surface'] : []),
+      ],
+    ),
+    performance: checklistRecord(
+      'performance',
+      performanceSensitive,
+      [
+        ...(browserFacing ? ['browser_facing'] : []),
+        ...(backendFacing ? ['backend_surface'] : []),
+      ],
+    ),
+    accessibility: checklistRecord(
+      'accessibility',
+      browserFacing,
+      [
+        ...(browserFacing ? ['browser_facing'] : []),
+        ...(designImpact !== 'none' ? ['design_impact'] : []),
+      ],
+    ),
+    design: checklistRecord(
+      'design',
+      designImpact !== 'none',
+      designImpact !== 'none' ? ['design_impact'] : [],
+    ),
+  };
 
   return {
     schema_version: 1,
@@ -359,41 +534,38 @@ function buildDefaultVerificationMatrix(
         required: false,
       },
     },
+    checklists,
     support_skill_signals: {
-      design_review: {
-        suggested: designImpact !== 'none',
-        reason: designImpact !== 'none'
-          ? 'Design-bearing work should expose `/design-review` as a first-class follow-on.'
-          : null,
-      },
-      browse: {
-        suggested: browserFacing,
-        reason: browserFacing
-          ? 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.'
-          : null,
-      },
-      benchmark: {
-        suggested: true,
-        reason: 'The verification matrix supports benchmark evidence for this run.',
-      },
-      cso: {
-        suggested: securitySensitive,
-        reason: securitySensitive
-          ? 'Auth, permission, webhook, or security-sensitive surfaces changed, so `/cso` should be available.'
-          : null,
-      },
-      connect_chrome: {
-        suggested: browserFacing,
-        reason: browserFacing
-          ? 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.'
-          : null,
-      },
-      setup_browser_cookies: {
-        suggested: browserFacing && authFacing,
-        reason: browserFacing && authFacing
-          ? 'Authenticated browser verification is likely relevant, so `/setup-browser-cookies` should be available.'
-          : null,
-      },
+      design_review: skillSignal(
+        designImpact !== 'none',
+        'Design-bearing work should expose `/design-review` as a first-class follow-on.',
+        checklistRationale(checklists, ['design', 'accessibility']),
+      ),
+      browse: skillSignal(
+        browserFacing,
+        'Browser-facing surfaces changed, so `/browse` should be available from the advisor.',
+        checklistRationale(checklists, ['testing', 'accessibility']),
+      ),
+      benchmark: skillSignal(
+        performanceSensitive,
+        'The verification matrix supports benchmark evidence for this run.',
+        checklistRationale(checklists, ['performance']),
+      ),
+      cso: skillSignal(
+        securitySensitive,
+        'Auth, permission, webhook, or security-sensitive surfaces changed, so `/cso` should be available.',
+        checklistRationale(checklists, ['security']),
+      ),
+      connect_chrome: skillSignal(
+        browserFacing,
+        'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.',
+        checklistRationale(checklists, ['testing', 'accessibility']),
+      ),
+      setup_browser_cookies: skillSignal(
+        browserFacing && authFacing,
+        'Authenticated browser verification is likely relevant, so `/setup-browser-cookies` should be available.',
+        checklistRationale(checklists, ['security', 'accessibility']),
+      ),
     },
   };
 }
@@ -436,16 +608,71 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
   const qa = isObject(obligations.qa) ? obligations.qa : {};
   const ship = isObject(obligations.ship) ? obligations.ship : {};
   const attachedEvidence = isObject(raw.attached_evidence) ? raw.attached_evidence : {};
+  const checklists = isObject(raw.checklists) ? raw.checklists : {};
   const supportSkillSignals = isObject(raw.support_skill_signals) ? raw.support_skill_signals : {};
+
+  function normalizeChecklist(
+    category: VerificationChecklistCategory,
+    value: unknown,
+    fallbackChecklist: VerificationMatrixChecklistRecord,
+  ): VerificationMatrixChecklistRecord {
+    const checklist = isObject(value) ? value : {};
+    return {
+      category,
+      source_path: typeof checklist.source_path === 'string' ? checklist.source_path : fallbackChecklist.source_path,
+      applies: normalizeBoolean(checklist.applies, fallbackChecklist.applies),
+      rationale: typeof checklist.rationale === 'string' ? checklist.rationale : fallbackChecklist.rationale,
+      triggers: normalizeStringArrayAllowEmpty(checklist.triggers, fallbackChecklist.triggers),
+      support_surfaces: normalizeStringArrayAllowEmpty(checklist.support_surfaces, fallbackChecklist.support_surfaces),
+    };
+  }
+
+  const normalizedChecklists = Object.fromEntries(
+    VERIFICATION_CHECKLIST_CATEGORIES.map((category) => [
+      category,
+      normalizeChecklist(category, checklists[category], fallback.checklists[category]),
+    ]),
+  ) as Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord>;
+
+  function normalizeChecklistRationale(
+    value: unknown,
+    fallbackRationale: VerificationMatrixChecklistRationaleRecord[],
+  ): VerificationMatrixChecklistRationaleRecord[] {
+    if (!Array.isArray(value)) {
+      return [...fallbackRationale];
+    }
+
+    const normalized: VerificationMatrixChecklistRationaleRecord[] = [];
+    for (const entry of value) {
+      if (!isObject(entry) || !VERIFICATION_CHECKLIST_CATEGORIES.includes(entry.category as VerificationChecklistCategory)) {
+        continue;
+      }
+      normalized.push({
+        category: entry.category as VerificationChecklistCategory,
+        source_path: typeof entry.source_path === 'string'
+          ? entry.source_path
+          : normalizedChecklists[entry.category as VerificationChecklistCategory].source_path,
+        rationale: typeof entry.rationale === 'string'
+          ? entry.rationale
+          : normalizedChecklists[entry.category as VerificationChecklistCategory].rationale,
+      });
+    }
+
+    return normalized.length > 0 ? normalized : [...fallbackRationale];
+  }
 
   function normalizeSkillSignal(
     value: unknown,
     fallbackSignal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
   ) {
     const signal = isObject(value) ? value : {};
+    const suggested = normalizeBoolean(signal.suggested, fallbackSignal.suggested);
     return {
-      suggested: normalizeBoolean(signal.suggested, fallbackSignal.suggested),
+      suggested,
       reason: typeof signal.reason === 'string' ? signal.reason : fallbackSignal.reason,
+      checklist_rationale: suggested
+        ? normalizeChecklistRationale(signal.checklist_rationale, fallbackSignal.checklist_rationale)
+        : [],
     };
   }
 
@@ -522,6 +749,7 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
         ),
       },
     },
+    checklists: normalizedChecklists,
     support_skill_signals: {
       design_review: normalizeSkillSignal(supportSkillSignals.design_review, fallback.support_skill_signals.design_review),
       browse: normalizeSkillSignal(supportSkillSignals.browse, fallback.support_skill_signals.browse),

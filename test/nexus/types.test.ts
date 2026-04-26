@@ -428,6 +428,8 @@ describe('nexus types', () => {
           description: 'Run a bounded fix cycle now, then return through `/review` before QA.',
           recommended: true,
           visibility_reason: 'Use this when you want to tighten non-blocking findings before formal QA.',
+          why_this_skill: null,
+          evidence_signal: null,
         },
       ],
       alternative_next_actions: [],
@@ -451,6 +453,8 @@ describe('nexus types', () => {
 
     expect(advisor.stop_action).toBeNull();
     expect(advisor.primary_next_actions[0]?.visibility_reason).toContain('formal QA');
+    expect(advisor.primary_next_actions[0]?.why_this_skill).toBeNull();
+    expect(advisor.primary_next_actions[0]?.evidence_signal).toBeNull();
   });
 
   test('freezes the learning schema and artifact helpers', () => {
@@ -909,30 +913,119 @@ describe('nexus types', () => {
           required: false,
         },
       },
+      checklists: {
+        testing: {
+          category: 'testing',
+          source_path: 'review/specialists/testing.md',
+          applies: true,
+          rationale: 'Testing checklist is always-on for negative paths, edge cases, isolation, and regression coverage.',
+          triggers: ['always_on'],
+          support_surfaces: ['/browse', '/connect-chrome'],
+        },
+        security: {
+          category: 'security',
+          source_path: 'review/specialists/security.md',
+          applies: true,
+          rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
+          triggers: ['auth_surface', 'security_sensitive_surface'],
+          support_surfaces: ['/cso', '/setup-browser-cookies'],
+        },
+        performance: {
+          category: 'performance',
+          source_path: 'review/specialists/performance.md',
+          applies: true,
+          rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
+          triggers: ['browser_facing'],
+          support_surfaces: ['/benchmark'],
+        },
+        accessibility: {
+          category: 'accessibility',
+          source_path: 'review/design-checklist.md',
+          applies: true,
+          rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
+          triggers: ['browser_facing', 'design_impact'],
+          support_surfaces: ['/browse', '/connect-chrome', '/setup-browser-cookies', '/design-review'],
+        },
+        design: {
+          category: 'design',
+          source_path: 'review/design-checklist.md',
+          applies: true,
+          rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
+          triggers: ['design_impact'],
+          support_surfaces: ['/design-review', '/plan-design-review'],
+        },
+      },
       support_skill_signals: {
         design_review: {
           suggested: true,
           reason: 'Design-bearing work should expose `/design-review` as a first-class follow-on.',
+          checklist_rationale: [
+            {
+              category: 'design',
+              source_path: 'review/design-checklist.md',
+              rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
+            },
+          ],
         },
         browse: {
           suggested: true,
           reason: 'Browser-facing surfaces changed, so `/browse` should be available from the advisor.',
+          checklist_rationale: [
+            {
+              category: 'testing',
+              source_path: 'review/specialists/testing.md',
+              rationale: 'Testing checklist is always-on for negative paths, edge cases, isolation, and regression coverage.',
+            },
+          ],
         },
         benchmark: {
           suggested: true,
           reason: 'The verification matrix supports benchmark evidence for this run.',
+          checklist_rationale: [
+            {
+              category: 'performance',
+              source_path: 'review/specialists/performance.md',
+              rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
+            },
+          ],
         },
         cso: {
           suggested: true,
           reason: 'Auth, permission, webhook, or security-sensitive surfaces changed, so `/cso` should be available.',
+          checklist_rationale: [
+            {
+              category: 'security',
+              source_path: 'review/specialists/security.md',
+              rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
+            },
+          ],
         },
         connect_chrome: {
           suggested: true,
           reason: 'A browser-facing flow exists, so real-browser verification through `/connect-chrome` is available.',
+          checklist_rationale: [
+            {
+              category: 'accessibility',
+              source_path: 'review/design-checklist.md',
+              rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
+            },
+          ],
         },
         setup_browser_cookies: {
           suggested: true,
           reason: 'Authenticated browser verification is likely relevant, so `/setup-browser-cookies` should be available.',
+          checklist_rationale: [
+            {
+              category: 'security',
+              source_path: 'review/specialists/security.md',
+              rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
+            },
+            {
+              category: 'accessibility',
+              source_path: 'review/design-checklist.md',
+              rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
+            },
+          ],
         },
       },
     };
@@ -940,6 +1033,8 @@ describe('nexus types', () => {
     expect(matrix.obligations.review.mode).toBe('full_acceptance');
     expect(matrix.obligations.qa.design_verification_required).toBe(true);
     expect(matrix.attached_evidence.qa_only.required).toBe(false);
+    expect(matrix.checklists.design.source_path).toBe('review/design-checklist.md');
+    expect(matrix.support_skill_signals.benchmark.checklist_rationale[0]?.category).toBe('performance');
     expect(matrix.support_skill_signals.cso.suggested).toBe(true);
 
     const canary: CanaryStatusRecord = {

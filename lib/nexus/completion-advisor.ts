@@ -1,6 +1,7 @@
 import type {
   CompletionAdvisorActionKind,
   CompletionAdvisorActionRecord,
+  CompletionAdvisorEvidenceSignalRecord,
   CompletionAdvisorRecord,
   DeployReadinessRecord,
   DeployResultRecord,
@@ -9,6 +10,7 @@ import type {
   StageStatus,
   VerificationMatrixRecord,
   InstalledSkillRecord,
+  VerificationChecklistCategory,
 } from './types';
 import { discoverExternalInstalledSkills, rankExternalInstalledSkillsForAdvisor } from './external-skills';
 import { readVerificationMatrix } from './verification-matrix';
@@ -29,7 +31,21 @@ function action(
   description: string,
   recommended = false,
   visibilityReason: string | null = null,
+  whyThisSkill: string | null = null,
+  evidenceSignal: CompletionAdvisorEvidenceSignalRecord | null = null,
 ): CompletionAdvisorActionRecord {
+  const fallbackSupportWhy = kind === 'support_skill' && visibilityReason
+    ? `Use this because ${visibilityReason.charAt(0).toLowerCase()}${visibilityReason.slice(1)}`
+    : null;
+  const fallbackSupportEvidence: CompletionAdvisorEvidenceSignalRecord | null = kind === 'support_skill' && visibilityReason
+    ? {
+        kind: 'stage_status',
+        summary: visibilityReason,
+        source_paths: [],
+        checklist_categories: [],
+      }
+    : null;
+
   return {
     id,
     kind,
@@ -39,6 +55,8 @@ function action(
     description,
     recommended,
     visibility_reason: visibilityReason,
+    why_this_skill: whyThisSkill ?? fallbackSupportWhy,
+    evidence_signal: evidenceSignal ?? fallbackSupportEvidence,
   };
 }
 
@@ -83,12 +101,81 @@ function outcomeForStatus(status: Pick<StageStatus, 'state' | 'ready'>): Complet
   return 'ready';
 }
 
+function renderChecklistBackedVisibilityReason(
+  signal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
+): string | null {
+  const baseReason = signal.reason ?? 'The verification matrix surfaced this support skill.';
+  const rationale = signal.checklist_rationale ?? [];
+  if (rationale.length === 0 || baseReason.includes('Checklist-backed rationale:')) {
+    return baseReason;
+  }
+
+  const rendered = rationale
+    .map((entry) => `${entry.category} ${entry.source_path} - ${entry.rationale}`)
+    .join('; ');
+  return `${baseReason} Checklist-backed rationale: ${rendered}`;
+}
+
+function uniqueValues<T>(values: T[]): T[] {
+  return [...new Set(values)];
+}
+
+function humanList(values: string[]): string {
+  if (values.length <= 1) {
+    return values[0] ?? '';
+  }
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
+}
+
+function supportSkillWhyFromSignal(
+  signal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
+): string | null {
+  const categories = uniqueValues((signal.checklist_rationale ?? []).map((entry) => entry.category));
+  if (categories.length === 0) {
+    return signal.reason;
+  }
+  return `Use this because the verification matrix ties this run to the ${humanList(categories)} checklists.`;
+}
+
+function supportSkillEvidenceFromSignal(
+  signal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
+): CompletionAdvisorEvidenceSignalRecord | null {
+  const rationale = signal.checklist_rationale ?? [];
+  if (rationale.length === 0) {
+    return signal.reason
+      ? {
+          kind: 'verification_matrix',
+          summary: signal.reason,
+          source_paths: [],
+          checklist_categories: [],
+        }
+      : null;
+  }
+
+  const checklistCategories = uniqueValues(rationale.map((entry) => entry.category)) as VerificationChecklistCategory[];
+  const sourcePaths = uniqueValues(rationale.map((entry) => entry.source_path));
+  return {
+    kind: 'verification_matrix',
+    summary: `Verification matrix surfaced ${humanList(checklistCategories)} checklist coverage for this recommendation.`,
+    source_paths: sourcePaths,
+    checklist_categories: checklistCategories,
+  };
+}
+
 function suggestedSkillSignal(
   verificationMatrix: VerificationMatrixRecord | null | undefined,
   key: keyof VerificationMatrixRecord['support_skill_signals'],
 ): VerificationMatrixRecord['support_skill_signals'][typeof key] | null {
   const signal = verificationMatrix?.support_skill_signals?.[key];
-  return signal?.suggested ? signal : null;
+  return signal?.suggested
+    ? {
+        ...signal,
+        reason: renderChecklistBackedVisibilityReason(signal),
+      }
+    : null;
 }
 
 function baseAdvisor(
@@ -445,6 +532,8 @@ export function buildBuildCompletionAdvisor(
         'Do a focused visual audit on a design-bearing implementation before formal review.',
         false,
         designReviewSignal.reason,
+        supportSkillWhyFromSignal(designReviewSignal),
+        supportSkillEvidenceFromSignal(designReviewSignal),
       ),
     );
   }
@@ -459,6 +548,8 @@ export function buildBuildCompletionAdvisor(
         'Check the browser-facing surface directly before the governed audit.',
         false,
         browseSignal.reason,
+        supportSkillWhyFromSignal(browseSignal),
+        supportSkillEvidenceFromSignal(browseSignal),
       ),
     );
   }
@@ -598,6 +689,8 @@ export function buildReviewCompletionAdvisor(
         'Attach performance evidence before the release gate if this change is perf-sensitive.',
         false,
         benchmarkSignal.reason,
+        supportSkillWhyFromSignal(benchmarkSignal),
+        supportSkillEvidenceFromSignal(benchmarkSignal),
       ),
     );
   }
@@ -612,6 +705,8 @@ export function buildReviewCompletionAdvisor(
         'Polish the visual result before QA on a design-bearing run.',
         false,
         designReviewSignal.reason,
+        supportSkillWhyFromSignal(designReviewSignal),
+        supportSkillEvidenceFromSignal(designReviewSignal),
       ),
     );
   }
@@ -626,6 +721,8 @@ export function buildReviewCompletionAdvisor(
         'Audit security-sensitive changes before the release gate advances.',
         false,
         csoSignal.reason,
+        supportSkillWhyFromSignal(csoSignal),
+        supportSkillEvidenceFromSignal(csoSignal),
       ),
     );
   }
@@ -704,6 +801,8 @@ export function buildQaCompletionAdvisor(
         'Attach performance evidence before the release gate.',
         false,
         benchmarkSignal.reason,
+        supportSkillWhyFromSignal(benchmarkSignal),
+        supportSkillEvidenceFromSignal(benchmarkSignal),
       ),
     );
   }
@@ -718,6 +817,8 @@ export function buildQaCompletionAdvisor(
         'Audit the visual result after QA on a design-bearing run.',
         false,
         designReviewSignal.reason,
+        supportSkillWhyFromSignal(designReviewSignal),
+        supportSkillEvidenceFromSignal(designReviewSignal),
       ),
     );
   }
@@ -732,6 +833,8 @@ export function buildQaCompletionAdvisor(
         'Use the browser to verify the shipped UI path directly.',
         false,
         browseSignal.reason,
+        supportSkillWhyFromSignal(browseSignal),
+        supportSkillEvidenceFromSignal(browseSignal),
       ),
     );
   }
@@ -746,6 +849,8 @@ export function buildQaCompletionAdvisor(
         'Launch a real browser session for live verification instead of relying only on headless checks.',
         false,
         connectChromeSignal.reason,
+        supportSkillWhyFromSignal(connectChromeSignal),
+        supportSkillEvidenceFromSignal(connectChromeSignal),
       ),
     );
   }
@@ -760,6 +865,8 @@ export function buildQaCompletionAdvisor(
         'Import authenticated browser sessions before testing protected flows.',
         false,
         setupBrowserCookiesSignal.reason,
+        supportSkillWhyFromSignal(setupBrowserCookiesSignal),
+        supportSkillEvidenceFromSignal(setupBrowserCookiesSignal),
       ),
     );
   }
@@ -774,6 +881,8 @@ export function buildQaCompletionAdvisor(
         'Audit security-sensitive changes before the release gate advances.',
         false,
         csoSignal.reason,
+        supportSkillWhyFromSignal(csoSignal),
+        supportSkillEvidenceFromSignal(csoSignal),
       ),
     );
   }
