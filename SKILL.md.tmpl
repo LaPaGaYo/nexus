@@ -69,6 +69,8 @@ Interpret bootstrap state like this:
   - treat this as an explicit governed preference that is currently blocked
   - say whether the gap is missing CCB entirely or missing governed providers
   - mention the available local fallback path, but do not silently claim the run has switched to it
+  - if `LOCAL_PROVIDER_READY=yes`, use the preamble's blocked-governed route choice prompt to let the user choose whether to switch this host to `local_provider` or keep `governed_ccb` and mount CCB
+  - do not continue into lifecycle work until that route choice is resolved
 
 Do not make the user reason about `execution_mode`, `primary_provider`, or `provider_topology`
 before they have even started the lifecycle. Present the substrate summary once, then move

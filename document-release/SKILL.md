@@ -210,6 +210,29 @@ When `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY` is `no`, explicit
 - CCB not installed (`CCB_AVAILABLE=no`), or
 - CCB installed but required providers are not mounted (`MISSING_PROVIDERS` is non-empty)
 
+If `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY` is `no` and `LOCAL_PROVIDER_READY` is `yes`, use AskUserQuestion before moving into lifecycle work:
+
+> Nexus is currently configured for governed CCB, but this session cannot run that route.
+> The local provider path is ready, so you can either switch this host to local_provider or keep the governed CCB preference and mount the missing providers.
+>
+> RECOMMENDATION: Choose A if you want to work now in this host. Choose B only if you intend to mount CCB providers before continuing.
+> A) Switch this host to local_provider (human: ~0m / CC: ~0m) — Completeness: 8/10
+> B) Keep governed_ccb and mount the missing CCB providers (human: ~2m / CC: ~0m) — Completeness: 9/10
+
+If A:
+```bash
+~/.claude/skills/nexus/bin/nexus-config set execution_mode local_provider
+if [ -n "$_LOCAL_PROVIDER_CANDIDATE" ]; then
+  ~/.claude/skills/nexus/bin/nexus-config set primary_provider "$_LOCAL_PROVIDER_CANDIDATE"
+fi
+if [ -n "$_LOCAL_PROVIDER_TOPOLOGY" ]; then
+  ~/.claude/skills/nexus/bin/nexus-config set provider_topology "$_LOCAL_PROVIDER_TOPOLOGY"
+fi
+```
+Then explain that future Nexus runs on this host will use `local_provider` until the user changes the saved preference.
+
+If B: do not change Nexus config. Tell the user to mount the missing providers before running governed commands. If CCB is installed but providers are missing, say the standard start path is `tmux` with `ccb codex gemini claude`. If CCB is not installed, say they need to install or restore CCB first.
+
 If `JUST_UPGRADED <from> <to>` is present and `EXECUTION_MODE_CONFIGURED` is `no`, state the effective execution mode explicitly using `EXECUTION_MODE`, `EXECUTION_MODE_SOURCE`, and `CCB_AVAILABLE`. Use `~/.claude/skills/nexus/bin/nexus-config effective-execution` when you need the effective provider, topology, or requested execution path.
 When `EXECUTION_MODE=governed_ccb`, do not ask the user to configure `PRIMARY_PROVIDER` or `PROVIDER_TOPOLOGY`. Those are local-provider host preferences, not governed CCB config keys.
 

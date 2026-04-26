@@ -1685,6 +1685,15 @@ describe('preamble execution mode guidance', () => {
     expect(shipContent).toContain('nexus-config set execution_mode local_provider');
     expect(shipContent).toContain('ccb codex gemini claude');
   });
+
+  test('preamble prompts to switch saved governed preference when CCB is not runnable', () => {
+    expect(shipContent).toContain('If `EXECUTION_MODE=governed_ccb` and `CURRENT_SESSION_READY` is `no` and `LOCAL_PROVIDER_READY` is `yes`');
+    expect(shipContent).toContain('Switch this host to local_provider');
+    expect(shipContent).toContain('Keep governed_ccb and mount the missing CCB providers');
+    expect(shipContent).toContain('nexus-config set execution_mode local_provider');
+    expect(shipContent).toContain('nexus-config set primary_provider "$_LOCAL_PROVIDER_CANDIDATE"');
+    expect(shipContent).toContain('nexus-config set provider_topology "$_LOCAL_PROVIDER_TOPOLOGY"');
+  });
 });
 
 describe('Nexus-first wrapper language', () => {
@@ -2005,6 +2014,22 @@ describe('Codex generation (--host codex)', () => {
     expect(content).toContain('$NEXUS_BIN/nexus-config');
     expect(content).toContain('$NEXUS_ROOT/nexus-upgrade/SKILL.md');
     expect(content).not.toContain('~/.codex/skills/nexus/bin/nexus-config get telemetry');
+  });
+
+  test('Codex preamble prompts plainly when saved governed preference is not runnable', () => {
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus-ship', 'SKILL.md'), 'utf-8');
+    expect(content).toContain('present a plain numbered choice and wait for the user response');
+    expect(content).toContain('Switch this host to local_provider');
+    expect(content).toContain('Keep governed_ccb and mount the missing CCB providers');
+    expect(content).toContain('nexus-config set execution_mode local_provider');
+    expect(content).toContain('nexus-config set primary_provider "$_LOCAL_PROVIDER_CANDIDATE"');
+    expect(content).toContain('nexus-config set provider_topology "$_LOCAL_PROVIDER_TOPOLOGY"');
+  });
+
+  test('Codex root nexus skill describes blocked governed choice without Claude-only AskUserQuestion wording', () => {
+    const content = fs.readFileSync(path.join(AGENTS_DIR, 'nexus', 'SKILL.md'), 'utf-8');
+    expect(content).toContain("preamble's blocked-governed route choice prompt");
+    expect(content).not.toContain("preamble's blocked-governed AskUserQuestion");
   });
 
   // ─── Path rewriting regression tests ─────────────────────────
