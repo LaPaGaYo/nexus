@@ -9,6 +9,7 @@ patch releases ship as standalone release notes under `docs/releases/`; this
 index gives the quick user-facing delta without forcing users to hunt through
 tags.
 
+- **[v1.0.46](docs/releases/2026-04-26-nexus-v1.0.46.md)** — fresh `/discover` run worktrees now use provider-neutral `branch/run-*` branch names while retaining compatibility with older `codex/run-*` run workspaces.
 - **[v1.0.45](docs/releases/2026-04-26-nexus-v1.0.45.md)** — `/nexus` now stops on a saved `governed_ccb` preference that is not runnable in the current session and asks whether to switch this host to `local_provider` or keep governed CCB and mount the missing providers.
 - **[v1.0.44](docs/releases/2026-04-26-nexus-v1.0.44.md)** — completion advisors now keep verification-matrix context when surfacing external installed skills, `/build` elevates design/browser follow-ons into `recommended_choice`, and `--output interactive` renders a host-independent terminal chooser for stage-completion decisions.
 - **[v1.0.43](docs/releases/2026-04-26-nexus-v1.0.43.md)** — release publication now refreshes post-publish maintainer status with a live tag snapshot and live remote release check, preventing successful releases from being reported as blocked after tag creation.
