@@ -11,6 +11,7 @@
 import { validateSkill } from '../test/helpers/skill-parser';
 import { discoverTemplates, discoverSkillFiles } from './discover-skills';
 import { analyzeSkillFile, type SkillAnatomyResult } from './skill-anatomy';
+import { buildSkillDoctorReport, readSkillDoctorTargets, renderSkillDoctorReport } from './skill-doctor';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -19,9 +20,11 @@ const ROOT = path.resolve(import.meta.dir, '..');
 
 // Find all SKILL.md files (dynamic discovery — no hardcoded list)
 const SKILL_FILES = discoverSkillFiles(ROOT);
+const TEMPLATES = discoverTemplates(ROOT);
 
 let hasErrors = false;
 const rubricStrict = process.env.NEXUS_SKILL_RUBRIC_STRICT === '1';
+const doctorStrict = process.env.NEXUS_SKILL_DOCTOR_STRICT === '1';
 
 // ─── Skills ─────────────────────────────────────────────────
 
@@ -60,7 +63,7 @@ function formatRubricGaps(result: SkillAnatomyResult): string {
 }
 
 console.log('\n  Support Skill Rubric (source templates):');
-const anatomyTargets = discoverTemplates(ROOT)
+const anatomyTargets = TEMPLATES
   .map(({ tmpl }) => tmpl)
   .map((tmpl) => ({ tmpl, result: analyzeSkillFile(tmpl, ROOT) }))
   .filter(({ result }) => result.category === 'support');
@@ -94,10 +97,25 @@ for (const { tmpl, result } of anatomyTargets) {
 
 console.log(`  Total: ${rubricPass} pass, ${rubricWarn} warn, ${rubricFail} fail${rubricStrict ? ' (strict)' : ' (non-blocking)'}`);
 
+// ─── Skill Doctor ──────────────────────────────────────────
+
+const doctorThreshold = Number(process.env.NEXUS_SKILL_DOCTOR_MAX_LINES ?? 600);
+const doctorReport = buildSkillDoctorReport(
+  readSkillDoctorTargets(ROOT),
+  { longSkillLineThreshold: Number.isFinite(doctorThreshold) ? doctorThreshold : 600 },
+);
+
+console.log(`\n${renderSkillDoctorReport(doctorReport)}`);
+if (doctorReport.failCount > 0 || (doctorStrict && doctorReport.warnCount > 0)) {
+  hasErrors = true;
+}
+if (doctorStrict && doctorReport.warnCount > 0) {
+  console.log('  Doctor strict mode is active: warnings are blocking (NEXUS_SKILL_DOCTOR_STRICT=1)');
+}
+
 // ─── Templates ──────────────────────────────────────────────
 
 console.log('\n  Templates:');
-const TEMPLATES = discoverTemplates(ROOT);
 
 for (const { tmpl, output } of TEMPLATES) {
   const tmplPath = path.join(ROOT, tmpl);

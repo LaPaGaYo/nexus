@@ -1066,36 +1066,17 @@ for (const line of lines) {
 
 ### Pretext API Reference
 
-```
-PRETEXT API CHEATSHEET:
+Keep this reference tight and route back to the patterns above:
 
-prepare(text, font) → handle
-  One-time text measurement. Call after document.fonts.ready.
-  Font: CSS shorthand like '16px Inter' or 'bold 24px Georgia'.
-
-layout(prepared, maxWidth, lineHeight) → { height, lineCount }
-  Fast layout computation. Call on every resize. Sub-millisecond.
-
-prepareWithSegments(text, font) → handle
-  Like prepare() but enables line-level APIs below.
-
-layoutWithLines(segs, maxWidth, lineHeight) → { lines: [{text, width, x, y}...], height }
-  Full line-by-line breakdown. For Canvas/SVG rendering.
-
-walkLineRanges(segs, maxWidth, onLine) → void
-  Calls onLine(lineCount, startIdx, endIdx) for each possible layout.
-  Find minimum width for N lines. For tight-fit containers.
-
-layoutNextLine(segs, state, maxWidth, lineHeight) → { text, width, state } | null
-  Iterator. Different maxWidth per line = text around obstacles.
-  Pass null as initial state. Returns null when text is exhausted.
-
-clearCache() → void
-  Clears internal measurement caches. Use when cycling many fonts.
-
-setLocale(locale?) → void
-  Retargets word segmenter for future prepare() calls.
-```
+| API | Purpose |
+|-----|---------|
+| `prepare(text, font)` | One-time measurement after `document.fonts.ready`. |
+| `layout(handle, width, lineHeight)` | Resize-time height and line-count computation. |
+| `prepareWithSegments(text, font)` | Enables line-level layout APIs. |
+| `layoutWithLines(segs, width, lineHeight)` | Full line breakdown for Canvas/SVG/custom DOM. |
+| `walkLineRanges(segs, width, onLine)` | Find tight-fit widths for shrinkwrap containers. |
+| `layoutNextLine(segs, state, width, lineHeight)` | Iterative layout with per-line widths for obstacles. |
+| `clearCache()` / `setLocale(locale?)` | Cache and locale controls for advanced runs. |
 
 ---
 

@@ -582,255 +582,164 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 # /retro — Weekly Engineering Retrospective
 
-Generates a comprehensive engineering retrospective analyzing commit history, work patterns, and code quality metrics. Team-aware: identifies the user running the command, then analyzes every contributor with per-person praise and growth opportunities. Designed for a senior IC/CTO-level builder using Claude Code as a force multiplier.
+Generates a repo or global retrospective from git history, Nexus archives, AI
+session traces, review signal, backlog state, and test health. The output should
+be candid, specific, and useful for next-week behavior.
 
 ## User-invocable
 When the user types `/retro`, run this skill.
 
 ## Arguments
-- `/retro` — default: last 7 days
-- `/retro 24h` — last 24 hours
-- `/retro 14d` — last 14 days
-- `/retro 30d` — last 30 days
-- `/retro compare` — compare current window vs prior same-length window
-- `/retro compare 14d` — compare with explicit window
-- `/retro global` — cross-project retro across all AI coding tools (7d default)
-- `/retro global 14d` — cross-project retro with explicit window
+- `/retro` — last 7 days
+- `/retro 24h|14d|30d|2w` — explicit window
+- `/retro compare [window]` — current window vs prior same-length window
+- `/retro global [window]` — cross-project retro across AI coding tools
 
 ## Instructions
 
-Parse the argument to determine the time window. Default to 7 days if no argument given. All times should be reported in the user's **local timezone** (use the system default — do NOT set `TZ`).
+Parse the argument. Default to 7 days. Report times in the user's local timezone.
 
-**Midnight-aligned windows:** For day (`d`) and week (`w`) units, compute an absolute start date at local midnight, not a relative string. For example, if today is 2026-03-18 and the window is 7 days: the start date is 2026-03-11. Use `--since="2026-03-11T00:00:00"` for git log queries — the explicit `T00:00:00` suffix ensures git starts from midnight. Without it, git uses the current wall-clock time (e.g., `--since="2026-03-11"` at 11pm means 11pm, not midnight). For week units, multiply by 7 to get days (e.g., `2w` = 14 days back). For hour (`h`) units, use `--since="N hours ago"` since midnight alignment does not apply to sub-day windows.
+**Midnight-aligned windows:** For day/week units, compute an absolute local
+midnight start date and use `--since="YYYY-MM-DDT00:00:00"`. For hour units, use
+`--since="N hours ago"`.
 
-**Argument validation:** If the argument doesn't match a number followed by `d`, `h`, or `w`, the word `compare` (optionally followed by a window), or the word `global` (optionally followed by a window), show this usage and stop:
-```
+If the argument is invalid, show:
+
+```text
 Usage: /retro [window | compare | global]
-  /retro              — last 7 days (default)
-  /retro 24h          — last 24 hours
-  /retro 14d          — last 14 days
-  /retro 30d          — last 30 days
-  /retro compare      — compare this period vs prior period
-  /retro compare 14d  — compare with explicit window
-  /retro global       — cross-project retro across all AI tools (7d default)
-  /retro global 14d   — cross-project retro with explicit window
+  /retro
+  /retro 24h
+  /retro 14d
+  /retro 30d
+  /retro compare [window]
+  /retro global [window]
 ```
 
-**If the first argument is `global`:** Skip the normal repo-scoped retro (Steps 1-14). Instead, follow the **Global Retrospective** flow at the end of this document. The optional second argument is the time window (default 7d). This mode does NOT require being inside a git repo.
+If the first argument is `global`, skip repo steps and run Global Retrospective Mode.
+
+## Repo Mode
 
 ### Step 1: Gather Raw Data
 
-First, fetch origin and identify the current user:
+Fetch origin, identify the current user, and run independent reads in parallel:
+
 ```bash
 git fetch origin <default> --quiet
-# Identify who is running the retro
 git config user.name
 git config user.email
-```
 
-The name returned by `git config user.name` is **"you"** — the person reading this retro. All other authors are teammates. Use this to orient the narrative: "your" commits vs teammate contributions.
-
-Run ALL of these git commands in parallel (they are independent):
-
-```bash
-# 1. All commits in window with timestamps, subject, hash, AUTHOR, files changed, insertions, deletions
+# 1. Commits with timestamps, author, subject, hash, and shortstat
 git log origin/<default> --since="<window>" --format="%H|%aN|%ae|%ai|%s" --shortstat
 
-# 2. Per-commit test vs total LOC breakdown with author
-#    Each commit block starts with COMMIT:<hash>|<author>, followed by numstat lines.
-#    Separate test files (matching test/|spec/|__tests__/) from production files.
+# 2. Per-commit production/test LOC
 git log origin/<default> --since="<window>" --format="COMMIT:%H|%aN" --numstat
 
-# 3. Commit timestamps for session detection and hourly distribution (with author)
+# 3. Commit timestamps for session and hourly distribution
 git log origin/<default> --since="<window>" --format="%at|%aN|%ai|%s" | sort -n
 
-# 4. Files most frequently changed (hotspot analysis)
+# 4. Hotspot files
 git log origin/<default> --since="<window>" --format="" --name-only | grep -v '^$' | sort | uniq -c | sort -rn
 
-# 5. PR/MR numbers from commit messages (GitHub #NNN, GitLab !NNN)
+# 5. PR/MR identifiers
 git log origin/<default> --since="<window>" --format="%s" | grep -oE '[#!][0-9]+' | sort -t'#' -k1 | uniq
 
-# 6. Per-author file hotspots (who touches what)
+# 6. Per-author hotspots
 git log origin/<default> --since="<window>" --format="AUTHOR:%aN" --name-only
 
-# 7. Per-author commit counts (quick summary)
+# 7. Per-author commit counts
 git shortlog origin/<default> --since="<window>" -sn --no-merges
 
-# 8. Greptile triage history (if available)
+# 8. Global Greptile triage history
 cat ~/.nexus/greptile-history.md 2>/dev/null || true
 
-# 9. TODOS.md backlog (if available)
+# 9. TODOS.md backlog
 cat TODOS.md 2>/dev/null || true
 
 # 10. Test file count
 find . -name '*.test.*' -o -name '*.spec.*' -o -name '*_test.*' -o -name '*_spec.*' 2>/dev/null | grep -v node_modules | wc -l
 
-# 11. Regression test commits in window
+# 11. Regression test commits
 git log origin/<default> --since="<window>" --oneline --grep="test(qa):" --grep="test(design):" --grep="test: coverage"
 
-# 12. Test files changed in window
+# 12. Test files changed
 git log origin/<default> --since="<window>" --format="" --name-only | grep -E '\.(test|spec)\.' | sort -u | wc -l
 
-# 13. Archived Nexus closeout records (if present)
+# 13. Archived Nexus closeout records
 find .planning/archive/runs -path '*/closeout/CLOSEOUT-RECORD.md' 2>/dev/null | sort
 
-# 14. Archived Nexus run learnings (if present)
+# 14. Archived Nexus run learnings
 find .planning/archive/runs -path '*/closeout/learnings.json' 2>/dev/null | sort
 ```
 
-### Step 2: Compute Metrics
+### Step 2: Compute Summary Metrics
 
-Calculate and present these metrics in a summary table:
+Build a summary table:
 
 | Metric | Value |
 |--------|-------|
 | Commits to main | N |
 | Contributors | N |
 | PRs merged | N |
-| Total insertions | N |
-| Total deletions | N |
+| Total insertions / deletions | +N / -N |
 | Net LOC added | N |
-| Test LOC (insertions) | N |
 | Test LOC ratio | N% |
-| Version range | vX.Y.Z.W → vX.Y.Z.W |
+| Version range | vX -> vY |
 | Active days | N |
 | Detected sessions | N |
 | Avg LOC/session-hour | N |
 | Greptile signal | N% (Y catches, Z FPs) |
 | Test Health | N total tests · M added this period · K regression tests |
 
-Then show a **per-author leaderboard** immediately below:
+Then show a per-author leaderboard with commits, LOC, and top area. The current
+user from `git config user.name` appears first as `You (name)`.
 
-```
-Contributor         Commits   +/-          Top area
-You (garry)              32   +2400/-300   browse/
-alice                    12   +800/-150    app/services/
-bob                       3   +120/-40     tests/
-```
+Optional metrics:
+- Greptile: use `~/.nexus/greptile-history.md`, filtered to the window. Signal = `(fix + already-fixed) / all triaged`.
+- Backlog: if `TODOS.md` exists, count open items, P0/P1, P2, completed this period.
+- Eureka: if `~/.nexus/eureka/eureka.jsonl` exists, summarize moments in the window.
 
-Sort by commits descending. The current user (from `git config user.name`) always appears first, labeled "You (name)".
+### Step 3: Time, Sessions, and Focus
 
-**Greptile signal (if history exists):** Read `~/.nexus/greptile-history.md` (fetched in Step 1, command 8). Filter entries within the retro time window by date. Count entries by type: `fix`, `fp`, `already-fixed`. Compute signal ratio: `(fix + already-fixed) / (fix + already-fixed + fp)`. If no entries exist in the window or the file doesn't exist, skip the Greptile metric row. Skip unparseable lines silently.
+Compute:
+- hourly commit histogram in local time
+- 45-minute-gap work sessions
+- deep / medium / micro sessions
+- total active coding time
+- LOC per active hour
+- focus score: percent of commits touching the top top-level directory
+- ship of the week: highest-LOC PR/commit in the window
 
-**Backlog Health (if TODOS.md exists):** Read `TODOS.md` (fetched in Step 1, command 9). Compute:
-- Total open TODOs (exclude items in `## Completed` section)
-- P0/P1 count (critical/urgent items)
-- P2 count (important items)
-- Items completed this period (items in Completed section with dates within the retro window)
-- Items added this period (cross-reference git log for commits that modified TODOS.md within the window)
+Call out late-night clusters, bimodal days, and context switching patterns.
 
-Include in the metrics table:
-```
-| Backlog Health | N open (X P0/P1, Y P2) · Z completed this period |
-```
+### Step 4: Shipping and Quality Signals
 
-If TODOS.md doesn't exist, skip the Backlog Health row.
+Compute:
+- conventional commit mix (`feat`, `fix`, `refactor`, `test`, `chore`, `docs`)
+- fix ratio, flagging >50% as potential review churn
+- top 10 hotspots and files changed 5+ times
+- PR size buckets: small <100 LOC, medium 100-500, large 500-1500, XL 1500+
+- version / CHANGELOG discipline
+- test health: total test files, test files changed, regression test commits
 
-**Eureka Moments (if logged):** Read `~/.nexus/eureka/eureka.jsonl` if it exists. Filter entries within the retro time window by `ts` field. For each eureka moment, show the skill that flagged it, the branch, and a one-line summary of the insight. Present as:
+### Step 5: Contributor Analysis
 
-```
-| Eureka Moments | 2 this period |
-```
+For each contributor:
+- commits, insertions, deletions, net LOC
+- top 3 focus areas
+- commit type mix
+- session patterns and peak hours
+- personal test LOC ratio
+- biggest ship
 
-If moments exist, list them:
-```
-  EUREKA /office-hours (branch: garrytan/auth-rethink): "Session tokens don't need server storage — browser crypto API makes client-side JWT validation viable"
-  EUREKA /plan-eng-review (branch: garrytan/cache-layer): "Redis isn't needed here — Bun's built-in LRU cache handles this workload"
-```
+For the current user, write the deepest section: personal stats, session patterns,
+focus areas, biggest ship, 2-3 specific strengths, and 1-2 concrete growth areas.
 
-If the JSONL file doesn't exist or has no entries in the window, skip the Eureka Moments row.
+For teammates, write 2-3 sentences plus:
+- **Praise:** specific, anchored in commits
+- **Opportunity for growth:** one constructive suggestion
 
-### Step 3: Commit Time Distribution
-
-Show hourly histogram in local time using bar chart:
-
-```
-Hour  Commits  ████████████████
- 00:    4      ████
- 07:    5      █████
- ...
-```
-
-Identify and call out:
-- Peak hours
-- Dead zones
-- Whether pattern is bimodal (morning/evening) or continuous
-- Late-night coding clusters (after 10pm)
-
-### Step 4: Work Session Detection
-
-Detect sessions using **45-minute gap** threshold between consecutive commits. For each session report:
-- Start/end time (Pacific)
-- Number of commits
-- Duration in minutes
-
-Classify sessions:
-- **Deep sessions** (50+ min)
-- **Medium sessions** (20-50 min)
-- **Micro sessions** (<20 min, typically single-commit fire-and-forget)
-
-Calculate:
-- Total active coding time (sum of session durations)
-- Average session length
-- LOC per hour of active time
-
-### Step 5: Commit Type Breakdown
-
-Categorize by conventional commit prefix (feat/fix/refactor/test/chore/docs). Show as percentage bar:
-
-```
-feat:     20  (40%)  ████████████████████
-fix:      27  (54%)  ███████████████████████████
-refactor:  2  ( 4%)  ██
-```
-
-Flag if fix ratio exceeds 50% — this signals a "ship fast, fix fast" pattern that may indicate review gaps.
-
-### Step 6: Hotspot Analysis
-
-Show top 10 most-changed files. Flag:
-- Files changed 5+ times (churn hotspots)
-- Test files vs production files in the hotspot list
-- VERSION/CHANGELOG frequency (version discipline indicator)
-
-### Step 7: PR Size Distribution
-
-From commit diffs, estimate PR sizes and bucket them:
-- **Small** (<100 LOC)
-- **Medium** (100-500 LOC)
-- **Large** (500-1500 LOC)
-- **XL** (1500+ LOC)
-
-### Step 8: Focus Score + Ship of the Week
-
-**Focus score:** Calculate the percentage of commits touching the single most-changed top-level directory (e.g., `app/services/`, `app/views/`). Higher score = deeper focused work. Lower score = scattered context-switching. Report as: "Focus score: 62% (app/services/)"
-
-**Ship of the week:** Auto-identify the single highest-LOC PR in the window. Highlight it:
-- PR number and title
-- LOC changed
-- Why it matters (infer from commit messages and files touched)
-
-### Step 9: Team Member Analysis
-
-For each contributor (including the current user), compute:
-
-1. **Commits and LOC** — total commits, insertions, deletions, net LOC
-2. **Areas of focus** — which directories/files they touched most (top 3)
-3. **Commit type mix** — their personal feat/fix/refactor/test breakdown
-4. **Session patterns** — when they code (their peak hours), session count
-5. **Test discipline** — their personal test LOC ratio
-6. **Biggest ship** — their single highest-impact commit or PR in the window
-
-**For the current user ("You"):** This section gets the deepest treatment. Include all the detail from the solo retro — session analysis, time patterns, focus score. Frame it in first person: "Your peak hours...", "Your biggest ship..."
-
-**For each teammate:** Write 2-3 sentences covering what they worked on and their pattern. Then:
-
-- **Praise** (1-2 specific things): Anchor in actual commits. Not "great work" — say exactly what was good. Examples: "Shipped the entire auth middleware rewrite in 3 focused sessions with 45% test coverage", "Every PR under 200 LOC — disciplined decomposition."
-- **Opportunity for growth** (1 specific thing): Frame as a leveling-up suggestion, not criticism. Anchor in actual data. Examples: "Test ratio was 12% this week — adding test coverage to the payment module before it gets more complex would pay off", "5 fix commits on the same file suggest the original PR could have used a review pass."
-
-**If only one contributor (solo repo):** Skip the team breakdown and proceed as before — the retro is personal.
-
-**If there are Co-Authored-By trailers:** Parse `Co-Authored-By:` lines in commit messages. Credit those authors for the commit alongside the primary author. Note AI co-authors (e.g., `noreply@anthropic.com`) but do not include them as team members — instead, track "AI-assisted commits" as a separate metric.
+If only one contributor, skip team breakdown. Parse `Co-Authored-By:` trailers;
+track AI-assisted commits separately and do not treat AI as a teammate.
 
 ## Capture Learnings
 
@@ -856,75 +765,43 @@ staleness detection: if those files are later deleted, the learning can be flagg
 **Only log genuine discoveries.** Don't log obvious things. Don't log things the user
 already knows. A good test: would this insight save time in a future session? If yes, log it.
 
-### Step 10: Week-over-Week Trends (if window >= 14d)
+### Step 6: Compare and Streaks
 
-If the time window is 14 days or more, split into weekly buckets and show trends:
-- Commits per week (total and per-author)
-- LOC per week
-- Test ratio per week
-- Fix ratio per week
-- Session count per week
+If window >= 14d, split into weekly buckets for commits, LOC, test ratio, fix
+ratio, and sessions.
 
-### Step 11: Streak Tracking
-
-Count consecutive days with at least 1 commit to origin/<default>, going back from today. Track both team streak and personal streak:
+Compute streaks from full history:
 
 ```bash
-# Team streak: all unique commit dates (local time) — no hard cutoff
 git log origin/<default> --format="%ad" --date=format:"%Y-%m-%d" | sort -u
-
-# Personal streak: only the current user's commits
 git log origin/<default> --author="<user_name>" --format="%ad" --date=format:"%Y-%m-%d" | sort -u
 ```
 
-Count backward from today — how many consecutive days have at least one commit? This queries the full history so streaks of any length are reported accurately. Display both:
-- "Team shipping streak: 47 consecutive days"
-- "Your shipping streak: 32 consecutive days"
-
-### Step 12: Load History & Compare
-
-Before saving the new snapshot, check for prior retro history:
+Load prior repo retro history:
 
 ```bash
-setopt +o nomatch 2>/dev/null || true  # zsh compat
+setopt +o nomatch 2>/dev/null || true
 ls -t .planning/archive/retros/*/retro.json 2>/dev/null || ls -t .context/retros/*.json 2>/dev/null
 ```
 
-**If prior retros exist:** Load the most recent one using the Read tool. Calculate deltas for key metrics and include a **Trends vs Last Retro** section:
-```
-                    Last        Now         Delta
-Test ratio:         22%    →    41%         ↑19pp
-Sessions:           10     →    14          ↑4
-LOC/hour:           200    →    350         ↑75%
-Fix ratio:          54%    →    30%         ↓24pp (improving)
-Commits:            32     →    47          ↑47%
-Deep sessions:      3      →    5           ↑2
-```
+If present, compare test ratio, sessions, LOC/hour, fix ratio, commits, and deep
+sessions. If absent, say this is the first retro recorded.
 
-**If no prior retros exist:** Skip the comparison section and append: "First retro recorded — run again next week to see trends."
+### Step 7: Save Repo Retro
 
-### Step 13: Save Retro History
-
-After computing all metrics (including streak) and loading any prior history for comparison, save a JSON snapshot:
+Create an archive:
 
 ```bash
 mkdir -p .planning/archive/retros
-```
-
-Determine the next sequence number for today (substitute the actual date for `$(date +%Y-%m-%d)`):
-```bash
-setopt +o nomatch 2>/dev/null || true  # zsh compat
-# Count existing retros for today to get next sequence number
 today=$(date +%Y-%m-%d)
 existing=$(ls .planning/archive/retros/${today}-*/retro.json 2>/dev/null | wc -l | tr -d ' ')
 next=$((existing + 1))
 retro_dir=.planning/archive/retros/${today}-${next}
 mkdir -p "$retro_dir"
-# Save JSON as $retro_dir/retro.json
-# Save Markdown as $retro_dir/RETRO.md
 ```
 
-Use the Write tool to save the JSON file with this schema:
+Write `$retro_dir/retro.json`:
+
 ```json
 {
   "schema_version": 1,
@@ -934,225 +811,99 @@ Use the Write tool to save the JSON file with this schema:
   "window": "7d",
   "generated_at": "2026-03-08T23:15:00-07:00",
   "repository_root": "/absolute/path/to/repo",
-  "linked_run_ids": ["run-2026-03-08T10-00-00-000Z"],
-  "source_artifacts": [
-    ".planning/archive/runs/run-2026-03-08T10-00-00-000Z/closeout/CLOSEOUT-RECORD.md",
-    ".planning/archive/runs/run-2026-03-08T10-00-00-000Z/closeout/learnings.json"
-  ],
-  "summary": "This period concentrated on auth hardening and review latency came down after the webhook fix cycle.",
-  "key_findings": [
-    "Auth and workspace work stayed focused in one subsystem.",
-    "Fix-cycle volume dropped after the webhook/security cleanup."
-  ],
-  "recommended_attention_areas": [
-    "carry forward the review latency improvements into the next phase",
-    "keep owner-mutation safeguards covered by regression tests"
-  ],
+  "linked_run_ids": [],
+  "source_artifacts": [],
+  "summary": "...",
+  "key_findings": ["..."],
+  "recommended_attention_areas": ["..."],
   "metrics": {
     "commits": 47,
     "contributors": 3,
-    "prs_merged": 12,
     "insertions": 3200,
     "deletions": 800,
-    "net_loc": 2400,
-    "test_loc": 1300,
     "test_ratio": 0.41,
-    "active_days": 6,
     "sessions": 14,
     "deep_sessions": 5,
-    "avg_session_minutes": 42,
-    "loc_per_session_hour": 350,
-    "feat_pct": 0.40,
     "fix_pct": 0.30,
-    "peak_hour": 22,
     "ai_assisted_commits": 32
   },
   "authors": {
-    "Alex": { "commits": 32, "insertions": 2400, "deletions": 300, "test_ratio": 0.41, "top_area": "browse/" },
-    "Alice": { "commits": 12, "insertions": 800, "deletions": 150, "test_ratio": 0.35, "top_area": "app/services/" }
+    "Alex": { "commits": 32, "insertions": 2400, "deletions": 300, "test_ratio": 0.41, "top_area": "browse/" }
   },
   "version_range": ["1.16.0.0", "1.16.1.0"],
   "streak_days": 47,
-  "tweetable": "Week of Mar 1: 47 commits (3 contributors), 3.2k LOC, 38% tests, 12 PRs, peak: 10pm",
-  "greptile": {
-    "fixes": 3,
-    "fps": 1,
-    "already_fixed": 2,
-    "signal_pct": 83
-  }
-}
-```
-
-**Note:** Only include the `greptile` field if `~/.nexus/greptile-history.md` exists and has entries within the time window. Only include the `backlog` field if `TODOS.md` exists. Only include the `test_health` field if test files were found (command 10 returns > 0). If any has no data, omit the field entirely.
-
-If Nexus archived runs exist, populate:
-- `linked_run_ids` with the archived governed run ids covered by this retro
-- `source_artifacts` with the archived closeout artifacts you actually used
-
-After saving `retro.json`, also save a concise markdown summary to
-`$retro_dir/RETRO.md` with:
-- date
-- window
-- summary
-- key findings
-- recommended attention areas
-- linked run ids
-
-Include test health data in the JSON when test files exist:
-```json
+  "tweetable": "Week of Mar 1: 47 commits, 38% tests, streak 47d",
   "test_health": {
     "total_test_files": 47,
     "tests_added_this_period": 5,
     "regression_test_commits": 3,
     "test_files_changed": 8
   }
+}
 ```
 
-Include backlog data in the JSON when TODOS.md exists:
-```json
-  "backlog": {
-    "total_open": 28,
-    "p0_p1": 2,
-    "p2": 8,
-    "completed_this_period": 3,
-    "added_this_period": 1
-  }
-```
+Include `greptile`, `backlog`, and `test_health` only when data exists. Populate
+`linked_run_ids` and `source_artifacts` from archived Nexus closeouts actually used.
 
-### Step 14: Write the Narrative
+Also write `$retro_dir/RETRO.md` with date, window, summary, key findings,
+attention areas, and linked run ids.
 
-Structure the output as:
+### Step 8: Write Narrative
 
----
+Output directly to the conversation. Do not write ad-hoc files outside the retro
+archive.
 
-**Tweetable summary** (first line, before everything else):
-```
+Required structure:
+
+```markdown
 Week of Mar 1: 47 commits (3 contributors), 3.2k LOC, 38% tests, 12 PRs, peak: 10pm | Streak: 47d
-```
 
 ## Engineering Retro: [date range]
 
 ### Summary Table
-(from Step 2)
-
 ### Trends vs Last Retro
-(from Step 11, loaded before save — skip if first retro)
-
 ### Time & Session Patterns
-(from Steps 3-4)
-
-Narrative interpreting what the team-wide patterns mean:
-- When the most productive hours are and what drives them
-- Whether sessions are getting longer or shorter over time
-- Estimated hours per day of active coding (team aggregate)
-- Notable patterns: do team members code at the same time or in shifts?
-
 ### Shipping Velocity
-(from Steps 5-7)
-
-Narrative covering:
-- Commit type mix and what it reveals
-- PR size distribution and what it reveals about shipping cadence
-- Fix-chain detection (sequences of fix commits on the same subsystem)
-- Version bump discipline
-
 ### Code Quality Signals
-- Test LOC ratio trend
-- Hotspot analysis (are the same files churning?)
-- Greptile signal ratio and trend (if history exists): "Greptile: X% signal (Y valid catches, Z false positives)"
-
 ### Test Health
-- Total test files: N (from command 10)
-- Tests added this period: M (from command 12 — test files changed)
-- Regression test commits: list `test(qa):` and `test(design):` and `test: coverage` commits from command 11
-- If prior retro exists and has `test_health`: show delta "Test count: {last} → {now} (+{delta})"
-- If test ratio < 20%: flag as growth area — "100% test coverage is the goal. Tests make vibe coding safe."
-
 ### Plan Completion
-Check review JSONL logs for plan completion data from /ship runs this period:
+Plan Completion This Period: completed / total (`plan_items_total`) from ship review logs when available.
+### Focus & Highlights
+### Your Week (personal deep-dive)
+### Team Breakdown
+### Top 3 Team Wins
+### 3 Things to Improve
+### 3 Habits for Next Week
+### Week-over-Week Trends
+```
+
+For `### Test Health`, include:
+- Total test files
+- Tests added this period
+- Regression test commits
+- Delta from prior retro when available
+- If test ratio <20%, say: "100% test coverage is the goal. Tests make vibe coding safe."
+
+For Plan Completion, read ship review logs when present:
 
 ```bash
-setopt +o nomatch 2>/dev/null || true  # zsh compat
+setopt +o nomatch 2>/dev/null || true
 eval "$(~/.claude/skills/nexus/bin/nexus-slug 2>/dev/null)"
 cat ~/.nexus/projects/$SLUG/*-reviews.jsonl 2>/dev/null | grep '"skill":"ship"' | grep '"plan_items_total"' || echo "NO_PLAN_DATA"
 ```
 
-If plan completion data exists within the retro time window:
-- Count branches shipped with plans (entries that have `plan_items_total` > 0)
-- Compute average completion: sum of `plan_items_done` / sum of `plan_items_total`
-- Identify most-skipped item category if data supports it
-
-Output:
-```
-Plan Completion This Period:
-  {N} branches shipped with plans
-  Average completion: {X}% ({done}/{total} items)
-```
-
-If no plan data exists, skip this section silently.
-
-### Focus & Highlights
-(from Step 8)
-- Focus score with interpretation
-- Ship of the week callout
-
-### Your Week (personal deep-dive)
-(from Step 9, for the current user only)
-
-This is the section the user cares most about. Include:
-- Their personal commit count, LOC, test ratio
-- Their session patterns and peak hours
-- Their focus areas
-- Their biggest ship
-- **What you did well** (2-3 specific things anchored in commits)
-- **Where to level up** (1-2 specific, actionable suggestions)
-
-### Team Breakdown
-(from Step 9, for each teammate — skip if solo repo)
-
-For each teammate (sorted by commits descending), write a section:
-
-#### [Name]
-- **What they shipped**: 2-3 sentences on their contributions, areas of focus, and commit patterns
-- **Praise**: 1-2 specific things they did well, anchored in actual commits. Be genuine — what would you actually say in a 1:1? Examples:
-  - "Cleaned up the entire auth module in 3 small, reviewable PRs — textbook decomposition"
-  - "Added integration tests for every new endpoint, not just happy paths"
-  - "Fixed the N+1 query that was causing 2s load times on the dashboard"
-- **Opportunity for growth**: 1 specific, constructive suggestion. Frame as investment, not criticism. Examples:
-  - "Test coverage on the payment module is at 8% — worth investing in before the next feature lands on top of it"
-  - "Most commits land in a single burst — spacing work across the day could reduce context-switching fatigue"
-  - "All commits land between 1-4am — sustainable pace matters for code quality long-term"
-
-**AI collaboration note:** If many commits have `Co-Authored-By` AI trailers (e.g., Claude, Copilot), note the AI-assisted commit percentage as a team metric. Frame it neutrally — "N% of commits were AI-assisted" — without judgment.
-
-### Top 3 Team Wins
-Identify the 3 highest-impact things shipped in the window across the whole team. For each:
-- What it was
-- Who shipped it
-- Why it matters (product/architecture impact)
-
-### 3 Things to Improve
-Specific, actionable, anchored in actual commits. Mix personal and team-level suggestions. Phrase as "to get even better, the team could..."
-
-### 3 Habits for Next Week
-Small, practical, realistic. Each must be something that takes <5 minutes to adopt. At least one should be team-oriented (e.g., "review each other's PRs same-day").
-
-### Week-over-Week Trends
-(if applicable, from Step 10)
-
----
-
 ## Global Retrospective Mode
 
-When the user runs `/retro global` (or `/retro global 14d`), follow this flow instead of the repo-scoped Steps 1-14. This mode works from any directory — it does NOT require being inside a git repo.
+`/retro global [window]` works from any directory. It reads AI coding sessions
+across projects and saves snapshots under `~/.nexus/retros/`.
 
-### Global Step 1: Compute time window
+### Global Step 1: Compute Window
 
-Same midnight-aligned logic as the regular retro. Default 7d. The second argument after `global` is the window (e.g., `14d`, `30d`, `24h`).
+Use the same midnight-aligned logic. Default 7d.
 
-### Global Step 2: Run discovery
+### Global Step 2: Discover Repos and Sessions
 
-Locate and run the discovery script using this fallback chain:
+Locate the binary:
 
 ```bash
 DISCOVER_BIN=""
@@ -1163,305 +914,130 @@ DISCOVER_BIN=""
 echo "DISCOVER_BIN: $DISCOVER_BIN"
 ```
 
-If no binary is found, tell the user: "Discovery script not found. Run `bun run build` in the Nexus directory to compile it." and stop.
+Run:
 
-Run the discovery:
 ```bash
 $DISCOVER_BIN --since "<window>" --format json 2>/tmp/nexus-discover-stderr
 ```
 
-Read the stderr output from `/tmp/nexus-discover-stderr` for diagnostic info. Parse the JSON output from stdout.
+If no sessions are found, suggest `/retro global 30d`.
 
-If `total_sessions` is 0, say: "No AI coding sessions found in the last <window>. Try a longer window: `/retro global 30d`" and stop.
+### Global Step 3: Gather Per-Repo Git Data
 
-### Global Step 3: Run git log on each discovered repo
-
-For each repo in the discovery JSON's `repos` array, find the first valid path in `paths[]` (directory exists with `.git/`). If no valid path exists, skip the repo and note it.
-
-**For local-only repos** (where `remote` starts with `local:`): skip `git fetch` and use the local default branch. Use `git log HEAD` instead of `git log origin/$DEFAULT`.
-
-**For repos with remotes:**
+For each discovered repo with a valid `.git`, detect default branch and run:
 
 ```bash
 git -C <path> fetch origin --quiet 2>/dev/null
-```
-
-Detect the default branch for each repo: first try `git symbolic-ref refs/remotes/origin/HEAD`, then check common branch names (`main`, `master`), then fall back to `git rev-parse --abbrev-ref HEAD`. Use the detected branch as `<default>` in the commands below.
-
-```bash
-# Commits with stats
 git -C <path> log origin/$DEFAULT --since="<start_date>T00:00:00" --format="%H|%aN|%ai|%s" --shortstat
-
-# Commit timestamps for session detection, streak, and context switching
 git -C <path> log origin/$DEFAULT --since="<start_date>T00:00:00" --format="%at|%aN|%ai|%s" | sort -n
-
-# Per-author commit counts
 git -C <path> shortlog origin/$DEFAULT --since="<start_date>T00:00:00" -sn --no-merges
-
-# PR/MR numbers from commit messages (GitHub #NNN, GitLab !NNN)
 git -C <path> log origin/$DEFAULT --since="<start_date>T00:00:00" --format="%s" | grep -oE '[#!][0-9]+' | sort -t'#' -k1 | uniq
 ```
 
-For repos that fail (deleted paths, network errors): skip and note "N repos could not be reached."
+For local-only repos, skip fetch and use `HEAD`.
 
-### Global Step 4: Compute global shipping streak
+### Global Step 4: Compute Global Signals
 
-For each repo, get commit dates (capped at 365 days):
-
-```bash
-git -C <path> log origin/$DEFAULT --since="365 days ago" --format="%ad" --date=format:"%Y-%m-%d" | sort -u
-```
-
-Union all dates across all repos. Count backward from today — how many consecutive days have at least one commit to ANY repo? If the streak hits 365 days, display as "365+ days".
-
-### Global Step 5: Compute context switching metric
-
-From the commit timestamps gathered in Step 3, group by date. For each date, count how many distinct repos had commits that day. Report:
-- Average repos/day
-- Maximum repos/day
-- Which days were focused (1 repo) vs. fragmented (3+ repos)
-
-### Global Step 6: Per-tool productivity patterns
-
-From the discovery JSON, analyze tool usage patterns:
-- Which AI tool is used for which repos (exclusive vs. shared)
-- Session count per tool
-- Behavioral patterns (e.g., "Codex used exclusively for myapp, Claude Code for everything else")
-
-### Global Step 7: Aggregate and generate narrative
-
-Structure the output with the **shareable personal card first**, then the full
-team/project breakdown below. The personal card is designed to be screenshot-friendly
-— everything someone would want to share on X/Twitter in one clean block.
-
----
-
-**Tweetable summary** (first line, before everything else):
-```
-Week of Mar 14: 5 projects, 138 commits, 250k LOC across 5 repos | 48 AI sessions | Streak: 52d 🔥
-```
-
-## 🚀 Your Week: [user name] — [date range]
-
-This section is the **shareable personal card**. It contains ONLY the current user's
-stats — no team data, no project breakdowns. Designed to screenshot and post.
-
-Use the user identity from `git config user.name` to filter all per-repo git data.
-Aggregate across all repos to compute personal totals.
-
-Render as a single visually clean block. Left border only — no right border (LLMs
-can't align right borders reliably). Pad repo names to the longest name so columns
-align cleanly. Never truncate project names.
-
-```
-╔═══════════════════════════════════════════════════════════════
-║  [USER NAME] — Week of [date]
-╠═══════════════════════════════════════════════════════════════
-║
-║  [N] commits across [M] projects
-║  +[X]k LOC added · [Y]k LOC deleted · [Z]k net
-║  [N] AI coding sessions (CC: X, Codex: Y, Gemini: Z)
-║  [N]-day shipping streak 🔥
-║
-║  PROJECTS
-║  ─────────────────────────────────────────────────────────
-║  [repo_name_full]        [N] commits    +[X]k LOC    [solo/team]
-║  [repo_name_full]        [N] commits    +[X]k LOC    [solo/team]
-║  [repo_name_full]        [N] commits    +[X]k LOC    [solo/team]
-║
-║  SHIP OF THE WEEK
-║  [PR title] — [LOC] lines across [N] files
-║
-║  TOP WORK
-║  • [1-line description of biggest theme]
-║  • [1-line description of second theme]
-║  • [1-line description of third theme]
-║
-║  Powered by Nexus
-╚═══════════════════════════════════════════════════════════════
-```
-
-**Rules for the personal card:**
-- Only show repos where the user has commits. Skip repos with 0 commits.
-- Sort repos by user's commit count descending.
-- **Never truncate repo names.** Use the full repo name (e.g., `analyze_transcripts`
-  not `analyze_trans`). Pad the name column to the longest repo name so all columns
-  align. If names are long, widen the box — the box width adapts to content.
-- For LOC, use "k" formatting for thousands (e.g., "+64.0k" not "+64010").
-- Role: "solo" if user is the only contributor, "team" if others contributed.
-- Ship of the Week: the user's single highest-LOC PR across ALL repos.
-- Top Work: 3 bullet points summarizing the user's major themes, inferred from
-  commit messages. Not individual commits — synthesize into themes.
-  E.g., "Built /retro global — cross-project retrospective with AI session discovery"
-  not "feat: nexus-global-discover" + "feat: /retro global template".
-- The card must be self-contained. Someone seeing ONLY this block should understand
-  the user's week without any surrounding context.
-- Do NOT include team members, project totals, or context switching data here.
-
-**Personal streak:** Use the user's own commits across all repos (filtered by
-`--author`) to compute a personal streak, separate from the team streak.
-
----
-
-## Global Engineering Retro: [date range]
-
-Everything below is the full analysis — team data, project breakdowns, patterns.
-This is the "deep dive" that follows the shareable card.
-
-### All Projects Overview
-| Metric | Value |
-|--------|-------|
-| Projects active | N |
-| Total commits (all repos, all contributors) | N |
-| Total LOC | +N / -N |
-| AI coding sessions | N (CC: X, Codex: Y, Gemini: Z) |
-| Active days | N |
-| Global shipping streak (any contributor, any repo) | N consecutive days |
-| Context switches/day | N avg (max: M) |
-
-### Per-Project Breakdown
-For each repo (sorted by commits descending):
-- Repo name (with % of total commits)
-- Commits, LOC, PRs merged, top contributor
-- Key work (inferred from commit messages)
+Compute:
+- personal commits across projects
+- total commits / LOC / active projects
 - AI sessions by tool
+- personal and global shipping streaks
+- context switches per day
+- per-tool behavioral patterns
+- ship of the week across all projects
 
-**Your Contributions** (sub-section within each project):
-For each project, add a "Your contributions" block showing the current user's
-personal stats within that repo. Use the user identity from `git config user.name`
-to filter. Include:
-- Your commits / total commits (with %)
-- Your LOC (+insertions / -deletions)
-- Your key work (inferred from YOUR commit messages only)
-- Your commit type mix (feat/fix/refactor/chore/docs breakdown)
-- Your biggest ship in this repo (highest-LOC commit or PR)
+### Global Step 5: Write Global Narrative
 
-If the user is the only contributor, say "Solo project — all commits are yours."
-If the user has 0 commits in a repo (team project they didn't touch this period),
-say "No commits this period — [N] AI sessions only." and skip the breakdown.
+Start with the shareable personal card:
 
-Format:
+```text
+Week of Mar 14: 5 projects, 138 commits, 250k LOC across 5 repos | 48 AI sessions | Streak: 52d
+
+## Your Week: [user name] — [date range]
+
+[USER NAME] — Week of [date]
+N commits across M projects
++Xk LOC added · Yk LOC deleted · Zk net
+N AI coding sessions (CC: X, Codex: Y, Gemini: Z)
+N-day shipping streak
+
+PROJECTS
+[repo_name_full]        N commits    +Xk LOC    solo/team
+
+SHIP OF THE WEEK
+[PR title] — [LOC] lines across [N] files
+
+TOP WORK
+- theme 1
+- theme 2
+- theme 3
 ```
-**Your contributions:** 47/244 commits (19%), +4.2k/-0.3k LOC
-  Key work: Writer Chat, email blocking, security hardening
-  Biggest ship: PR #605 — Writer Chat eats the admin bar (2,457 ins, 46 files)
-  Mix: feat(3) fix(2) chore(1)
-```
 
-### Cross-Project Patterns
-- Time allocation across projects (% breakdown, use YOUR commits not total)
-- Peak productivity hours aggregated across all repos
-- Focused vs. fragmented days
-- Context switching trends
+Then write:
+- All Projects Overview
+- Per-Project Breakdown
+- Your contributions inside each project
+- Cross-Project Patterns
+- Tool Usage Analysis
+- Ship of the Week (Global)
+- 3 Cross-Project Insights
+- 3 Habits for Next Week
 
-### Tool Usage Analysis
-Per-tool breakdown with behavioral patterns:
-- Claude Code: N sessions across M repos — patterns observed
-- Codex: N sessions across M repos — patterns observed
-- Gemini: N sessions across M repos — patterns observed
+### Global Step 6: Compare and Save
 
-### Ship of the Week (Global)
-Highest-impact PR across ALL projects. Identify by LOC and commit messages.
-
-### 3 Cross-Project Insights
-What the global view reveals that no single-repo retro could show.
-
-### 3 Habits for Next Week
-Considering the full cross-project picture.
-
----
-
-### Global Step 8: Load history & compare
+Compare only against prior global retros with the same window:
 
 ```bash
-setopt +o nomatch 2>/dev/null || true  # zsh compat
+setopt +o nomatch 2>/dev/null || true
 ls -t ~/.nexus/retros/global-*.json 2>/dev/null | head -5
 ```
 
-**Only compare against a prior retro with the same `window` value** (e.g., 7d vs 7d). If the most recent prior retro has a different window, skip comparison and note: "Prior global retro used a different window — skipping comparison."
-
-If a matching prior retro exists, load it with the Read tool. Show a **Trends vs Last Global Retro** table with deltas for key metrics: total commits, LOC, sessions, streak, context switches/day.
-
-If no prior global retros exist, append: "First global retro recorded — run again next week to see trends."
-
-### Global Step 9: Save snapshot
+Save:
 
 ```bash
+setopt +o nomatch 2>/dev/null || true
 mkdir -p ~/.nexus/retros
-```
-
-Determine the next sequence number for today:
-```bash
-setopt +o nomatch 2>/dev/null || true  # zsh compat
 today=$(date +%Y-%m-%d)
 existing=$(ls ~/.nexus/retros/global-${today}-*.json 2>/dev/null | wc -l | tr -d ' ')
 next=$((existing + 1))
 ```
 
-Use the Write tool to save JSON to `~/.nexus/retros/global-${today}-${next}.json`:
-
-```json
-{
-  "type": "global",
-  "date": "2026-03-21",
-  "window": "7d",
-  "projects": [
-    {
-      "name": "nexus",
-      "remote": "<detected from git remote get-url origin, normalized to HTTPS>",
-      "commits": 47,
-      "insertions": 3200,
-      "deletions": 800,
-      "sessions": { "claude_code": 15, "codex": 3, "gemini": 0 }
-    }
-  ],
-  "totals": {
-    "commits": 182,
-    "insertions": 15300,
-    "deletions": 4200,
-    "projects": 5,
-    "active_days": 6,
-    "sessions": { "claude_code": 48, "codex": 8, "gemini": 3 },
-    "global_streak_days": 52,
-    "avg_context_switches_per_day": 2.1
-  },
-  "tweetable": "Week of Mar 14: 5 projects, 182 commits, 15.3k LOC | CC: 48, Codex: 8, Gemini: 3 | Focus: Nexus (58%) | Streak: 52d"
-}
-```
-
----
+Write `~/.nexus/retros/global-${today}-${next}.json` with projects, totals,
+sessions, streak, context-switching metrics, and tweetable summary.
 
 ## Compare Mode
 
-When the user runs `/retro compare` (or `/retro compare 14d`):
-
-1. Compute metrics for the current window (default 7d) using the midnight-aligned start date (same logic as the main retro — e.g., if today is 2026-03-18 and window is 7d, use `--since="2026-03-11T00:00:00"`)
-2. Compute metrics for the immediately prior same-length window using both `--since` and `--until` with midnight-aligned dates to avoid overlap (e.g., for a 7d window starting 2026-03-11: prior window is `--since="2026-03-04T00:00:00" --until="2026-03-11T00:00:00"`)
-3. Show a side-by-side comparison table with deltas and arrows
-4. Write a brief narrative highlighting the biggest improvements and regressions
-5. Save only the current-window snapshot to `.planning/archive/retros/` (same as a normal retro run); do **not** persist the prior-window metrics.
+For `/retro compare [window]`, compute current and immediately prior same-length
+windows using non-overlapping midnight-aligned `--since` / `--until`, show deltas,
+write the normal current-window repo archive, and do not persist the prior-window
+metrics separately.
 
 ## Tone
 
-- Encouraging but candid, no coddling
-- Specific and concrete — always anchor in actual commits/code
-- Skip generic praise ("great job!") — say exactly what was good and why
-- Frame improvements as leveling up, not criticism
-- **Praise should feel like something you'd actually say in a 1:1** — specific, earned, genuine
-- **Growth suggestions should feel like investment advice** — "this is worth your time because..." not "you failed at..."
-- Never compare teammates against each other negatively. Each person's section stands on its own.
-- Keep total output around 3000-4500 words (slightly longer to accommodate team sections)
-- Use markdown tables and code blocks for data, prose for narrative
-- Output directly to the conversation — do NOT write ad-hoc project files. In repo mode, only write the retrospective archive files under `.planning/archive/retros/`.
+- Encouraging but candid.
+- Anchor praise and criticism in actual commits.
+- Frame growth suggestions as investment advice.
+- Do not compare teammates negatively.
+- Keep output around 3000-4500 words for repo mode; global may be longer.
+- Use markdown tables for data and prose for interpretation.
+
+## Verification Contract
+
+Before finishing, verify the retro has:
+- archive JSON and markdown written for repo mode, or global JSON for global mode
+- the Test Health row and `### Test Health` narrative when test data exists
+- concrete commits or files behind every major praise, risk, and habit
+- no ad-hoc files outside the allowed archive paths
 
 ## Important Rules
 
-- ALL narrative output goes directly to the user in the conversation. In repo mode, the ONLY files written are the `.planning/archive/retros/<retro-id>/retro.json` and `.planning/archive/retros/<retro-id>/RETRO.md` archive records.
-- Use `origin/<default>` for all git queries (not local main which may be stale)
-- Display all timestamps in the user's local timezone (do not override `TZ`)
-- If the window has zero commits, say so and suggest a different window
-- Round LOC/hour to nearest 50
-- Treat merge commits as PR boundaries
-- Do not read CLAUDE.md or other docs — this skill is self-contained
-- On first run (no prior retros), skip comparison sections gracefully
-- **Global mode:** Does NOT require being inside a git repo. Saves snapshots to `~/.nexus/retros/` (not `.planning/archive/retros/`). Gracefully skip AI tools that aren't installed. Only compare against prior global retros with the same window value. If streak hits 365d cap, display as "365+ days".
+- Repo mode writes only `.planning/archive/retros/<retro-id>/retro.json` and `RETRO.md`.
+- Global mode writes only `~/.nexus/retros/global-*.json`.
+- Use `origin/<default>`, not local main.
+- Display timestamps in the user's local timezone.
+- If the window has zero commits, say so and suggest a longer window.
+- Round LOC/hour to nearest 50.
+- Treat merge commits as PR boundaries.
+- Do not read CLAUDE.md or other project docs; this skill is self-contained.
+- Skip comparison sections gracefully on first run.

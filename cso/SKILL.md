@@ -599,20 +599,9 @@ ls composer.json 2>/dev/null && echo "STACK: PHP"
 find . -maxdepth 1 \( -name '*.csproj' -o -name '*.sln' \) 2>/dev/null | grep -q . && echo "STACK: .NET"
 ```
 
-**Framework detection:**
-```bash
-grep -q "next" package.json 2>/dev/null && echo "FRAMEWORK: Next.js"
-grep -q "express" package.json 2>/dev/null && echo "FRAMEWORK: Express"
-grep -q "fastify" package.json 2>/dev/null && echo "FRAMEWORK: Fastify"
-grep -q "hono" package.json 2>/dev/null && echo "FRAMEWORK: Hono"
-grep -q "django" requirements.txt pyproject.toml 2>/dev/null && echo "FRAMEWORK: Django"
-grep -q "fastapi" requirements.txt pyproject.toml 2>/dev/null && echo "FRAMEWORK: FastAPI"
-grep -q "flask" requirements.txt pyproject.toml 2>/dev/null && echo "FRAMEWORK: Flask"
-grep -q "rails" Gemfile 2>/dev/null && echo "FRAMEWORK: Rails"
-grep -q "gin-gonic" go.mod 2>/dev/null && echo "FRAMEWORK: Gin"
-grep -q "spring-boot" pom.xml build.gradle 2>/dev/null && echo "FRAMEWORK: Spring Boot"
-grep -q "laravel" composer.json 2>/dev/null && echo "FRAMEWORK: Laravel"
-```
+**Framework detection:** Use targeted Grep checks for common frameworks in the
+detected stack: Next.js, Express, Fastify, Hono, Django, FastAPI, Flask, Rails,
+Gin, Spring Boot, Laravel, and equivalents visible in dependency manifests.
 
 **Soft gate, not hard gate:** Stack detection determines scan PRIORITY, not scan SCOPE. In subsequent phases, PRIORITIZE scanning for detected languages/frameworks first and most thoroughly. However, do NOT skip undetected languages entirely — after the targeted scan, run a brief catch-all pass with high-signal patterns (SQL injection, command injection, hardcoded secrets, SSRF) across ALL file types. A Python service nested in `ml/` that wasn't detected at root still gets basic coverage.
 
@@ -1099,10 +1088,7 @@ Write findings to `.nexus/security-reports/{date}-{HHMMSS}.json` using this sche
   "scope": "full | infra | code | skills | supply-chain | owasp",
   "diff_mode": false,
   "phases_run": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-  "attack_surface": {
-    "code": { "public_endpoints": 0, "authenticated": 0, "admin": 0, "api": 0, "uploads": 0, "integrations": 0, "background_jobs": 0, "websockets": 0 },
-    "infrastructure": { "ci_workflows": 0, "webhook_receivers": 0, "container_configs": 0, "iac_configs": 0, "deploy_targets": 0, "secret_management": "unknown" }
-  },
+  "attack_surface": { "code": {}, "infrastructure": {} },
   "findings": [{
     "id": 1,
     "severity": "CRITICAL",
@@ -1123,24 +1109,16 @@ Write findings to `.nexus/security-reports/{date}-{HHMMSS}.json` using this sche
     "playbook": "...",
     "verification": "independently verified | self-verified"
   }],
-  "supply_chain_summary": {
-    "direct_deps": 0, "transitive_deps": 0,
-    "critical_cves": 0, "high_cves": 0,
-    "install_scripts": 0, "lockfile_present": true, "lockfile_tracked": true,
-    "tools_skipped": []
-  },
-  "filter_stats": {
-    "candidates_scanned": 0, "hard_exclusion_filtered": 0,
-    "confidence_gate_filtered": 0, "verification_filtered": 0, "reported": 0
-  },
+  "supply_chain_summary": {},
+  "filter_stats": {},
   "totals": { "critical": 0, "high": 0, "medium": 0, "tentative": 0 },
-  "trend": {
-    "prior_report_date": null,
-    "resolved": 0, "persistent": 0, "new": 0,
-    "direction": "first_run"
-  }
+  "trend": { "direction": "first_run" }
 }
 ```
+
+Populate the collapsed objects with the fields gathered in Phases 1, 3, 12, and
+13. Keep the JSON machine-readable; do not put markdown prose inside fields that
+are meant for counts or enums.
 
 If `.nexus/` is not in `.gitignore`, note it in findings — security reports should stay local.
 
@@ -1159,12 +1137,9 @@ If `.nexus/` is not in `.gitignore`, note it in findings — security reports sh
 
 ## Disclaimer
 
-**This tool is not a substitute for a professional security audit.** /cso is an AI-assisted
-scan that catches common vulnerability patterns — it is not comprehensive, not guaranteed, and
-not a replacement for hiring a qualified security firm. LLMs can miss subtle vulnerabilities,
-misunderstand complex auth flows, and produce false negatives. For production systems handling
-sensitive data, payments, or PII, engage a professional penetration testing firm. Use /cso as
-a first pass to catch low-hanging fruit and improve your security posture between professional
-audits — not as your only line of defense.
+**This tool is not a substitute for a professional security audit.** /cso is an
+AI-assisted scan for common vulnerability patterns. It is not comprehensive, not
+guaranteed, and not a replacement for a qualified security firm, especially for
+systems handling sensitive data, payments, or PII.
 
 **Always include this disclaimer at the end of every /cso report output.**
