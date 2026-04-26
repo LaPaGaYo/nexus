@@ -129,7 +129,7 @@ the exact governed choices, including:
 - \`/qa --review-advisory-disposition continue_to_qa\`
 - \`/qa --review-advisory-disposition defer_to_follow_on\`
 
-If the advisor recommends \`/design-review\`, \`/benchmark\`, or \`/cso\`, those came from structured
+If the advisor recommends \`/simplify\`, \`/design-review\`, \`/benchmark\`, or \`/cso\`, those came from structured
 verification-matrix support skill signals and should be offered as side skills after the canonical
 governed action.`,
   qa: `For design-bearing runs, browser-facing runs, or when the verification matrix surfaces additional

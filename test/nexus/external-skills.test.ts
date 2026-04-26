@@ -52,6 +52,14 @@ function matrixWithSignals(): VerificationMatrixRecord {
         triggers: [],
         support_surfaces: ['/cso'],
       },
+      maintainability: {
+        category: 'maintainability',
+        source_path: 'review/specialists/maintainability.md',
+        applies: true,
+        rationale: 'Maintainability checklist applies to complexity and simplification opportunities.',
+        triggers: ['always_on'],
+        support_surfaces: ['/simplify'],
+      },
       performance: {
         category: 'performance',
         source_path: 'review/specialists/performance.md',
@@ -89,6 +97,11 @@ function matrixWithSignals(): VerificationMatrixRecord {
         checklist_rationale: [{ category: 'accessibility', source_path: 'review/design-checklist.md', rationale: 'Accessibility checklist applies to browser-facing UI.' }],
       },
       benchmark: { suggested: false, reason: null, checklist_rationale: [] },
+      simplify: {
+        suggested: true,
+        reason: 'Maintainability review supports simplification follow-up.',
+        checklist_rationale: [{ category: 'maintainability', source_path: 'review/specialists/maintainability.md', rationale: 'Maintainability checklist applies to complexity and simplification opportunities.' }],
+      },
       cso: { suggested: false, reason: null, checklist_rationale: [] },
       connect_chrome: { suggested: false, reason: null, checklist_rationale: [] },
       setup_browser_cookies: { suggested: false, reason: null, checklist_rationale: [] },

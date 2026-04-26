@@ -9,6 +9,13 @@ If no findings: output `NO FINDINGS` and nothing else.
 
 ## Categories
 
+### Simplification Opportunities
+- Code that works but is harder to understand than necessary
+- Deeply nested logic where guard clauses would preserve behavior and clarify flow
+- Boolean flags or mode switches where named options or separate helpers would reduce ambiguity
+- Speculative abstractions, wrappers, or indirection with only one real use case
+- Complex conditionals that can become named predicates without changing behavior
+
 ### Dead Code & Unused Imports
 - Variables assigned but never read in the changed files
 - Functions/methods defined but never called (check with Grep across the repo)
@@ -43,3 +50,6 @@ If no findings: output `NO FINDINGS` and nothing else.
 - Reaching into another module's internal implementation (accessing private-by-convention methods)
 - Direct database queries in controllers/views that should go through a service/model
 - Tight coupling between components that should communicate through interfaces
+
+When the finding is behavior-preserving cleanup rather than a blocking correctness issue, include
+`/simplify` in the fix text so the completion advisor can route the follow-up as a simplification pass.

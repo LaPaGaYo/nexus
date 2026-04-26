@@ -9,6 +9,12 @@ If no findings: output `NO FINDINGS` and nothing else.
 
 ## Categories
 
+### Measurement Discipline
+- Performance concerns that are plausible but unmeasured should recommend `/benchmark --diff`
+- Optimization suggestions must name the likely bottleneck: query, bundle, render, network, or algorithm
+- Avoid speculative micro-optimizations when no user-facing or system-facing bottleneck is identified
+- For performance-sensitive advisories, ask for before/after evidence rather than accepting code inspection alone
+
 ### N+1 Queries
 - ActiveRecord/ORM associations traversed in loops without eager loading (.includes, joinedload, include)
 - Database queries inside iteration blocks (each, map, forEach) that could be batched
@@ -49,3 +55,6 @@ If no findings: output `NO FINDINGS` and nothing else.
 - Synchronous I/O (file reads, subprocess, HTTP requests) inside async functions
 - time.sleep() / Thread.sleep() inside event-loop-based handlers
 - CPU-intensive computation blocking the main thread without worker offload
+
+When the issue needs runtime evidence, include `/benchmark --diff` in the fix text so Nexus can attach
+performance verification before the release gate.

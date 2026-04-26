@@ -27,6 +27,7 @@ const NEXUS_SUPPORT_SKILLS = new Set([
   'retro',
   'setup-browser-cookies',
   'setup-deploy',
+  'simplify',
   'unfreeze',
 ]);
 
@@ -38,7 +39,7 @@ const STAGE_INTENT_TAGS: Record<CanonicalCommandId, string[]> = {
   plan: ['planning', 'architecture', 'stories', 'breakdown', 'risk', 'security', 'roadmap', 'prioritization'],
   handoff: ['handoff', 'routing', 'provenance'],
   build: ['implementation', 'debugging', 'code', 'frontend', 'backend'],
-  review: ['code-review', 'audit', 'security', 'design-review', 'performance', 'quality'],
+  review: ['code-review', 'audit', 'security', 'design-review', 'performance', 'quality', 'maintainability', 'simplification'],
   qa: ['qa', 'browser', 'testing', 'performance', 'accessibility', 'auth'],
   ship: ['release', 'docs', 'deploy', 'governance'],
   closeout: ['retro', 'learning', 'documentation', 'follow-on'],
@@ -61,6 +62,8 @@ const TAG_KEYWORDS: Array<{ tag: string; patterns: RegExp[] }> = [
   { tag: 'security', patterns: [/security/i, /auth/i, /permission/i, /secret/i, /threat/i, /cso/i] },
   { tag: 'code-review', patterns: [/code review/i, /\breview\b/i] },
   { tag: 'audit', patterns: [/audit/i, /quality/i, /check/i] },
+  { tag: 'maintainability', patterns: [/maintain/i, /readab/i, /complex/i, /dead code/i, /unused/i, /duplication/i] },
+  { tag: 'simplification', patterns: [/simplif/i, /refactor/i, /clarity/i, /cleanup/i] },
   { tag: 'design', patterns: [/design/i, /visual/i, /brand/i, /ux/i, /ui/i] },
   { tag: 'design-review', patterns: [/design review/i, /visual audit/i, /brand audit/i, /ux review/i] },
   { tag: 'performance', patterns: [/perf/i, /benchmark/i, /latency/i, /load/i] },
@@ -79,6 +82,7 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'co
 const CHECKLIST_TAGS = new Set<VerificationChecklistCategory>([
   'testing',
   'security',
+  'maintainability',
   'performance',
   'accessibility',
   'design',
@@ -264,6 +268,9 @@ function contextTags(matrix: VerificationMatrixRecord | null | undefined): strin
   }
   if (matrix?.support_skill_signals?.benchmark?.suggested) {
     tags.push('performance');
+  }
+  if (matrix?.support_skill_signals?.simplify?.suggested) {
+    tags.push('maintainability', 'simplification');
   }
   return unique(tags);
 }

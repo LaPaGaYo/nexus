@@ -148,6 +148,8 @@ Every canonical stage from `/frame` through `/closeout` also writes
 - Primary purpose: give interactive hosts a runtime-owned next-step contract instead of relying on prompt-only heuristics.
 - Advisor contents: interaction mode, primary next actions, alternative actions, recommended side skills, stop action, default action, project setup gaps, and whether an explicit user choice is required.
 - Design-aware surfacing: when `design_impact` and the verification matrix say a run is design-bearing, the advisor can elevate `/plan-design-review`, `/design-review`, and `/browse`.
+- Maintainability surfacing: when `/review` advisories indicate complexity or behavior-preserving cleanup, the advisor can elevate `/simplify` as a side skill before QA.
+- Security/performance surfacing: security advisories can elevate `/cso --diff` and performance advisories can elevate `/benchmark --diff` instead of forcing those checks into the main review pass.
 - External installed skills: Nexus scans installed `SKILL.md` files and can surface matching user skills as `recommended_external_skills`. These are supplemental only; they never override Nexus canonical commands or Nexus-owned support skills.
 - CLI fallback: when the host cannot show an interactive prompt, `--output interactive` renders a terminal chooser from the same advisor record without auto-executing the selected command.
 - Hidden surfaces: compatibility aliases and utility skills remain off the stage-completion advisor unless the user invokes them directly.
@@ -199,6 +201,7 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |
 | `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |
 | `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
+| `/simplify` | Behavior-preserving simplification pass for maintainability and complexity advisories. |
 | `/qa-only` | Report-only QA pass without fixes. |
 | `/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence, verifies the primary deploy surface, and attaches `.planning/current/ship/deploy-result.json` for both successful lands and pre-merge stops. |
 | `/canary` | Post-deploy monitoring that attaches `.planning/current/ship/canary-status.json` as follow-on ship evidence. |

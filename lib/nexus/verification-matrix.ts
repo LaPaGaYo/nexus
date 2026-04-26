@@ -334,6 +334,11 @@ const CHECKLIST_DEFINITIONS: Record<VerificationChecklistCategory, {
     rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
     support_surfaces: ['/cso', '/setup-browser-cookies'],
   },
+  maintainability: {
+    source_path: 'review/specialists/maintainability.md',
+    rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
+    support_surfaces: ['/simplify'],
+  },
   performance: {
     source_path: 'review/specialists/performance.md',
     rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
@@ -442,6 +447,7 @@ function buildDefaultVerificationMatrix(
         ...(securitySensitive ? ['security_sensitive_surface'] : []),
       ],
     ),
+    maintainability: checklistRecord('maintainability', true, ['always_on']),
     performance: checklistRecord(
       'performance',
       performanceSensitive,
@@ -550,6 +556,11 @@ function buildDefaultVerificationMatrix(
         performanceSensitive,
         'The verification matrix supports benchmark evidence for this run.',
         checklistRationale(checklists, ['performance']),
+      ),
+      simplify: skillSignal(
+        true,
+        'Maintainability review supports a behavior-preserving simplification pass when complexity advisories appear.',
+        checklistRationale(checklists, ['maintainability']),
       ),
       cso: skillSignal(
         securitySensitive,
@@ -754,6 +765,7 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
       design_review: normalizeSkillSignal(supportSkillSignals.design_review, fallback.support_skill_signals.design_review),
       browse: normalizeSkillSignal(supportSkillSignals.browse, fallback.support_skill_signals.browse),
       benchmark: normalizeSkillSignal(supportSkillSignals.benchmark, fallback.support_skill_signals.benchmark),
+      simplify: normalizeSkillSignal(supportSkillSignals.simplify, fallback.support_skill_signals.simplify),
       cso: normalizeSkillSignal(supportSkillSignals.cso, fallback.support_skill_signals.cso),
       connect_chrome: normalizeSkillSignal(
         supportSkillSignals.connect_chrome,

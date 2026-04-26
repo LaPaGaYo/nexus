@@ -41,6 +41,7 @@ describe('nexus verification matrix', () => {
       expect(Object.keys(matrix.checklists).sort()).toEqual([
         'accessibility',
         'design',
+        'maintainability',
         'performance',
         'security',
         'testing',
@@ -56,6 +57,10 @@ describe('nexus verification matrix', () => {
       expect(matrix.checklists.performance).toMatchObject({
         applies: true,
         source_path: 'review/specialists/performance.md',
+      });
+      expect(matrix.checklists.maintainability).toMatchObject({
+        applies: true,
+        source_path: 'review/specialists/maintainability.md',
       });
       expect(matrix.checklists.accessibility).toMatchObject({
         applies: true,
@@ -76,6 +81,9 @@ describe('nexus verification matrix', () => {
       ]));
       expect(matrix.support_skill_signals.benchmark.checklist_rationale).toEqual([
         expect.objectContaining({ category: 'performance', source_path: 'review/specialists/performance.md' }),
+      ]);
+      expect(matrix.support_skill_signals.simplify.checklist_rationale).toEqual([
+        expect.objectContaining({ category: 'maintainability', source_path: 'review/specialists/maintainability.md' }),
       ]);
       expect(matrix.support_skill_signals.cso.checklist_rationale).toEqual([
         expect.objectContaining({ category: 'security', source_path: 'review/specialists/security.md' }),

@@ -591,6 +591,15 @@ describe('gen-skill-docs', () => {
     expect(reviewContent).toContain('Do not reconstruct advisory logic from `status.json`.');
     expect(reviewContent).toContain('AskUserQuestion');
     expect(reviewContent).toContain('/cso');
+    expect(reviewContent).toContain('/simplify');
+  });
+
+  test('simplify support skill is generated as behavior-preserving review follow-on', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'simplify', 'SKILL.md'), 'utf-8');
+    expect(content).toContain('# /simplify');
+    expect(content).toContain('Preserve behavior exactly');
+    expect(content).toContain('.planning/current/review/simplification-pass.md');
+    expect(content).toContain('Run tests before and after');
   });
 
   test('review SKILL.md maps each advisory choice to an exact Nexus command', () => {

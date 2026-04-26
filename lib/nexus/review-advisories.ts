@@ -8,6 +8,7 @@ import {
   type ReviewAdvisoryDisposition,
   type ReviewAdvisoryDispositionRecord,
   type StageStatus,
+  type VerificationChecklistCategory,
 } from './types';
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -36,6 +37,108 @@ function dedupeAdvisories(advisories: string[]): string[] {
   return [...deduped.values()];
 }
 
+const ADVISORY_CATEGORY_PATTERNS: Array<{
+  category: VerificationChecklistCategory;
+  patterns: RegExp[];
+}> = [
+  {
+    category: 'maintainability',
+    patterns: [
+      /\bsimplif/i,
+      /\brefactor/i,
+      /\breadab/i,
+      /\bmaintain/i,
+      /\bcomplex/i,
+      /\bduplicat/i,
+      /\bdead code\b/i,
+      /\bunused\b/i,
+      /\bmagic (number|string)\b/i,
+      /\bover[- ]?engineer/i,
+      /\bDRY\b/,
+      /\blong function\b/i,
+      /\bnested\b/i,
+      /\bclever\b/i,
+    ],
+  },
+  {
+    category: 'security',
+    patterns: [
+      /\bsecurity\b/i,
+      /\bharden/i,
+      /\bauth/i,
+      /\bpermission/i,
+      /\brbac\b/i,
+      /\bsecret/i,
+      /\btoken\b/i,
+      /\binjection\b/i,
+      /\bxss\b/i,
+      /\bcsrf\b/i,
+      /\bssrf\b/i,
+      /\bowasp\b/i,
+    ],
+  },
+  {
+    category: 'performance',
+    patterns: [
+      /\bperformance\b/i,
+      /\bperf\b/i,
+      /\bbenchmark\b/i,
+      /\blatency\b/i,
+      /\bslow\b/i,
+      /\bbundle\b/i,
+      /\bN\+1\b/i,
+      /\bquery\b/i,
+      /\bpagination\b/i,
+      /\bcore web vitals\b/i,
+      /\bmeasurement\b/i,
+    ],
+  },
+  {
+    category: 'accessibility',
+    patterns: [
+      /\baccessib/i,
+      /\ba11y\b/i,
+      /\bkeyboard\b/i,
+      /\bfocus\b/i,
+      /\bscreen reader\b/i,
+      /\baria\b/i,
+    ],
+  },
+  {
+    category: 'design',
+    patterns: [
+      /\bdesign\b/i,
+      /\bvisual\b/i,
+      /\bUI\b/,
+      /\bUX\b/,
+      /\blayout\b/i,
+      /\bspacing\b/i,
+      /\bbrand\b/i,
+    ],
+  },
+  {
+    category: 'testing',
+    patterns: [
+      /\btest\b/i,
+      /\bcoverage\b/i,
+      /\bregression\b/i,
+      /\bfixture\b/i,
+    ],
+  },
+];
+
+export function classifyReviewAdvisoryCategories(advisories: string[]): VerificationChecklistCategory[] {
+  const categories = new Set<VerificationChecklistCategory>();
+  for (const advisory of advisories) {
+    for (const rule of ADVISORY_CATEGORY_PATTERNS) {
+      if (rule.patterns.some((pattern) => pattern.test(advisory))) {
+        categories.add(rule.category);
+      }
+    }
+  }
+  return [...categories].sort();
+}
+
 export function buildReviewAdvisoriesRecord(
   runId: string,
   generatedAt: string,
@@ -56,6 +159,7 @@ export function buildReviewAdvisoriesRecord(
     run_id: runId,
     generated_at: generatedAt,
     advisories,
+    categories: classifyReviewAdvisoryCategories(advisories),
   };
 }
 
@@ -124,6 +228,12 @@ export function readReviewAdvisories(cwd: string): ReviewAdvisoriesRecord | null
     run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
     generated_at: typeof parsed.generated_at === 'string' ? parsed.generated_at : '',
     advisories: dedupeAdvisories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
+    categories: Array.isArray(parsed.categories)
+      ? parsed.categories.filter((value): value is VerificationChecklistCategory =>
+        typeof value === 'string'
+        && ['testing', 'security', 'maintainability', 'performance', 'accessibility', 'design'].includes(value)
+      )
+      : classifyReviewAdvisoryCategories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
   };
 }
 

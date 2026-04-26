@@ -650,7 +650,7 @@ describe('nexus review', () => {
             adapter_id: 'ccb',
             outcome: 'success',
             raw_output: {
-              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Identifier is not visibly sortable.\n',
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Identifier is not visibly sortable.\n- The implementation has duplicated branching and should be simplified without behavior changes.\n',
               receipt: 'codex-review-receipt',
             },
             requested_route: ctx.requested_route,
@@ -668,7 +668,7 @@ describe('nexus review', () => {
             adapter_id: 'ccb',
             outcome: 'success',
             raw_output: {
-              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Build warning about multiple lockfiles.\n',
+              markdown: '# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- Build warning about multiple lockfiles.\n- Security-sensitive auth flow deserves a follow-up hardening pass.\n- New frontend data loading may need performance measurement.\n',
               receipt: 'gemini-review-receipt',
             },
             requested_route: ctx.requested_route,
@@ -690,7 +690,8 @@ describe('nexus review', () => {
       expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
         gate_decision: 'pass',
         ready: true,
-        advisory_count: 2,
+        advisory_count: 5,
+        advisory_categories: ['maintainability', 'performance', 'security'],
         advisories_path: reviewAdvisoriesPath(),
         advisory_disposition: null,
         advisory_disposition_path: reviewAdvisoryDispositionPath(),
@@ -698,12 +699,16 @@ describe('nexus review', () => {
       expect(await run.readJson(reviewAdvisoriesPath())).toMatchObject({
         advisories: [
           'Identifier is not visibly sortable.',
+          'The implementation has duplicated branching and should be simplified without behavior changes.',
           'Build warning about multiple lockfiles.',
+          'Security-sensitive auth flow deserves a follow-up hardening pass.',
+          'New frontend data loading may need performance measurement.',
         ],
+        categories: ['maintainability', 'performance', 'security'],
       });
       expect(await run.readJson(reviewAdvisoryDispositionPath())).toMatchObject({
         selected: null,
-        advisory_count: 2,
+        advisory_count: 5,
       });
     });
   });

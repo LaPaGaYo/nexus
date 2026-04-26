@@ -4,8 +4,8 @@ preamble-tier: 4
 version: 1.0.0
 description: |
   Land and deploy workflow. Merges the PR, waits for CI and deploy,
-  verifies production health via canary checks. Takes over after /ship
-  records PR handoff metadata. Use when: "merge", "land", "deploy", "merge and verify",
+  verifies production health via canary checks. Takes over after `/ship` records merge readiness
+  and PR handoff metadata. Use when: "merge", "land", "deploy", "merge and verify",
   "land it", "ship it to production". (Nexus)
 allowed-tools:
   - Bash

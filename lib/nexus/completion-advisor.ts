@@ -178,6 +178,58 @@ function suggestedSkillSignal(
     : null;
 }
 
+function reviewAdvisoryHasCategory(
+  status: StageStatus,
+  category: VerificationChecklistCategory,
+): boolean {
+  return (status.advisory_categories ?? []).includes(category);
+}
+
+function reviewAdvisoryFollowupSignal(
+  status: StageStatus,
+  verificationMatrix: VerificationMatrixRecord | null | undefined,
+  key: keyof VerificationMatrixRecord['support_skill_signals'],
+  category: VerificationChecklistCategory,
+  fallbackReason: string,
+): VerificationMatrixRecord['support_skill_signals'][typeof key] | null {
+  if (!reviewAdvisoryHasCategory(status, category)) {
+    return null;
+  }
+
+  const suggestedSignal = suggestedSkillSignal(verificationMatrix, key);
+  if (suggestedSignal) {
+    return suggestedSignal;
+  }
+
+  const checklist = verificationMatrix?.checklists?.[category];
+  return {
+    suggested: true,
+    reason: fallbackReason,
+    checklist_rationale: checklist
+      ? [
+          {
+            category,
+            source_path: checklist.source_path,
+            rationale: checklist.rationale,
+          },
+        ]
+      : [],
+  };
+}
+
+function reviewAdvisoryEvidenceFromSignal(
+  signal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
+  categories: VerificationChecklistCategory[],
+): CompletionAdvisorEvidenceSignalRecord {
+  const rationale = signal.checklist_rationale.filter((entry) => categories.includes(entry.category));
+  return {
+    kind: 'review_advisory',
+    summary: `Review advisories matched ${humanList(categories)} follow-up categories.`,
+    source_paths: uniqueValues(rationale.map((entry) => entry.source_path)),
+    checklist_categories: categories,
+  };
+}
+
 function baseAdvisor(
   status: StageStatus,
   generatedAt: string,
@@ -559,11 +611,11 @@ export function buildBuildCompletionAdvisor(
     generatedAt,
     'Build is ready. Formal review is the canonical next stage.',
     {
-      interaction_mode: sideSkills.length > 0 ? 'recommended_choice' : 'summary_only',
+      interaction_mode: 'recommended_choice',
       default_action_id: primary.id,
       primary_next_actions: [primary],
       recommended_side_skills: sideSkills,
-      stop_action: sideSkills.length > 0 ? stopAction('build') : null,
+      stop_action: stopAction('build'),
     },
   );
 }
@@ -637,6 +689,80 @@ export function buildReviewCompletionAdvisor(
 
   if ((status.advisory_count ?? 0) > 0 && !status.advisory_disposition) {
     const actions = reviewDispositionActions();
+    const sideSkills: CompletionAdvisorActionRecord[] = [];
+    const simplifySignal = reviewAdvisoryFollowupSignal(
+      status,
+      verificationMatrix,
+      'simplify',
+      'maintainability',
+      'Review advisories include maintainability or complexity cleanup work.',
+    );
+    const benchmarkSignal = reviewAdvisoryFollowupSignal(
+      status,
+      verificationMatrix,
+      'benchmark',
+      'performance',
+      'Review advisories include performance risk that needs measurement before optimization.',
+    );
+    const csoSignal = reviewAdvisoryFollowupSignal(
+      status,
+      verificationMatrix,
+      'cso',
+      'security',
+      'Review advisories include security or trust-boundary hardening work.',
+    );
+
+    if (simplifySignal) {
+      sideSkills.push(
+        action(
+          'run_simplify',
+          'support_skill',
+          '/simplify',
+          '/simplify',
+          'Run `/simplify`',
+          'Run a behavior-preserving simplification pass on complexity or maintainability advisories.',
+          false,
+          simplifySignal.reason,
+          supportSkillWhyFromSignal(simplifySignal),
+          reviewAdvisoryEvidenceFromSignal(simplifySignal, ['maintainability']),
+        ),
+      );
+    }
+
+    if (benchmarkSignal) {
+      sideSkills.push(
+        action(
+          'run_benchmark',
+          'support_skill',
+          '/benchmark',
+          '/benchmark',
+          'Run `/benchmark`',
+          'Attach performance measurements for review advisories that mention latency, bundle, query, or load risk.',
+          false,
+          benchmarkSignal.reason,
+          supportSkillWhyFromSignal(benchmarkSignal),
+          reviewAdvisoryEvidenceFromSignal(benchmarkSignal, ['performance']),
+        ),
+      );
+    }
+
+    if (csoSignal) {
+      sideSkills.push(
+        action(
+          'run_cso',
+          'support_skill',
+          '/cso',
+          '/cso',
+          'Run `/cso`',
+          'Run focused hardening for review advisories that mention auth, permission, secret, or trust-boundary risk.',
+          false,
+          csoSignal.reason,
+          supportSkillWhyFromSignal(csoSignal),
+          reviewAdvisoryEvidenceFromSignal(csoSignal, ['security']),
+        ),
+      );
+    }
+
     return baseAdvisor(
       status,
       generatedAt,
@@ -648,6 +774,7 @@ export function buildReviewCompletionAdvisor(
         choice_reason: 'review advisories require an explicit disposition',
         default_action_id: actions[0]?.id ?? null,
         primary_next_actions: actions,
+        recommended_side_skills: sideSkills,
       },
     );
   }

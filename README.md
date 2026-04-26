@@ -366,8 +366,8 @@ canonical lifecycle. It scans installed `SKILL.md` files, classifies them as
 Nexus canonical, Nexus support, or external installed skills, and only surfaces
 external skills as supplemental actions when their tags match the current stage
 and run context. Nexus canonical commands always win name conflicts. Built-in
-Nexus support skills, such as `/design-review`, `/browse`, `/benchmark`, and
-`/cso`, are shown before external installed skills. External recommendations
+Nexus support skills, such as `/design-review`, `/browse`, `/simplify`, `/benchmark`,
+and `/cso`, are shown before external installed skills. External recommendations
 are written separately as `recommended_external_skills` so hosts can display
 them without confusing them with Nexus-owned workflow actions.
 
@@ -448,6 +448,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/design-shotgun` | Generate and compare multiple design directions for UI screens, prototypes, decks, motion boards, and infographics. |
 | `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |
 | `/design-review` | Audit and polish the visual result in code using the integrated five-lens design critique. |
+| `/simplify` | Run a behavior-preserving simplification pass for maintainability and complexity advisories. |
 | `/investigate` | Systematic root-cause debugging. |
 | `/document-release` | Sync docs after shipping and attach `.planning/current/closeout/documentation-sync.md`. |
 | `/retro` | Project or global retrospective. Repo-scoped retros archive to `.planning/archive/retros/` and can feed fresh-run continuity. |

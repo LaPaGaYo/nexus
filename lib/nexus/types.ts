@@ -234,6 +234,7 @@ export interface VerificationMatrixAttachedEvidenceRecord {
 export const VERIFICATION_CHECKLIST_CATEGORIES = [
   'testing',
   'security',
+  'maintainability',
   'performance',
   'accessibility',
   'design',
@@ -314,6 +315,7 @@ export interface VerificationMatrixRecord {
     design_review: VerificationMatrixSupportSkillSignalRecord;
     browse: VerificationMatrixSupportSkillSignalRecord;
     benchmark: VerificationMatrixSupportSkillSignalRecord;
+    simplify: VerificationMatrixSupportSkillSignalRecord;
     cso: VerificationMatrixSupportSkillSignalRecord;
     connect_chrome: VerificationMatrixSupportSkillSignalRecord;
     setup_browser_cookies: VerificationMatrixSupportSkillSignalRecord;
@@ -710,6 +712,7 @@ export interface ReviewAdvisoriesRecord {
   run_id: string;
   generated_at: string;
   advisories: string[];
+  categories: VerificationChecklistCategory[];
 }
 
 export interface ReviewAdvisoryDispositionRecord {
@@ -892,6 +895,7 @@ export interface StageStatus {
   verification_count?: number;
   defect_count?: number;
   advisory_count?: number;
+  advisory_categories?: VerificationChecklistCategory[];
   advisory_disposition?: ReviewAdvisoryDisposition | null;
   advisory_disposition_path?: string | null;
   local_persona_review?: LocalPersonaReviewStatusRecord | null;

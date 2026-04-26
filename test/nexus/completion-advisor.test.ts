@@ -67,6 +67,14 @@ const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixCheckl
     triggers: [],
     support_surfaces: ['/cso', '/setup-browser-cookies'],
   },
+  maintainability: {
+    category: 'maintainability',
+    source_path: 'review/specialists/maintainability.md',
+    applies: true,
+    rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
+    triggers: ['always_on'],
+    support_surfaces: ['/simplify'],
+  },
   performance: {
     category: 'performance',
     source_path: 'review/specialists/performance.md',
@@ -145,6 +153,7 @@ function verificationMatrix(designImpact: VerificationMatrixRecord['design_impac
     checklists: {
       testing: CHECKLISTS.testing,
       security: CHECKLISTS.security,
+      maintainability: CHECKLISTS.maintainability,
       performance: CHECKLISTS.performance,
       accessibility: {
         ...CHECKLISTS.accessibility,
@@ -180,6 +189,11 @@ function verificationMatrix(designImpact: VerificationMatrixRecord['design_impac
         suggested: true,
         reason: 'The verification matrix supports benchmark evidence for this run.',
         checklist_rationale: checklistRationale('performance'),
+      },
+      simplify: {
+        suggested: true,
+        reason: 'Maintainability review supports a behavior-preserving simplification pass when complexity advisories appear.',
+        checklist_rationale: checklistRationale('maintainability'),
       },
       cso: {
         suggested: false,
@@ -252,6 +266,45 @@ describe('nexus completion advisor', () => {
     expect(advisor.suppressed_surfaces).toContain('/plan-ceo-review');
   });
 
+  test('review advisor surfaces simplification, security, and performance follow-ons for categorized advisories', () => {
+    const status: StageStatus = {
+      ...readyStatus('review'),
+      advisory_count: 3,
+      advisory_disposition: null,
+      advisory_categories: ['maintainability', 'security', 'performance'],
+    };
+
+    const advisor = buildReviewCompletionAdvisor(status, verificationMatrix('none'), '2026-04-20T00:00:00.000Z');
+
+    expect(advisor).toMatchObject({
+      interaction_mode: 'required_choice',
+      requires_user_choice: true,
+      choice_reason: 'review advisories require an explicit disposition',
+    });
+    expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        surface: '/simplify',
+        why_this_skill: expect.stringContaining('maintainability'),
+        evidence_signal: expect.objectContaining({
+          kind: 'review_advisory',
+          checklist_categories: ['maintainability'],
+        }),
+      }),
+      expect.objectContaining({
+        surface: '/benchmark',
+        evidence_signal: expect.objectContaining({
+          checklist_categories: ['performance'],
+        }),
+      }),
+      expect.objectContaining({
+        surface: '/cso',
+        evidence_signal: expect.objectContaining({
+          checklist_categories: ['security'],
+        }),
+      }),
+    ]));
+  });
+
   test('plan advisor keeps design review visible without inventing a pre-handoff verification gap', () => {
     const status: StageStatus = {
       ...readyStatus('plan'),
@@ -304,6 +357,22 @@ describe('nexus completion advisor', () => {
       .toContain('Checklist-backed rationale: design review/design-checklist.md');
     expect(advisor.recommended_side_skills.find((action) => action.surface === '/browse')?.visibility_reason)
       .toContain('Checklist-backed rationale: testing review/specialists/testing.md');
+  });
+
+  test('build advisor keeps the stage chooser visible even without side-skill follow-ups', () => {
+    const advisor = buildBuildCompletionAdvisor(
+      readyStatus('build'),
+      verificationMatrix('none'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    expect(advisor.interaction_mode).toBe('recommended_choice');
+    expect(advisor.default_action_id).toBe('run_review');
+    expect(advisor.primary_next_actions).toEqual([
+      expect.objectContaining({ surface: '/review' }),
+    ]);
+    expect(advisor.recommended_side_skills).toEqual([]);
+    expect(advisor.stop_action).toEqual(expect.objectContaining({ kind: 'stop' }));
   });
 
   test('support skill recommendations expose human why and structured evidence signals', () => {

@@ -930,6 +930,14 @@ describe('nexus types', () => {
           triggers: ['auth_surface', 'security_sensitive_surface'],
           support_surfaces: ['/cso', '/setup-browser-cookies'],
         },
+        maintainability: {
+          category: 'maintainability',
+          source_path: 'review/specialists/maintainability.md',
+          applies: true,
+          rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
+          triggers: ['always_on'],
+          support_surfaces: ['/simplify'],
+        },
         performance: {
           category: 'performance',
           source_path: 'review/specialists/performance.md',
@@ -986,6 +994,17 @@ describe('nexus types', () => {
               category: 'performance',
               source_path: 'review/specialists/performance.md',
               rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
+            },
+          ],
+        },
+        simplify: {
+          suggested: true,
+          reason: 'Maintainability review supports a behavior-preserving simplification pass when complexity advisories appear.',
+          checklist_rationale: [
+            {
+              category: 'maintainability',
+              source_path: 'review/specialists/maintainability.md',
+              rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
             },
           ],
         },

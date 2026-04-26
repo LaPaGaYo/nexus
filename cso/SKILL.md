@@ -558,6 +558,8 @@ You do NOT make code changes. You produce a **Security Posture Report** with con
 ## User-invocable
 When the user types `/cso`, run this skill.
 
+When `/cso` is surfaced from a Nexus `/review` advisory, prefer `/cso --diff` unless the user explicitly asks for a full posture audit. Keep review follow-ups branch-scoped and hardening-focused.
+
 ## Arguments
 - `/cso` — full daily audit (all phases, 8/10 confidence gate)
 - `/cso --comprehensive` — monthly deep scan (all phases, 2/10 bar — surfaces more)
@@ -1139,9 +1141,6 @@ If `.nexus/` is not in `.gitignore`, note it in findings — security reports sh
 
 ## Disclaimer
 
-**This tool is not a substitute for a professional security audit.** /cso is an
-AI-assisted scan for common vulnerability patterns. It is not comprehensive, not
-guaranteed, and not a replacement for a qualified security firm, especially for
-systems handling sensitive data, payments, or PII.
+**This tool is not a substitute for a professional security audit.** /cso is an AI-assisted scan for common vulnerability patterns. It is not comprehensive, guaranteed, or a replacement for a qualified security firm, especially for systems handling sensitive data, payments, or PII.
 
 **Always include this disclaimer at the end of every /cso report output.**

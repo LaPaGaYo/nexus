@@ -9,6 +9,10 @@ If no findings: output `NO FINDINGS` and nothing else.
 
 This checklist goes deeper than the main CRITICAL pass. The main agent already checks SQL injection, race conditions, LLM trust, and enum completeness. This specialist focuses on auth/authz patterns, cryptographic misuse, and attack surface expansion.
 
+Use this as the review-stage hardening checklist. If the concern needs a broader repository,
+dependency, infrastructure, or threat-model pass, recommend `/cso --diff` in the fix text rather
+than trying to turn `/review` into a full security audit.
+
 ## Categories
 
 ### Input Validation at Trust Boundaries
@@ -58,3 +62,9 @@ This checklist goes deeper than the main CRITICAL pass. The main agent already c
 ### Deserialization
 - Deserializing untrusted data (pickle, Marshal, YAML.load, JSON.parse of executable types)
 - Accepting serialized objects from user input or external APIs without schema validation
+
+### Boundary Hardening
+- New endpoints, webhooks, or background jobs without explicit trust-boundary notes
+- Protected flows that rely on client-side checks instead of server-side authorization
+- Security-sensitive code without negative-path tests for denial, expired token, or wrong-tenant access
+- Dependency, workflow, or secret-management concerns that should be escalated to `/cso --diff`

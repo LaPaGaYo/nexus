@@ -1089,6 +1089,7 @@ export async function runReviewWithWriteAtomicFile(
     learnings_recorded: Boolean(learningCandidatesRecord),
     advisories_path: advisoriesRecord ? advisoriesPath : null,
     advisory_count: advisoriesRecord?.advisories.length ?? 0,
+    advisory_categories: advisoriesRecord?.categories ?? [],
     advisory_disposition: advisoryDispositionRecord?.selected ?? null,
     advisory_disposition_path: advisoryDispositionRecord ? advisoryDispositionPath : null,
     local_persona_review: localPersonaReview,

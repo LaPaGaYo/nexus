@@ -183,6 +183,60 @@ describe('nexus-config', () => {
     expect(stdout).toContain('local_provider_ready: yes');
   });
 
+  test('effective-execution marks claude subagents not ready when the CLI lacks agent flags', () => {
+    writeFileSync(
+      join(stateDir, 'config.yaml'),
+      'execution_mode: local_provider\nprimary_provider: claude\nprovider_topology: subagents\n',
+    );
+    const binDir = join(stateDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(
+      join(binDir, 'claude'),
+      '#!/usr/bin/env bash\nif [ "${1:-}" = "--help" ]; then echo "Usage: claude"; exit 0; fi\nexit 0\n',
+    );
+    chmodSync(join(binDir, 'claude'), 0o755);
+
+    const { exitCode, stdout } = run(['effective-execution'], {
+      PATH: `${binDir}:/bin:/usr/bin`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('execution_mode: local_provider');
+    expect(stdout).toContain('effective_primary_provider: claude');
+    expect(stdout).toContain('effective_provider_topology: subagents');
+    expect(stdout).toContain('provider_cli_available: yes');
+    expect(stdout).toContain('local_provider_ready: no');
+    expect(stdout).toContain('current_session_ready: no');
+    expect(stdout).toContain('local_provider_readiness_reason: claude CLI does not expose --agents/--agent');
+  });
+
+  test('effective-execution marks codex multi_session not ready when resume support is missing', () => {
+    writeFileSync(
+      join(stateDir, 'config.yaml'),
+      'execution_mode: local_provider\nprimary_provider: codex\nprovider_topology: multi_session\n',
+    );
+    const binDir = join(stateDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(
+      join(binDir, 'codex'),
+      '#!/usr/bin/env bash\nif [ "${1:-}" = "--help" ]; then echo "Usage: codex exec"; exit 0; fi\nexit 0\n',
+    );
+    chmodSync(join(binDir, 'codex'), 0o755);
+
+    const { exitCode, stdout } = run(['effective-execution'], {
+      PATH: `${binDir}:/bin:/usr/bin`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('execution_mode: local_provider');
+    expect(stdout).toContain('effective_primary_provider: codex');
+    expect(stdout).toContain('effective_provider_topology: multi_session');
+    expect(stdout).toContain('provider_cli_available: yes');
+    expect(stdout).toContain('local_provider_ready: no');
+    expect(stdout).toContain('current_session_ready: no');
+    expect(stdout).toContain('local_provider_readiness_reason: codex CLI does not expose exec/resume');
+  });
+
   test('effective-execution resolves default local_provider route when CCB is missing', () => {
     const binDir = join(stateDir, 'bin');
     mkdirSync(binDir, { recursive: true });

@@ -525,6 +525,7 @@ inline when the request clearly maps to a canonical stage or support surface.
 - Execute a bounded implementation contract → invoke `/build`
 - Broken behavior, bug, root-cause debugging → invoke `/investigate`
 - Governed audit, code review, implementation validation → invoke `/review`
+- Complexity cleanup, behavior-preserving refactor, maintainability advisory → invoke `/simplify`
 - QA, site testing, bug-finding, validation → invoke `/qa`
 - Visual audit or polish of a live site → invoke `/design-review`
 - Release readiness, PR gate, merge readiness → invoke `/ship`
@@ -547,6 +548,7 @@ Support skills are stage-context tools, not a second workflow:
 - early design work: `/design-consultation`, `/plan-design-review`
 - debugging: `/investigate`
 - visual polish: `/design-review`
+- maintainability polish: `/simplify`
 - browser QA: `/browse`, `/connect-chrome`, `/setup-browser-cookies`
 - performance/security: `/benchmark`, `/cso`
 - release tail: `/document-release`, `/land-and-deploy`, `/canary`, `/retro`, `/learn`

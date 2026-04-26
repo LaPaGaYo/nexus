@@ -106,12 +106,81 @@ default_local_provider() {
   fi
 }
 
+help_has_flag() {
+  local output="$1"
+  local flag="$2"
+  printf '%s\n' "$output" | grep -Eq "(^|[[:space:]])${flag}([[:space:]=<,]|$)"
+}
+
+help_has_command() {
+  local output="$1"
+  local command_name="$2"
+  printf '%s\n' "$output" | grep -Eq "(^|[[:space:]])${command_name}([[:space:],]|$)"
+}
+
+resolve_local_provider_readiness() {
+  local provider="$1"
+  local topology="$2"
+  local help_output
+
+  if ! command_exists "$provider"; then
+    printf 'no|provider CLI is not available'
+    return 0
+  fi
+
+  case "$topology" in
+    single_agent)
+      printf 'yes|provider CLI is available'
+      ;;
+    subagents)
+      case "$provider" in
+        claude)
+          if ! help_output="$(claude --help 2>&1)"; then
+            printf 'no|claude --help failed while verifying subagent support'
+            return 0
+          fi
+          if help_has_flag "$help_output" "--agents" && help_has_flag "$help_output" "--agent"; then
+            printf 'yes|claude CLI exposes --agents/--agent'
+          else
+            printf 'no|claude CLI does not expose --agents/--agent'
+          fi
+          ;;
+        codex|gemini)
+          printf 'yes|provider CLI is available for local subagents'
+          ;;
+        *)
+          printf 'no|local_provider topology subagents is only active for claude, codex, or gemini'
+          ;;
+      esac
+      ;;
+    multi_session)
+      if [ "$provider" != "codex" ]; then
+        printf 'no|local_provider topology multi_session is only active for codex'
+        return 0
+      fi
+      if ! help_output="$(codex --help 2>&1)"; then
+        printf 'no|codex --help failed while verifying multi_session support'
+        return 0
+      fi
+      if help_has_command "$help_output" "exec" && help_has_command "$help_output" "resume"; then
+        printf 'yes|codex CLI exposes exec/resume'
+      else
+        printf 'no|codex CLI does not expose exec/resume'
+      fi
+      ;;
+    *)
+      printf 'no|local_provider topology %s is reserved and not yet active' "$topology"
+      ;;
+  esac
+}
+
 print_effective_execution() {
   local configured_mode configured_provider configured_topology ccb_available
   local mode primary_provider provider_topology requested_execution_path mode_configured
   local mounted_providers_csv missing_providers_csv required_governed_providers governed_ready
   local provider_cli_available current_session_ready execution_mode_source
   local local_provider local_provider_topology local_provider_requested_execution_path local_provider_ready
+  local local_provider_readiness local_provider_readiness_reason
 
   configured_mode="$(get_value execution_mode)"
   configured_provider="$(get_value primary_provider)"
@@ -156,12 +225,13 @@ print_effective_execution() {
     local_provider_topology="single_agent"
   fi
   local_provider_requested_execution_path="${local_provider}-local-${local_provider_topology}"
+  local_provider_readiness="$(resolve_local_provider_readiness "$local_provider" "$local_provider_topology")"
+  local_provider_ready="${local_provider_readiness%%|*}"
+  local_provider_readiness_reason="${local_provider_readiness#*|}"
   if command_exists "$local_provider"; then
     provider_cli_available="yes"
-    local_provider_ready="yes"
   else
     provider_cli_available="no"
-    local_provider_ready="no"
   fi
 
   if [ -n "$configured_mode" ]; then
@@ -205,6 +275,7 @@ local_provider_candidate: $local_provider
 local_provider_topology: $local_provider_topology
 local_provider_requested_execution_path: $local_provider_requested_execution_path
 local_provider_ready: $local_provider_ready
+local_provider_readiness_reason: $local_provider_readiness_reason
 provider_cli_available: $provider_cli_available
 note: primary_provider and provider_topology are local_provider-only config keys and may be unset when execution_mode=governed_ccb
 EOF
@@ -234,6 +305,7 @@ local_provider_candidate: $local_provider
 local_provider_topology: $local_provider_topology
 local_provider_requested_execution_path: $local_provider_requested_execution_path
 local_provider_ready: $local_provider_ready
+local_provider_readiness_reason: $local_provider_readiness_reason
 EOF
 }
 

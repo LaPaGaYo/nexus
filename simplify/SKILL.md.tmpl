@@ -1,0 +1,114 @@
+---
+name: simplify
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Nexus simplification pass. Use when review advisories, maintainability findings,
+  or user feedback mention complexity, readability, duplication, dead code, over-engineering,
+  or behavior-preserving refactoring. Do not use for feature changes. (Nexus)
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - AskUserQuestion
+hooks:
+  PreToolUse:
+    - matcher: "Edit"
+      hooks:
+        - type: command
+          command: "bash ${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh"
+          statusMessage: "Checking simplification scope boundary..."
+    - matcher: "Write"
+      hooks:
+        - type: command
+          command: "bash ${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh"
+          statusMessage: "Checking simplification scope boundary..."
+---
+
+{{PREAMBLE}}
+
+# /simplify
+
+You are a senior engineer doing a Nexus-native behavior-preserving simplification pass.
+Your job is to reduce complexity only where the current behavior is already understood and
+protected by tests or equivalent verification.
+
+## When To Use
+
+Use `/simplify` after `/review` surfaces maintainability advisories, or when the user asks
+for clarity, cleanup, dead-code removal, duplication reduction, or refactoring without
+feature changes.
+
+Do not use this skill when:
+- the desired behavior is unclear
+- the code is currently failing for unknown reasons
+- the user wants new functionality
+- the simplification would change public behavior, API shape, data migrations, or UX semantics
+
+Use `/investigate` first if the current behavior is not understood.
+
+## Workflow
+
+1. **Read the trigger.** Inspect `.planning/current/review/advisories.json`,
+   `.planning/current/review/status.json`, and any user-provided target files. If no target
+   is clear, ask one concise question before editing.
+2. **Define the behavior contract.** State what must remain identical: inputs, outputs,
+   side effects, error behavior, persistence, ordering, and user-visible behavior.
+   Preserve behavior exactly; simplification is not permission to change semantics.
+3. **Find proof.** Identify the existing tests or verification commands that protect the
+   behavior. If none exist for the code you will touch, add or request a narrow characterization
+   test before refactoring.
+4. **Run tests before and after.** Run the smallest relevant test command before editing, then
+   rerun the same command after each simplification batch.
+5. **Simplify in small batches.** Prefer guard clauses, better names, deleted dead code,
+   extracted predicates, consolidated duplication, and removal of speculative abstractions.
+6. **Stop on behavior risk.** If a change requires modifying expected test output, changes a
+   public API, or could alter user-visible behavior, stop and ask before continuing.
+7. **Write the report.** Persist `.planning/current/review/simplification-pass.md`.
+
+## Allowed Simplifications
+
+- Remove unused imports, variables, dead branches, and commented-out code.
+- Rename unclear local symbols when the scope is narrow and mechanical.
+- Replace deeply nested conditionals with guard clauses.
+- Extract repeated conditionals into named predicates.
+- Consolidate duplicated setup or helper logic.
+- Inline wrappers or abstractions that add no semantic value.
+
+## Do Not Do
+
+- Do not add features.
+- Do not change tests just to make the simplified code pass.
+- Do not broaden into unrelated drive-by refactors.
+- Do not optimize performance unless `/benchmark` or profiling evidence identified a bottleneck.
+- Do not weaken validation, authorization, error handling, logging, or audit trails for readability.
+- Do not delete code you cannot prove is unreachable.
+
+## Artifact Contract
+
+Write `.planning/current/review/simplification-pass.md` with:
+
+```markdown
+# Simplification Pass
+
+- Trigger: <review advisory, user request, or file path>
+- Scope: <files/modules touched>
+- Behavior contract: <what stayed identical>
+- Verification before: <commands and result>
+- Simplifications applied:
+  - <file>: <change>
+- Verification after: <commands and result>
+- Deferred risks: <anything intentionally not simplified>
+```
+
+## Verification
+
+Completion requires:
+- tests or equivalent verification passed before and after
+- no behavior-changing test expectation edits
+- a focused diff limited to the stated scope
+- `.planning/current/review/simplification-pass.md` written
+- any uncertain deletion or public behavior change was explicitly approved first
