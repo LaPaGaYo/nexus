@@ -10,11 +10,13 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-deploy');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 test('deploy-related generated skills use Nexus report paths and helpers', () => {
-  const landAndDeploy = fs.readFileSync(path.join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf-8');
+  const landAndDeploy = fs.readFileSync(skillPath('land-and-deploy'), 'utf-8');
   expect(landAndDeploy).toContain('.nexus/deploy-reports');
   expect(landAndDeploy).toContain('.planning/current/ship/deploy-readiness.json');
   expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
@@ -30,18 +32,18 @@ test('deploy-related generated skills use Nexus report paths and helpers', () =>
   expect(landAndDeploy).not.toContain('gstack-review-read');
   expect(landAndDeploy).not.toContain('gstack-diff-scope');
 
-  const canary = fs.readFileSync(path.join(ROOT, 'canary', 'SKILL.md'), 'utf-8');
+  const canary = fs.readFileSync(skillPath('canary'), 'utf-8');
   expect(canary).toContain('.nexus/canary-reports');
   expect(canary).toContain('.planning/current/ship/canary-status.json');
   expect(canary).toContain('nexus-refresh-follow-on-summary');
   expect(canary).not.toContain('.gstack/canary-reports');
 
-  const benchmark = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
+  const benchmark = fs.readFileSync(skillPath('benchmark'), 'utf-8');
   expect(benchmark).toContain('.nexus/benchmark-reports');
   expect(benchmark).toContain('.planning/current/qa/perf-verification.md');
   expect(benchmark).not.toContain('.gstack/benchmark-reports');
 
-  const setupDeploy = fs.readFileSync(path.join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf-8');
+  const setupDeploy = fs.readFileSync(skillPath('setup-deploy'), 'utf-8');
   expect(setupDeploy).toContain('Configure Deployment for Nexus');
   expect(setupDeploy).toContain('How can Nexus check if a deploy succeeded?');
   expect(setupDeploy).toContain('primary deploy surface');

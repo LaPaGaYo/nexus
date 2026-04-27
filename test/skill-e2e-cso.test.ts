@@ -9,8 +9,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-cso');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 function findSecurityReports(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -77,7 +79,7 @@ app.listen(3000);
 
   test('/cso finds planted vulnerabilities', async () => {
     const result = await runSkillTest({
-      prompt: `Read the file ${path.join(ROOT, 'cso', 'SKILL.md')} for the CSO skill instructions.
+      prompt: `Read the file ${skillPath('cso')} for the CSO skill instructions.
 
 Run /cso on this repo (full daily audit, no flags).
 
@@ -165,7 +167,7 @@ app.post('/webhook/stripe', (req, res) => {
 
   test('/cso --diff scopes to branch changes', async () => {
     const result = await runSkillTest({
-      prompt: `Read the file ${path.join(ROOT, 'cso', 'SKILL.md')} for the CSO skill instructions.
+      prompt: `Read the file ${skillPath('cso')} for the CSO skill instructions.
 
 Run /cso --diff on this repo. The base branch is "main".
 
@@ -239,7 +241,7 @@ CMD ["node", "server.js"]
 
   test('/cso --infra runs infrastructure phases only', async () => {
     const result = await runSkillTest({
-      prompt: `Read the file ${path.join(ROOT, 'cso', 'SKILL.md')} for the CSO skill instructions.
+      prompt: `Read the file ${skillPath('cso')} for the CSO skill instructions.
 
 Run /cso --infra on this repo. This should run infrastructure-only phases (0-6, 12-14).
 

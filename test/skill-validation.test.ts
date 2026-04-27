@@ -3,6 +3,8 @@ import { validateSkill, extractRemoteSlugPatterns, extractWeightsFromTable } fro
 import { readSkill, skillArtifactPath } from './helpers/skill-paths';
 import { ALL_COMMANDS, COMMAND_DESCRIPTIONS, READ_COMMANDS, WRITE_COMMANDS, META_COMMANDS } from '../browse/src/commands';
 import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { discoverTemplates } from '../scripts/discover-skills';
+import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -26,6 +28,37 @@ const LEGACY_NEXUS_ALIASES = new Set(['office-hours', 'plan-ceo-review', 'plan-e
 
 function isNexusWrapperSkill(skill: string): boolean {
   return NEXUS_WRAPPER_SKILLS.has(skill);
+}
+
+function skillNameFromReference(reference: string): string | null {
+  const match = reference.match(/^([^/]+)\/SKILL\.md$/);
+  return match?.[1] ?? null;
+}
+
+function readSkillReference(reference: string): string {
+  if (reference === 'SKILL.md') {
+    return fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
+  }
+
+  const skillName = skillNameFromReference(reference);
+  if (skillName) {
+    return readSkill(ROOT, skillName);
+  }
+
+  return fs.readFileSync(path.join(ROOT, reference), 'utf-8');
+}
+
+function templatePathForSkillReference(reference: string): string {
+  if (reference === 'SKILL.md') {
+    return path.join(ROOT, 'SKILL.md.tmpl');
+  }
+
+  const skillName = skillNameFromReference(reference);
+  if (skillName) {
+    return skillArtifactPath(ROOT, skillName, 'SKILL.md.tmpl');
+  }
+
+  return path.join(ROOT, `${reference}.tmpl`);
 }
 
 const describeLegacyQa = isNexusWrapperSkill('qa') ? describe.skip : describe;
@@ -284,7 +317,7 @@ describe('Update check preamble', () => {
 
   for (const skill of skillsWithUpdateCheck) {
     test(`${skill} update check line ends with || true`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       // The second line of the bash block must end with || true
       // to avoid exit code 1 when _UPD is empty (up to date)
       const match = content.match(/\[ -n "\$_UPD" \].*$/m);
@@ -295,7 +328,7 @@ describe('Update check preamble', () => {
 
   test('all skills with update check are generated from .tmpl', () => {
     for (const skill of skillsWithUpdateCheck) {
-      const tmplPath = path.join(ROOT, skill + '.tmpl');
+      const tmplPath = templatePathForSkillReference(skill);
       expect(fs.existsSync(tmplPath)).toBe(true);
     }
   });
@@ -380,7 +413,7 @@ describe('Cross-skill path consistency', () => {
 describe('Nexus wrapper skill validation', () => {
   test('wrapper skills route through the Nexus runtime', () => {
     for (const skill of NEXUS_WRAPPER_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(ROOT, skill);
       expect(content).toContain('_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"');
       expect(content).toContain(`NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${skill}`);
     }
@@ -388,7 +421,7 @@ describe('Nexus wrapper skill validation', () => {
 
   test('legacy aliases do not own hidden artifact paths', () => {
     for (const skill of LEGACY_NEXUS_ALIASES) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(ROOT, skill);
       expect(content).not.toContain('~/.nexus/projects/');
       expect(content.toLowerCase()).toContain('nexus');
     }
@@ -401,7 +434,7 @@ describe('Nexus wrapper skill validation', () => {
     } as const;
 
     for (const [skill, phrase] of Object.entries(expectations)) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(ROOT, skill);
       expect(content).not.toContain('Nexus QA Placeholder');
       expect(content).not.toContain('Nexus Ship Placeholder');
       expect(content).not.toContain('explicit placeholder');
@@ -419,7 +452,7 @@ describe('Nexus wrapper skill validation', () => {
     } as const;
 
     for (const [skill, phrase] of Object.entries(expectations)) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(ROOT, skill);
       expect(content).not.toContain('Nexus Discovery Placeholder');
       expect(content).not.toContain('Nexus Framing Placeholder');
       expect(content).toContain(phrase);
@@ -437,7 +470,7 @@ describe('Nexus wrapper skill validation', () => {
     } as const;
 
     for (const [skill, phrase] of Object.entries(expectations)) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(ROOT, skill);
       expect(content).toContain(phrase);
     }
   });
@@ -700,7 +733,7 @@ describe('v0.4.1 preamble features', () => {
 
   for (const skill of tier2PlusSkills) {
     test(`${skill} contains RECOMMENDATION format`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('RECOMMENDATION: Choose');
       expect(content).toContain('AskUserQuestion');
     });
@@ -708,14 +741,14 @@ describe('v0.4.1 preamble features', () => {
 
   for (const skill of skillsWithPreamble) {
     test(`${skill} contains session awareness`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('_SESSIONS');
     });
   }
 
   for (const skill of skillsWithPreamble) {
     test(`${skill} contains escalation protocol`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('DONE_WITH_CONCERNS');
       expect(content).toContain('BLOCKED');
       expect(content).toContain('NEEDS_CONTEXT');
@@ -891,18 +924,18 @@ describe('Contributor mode preamble structure', () => {
 
   for (const skill of skillsWithPreamble) {
     test(`${skill} has 0-10 rating in contributor mode`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('0-10');
       expect(content).toContain('Rating');
     });
 
     test(`${skill} has "what would make this a 10" field`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('What would make this a 10');
     });
 
     test(`${skill} uses periodic reflection (not per-command)`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('workflow step');
       expect(content).not.toContain('After you use gstack-provided CLIs');
     });
@@ -975,7 +1008,7 @@ describe('Completeness Principle in generated SKILL.md files', () => {
 
   for (const skill of skillsWithPreamble) {
     test(`${skill} contains Completeness Principle section`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill), 'utf-8');
+      const content = readSkillReference(skill);
       expect(content).toContain('Nexus Completeness Principle');
       expect(content).not.toContain('Boil the Lake');
       expect(content).not.toContain('garryslist.org');
@@ -1576,7 +1609,7 @@ describe('Skill trigger phrases', () => {
 
   for (const skill of SKILLS_REQUIRING_TRIGGERS) {
     test(`${skill}/SKILL.md has "Use when" trigger phrases`, () => {
-      const skillPath = path.join(ROOT, skill, 'SKILL.md');
+      const skillPath = skillArtifactPath(ROOT, skill);
       if (!fs.existsSync(skillPath)) return;
       const content = fs.readFileSync(skillPath, 'utf-8');
       // Extract description from frontmatter
@@ -1594,7 +1627,7 @@ describe('Skill trigger phrases', () => {
 
   for (const skill of SKILLS_REQUIRING_PROACTIVE) {
     test(`${skill}/SKILL.md has proactive routing phrase`, () => {
-      const skillPath = path.join(ROOT, skill, 'SKILL.md');
+      const skillPath = skillArtifactPath(ROOT, skill);
       if (!fs.existsSync(skillPath)) return;
       const content = fs.readFileSync(skillPath, 'utf-8');
       const frontmatterEnd = content.indexOf('---', 4);
@@ -1605,7 +1638,7 @@ describe('Skill trigger phrases', () => {
 
   test('nexus wrapper descriptions stay explicit about canonical routing', () => {
     for (const skill of ['qa', 'ship', 'review', 'office-hours', 'plan-ceo-review', 'plan-eng-review']) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(ROOT, skill);
       const frontmatterEnd = content.indexOf('---', 4);
       const frontmatter = content.slice(0, frontmatterEnd);
       expect(frontmatter.toLowerCase()).toContain('nexus');
@@ -1641,21 +1674,15 @@ describe('Codex skill validation', () => {
 
   // Discover all Claude skills with templates (except /codex which is Claude-only)
   const CLAUDE_SKILLS_WITH_TEMPLATES = (() => {
-    const skills: string[] = [];
-    for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
-      if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      if (entry.name === 'codex') continue; // Claude-only skill
-      if (fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) {
-        skills.push(entry.name);
-      }
-    }
-    return skills;
+    return discoverTemplates(ROOT)
+      .map((entry) => skillNameFromSourcePath(entry.tmpl))
+      .filter((skillName) => skillName !== 'nexus' && skillName !== 'codex');
   })();
 
   test('all skills (except /codex) have both Claude and Codex variants', () => {
     for (const skillDir of CLAUDE_SKILLS_WITH_TEMPLATES) {
       // Claude variant
-      const claudeMd = path.join(ROOT, skillDir, 'SKILL.md');
+      const claudeMd = skillArtifactPath(ROOT, skillDir);
       expect(fs.existsSync(claudeMd)).toBe(true);
 
       // Codex variant

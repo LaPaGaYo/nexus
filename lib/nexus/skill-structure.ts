@@ -112,8 +112,7 @@ export function skillSourceCategoryForName(name: string): SkillStructureCategory
 }
 
 export function currentSkillSourcePathForName(name: string): string {
-  const normalized = stripGeneratedPrefix(name);
-  return normalized === 'nexus' ? 'SKILL.md.tmpl' : `${normalized}/SKILL.md.tmpl`;
+  return targetSkillSourcePathForName(name);
 }
 
 export function targetSkillSourcePathForName(name: string): string {

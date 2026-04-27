@@ -11,8 +11,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-design');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 /**
  * LLM judge for DESIGN.md quality — checks font blacklist compliance,
@@ -79,7 +81,7 @@ A civic tech data platform for government employees to access, visualize, and sh
     // Copy design-consultation skill
     fs.mkdirSync(path.join(designDir, 'design-consultation'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'design-consultation', 'SKILL.md'),
+      skillPath('design-consultation'),
       path.join(designDir, 'design-consultation', 'SKILL.md'),
     );
   });
@@ -323,7 +325,7 @@ describeIfSelected('Plan Design Review E2E', ['plan-design-review-plan-mode', 'p
     // Copy plan-design-review skill
     fs.mkdirSync(path.join(dir, 'plan-design-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-design-review', 'SKILL.md'),
+      skillPath('plan-design-review'),
       path.join(dir, 'plan-design-review', 'SKILL.md'),
     );
 
@@ -550,7 +552,7 @@ describeIfSelected('Design Review E2E', ['design-review-fix'], () => {
     // Copy design-review skill
     fs.mkdirSync(path.join(qaDesignDir, 'design-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'design-review', 'SKILL.md'),
+      skillPath('design-review'),
       path.join(qaDesignDir, 'design-review', 'SKILL.md'),
     );
   });

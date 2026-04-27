@@ -86,7 +86,7 @@ describe('selectTests', () => {
     expect(result.skipped.length).toBe(Object.keys(E2E_TOUCHFILES).length - 5);
   });
 
-  test('structured skill path change selects the same tests as the current flat path', () => {
+  test('structured skill path change selects the same tests as the legacy flat path', () => {
     const flat = selectTests(['plan-ceo-review/SKILL.md'], E2E_TOUCHFILES);
     const structured = selectTests(['skills/aliases/plan-ceo-review/SKILL.md'], E2E_TOUCHFILES);
 

@@ -8,8 +8,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-review-army');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 test('review army resolver uses Nexus diff and learnings helpers', () => {
   const resolver = fs.readFileSync(path.join(ROOT, 'scripts', 'resolvers', 'review-army.ts'), 'utf-8');
@@ -32,7 +34,7 @@ function setupRepo(prefix: string): { dir: string; run: (cmd: string, args: stri
 
 // Helper: copy review skill files to test dir
 function copyReviewFiles(dir: string) {
-  fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(dir, 'review-SKILL.md'));
+  fs.copyFileSync(skillPath('review'), path.join(dir, 'review-SKILL.md'));
   fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(dir, 'review-checklist.md'));
   fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
   // Copy specialist checklists

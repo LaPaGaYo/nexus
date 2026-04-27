@@ -52,16 +52,16 @@ Nexus keeps the generated host skills in `.agents/skills/` and
 `lib/nexus/skill-structure.ts`:
 
 - root entrypoint: `SKILL.md.tmpl`
-- canonical lifecycle commands: future target `skills/canonical/<command>/`
-- support workflows: future target `skills/support/<skill>/`
-- safety workflows: future target `skills/safety/<skill>/`
-- compatibility aliases: future target `skills/aliases/<alias>/`
+- canonical lifecycle commands: `skills/canonical/<command>/`
+- support workflows: `skills/support/<skill>/`
+- safety workflows: `skills/safety/<skill>/`
+- compatibility aliases: `skills/aliases/<alias>/`
 
-The current release keeps existing root-level source directories in place, but
-the shared discovery and generator path already understand the target
-`skills/<category>/<name>/SKILL.md.tmpl` layout. `bun run skill:check` reports
-the taxonomy and planned source moves so future migrations can be staged without
-breaking installs.
+Only the root `/nexus` entrypoint stays at the repository root. Runtime sidecar
+assets such as `review/checklist.md` and `cso/ACKNOWLEDGEMENTS.md` remain in
+their historical locations when generated skills reference `$NEXUS_ROOT/...`.
+`bun run skill:check` reports the active taxonomy so future source moves can be
+reviewed before they affect installs.
 
 ## How it runs
 

@@ -10,8 +10,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-workflow');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 function getBashCommands(result: { toolCalls: Array<{ tool: string; input: any }> }): string[] {
   return result.toolCalls
@@ -235,7 +237,7 @@ describeIfSelected('nexus-upgrade E2E', ['nexus-upgrade-happy-path'], () => {
     // Copy nexus-upgrade skill
     fs.mkdirSync(path.join(upgradeDir, 'nexus-upgrade'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'nexus-upgrade', 'SKILL.md'),
+      skillPath('nexus-upgrade'),
       path.join(upgradeDir, 'nexus-upgrade', 'SKILL.md'),
     );
 
@@ -460,7 +462,7 @@ describeIfSelected('Codex skill E2E', ['codex-review'], () => {
     run('git', ['commit', '-m', 'add vulnerable controller']);
 
     // Copy the codex skill file
-    fs.copyFileSync(path.join(ROOT, 'codex', 'SKILL.md'), path.join(codexDir, 'codex-SKILL.md'));
+    fs.copyFileSync(skillPath('codex'), path.join(codexDir, 'codex-SKILL.md'));
   });
 
   afterAll(() => {

@@ -107,6 +107,19 @@ function readTemplate(nameOrDir: string): string {
   return fs.readFileSync(skillPath(nameOrDir, 'SKILL.md.tmpl'), 'utf-8');
 }
 
+function readSkillReference(reference: string): string {
+  if (reference === 'SKILL.md') {
+    return fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
+  }
+
+  const match = reference.match(/^([^/]+)\/SKILL\.md$/);
+  if (match?.[1]) {
+    return readSkill(match[1]);
+  }
+
+  return fs.readFileSync(path.join(ROOT, reference), 'utf-8');
+}
+
 const describeLegacyShip = isNexusWrapperSkill('ship') ? describe.skip : describe;
 const describeLegacyReview = isNexusWrapperSkill('review') ? describe.skip : describe;
 const describeLegacyOfficeHours = isNexusWrapperSkill('office-hours') ? describe.skip : describe;
@@ -458,7 +471,7 @@ describe('gen-skill-docs', () => {
 
   test('preamble .pending-* glob is zsh-safe (uses find, not shell glob)', () => {
     for (const skill of ALL_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill.skillName);
       if (!content.includes('.pending-')) continue;
       // Must NOT have a bare shell glob ".pending-*" outside of find's -name argument
       expect(content).not.toMatch(/for _PF in [^\n]*\/\.pending-\*/);
@@ -469,7 +482,7 @@ describe('gen-skill-docs', () => {
 
   test('bash blocks with shell globs are zsh-safe (setopt guard or find)', () => {
     for (const skill of ALL_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill.skillName);
       const bashBlocks = [...content.matchAll(/```bash\n([\s\S]*?)```/g)].map(m => m[1]);
 
       for (const block of bashBlocks) {
@@ -513,7 +526,7 @@ describe('gen-skill-docs', () => {
       { dir: 'retro', name: 'retro' },
     ];
     for (const skill of PREAMBLE_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill.name);
       expect(content).not.toContain('_TEL_START');
       expect(content).not.toContain('nexus-telemetry-log');
       expect(content).not.toContain('set telemetry');
@@ -891,7 +904,7 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
 
   for (const skill of REVIEW_SKILLS) {
     test(`review dashboard appears in ${skill} generated file`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('nexus-review');
       expect(content).toContain('REVIEW READINESS DASHBOARD');
     });
@@ -941,12 +954,12 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
 
   for (const skill of REVIEW_SKILLS) {
     test(`${skill} contains review chaining section`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('Review Chaining');
     });
 
     test(`${skill} Review Log includes commit field`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('"commit"');
     });
   }
@@ -1166,7 +1179,7 @@ describe('PLAN_FILE_REVIEW_REPORT resolver', () => {
 
   for (const skill of REVIEW_SKILLS) {
     test(`plan file review report appears in ${skill} generated file`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('NEXUS REVIEW REPORT');
     });
   }
@@ -1491,7 +1504,7 @@ describeLegacyPlanAliases('Codex filesystem boundary', () => {
 
   test('boundary instruction appears in all skills that call codex', () => {
     for (const skill of CODEX_CALLING_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain(BOUNDARY_MARKER);
     }
   });
@@ -1649,14 +1662,11 @@ describe('parameterized resolver support', () => {
 
   test('templates with parameterized resolvers pass unresolved check', () => {
     // All generated SKILL.md files should have no unresolved {{...}} placeholders
-    const skillDirs = fs.readdirSync(ROOT).filter(d =>
-      fs.existsSync(path.join(ROOT, d, 'SKILL.md'))
-    );
-    for (const dir of skillDirs) {
-      const content = fs.readFileSync(path.join(ROOT, dir, 'SKILL.md'), 'utf-8');
+    for (const skill of ALL_SKILLS) {
+      const content = readSkill(skill.skillName);
       const unresolved = content.match(/\{\{[A-Z_]+(?::[^}]*)?\}\}/g);
       if (unresolved) {
-        throw new Error(`${dir}/SKILL.md has unresolved placeholders: ${unresolved.join(', ')}`);
+        throw new Error(`${skill.skillName}/SKILL.md has unresolved placeholders: ${unresolved.join(', ')}`);
       }
     }
   });
@@ -1819,7 +1829,7 @@ describe('DESIGN_OUTSIDE_VOICES resolver', () => {
 
   test('design outside voices respect local-provider routing before invoking Codex', () => {
     for (const skill of ['plan-design-review', 'design-review', 'design-consultation']) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('Runtime provider guard');
       expect(content).toContain('CODEX_SKIPPED_LOCAL_PROVIDER');
       expect(content).toContain('do not invoke `codex exec`, even if the binary exists');
@@ -1941,15 +1951,13 @@ describe('Codex generation (--host codex)', () => {
         skills.push({ dir: '.', codexName: 'nexus' });
       }
     }
-    for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
-      if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      if (entry.name === 'codex') continue; // /codex is excluded from Codex output
-      if (!fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) continue;
-      const codexName = entry.name.startsWith('nexus-')
-        ? entry.name
-        : `nexus-${entry.name}`;
+    for (const skill of ALL_SKILLS) {
+      if (skill.skillName === 'nexus' || skill.skillName === 'codex') continue;
+      const codexName = skill.skillName.startsWith('nexus-')
+        ? skill.skillName
+        : `nexus-${skill.skillName}`;
       if (isSymlinkLoop(codexName)) continue;
-      skills.push({ dir: entry.name, codexName });
+      skills.push({ dir: skill.skillName, codexName });
     }
     return skills;
   })();
@@ -2240,7 +2248,7 @@ describe('Codex generation (--host codex)', () => {
 
   test('Claude output unchanged: all Claude skills have zero Codex paths', () => {
     for (const skill of ALL_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill.skillName);
       expect(content).not.toContain('~/.codex/');
       expect(content).not.toContain('.agents/skills');
     }
@@ -2279,15 +2287,13 @@ describe('Factory generation (--host factory)', () => {
     if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
       if (!isSymlinkLoop('nexus')) skills.push({ dir: '.', factoryName: 'nexus' });
     }
-    for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
-      if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      if (entry.name === 'codex') continue;
-      if (!fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) continue;
-      const factoryName = entry.name.startsWith('nexus-')
-        ? entry.name
-        : `nexus-${entry.name}`;
+    for (const skill of ALL_SKILLS) {
+      if (skill.skillName === 'nexus' || skill.skillName === 'codex') continue;
+      const factoryName = skill.skillName.startsWith('nexus-')
+        ? skill.skillName
+        : `nexus-${skill.skillName}`;
       if (isSymlinkLoop(factoryName)) continue;
-      skills.push({ dir: entry.name, factoryName });
+      skills.push({ dir: skill.skillName, factoryName });
     }
     return skills;
   })();
@@ -2483,7 +2489,7 @@ describe('setup script validation', () => {
   });
 
   test('link_claude_skill_dirs creates relative symlinks', () => {
-    // Claude links should be relative and preserve nested source paths for future structured dirs.
+    // Claude links should be relative and preserve nested source paths.
     const fnStart = setupContent.indexOf('link_claude_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
@@ -2735,7 +2741,7 @@ describe('setup script validation', () => {
 
   test('stage skills include a Claude local topology chooser for high-leverage stages', () => {
     for (const skill of ['frame', 'plan', 'build', 'review', 'investigate', 'ship']) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('## Stage-Aware Local Topology Chooser');
       expect(content).toContain('single_agent');
       expect(content).toContain('subagents');
@@ -2821,7 +2827,7 @@ describe('discover-skills hidden directory filtering', () => {
     }
   });
 
-  test('discoverTemplates includes planned structured skill source directories', () => {
+  test('discoverTemplates includes structured skill source directories', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-structured-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'SKILL.md.tmpl'), '---\nname: nexus\n---\nroot');
@@ -2875,7 +2881,7 @@ describe('discover-skills hidden directory filtering', () => {
     }
   });
 
-  test('discoverSkillFiles includes planned structured generated skill directories', async () => {
+  test('discoverSkillFiles includes structured generated skill directories', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-generated-'));
     try {
       fs.mkdirSync(path.join(tmpDir, 'skills', 'support', 'browse'), { recursive: true });
@@ -2936,12 +2942,9 @@ describe('preamble privacy surface', () => {
   test('telemetry blocks do not appear in skill files that use PREAMBLE', () => {
     const skills = ['qa', 'ship', 'review', 'plan-ceo-review', 'plan-eng-review', 'retro'];
     for (const skill of skills) {
-      const skillPath = path.join(ROOT, skill, 'SKILL.md');
-      if (fs.existsSync(skillPath)) {
-        const content = fs.readFileSync(skillPath, 'utf-8');
-        expect(content).not.toContain('_TEL_START');
-        expect(content).not.toContain('Telemetry (run last)');
-      }
+      const content = readSkill(skill);
+      expect(content).not.toContain('_TEL_START');
+      expect(content).not.toContain('Telemetry (run last)');
     }
   });
 });
@@ -2950,16 +2953,8 @@ describe('community fixes wave', () => {
   // Helper to get all generated SKILL.md files
   function getAllSkillMds(): Array<{ name: string; content: string }> {
     const results: Array<{ name: string; content: string }> = [];
-    const rootPath = path.join(ROOT, 'SKILL.md');
-    if (fs.existsSync(rootPath)) {
-      results.push({ name: 'root', content: fs.readFileSync(rootPath, 'utf-8') });
-    }
-    for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
-      if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      const skillPath = path.join(ROOT, entry.name, 'SKILL.md');
-      if (fs.existsSync(skillPath)) {
-        results.push({ name: entry.name, content: fs.readFileSync(skillPath, 'utf-8') });
-      }
+    for (const skill of ALL_SKILLS) {
+      results.push({ name: skill.skillName, content: readSkill(skill.skillName) });
     }
     return results;
   }
@@ -2967,8 +2962,7 @@ describe('community fixes wave', () => {
   // #594 — Discoverability: every SKILL.md.tmpl description contains "Nexus"
   test('every SKILL.md.tmpl description contains "Nexus"', () => {
     for (const skill of ALL_SKILLS) {
-      const tmplPath = skill.dir === '.' ? path.join(ROOT, 'SKILL.md.tmpl') : path.join(ROOT, skill.dir, 'SKILL.md.tmpl');
-      const content = fs.readFileSync(tmplPath, 'utf-8');
+      const content = readTemplate(skill.skillName);
       const desc = extractDescription(content);
       const normalized = desc.toLowerCase();
       expect(normalized.includes('nexus')).toBe(true);
@@ -2978,8 +2972,7 @@ describe('community fixes wave', () => {
   // #594 — Discoverability: first line of each description is under 120 chars
   test('every SKILL.md.tmpl description first line is under 120 chars', () => {
     for (const skill of ALL_SKILLS) {
-      const tmplPath = skill.dir === '.' ? path.join(ROOT, 'SKILL.md.tmpl') : path.join(ROOT, skill.dir, 'SKILL.md.tmpl');
-      const content = fs.readFileSync(tmplPath, 'utf-8');
+      const content = readTemplate(skill.skillName);
       const desc = extractDescription(content);
       const firstLine = desc.split('\n')[0];
       expect(firstLine.length).toBeLessThanOrEqual(120);
@@ -3135,7 +3128,7 @@ describeLegacyPlanAliases('LEARNINGS_SEARCH resolver', () => {
 
   for (const skill of SEARCH_SKILLS) {
     test(`${skill} generated SKILL.md contains learnings search`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('Prior Learnings');
       expect(content).toContain('nexus-learnings-search');
     });
@@ -3164,7 +3157,7 @@ describeLegacyReview('LEARNINGS_LOG resolver', () => {
 
   for (const skill of LOG_SKILLS) {
     test(`${skill} generated SKILL.md contains learnings log`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('Capture Learnings');
       expect(content).toContain('nexus-learnings-log');
     });
@@ -3196,7 +3189,7 @@ describeLegacyReview('CONFIDENCE_CALIBRATION resolver', () => {
 
   for (const skill of CONFIDENCE_SKILLS) {
     test(`${skill} generated SKILL.md contains confidence calibration`, () => {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).toContain('Confidence Calibration');
       expect(content).toContain('confidence score');
     });
@@ -3232,7 +3225,7 @@ describeLegacyReview('CONFIDENCE_CALIBRATION resolver', () => {
   test('skills without confidence calibration do NOT contain it', () => {
     // office-hours and retro do NOT use confidence calibration
     for (const skill of ['office-hours', 'retro']) {
-      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      const content = readSkill(skill);
       expect(content).not.toContain('## Confidence Calibration');
     }
   });

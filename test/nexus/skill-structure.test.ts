@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../../lib/nexus/command-manifest';
 import {
@@ -62,30 +63,28 @@ describe('nexus skill source structure', () => {
     });
   });
 
-  test('declares planned moves without requiring the physical migration yet', () => {
-    expect(describeSkillSourcePath('review/SKILL.md.tmpl')).toMatchObject({
-      name: 'review',
-      category: 'canonical',
-      targetSourcePath: 'skills/canonical/review/SKILL.md.tmpl',
-      movePolicy: 'planned_move',
-    });
+  test('source skill files live in the taxonomy directories after physical migration', () => {
+    const migratedEntries = allPlannedSkillStructureEntries()
+      .filter((entry) => entry.category !== 'root')
+      .filter((entry) => {
+        const legacySourcePath = `${entry.name}/SKILL.md.tmpl`;
+        return existsSync(path.join(ROOT, entry.targetSourcePath))
+          || existsSync(path.join(ROOT, legacySourcePath));
+      });
 
-    expect(describeSkillSourcePath('simplify/SKILL.md.tmpl')).toMatchObject({
-      name: 'simplify',
-      category: 'support',
-      targetSourcePath: 'skills/support/simplify/SKILL.md.tmpl',
-      movePolicy: 'planned_move',
-    });
-
-    expect(describeSkillSourcePath('guard/SKILL.md.tmpl')).toMatchObject({
-      name: 'guard',
-      category: 'safety',
-      targetSourcePath: 'skills/safety/guard/SKILL.md.tmpl',
-      movePolicy: 'planned_move',
-    });
+    for (const entry of migratedEntries) {
+      const legacySourcePath = `${entry.name}/SKILL.md.tmpl`;
+      expect(existsSync(path.join(ROOT, entry.targetSourcePath))).toBe(true);
+      expect(existsSync(path.join(ROOT, legacySourcePath))).toBe(false);
+      expect(describeSkillSourcePath(entry.targetSourcePath)).toMatchObject({
+        name: entry.name,
+        category: entry.category,
+        movePolicy: 'in_place',
+      });
+    }
   });
 
-  test('recognizes future structured source namespace paths', () => {
+  test('recognizes structured source namespace paths', () => {
     expect(describeSkillSourcePath('skills/canonical/review/SKILL.md.tmpl')).toMatchObject({
       name: 'review',
       category: 'canonical',
@@ -105,14 +104,12 @@ describe('nexus skill source structure', () => {
     });
   });
 
-  test('exposes current and future artifact candidates for generated skill files', () => {
+  test('exposes active artifact candidates for generated skill files', () => {
     expect(candidateSkillArtifactPathsForName('review', 'SKILL.md')).toEqual([
       'skills/canonical/review/SKILL.md',
-      'review/SKILL.md',
     ]);
     expect(candidateSkillArtifactPathsForName('simplify', 'SKILL.md.tmpl')).toEqual([
       'skills/support/simplify/SKILL.md.tmpl',
-      'simplify/SKILL.md.tmpl',
     ]);
     expect(candidateSkillArtifactPathsForName('nexus', 'SKILL.md')).toEqual(['SKILL.md']);
   });
@@ -136,7 +133,7 @@ describe('nexus skill source structure', () => {
     expect(violations).toEqual([]);
   });
 
-  test('has one planned entry per known skill name', () => {
+  test('has one taxonomy entry per known skill name', () => {
     const entries = allPlannedSkillStructureEntries();
     const names = entries.map((entry) => entry.name);
 

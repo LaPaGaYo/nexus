@@ -105,7 +105,7 @@ function installSkills(tmpDir: string) {
   ];
 
   for (const skill of skillDirs) {
-    const srcPath = path.join(ROOT, skill, 'SKILL.md');
+    const srcPath = skillArtifactPath(ROOT, skill || 'nexus');
     if (!fs.existsSync(srcPath)) continue;
 
     const skillName = skill || 'nexus';

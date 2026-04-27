@@ -10,11 +10,13 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-review');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 test('review dashboard guidance uses nexus-review-read', () => {
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipSkill = fs.readFileSync(skillPath('ship'), 'utf-8');
   expect(shipSkill).toContain('nexus-review-read');
   expect(shipSkill).not.toContain('gstack-review-read');
 });
@@ -48,7 +50,7 @@ describeIfSelected('Review skill E2E', ['review-sql-injection'], () => {
     run('git', ['commit', '-m', 'add user controller']);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(reviewDir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(reviewDir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(reviewDir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(reviewDir, 'review-greptile-triage.md'));
   });
@@ -122,7 +124,7 @@ describeIfSelected('Review enum completeness E2E', ['review-enum-completeness'],
     run('git', ['commit', '-m', 'add returned status']);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(enumDir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(enumDir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(enumDir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(enumDir, 'review-greptile-triage.md'));
   });
@@ -196,7 +198,7 @@ describeIfSelected('Review design lite E2E', ['review-design-lite'], () => {
     run('git', ['commit', '-m', 'add landing page']);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(designDir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(designDir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(designDir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'design-checklist.md'), path.join(designDir, 'review-design-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(designDir, 'review-greptile-triage.md'));
@@ -293,7 +295,7 @@ describeIfSelected('Base branch detection', ['review-base-branch', 'ship-base-br
     run('git', ['commit', '-m', 'feat: add hello method'], dir);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(dir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(dir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(dir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
 
@@ -348,7 +350,7 @@ Write your findings to ${dir}/review-output.md`,
 
     // Extract only Step 0 (base branch detection) from ship/SKILL.md
     // (copying the full 1900-line file causes agent context bloat and flaky timeouts)
-    const fullShipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const fullShipSkill = fs.readFileSync(skillPath('ship'), 'utf-8');
     const step0Start = fullShipSkill.indexOf('## Step 0: Detect platform and base branch');
     const step0End = fullShipSkill.indexOf('## Step 1: Pre-flight');
     const shipSection = fullShipSkill.slice(step0Start, step0End > step0Start ? step0End : undefined);
@@ -416,7 +418,7 @@ Write a summary to ${dir}/ship-preflight.md including:
 
     // Copy retro skill
     fs.mkdirSync(path.join(dir, 'retro'), { recursive: true });
-    fs.copyFileSync(path.join(ROOT, 'retro', 'SKILL.md'), path.join(dir, 'retro', 'SKILL.md'));
+    fs.copyFileSync(skillPath('retro'), path.join(dir, 'retro', 'SKILL.md'));
 
     const result = await runSkillTest({
       prompt: `Read retro/SKILL.md for instructions on how to run a retrospective.
@@ -495,7 +497,7 @@ describeIfSelected('Retro E2E', ['retro'], () => {
     // Copy retro skill
     fs.mkdirSync(path.join(retroDir, 'retro'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'retro', 'SKILL.md'),
+      skillPath('retro'),
       path.join(retroDir, 'retro', 'SKILL.md'),
     );
   });
@@ -589,7 +591,7 @@ describeIfSelected('Review Dashboard Via Attribution', ['review-dashboard-via'],
 
     // Extract only the Review Readiness Dashboard section from ship/SKILL.md
     // (copying the full 1900-line file causes agent context bloat and timeouts)
-    const fullSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const fullSkill = fs.readFileSync(skillPath('ship'), 'utf-8');
     const dashStart = fullSkill.indexOf('## Review Readiness Dashboard');
     const dashEnd = fullSkill.indexOf('\n---\n', dashStart);
     const dashSection = fullSkill.slice(dashStart, dashEnd > dashStart ? dashEnd : undefined);

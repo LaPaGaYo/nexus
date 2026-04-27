@@ -10,8 +10,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const ROOT = path.resolve(import.meta.dir, '..');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 // Skip unless EVALS=1. Session runner strips CLAUDE* env vars to avoid nested session issues.
 //
@@ -555,7 +557,7 @@ describeIfSelected('Review skill E2E', ['review-sql-injection'], () => {
     run('git', ['commit', '-m', 'add user controller']);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(reviewDir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(reviewDir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(reviewDir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(reviewDir, 'review-greptile-triage.md'));
   });
@@ -613,7 +615,7 @@ describeIfSelected('Review enum completeness E2E', ['review-enum-completeness'],
     run('git', ['commit', '-m', 'add returned status']);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(enumDir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(enumDir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(enumDir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(enumDir, 'review-greptile-triage.md'));
   });
@@ -687,7 +689,7 @@ describeE2E('Review design lite E2E', () => {
     run('git', ['commit', '-m', 'add landing page']);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(designDir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(designDir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(designDir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'design-checklist.md'), path.join(designDir, 'review-design-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(designDir, 'review-greptile-triage.md'));
@@ -963,7 +965,7 @@ We're building a new user dashboard that shows recent activity, notifications, a
     // Copy plan-ceo-review skill
     fs.mkdirSync(path.join(planDir, 'plan-ceo-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-ceo-review', 'SKILL.md'),
+      skillPath('plan-ceo-review'),
       path.join(planDir, 'plan-ceo-review', 'SKILL.md'),
     );
   });
@@ -1047,7 +1049,7 @@ We're building a new user dashboard that shows recent activity, notifications, a
 
     fs.mkdirSync(path.join(planDir, 'plan-ceo-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-ceo-review', 'SKILL.md'),
+      skillPath('plan-ceo-review'),
       path.join(planDir, 'plan-ceo-review', 'SKILL.md'),
     );
   });
@@ -1141,7 +1143,7 @@ Replace session-cookie auth with JWT tokens. Currently using express-session + R
     // Copy plan-eng-review skill
     fs.mkdirSync(path.join(planDir, 'plan-eng-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-eng-review', 'SKILL.md'),
+      skillPath('plan-eng-review'),
       path.join(planDir, 'plan-eng-review', 'SKILL.md'),
     );
   });
@@ -1228,7 +1230,7 @@ describeIfSelected('Retro E2E', ['retro'], () => {
     // Copy retro skill
     fs.mkdirSync(path.join(retroDir, 'retro'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'retro', 'SKILL.md'),
+      skillPath('retro'),
       path.join(retroDir, 'retro', 'SKILL.md'),
     );
   });
@@ -1524,7 +1526,7 @@ export function main() { return Dashboard(); }
     // Copy plan-eng-review skill
     fs.mkdirSync(path.join(planDir, 'plan-eng-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-eng-review', 'SKILL.md'),
+      skillPath('plan-eng-review'),
       path.join(planDir, 'plan-eng-review', 'SKILL.md'),
     );
 
@@ -1631,7 +1633,7 @@ describeIfSelected('Base branch detection', ['review-base-branch', 'ship-base-br
     run('git', ['commit', '-m', 'feat: add hello method'], dir);
 
     // Copy review skill files
-    fs.copyFileSync(path.join(ROOT, 'review', 'SKILL.md'), path.join(dir, 'review-SKILL.md'));
+    fs.copyFileSync(skillPath('review'), path.join(dir, 'review-SKILL.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(dir, 'review-checklist.md'));
     fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
 
@@ -1683,7 +1685,7 @@ Write your findings to ${dir}/review-output.md`,
     run('git', ['commit', '-m', 'feat: update to v2'], dir);
 
     // Copy ship skill
-    fs.copyFileSync(path.join(ROOT, 'ship', 'SKILL.md'), path.join(dir, 'ship-SKILL.md'));
+    fs.copyFileSync(skillPath('ship'), path.join(dir, 'ship-SKILL.md'));
 
     const result = await runSkillTest({
       prompt: `Read ship-SKILL.md for the ship workflow.
@@ -1749,7 +1751,7 @@ Write a summary of what you detected to ${dir}/ship-preflight.md including:
 
     // Copy retro skill
     fs.mkdirSync(path.join(dir, 'retro'), { recursive: true });
-    fs.copyFileSync(path.join(ROOT, 'retro', 'SKILL.md'), path.join(dir, 'retro', 'SKILL.md'));
+    fs.copyFileSync(skillPath('retro'), path.join(dir, 'retro', 'SKILL.md'));
 
     const result = await runSkillTest({
       prompt: `Read retro/SKILL.md for instructions on how to run a retrospective.
@@ -1991,7 +1993,7 @@ printf 'installed %s\\n' "\${NEXUS_UPGRADE_TO_VERSION:-}" > "$ROOT/install-side-
     // Copy nexus-upgrade skill
     fs.mkdirSync(path.join(upgradeDir, 'nexus-upgrade'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'nexus-upgrade', 'SKILL.md'),
+      skillPath('nexus-upgrade'),
       path.join(upgradeDir, 'nexus-upgrade', 'SKILL.md'),
     );
 
@@ -2149,7 +2151,7 @@ A civic tech data platform for government employees to access, visualize, and sh
     // Copy design-consultation skill
     fs.mkdirSync(path.join(designDir, 'design-consultation'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'design-consultation', 'SKILL.md'),
+      skillPath('design-consultation'),
       path.join(designDir, 'design-consultation', 'SKILL.md'),
     );
   });
@@ -2402,7 +2404,7 @@ describeIfSelected('Plan Design Review E2E', ['plan-design-review-plan-mode', 'p
     // Copy plan-design-review skill
     fs.mkdirSync(path.join(reviewDir, 'plan-design-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-design-review', 'SKILL.md'),
+      skillPath('plan-design-review'),
       path.join(reviewDir, 'plan-design-review', 'SKILL.md'),
     );
 
@@ -2613,7 +2615,7 @@ describeIfSelected('Design Review E2E', ['design-review-fix'], () => {
     // Copy design-review skill
     fs.mkdirSync(path.join(qaDesignDir, 'design-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'design-review', 'SKILL.md'),
+      skillPath('design-review'),
       path.join(qaDesignDir, 'design-review', 'SKILL.md'),
     );
   });
@@ -3242,7 +3244,7 @@ describeIfSelected('Codex skill E2E', ['codex-review'], () => {
     run('git', ['commit', '-m', 'add vulnerable controller']);
 
     // Copy the codex skill file
-    fs.copyFileSync(path.join(ROOT, 'codex', 'SKILL.md'), path.join(codexDir, 'codex-SKILL.md'));
+    fs.copyFileSync(skillPath('codex'), path.join(codexDir, 'codex-SKILL.md'));
   });
 
   afterAll(() => {
@@ -3304,7 +3306,7 @@ describeIfSelected('Office Hours Spec Review E2E', ['office-hours-spec-review'],
     // Copy office-hours skill
     fs.mkdirSync(path.join(ohDir, 'office-hours'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'office-hours', 'SKILL.md'),
+      skillPath('office-hours'),
       path.join(ohDir, 'office-hours', 'SKILL.md'),
     );
   });
@@ -3366,7 +3368,7 @@ describeIfSelected('Plan CEO Review Benefits-From E2E', ['plan-ceo-review-benefi
     // Copy plan-ceo-review skill
     fs.mkdirSync(path.join(benefitsDir, 'plan-ceo-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-ceo-review', 'SKILL.md'),
+      skillPath('plan-ceo-review'),
       path.join(benefitsDir, 'plan-ceo-review', 'SKILL.md'),
     );
   });
@@ -3440,7 +3442,7 @@ describeIfSelected('Ship idempotency', ['ship-idempotency'], () => {
     gitRun(['commit', '-m', 'chore: bump version to 0.2.0.0'], idempDir);
 
     // Extract just the idempotency-relevant sections from ship/SKILL.md
-    const full = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const full = fs.readFileSync(skillPath('ship'), 'utf-8');
     const step4Start = full.indexOf('## Step 4: Version bump');
     const step4End = full.indexOf('\n---\n', step4Start);
     const step7Start = full.indexOf('## Step 7: Push');

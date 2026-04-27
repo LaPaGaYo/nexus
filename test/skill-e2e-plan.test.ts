@@ -10,8 +10,10 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { skillArtifactPath } from './helpers/skill-paths';
 
 const evalCollector = createEvalCollector('e2e-plan');
+const skillPath = (name: string) => skillArtifactPath(ROOT, name);
 
 // --- Plan CEO Review E2E ---
 
@@ -57,7 +59,7 @@ We're building a new user dashboard that shows recent activity, notifications, a
     // Copy plan-ceo-review skill
     fs.mkdirSync(path.join(planDir, 'plan-ceo-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-ceo-review', 'SKILL.md'),
+      skillPath('plan-ceo-review'),
       path.join(planDir, 'plan-ceo-review', 'SKILL.md'),
     );
   });
@@ -141,7 +143,7 @@ We're building a new user dashboard that shows recent activity, notifications, a
 
     fs.mkdirSync(path.join(planDir, 'plan-ceo-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-ceo-review', 'SKILL.md'),
+      skillPath('plan-ceo-review'),
       path.join(planDir, 'plan-ceo-review', 'SKILL.md'),
     );
   });
@@ -235,7 +237,7 @@ Replace session-cookie auth with JWT tokens. Currently using express-session + R
     // Copy plan-eng-review skill
     fs.mkdirSync(path.join(planDir, 'plan-eng-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-eng-review', 'SKILL.md'),
+      skillPath('plan-eng-review'),
       path.join(planDir, 'plan-eng-review', 'SKILL.md'),
     );
   });
@@ -331,7 +333,7 @@ export function main() { return Dashboard(); }
     // Copy plan-eng-review skill
     fs.mkdirSync(path.join(planDir, 'plan-eng-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-eng-review', 'SKILL.md'),
+      skillPath('plan-eng-review'),
       path.join(planDir, 'plan-eng-review', 'SKILL.md'),
     );
 
@@ -436,7 +438,7 @@ describeIfSelected('Office Hours Spec Review E2E', ['office-hours-spec-review'],
     // Copy office-hours skill
     fs.mkdirSync(path.join(ohDir, 'office-hours'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'office-hours', 'SKILL.md'),
+      skillPath('office-hours'),
       path.join(ohDir, 'office-hours', 'SKILL.md'),
     );
   });
@@ -496,7 +498,7 @@ describeIfSelected('Plan CEO Review Benefits-From E2E', ['plan-ceo-review-benefi
 
     fs.mkdirSync(path.join(benefitsDir, 'plan-ceo-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-ceo-review', 'SKILL.md'),
+      skillPath('plan-ceo-review'),
       path.join(benefitsDir, 'plan-ceo-review', 'SKILL.md'),
     );
   });
@@ -579,7 +581,7 @@ We're building a real-time notification system for our SaaS app.
     // Copy plan-eng-review skill
     fs.mkdirSync(path.join(planDir, 'plan-eng-review'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'plan-eng-review', 'SKILL.md'),
+      skillPath('plan-eng-review'),
       path.join(planDir, 'plan-eng-review', 'SKILL.md'),
     );
   });
@@ -664,7 +666,7 @@ describeIfSelected('Codex Offering E2E', [
     for (const skill of ['office-hours', 'plan-ceo-review', 'plan-design-review', 'plan-eng-review']) {
       fs.mkdirSync(path.join(testDir, skill), { recursive: true });
       fs.copyFileSync(
-        path.join(ROOT, skill, 'SKILL.md'),
+        skillPath(skill),
         path.join(testDir, skill, 'SKILL.md'),
       );
     }

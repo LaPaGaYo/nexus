@@ -1,7 +1,8 @@
 /**
  * Shared discovery for SKILL.md and .tmpl files.
- * Scans the root entrypoint, current one-level skill dirs, and the planned
- * skills/{canonical,support,safety,aliases}/<name>/ source layout.
+ * Scans the root entrypoint, the active
+ * skills/{canonical,support,safety,aliases}/<name>/ source layout, and legacy
+ * one-level skill dirs during transitional overlap.
  */
 
 import * as fs from 'fs';
