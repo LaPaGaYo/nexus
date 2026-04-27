@@ -19,6 +19,8 @@ const NEXUS_SUPPORT_SKILLS = new Set([
   'freeze',
   'guard',
   'investigate',
+  'deploy',
+  'land',
   'land-and-deploy',
   'learn',
   'nexus-upgrade',

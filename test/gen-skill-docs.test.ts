@@ -409,6 +409,8 @@ describe('gen-skill-docs', () => {
     const benchmark = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
     const canary = fs.readFileSync(path.join(ROOT, 'canary', 'SKILL.md'), 'utf-8');
     const docRelease = fs.readFileSync(path.join(ROOT, 'document-release', 'SKILL.md'), 'utf-8');
+    const land = fs.readFileSync(path.join(ROOT, 'land', 'SKILL.md'), 'utf-8');
+    const deploy = fs.readFileSync(path.join(ROOT, 'deploy', 'SKILL.md'), 'utf-8');
     const landAndDeploy = fs.readFileSync(path.join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf-8');
 
     expect(benchmark).toContain('.planning/current/qa/perf-verification.md');
@@ -416,6 +418,10 @@ describe('gen-skill-docs', () => {
     expect(canary).toContain('nexus-refresh-follow-on-summary');
     expect(docRelease).toContain('.planning/current/closeout/documentation-sync.md');
     expect(docRelease).toContain('nexus-refresh-follow-on-summary');
+    expect(land).toContain('.planning/current/ship/deploy-result.json');
+    expect(land).toContain('deploy_status: "skipped"');
+    expect(deploy).toContain('.planning/current/ship/deploy-result.json');
+    expect(deploy).toContain('.planning/deploy/deploy-contract.json');
     expect(landAndDeploy).toContain('.planning/current/ship/deploy-readiness.json');
     expect(landAndDeploy).toContain('.planning/current/ship/pull-request.json');
     expect(landAndDeploy).toContain('.planning/current/ship/deploy-result.json');
@@ -671,6 +677,8 @@ describe('gen-skill-docs', () => {
     expect(shipContent).toContain('stop_action');
     expect(shipContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(shipContent).toContain('--output interactive');
+    expect(shipContent).toContain('/land');
+    expect(shipContent).toContain('/deploy');
     expect(shipContent).toContain('/closeout');
     expect(shipContent).toContain('/land-and-deploy');
     expect(shipContent).toContain('/setup-deploy');
@@ -687,6 +695,8 @@ describe('gen-skill-docs', () => {
     expect(closeoutContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
     expect(closeoutContent).toContain('--output interactive');
     expect(closeoutContent).toContain('/discover');
+    expect(closeoutContent).toContain('/land');
+    expect(closeoutContent).toContain('/deploy');
     expect(closeoutContent).toContain('/land-and-deploy');
     expect(closeoutContent).toContain('/retro');
     expect(closeoutContent).toContain('/learn');

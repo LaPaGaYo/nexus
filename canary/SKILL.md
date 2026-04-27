@@ -639,6 +639,7 @@ When the user types `/canary`, run this skill.
 
 ## Arguments
 - `/canary <url>` — monitor a URL for 10 minutes after deploy
+- `/canary` — infer URL from `.planning/current/ship/deploy-result.json` or `.planning/deploy/deploy-contract.json`
 - `/canary <url> --duration 5m` — custom monitoring duration (1m to 30m)
 - `/canary <url> --baseline` — capture baseline screenshots (run BEFORE deploying)
 - `/canary <url> --pages /,/dashboard,/settings` — specify pages to monitor
@@ -656,6 +657,34 @@ mkdir -p .nexus/canary-reports/screenshots
 ```
 
 Parse the user's arguments. Default duration is 10 minutes. Default pages: auto-discover from the app's navigation.
+
+If no URL argument is provided, resolve the URL in this order:
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+for path, keys in [
+    (Path('.planning/current/ship/deploy-result.json'), [('production_url',)]),
+    (Path('.planning/deploy/deploy-contract.json'), [('production', 'health_check'), ('production', 'url')]),
+]:
+    if not path.exists():
+        continue
+    data = json.loads(path.read_text())
+    for key_path in keys:
+        value = data
+        for key in key_path:
+            value = value.get(key) if isinstance(value, dict) else None
+        if value:
+            print(value)
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
+```
+
+If no URL can be inferred, ask for one. Do not recommend `/canary` for CLI,
+library, desktop-only, docs-only, or merge-only runs unless the user provides a
+release/download page to monitor.
 
 ### Phase 2: Baseline Capture (--baseline mode)
 

@@ -203,7 +203,9 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |
 | `/simplify` | Behavior-preserving simplification pass for maintainability and complexity advisories. |
 | `/qa-only` | Report-only QA pass without fixes. |
-| `/land-and-deploy` | Post-ship merge/deploy workflow that consumes ship handoff evidence, verifies the primary deploy surface, and attaches `.planning/current/ship/deploy-result.json` for both successful lands and pre-merge stops. |
+| `/land` | Post-ship PR landing workflow that consumes ship handoff evidence, merges only after user confirmation, and records merge-only landing evidence. |
+| `/deploy` | Post-land deployment workflow that verifies a configured production surface and updates `.planning/current/ship/deploy-result.json`. |
+| `/land-and-deploy` | Compatibility shortcut that consumes ship handoff evidence, asks for merge-only vs merge+deploy, and attaches `.planning/current/ship/deploy-result.json`. |
 | `/canary` | Post-deploy monitoring that attaches `.planning/current/ship/canary-status.json` as follow-on ship evidence. |
 | `/benchmark` | Performance regression checks that attach `.planning/current/qa/perf-verification.md` as follow-on QA evidence. |
 | `/document-release` | Release-note and documentation sync that attaches `.planning/current/closeout/documentation-sync.md` as follow-on closeout evidence. |

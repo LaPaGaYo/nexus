@@ -1,22 +1,33 @@
-import { existsSync, readFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import {
   closeoutDocumentationSyncPath,
   currentAttachedEvidencePaths,
   currentAuditArtifactPaths,
   qaPerfVerificationPath,
+  reviewAdvisoriesPath,
+  reviewAdvisoryDispositionPath,
   shipCanaryStatusPath,
   shipDeployResultPath,
+  stageCompletionAdvisorPath,
   stageStatusPath,
 } from './artifacts';
+import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from './completion-advisor';
+import { artifactPointerFor } from './contract-artifacts';
 import { diagnoseCloseoutHistory } from './governance';
 import { readLedger, writeLedger } from './ledger';
+import {
+  buildReviewAdvisoriesRecord,
+  buildReviewAdvisoryDispositionRecord,
+  readReviewAdvisories,
+} from './review-advisories';
 import {
   listReviewAttemptIds,
   listReviewAttemptReceiptPaths,
   readReviewAuditReceipt,
 } from './review-receipts';
 import { readStageStatus } from './status';
+import { readVerificationMatrix } from './verification-matrix';
 import type { StageStatus } from './types';
 
 export const LEDGER_DOCTOR_ISSUE_CODES = [
@@ -25,6 +36,7 @@ export const LEDGER_DOCTOR_ISSUE_CODES = [
   'split_brain_current_audits',
   'stale_review_receipts',
   'stale_attached_evidence',
+  'review_advisory_drift',
 ] as const;
 
 export type LedgerDoctorIssueCode = (typeof LEDGER_DOCTOR_ISSUE_CODES)[number];
@@ -133,6 +145,67 @@ function hasSplitBrainCurrentAudits(rootDir: string, reviewStatus: StageStatus):
   } catch {
     return true;
   }
+}
+
+function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((value, index) => value === b[index]);
+}
+
+function derivedCurrentReviewAdvisories(rootDir: string, reviewStatus: StageStatus | null): ReturnType<typeof buildReviewAdvisoriesRecord> {
+  if (!reviewStatus?.run_id) {
+    return null;
+  }
+
+  const codexPath = join(rootDir, '.planning/audits/current/codex.md');
+  const geminiPath = join(rootDir, '.planning/audits/current/gemini.md');
+  if (!existsSync(codexPath) || !existsSync(geminiPath)) {
+    return null;
+  }
+
+  const generatedAt = typeof reviewStatus.completed_at === 'string'
+    ? reviewStatus.completed_at
+    : new Date(0).toISOString();
+  return buildReviewAdvisoriesRecord(
+    reviewStatus.run_id,
+    generatedAt,
+    readFileSync(codexPath, 'utf8'),
+    readFileSync(geminiPath, 'utf8'),
+  );
+}
+
+function hasReviewAdvisoryDrift(rootDir: string, reviewStatus: StageStatus | null, ledgerRunId: string | null): boolean {
+  if (!isCanonicalRecordedReview(reviewStatus, ledgerRunId)) {
+    return false;
+  }
+
+  const derived = derivedCurrentReviewAdvisories(rootDir, reviewStatus);
+  const recorded = readReviewAdvisories(rootDir);
+  const statusCount = reviewStatus?.advisory_count ?? 0;
+  const statusCategories = [...(reviewStatus?.advisory_categories ?? [])].sort();
+
+  if (!derived) {
+    return statusCount > 0 || Boolean(recorded);
+  }
+
+  if (statusCount !== derived.advisories.length) {
+    return true;
+  }
+  if (!arraysEqual(statusCategories, [...derived.categories].sort())) {
+    return true;
+  }
+  if (reviewStatus?.advisories_path !== reviewAdvisoriesPath()) {
+    return true;
+  }
+  if (reviewStatus?.advisory_disposition_path !== reviewAdvisoryDispositionPath()) {
+    return true;
+  }
+  if (!recorded || !arraysEqual(recorded.advisories, derived.advisories)) {
+    return true;
+  }
+  return !arraysEqual([...recorded.categories].sort(), [...derived.categories].sort());
 }
 
 function reviewReceiptGeneratedAtMillis(rootDir: string, attemptId: string): number | null {
@@ -329,6 +402,25 @@ export function buildLedgerDoctorReport(rootDir: string): LedgerDoctorReport {
     });
   }
 
+  if (
+    shouldDiagnoseCloseoutHistory(ledger?.current_stage)
+    && currentAuditArtifacts.length > 0
+    && hasReviewAdvisoryDrift(rootDir, reviewStatus, ledger?.run_id ?? null)
+  ) {
+    issues.push({
+      code: 'review_advisory_drift',
+      message: 'Review audit markdown contains advisories that are not reflected in review status or completion-advisor artifacts.',
+      evidence: [
+        stageStatusPath('review'),
+        '.planning/audits/current/codex.md',
+        '.planning/audits/current/gemini.md',
+        reviewAdvisoriesPath(),
+        reviewAdvisoryDispositionPath(),
+        stageCompletionAdvisorPath('review'),
+      ],
+    });
+  }
+
   const staleAttachedEvidence = staleAttachedEvidencePaths({
     rootDir,
     ledgerRunId: ledger?.run_id ?? null,
@@ -388,6 +480,111 @@ function removeArtifactIndexEntries(rootDir: string, relativePaths: string[]): v
   }, rootDir);
 }
 
+function upsertArtifactIndexEntries(rootDir: string, relativePaths: string[]): void {
+  const ledger = readLedger(rootDir);
+  if (!ledger) {
+    return;
+  }
+
+  let changed = false;
+  const nextArtifactIndex = { ...ledger.artifact_index };
+  for (const relativePath of relativePaths) {
+    const nextPointer = artifactPointerFor(relativePath);
+    const currentPointer = nextArtifactIndex[relativePath];
+    if (
+      !currentPointer
+      || currentPointer.kind !== nextPointer.kind
+      || currentPointer.path !== nextPointer.path
+    ) {
+      nextArtifactIndex[relativePath] = nextPointer;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return;
+  }
+
+  writeLedger({
+    ...ledger,
+    artifact_index: nextArtifactIndex,
+  }, rootDir);
+}
+
+function dedupeOutputs(outputs: NonNullable<StageStatus['outputs']>): NonNullable<StageStatus['outputs']> {
+  const seen = new Set<string>();
+  const deduped: NonNullable<StageStatus['outputs']> = [];
+  for (const output of outputs) {
+    if (seen.has(output.path)) {
+      continue;
+    }
+    seen.add(output.path);
+    deduped.push(output);
+  }
+  return deduped;
+}
+
+function repairReviewAdvisoryDrift(rootDir: string): string[] {
+  const reviewStatus = readStageStatus(stageStatusPath('review'), rootDir);
+  const ledger = readLedger(rootDir);
+  if (!hasReviewAdvisoryDrift(rootDir, reviewStatus, ledger?.run_id ?? null)) {
+    return [];
+  }
+
+  const derived = derivedCurrentReviewAdvisories(rootDir, reviewStatus);
+  if (!derived || !reviewStatus) {
+    return [];
+  }
+
+  const advisoryDisposition = buildReviewAdvisoryDispositionRecord(
+    derived.run_id,
+    derived.advisories.length,
+    null,
+    null,
+  );
+  const outputPaths = [
+    reviewAdvisoriesPath(),
+    reviewAdvisoryDispositionPath(),
+    stageCompletionAdvisorPath('review'),
+    stageStatusPath('review'),
+  ];
+  const repairedStatus: StageStatus = {
+    ...reviewStatus,
+    outputs: dedupeOutputs([
+      ...(reviewStatus.outputs ?? []),
+      artifactPointerFor(reviewAdvisoriesPath()),
+      artifactPointerFor(reviewAdvisoryDispositionPath()),
+      artifactPointerFor(stageCompletionAdvisorPath('review')),
+      artifactPointerFor(stageStatusPath('review')),
+    ]),
+    advisories_path: reviewAdvisoriesPath(),
+    advisory_count: derived.advisories.length,
+    advisory_categories: derived.categories,
+    advisory_disposition: null,
+    advisory_disposition_path: reviewAdvisoryDispositionPath(),
+  };
+  const verificationMatrix = readVerificationMatrix(rootDir);
+  const generatedAt = typeof repairedStatus.completed_at === 'string'
+    ? repairedStatus.completed_at
+    : derived.generated_at;
+  const completionAdvisor = buildReviewCompletionAdvisor(repairedStatus, verificationMatrix, generatedAt, []);
+  const completionAdvisorWrite = buildCompletionAdvisorWrite(completionAdvisor, {
+    cwd: rootDir,
+    verificationMatrix,
+    externalSkills: [],
+  });
+
+  for (const relativePath of outputPaths) {
+    mkdirSync(join(rootDir, relativePath, '..'), { recursive: true });
+  }
+  writeFileSync(join(rootDir, reviewAdvisoriesPath()), JSON.stringify(derived, null, 2) + '\n');
+  writeFileSync(join(rootDir, reviewAdvisoryDispositionPath()), JSON.stringify(advisoryDisposition, null, 2) + '\n');
+  writeFileSync(join(rootDir, stageStatusPath('review')), JSON.stringify(repairedStatus, null, 2) + '\n');
+  writeFileSync(join(rootDir, completionAdvisorWrite.path), completionAdvisorWrite.content);
+  upsertArtifactIndexEntries(rootDir, outputPaths);
+  return outputPaths;
+}
+
 export function applySafeLedgerDoctorFix(rootDir: string): LedgerDoctorSafeFixResult {
   const reportBefore = buildLedgerDoctorReport(rootDir);
   const fixedPaths: string[] = [];
@@ -418,6 +615,14 @@ export function applySafeLedgerDoctorFix(rootDir: string): LedgerDoctorSafeFixRe
       removeArtifactIndexEntries(rootDir, removed);
       fixedPaths.push(...removed);
       fixedIssueCodes.push('stale_attached_evidence');
+    }
+  }
+
+  if (reportBefore.issues.some((issue) => issue.code === 'review_advisory_drift')) {
+    const repaired = repairReviewAdvisoryDrift(rootDir);
+    if (repaired.length > 0) {
+      fixedPaths.push(...repaired);
+      fixedIssueCodes.push('review_advisory_drift');
     }
   }
 

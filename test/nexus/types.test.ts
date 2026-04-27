@@ -809,7 +809,7 @@ describe('nexus types', () => {
     const deployResult: DeployResultRecord = {
       schema_version: 1,
       generated_at: '2026-04-18T00:00:00.000Z',
-      source: 'land-and-deploy',
+      source: 'deploy',
       phase: 'post_merge',
       failure_kind: null,
       ci_status: 'passed',
@@ -828,7 +828,7 @@ describe('nexus types', () => {
       summary: 'PR #42 merged, deployed, and verified healthy in production.',
     };
 
-    expect(deployResult.source).toBe('land-and-deploy');
+    expect(deployResult.source).toBe('deploy');
     expect(deployResult.deploy_status).toBe('verified');
   });
 

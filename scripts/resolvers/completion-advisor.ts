@@ -140,15 +140,19 @@ If QA is not ready, do not improvise. Follow the advisor back into the bounded f
 \`/build\`.`,
   ship: `The advisor is where ship-level deploy awareness now lives. Use it to surface:
 
-- \`/closeout\` as the canonical governed continuation
-- \`/land-and-deploy\` as the post-lifecycle landing path
+- \`/land\` as the recommended post-ship PR landing path
+- \`/land-and-deploy\` as the compatibility shortcut for combined landing/deploy
 - \`/setup-deploy\` when deploy configuration is still incomplete
+- \`/deploy\` only after landing, when a deploy surface is configured
+- \`/closeout\` when landing was handled manually or intentionally deferred
 - \`/document-release\` as follow-on release hygiene`,
   closeout: `The closeout advisor should be the single place where you surface:
 
 - fresh \`/discover\` for the next governed run
-- \`/land-and-deploy\` when landing is still pending
-- \`/canary\` after a landed change without post-deploy health evidence
+- \`/land\` when landing is still pending
+- \`/land-and-deploy\` as the compatibility shortcut when landing is still pending
+- \`/deploy\` after a landed merge-only result when deploy is still needed
+- \`/canary\` after a verified deploy with a production URL but no post-deploy health evidence
 - \`/retro\`, \`/learn\`, and \`/document-release\` as follow-on work`,
 };
 

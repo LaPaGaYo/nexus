@@ -3,8 +3,8 @@ name: land-and-deploy
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Land and deploy workflow. Merges the PR, waits for CI and deploy,
-  verifies production health via canary checks. Takes over after `/ship` records merge readiness
+  Land and deploy workflow. Merges the PR, waits for CI, optionally deploys,
+  and verifies production health when deployment is selected. Takes over after `/ship` records merge readiness
   and PR handoff metadata. Use when: "merge", "land", "deploy", "merge and verify",
   "land it", "ship it to production". (Nexus)
 allowed-tools:
@@ -24,11 +24,16 @@ sensitive: true
 
 **If the platform detected above is GitLab or unknown:** STOP with: "GitLab support for /land-and-deploy is not yet implemented. Run `/ship` to record readiness, then create or update the MR manually via the GitLab web UI." Do not proceed.
 
-# /land-and-deploy — Merge, Deploy, Verify
+# /land-and-deploy — Merge, Optionally Deploy, Verify
 
-You are a release engineer. Merge efficiently, wait intelligently, verify thoroughly, and always leave a repo-visible result.
+You are a release engineer. Merge efficiently, wait intelligently, verify thoroughly when deployment is selected, and always leave a repo-visible result.
 
 This support workflow consumes `/ship` output. It does not own lifecycle state and never reroutes by editing `.planning/nexus/current-run.json`.
+
+`/land-and-deploy` is the compatibility shortcut for users who want one command
+to cover landing and optional deployment. Prefer `/land` when the user only
+needs to merge a PR. Prefer `/deploy` when the PR is already merged and only
+deployment verification remains.
 
 ## Canonical handoff and result artifacts
 
@@ -64,6 +69,7 @@ When the user types `/land-and-deploy`, run this skill.
 Mostly automated, but stop for explicit user confirmation before irreversible merge.
 
 Always stop for:
+- landing mode choice when an open PR is found
 - first-run dry-run validation
 - pre-merge readiness gate
 - unauthenticated GitHub CLI
@@ -110,9 +116,39 @@ gh pr view --json number,state,title,url,mergeStateStatus,mergeable,baseRefName,
 ```
 Then STOP: "The PR changed after `/ship` recorded readiness. Re-run `/ship` before `/land-and-deploy`."
 
+## Step 1.25: Landing Mode Choice
+
+When an `OPEN` PR is found and the `/ship` handoff is current, ask before any
+deploy dry-run or merge work:
+
+- **Re-ground:** "PR #NNN is open and ready for landing path selection."
+- **RECOMMENDATION:** Choose A for web apps, APIs, services, or any project
+  with a production surface. Choose B for desktop apps, CLIs, libraries,
+  docs-only changes, or explicit no-deploy releases.
+- A) Merge + deploy verification
+- B) Merge only, no deploy needed
+- C) Stop; leave PR open
+
+If A, set session variable `LANDING_MODE=merge_and_deploy` and continue.
+
+If B, set session variable `LANDING_MODE=merge_only` and continue through CI,
+pre-merge readiness, and merge. Skip Step 1.5 deploy dry-run and Steps 5-7
+deploy/canary verification. After merge, write `.planning/current/ship/deploy-result.json`
+using the Step 9 schema with `phase: "post_merge"`, `next_action: "none"`,
+`production_url: null`, `canary_status_path: null`, `merge_status: "merged"`,
+`"deploy_status": "skipped"`, `verification_status: "skipped"`, and a summary
+that deployment verification was skipped by explicit user choice. Then run
+Step 9 report writing and Step 10 follow-ups. Do not ask for a production URL,
+deploy workflow, canary, `/setup-deploy`, or `/canary` in merge-only mode unless
+the user asks.
+
+If C, STOP with no file changes.
+
 ## Step 1.5: First-run Dry Run
 
 Detect whether this project has a confirmed deploy setup:
+
+Skip this step when `LANDING_MODE=merge_only`.
 
 ```bash
 {{SLUG_EVAL}}
@@ -308,7 +344,11 @@ After merge, capture merge SHA and detect deploy workflow:
 gh run list --branch <base> --limit 5 --json name,status,workflowName,headSha
 ```
 
+If `LANDING_MODE=merge_only`, skip Steps 5-7 and go directly to Step 9.
+
 ## Step 5: Deploy Strategy
+
+Skip this step when `LANDING_MODE=merge_only`.
 
 Reuse the deploy bootstrap result from Step 1. If Step 1 was skipped in this
 session or the deploy contract changed, rerun the Step 1 bootstrap before
@@ -334,6 +374,8 @@ If staging was detected and this is not docs-only, ask:
 
 ## Step 6: Wait for Deploy
 
+Skip this step when `LANDING_MODE=merge_only`.
+
 Choose the best available signal:
 - GitHub Actions: `gh run list` then `gh run view <run-id> --json status,conclusion`
 - Fly.io: `fly status --app {app}`
@@ -350,6 +392,8 @@ If deploy fails, ask:
 - C) Continue to health checks anyway
 
 ## Step 7: Canary Verification
+
+Skip this step when `LANDING_MODE=merge_only`.
 
 Tell the user: "Deploy is done. Now I'm checking the live site."
 
@@ -411,7 +455,7 @@ CI:           <PASSED/SKIPPED>
 Deploy:       <PASSED/FAILED/NO WORKFLOW/CI AUTO-DEPLOY>
 Staging:      <VERIFIED/SKIPPED/N/A>
 Verification: <HEALTHY/DEGRADED/SKIPPED/REVERTED>
-VERDICT:      <DEPLOYED AND VERIFIED / DEPLOYED (UNVERIFIED) / STAGING VERIFIED / REVERTED>
+VERDICT:      <DEPLOYED AND VERIFIED / DEPLOYED (UNVERIFIED) / MERGED ONLY / STAGING VERIFIED / REVERTED>
 ```
 
 Write `.planning/current/ship/deploy-result.json`:
@@ -448,11 +492,12 @@ Append a review-dashboard JSONL entry under `~/.nexus/projects/$SLUG` with skill
 
 If verified: say the changes are live and verified.
 If unverified: say merged, likely deploying, manual check recommended.
+If merge-only: say the PR was merged and deployment was intentionally skipped by user choice.
 If reverted: say the merge was reverted and branch remains available.
 
 Suggest:
-- `/canary <url>` for extended monitoring
-- `/benchmark <url>` for deeper performance
+- `/canary <url>` for extended monitoring when deployment occurred
+- `/benchmark <url>` for deeper performance when a live URL exists
 - `/document-release` when docs need syncing
 
 ## Important Rules

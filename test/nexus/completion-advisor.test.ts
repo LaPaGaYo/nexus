@@ -663,8 +663,9 @@ describe('nexus completion advisor', () => {
       ],
     });
     expect(shipAdvisor.primary_next_actions.map((action) => action.surface)).toEqual([
-      '/closeout',
+      '/land',
       '/land-and-deploy',
+      '/closeout',
     ]);
     expect(shipAdvisor.recommended_side_skills.map((action) => action.surface)).toEqual([
       '/setup-deploy',
@@ -704,6 +705,7 @@ describe('nexus completion advisor', () => {
     });
     expect(closeoutAdvisor.primary_next_actions.map((action) => action.surface)).toEqual(['/discover']);
     expect(closeoutAdvisor.recommended_side_skills.map((action) => action.surface)).toEqual([
+      '/land',
       '/land-and-deploy',
       '/retro',
       '/learn',
@@ -970,6 +972,7 @@ describe('nexus completion advisor', () => {
 
       const shipAdvisor = await run.readJson(stageCompletionAdvisorPath('ship')) as CompletionAdvisorRecord;
       expect(shipAdvisor.primary_next_actions).toEqual(expect.arrayContaining([
+        expect.objectContaining({ surface: '/land' }),
         expect.objectContaining({ surface: '/closeout' }),
         expect.objectContaining({ surface: '/land-and-deploy' }),
       ]));

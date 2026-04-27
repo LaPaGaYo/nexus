@@ -1,0 +1,199 @@
+---
+name: land
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Nexus PR landing workflow. Use when a shipped PR should be merged without assuming
+  deployment, or when the project is a CLI, library, desktop app, docs-only change, or
+  otherwise has no production deploy surface.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
+  - AskUserQuestion
+sensitive: true
+---
+
+{{PREAMBLE}}
+
+{{BASE_BRANCH_DETECT}}
+
+# /land — Merge PR, No Deployment Assumption
+
+You are a release engineer landing an already-shipped PR. `/land` consumes the
+`/ship` PR handoff, waits for CI, asks before the irreversible merge, and writes
+repo-visible landing evidence. It does not deploy.
+
+## User-invocable
+When the user types `/land`, run this skill.
+
+## Arguments
+- `/land` — auto-detect PR from current branch or `/ship` handoff
+- `/land #123` — land a specific PR
+
+## Required Inputs
+- `.planning/current/ship/pull-request.json`
+- `.planning/current/ship/status.json`
+- `.planning/current/ship/deploy-readiness.json` if present
+
+## Output
+Always write `.planning/current/ship/deploy-result.json` after merge or pre-merge
+terminal stops. In `/land`, deploy fields are intentionally skipped:
+`deploy_status: "skipped"`, `verification_status: "skipped"`, and
+`production_url: null`.
+
+Refresh closeout follow-on evidence after writing it:
+
+```bash
+~/.claude/skills/nexus/bin/nexus-refresh-follow-on-summary
+```
+
+`SKIPPED no_active_closeout` is fine.
+
+## Step 1: Pre-flight
+
+Tell the user: "Starting landing sequence. I will verify the ship handoff, CI,
+and merge readiness before asking to merge."
+
+1. Verify GitHub CLI:
+```bash
+gh auth status
+```
+If unauthenticated, STOP and tell the user to run `gh auth login`.
+
+2. Find PR from argument, current branch, or `.planning/current/ship/pull-request.json`:
+```bash
+gh pr view --json number,state,title,url,mergeStateStatus,mergeable,baseRefName,headRefName,headRefOid
+```
+
+3. Validate state:
+- no PR: STOP, tell user to run `/ship` or create the PR manually, then rerun `/land`
+- `MERGED`: write a merged/skipped deploy result if missing, then suggest `/deploy` only if deployment is needed
+- `CLOSED`: STOP, reopen first
+- `OPEN`: continue
+
+4. If `.planning/current/ship/pull-request.json` exists, compare recorded
+`head_sha` with live `headRefOid`. If different, write a pre-merge deploy result
+with `ship_handoff_current: false`, `merge_status: "pending"`, and
+`next_action: "rerun_ship"`. Then STOP: "The PR changed after `/ship` recorded
+readiness. Re-run `/ship` before `/land`."
+
+## Step 2: CI and Mergeability
+
+Tell the user: "Checking CI status and merge readiness..."
+
+```bash
+gh pr checks --json name,state,status,conclusion
+gh pr view --json mergeable -q .mergeable
+```
+
+If required checks fail, write `.planning/current/ship/deploy-result.json` with
+`failure_kind: "pre_merge_ci_failed"`, `merge_status: "pending"`,
+`deploy_status: "skipped"`, and `next_action: "rerun_build_review_qa_ship"`.
+Then STOP and tell the user to update the branch and rerun the governed gates.
+
+If mergeable is `CONFLICTING`, write the same result with
+`failure_kind: "pre_merge_conflict"` and `ship_handoff_current: false`. Then
+STOP.
+
+If checks are pending, wait:
+
+```bash
+gh pr checks --watch --fail-fast
+```
+
+If CI times out, STOP with no code changes; retrying `/land` is enough after CI
+unsticks.
+
+## Step 3: Pre-merge Readiness Gate
+
+This is the irreversible merge gate. Gather evidence and ask before merging.
+
+```bash
+~/.claude/skills/nexus/bin/nexus-review-read 2>/dev/null
+bun test 2>&1 | tail -10
+gh pr view --json body -q .body
+git log --oneline $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main)..HEAD | head -20
+```
+
+Show:
+
+```text
+LAND READINESS REPORT
+PR:        #NNN — title
+Branch:    head -> base
+Reviews:   current/stale/not run
+Tests:     pass/fail/not run
+Blockers:  N
+Warnings:  N
+Mode:      merge only, no deploy
+```
+
+Ask:
+- **Re-ground:** "Ready to merge PR #NNN into {base}. Deployment will not run from `/land`."
+- **RECOMMENDATION:** Choose A if CI and review evidence are green.
+- A) Merge PR
+- B) Hold off
+- C) Merge anyway
+
+If B, STOP with exact next steps. If A or C, continue.
+
+## Step 4: Merge
+
+Prefer auto-merge:
+
+```bash
+gh pr merge --auto --delete-branch
+```
+
+If auto-merge is unavailable, merge directly:
+
+```bash
+gh pr merge --squash --delete-branch
+```
+
+If auto-merge leaves the PR open, treat it as merge queue and poll every 30
+seconds up to 30 minutes. If merge queue fails, write a pending deploy result
+with `failure_kind: "merge_queue_failed"` and `next_action: "rerun_build_review_qa_ship"`.
+
+After merge, capture the merge SHA:
+
+```bash
+gh pr view --json state,mergeCommit
+```
+
+## Step 5: Landing Result
+
+Write `.planning/current/ship/deploy-result.json` using the standard deploy
+result schema with:
+- `source: "land"`
+- `phase: "post_merge"`
+- `failure_kind: null`
+- `ci_status: "passed"`
+- `ship_handoff_current: true`
+- `next_action: "none"`
+- `production_url: null`
+- `merge_status: "merged"`
+- `deploy_status: "skipped"`
+- `verification_status: "skipped"`
+- `summary: "PR #NNN merged; deployment was not run by /land."`
+
+Also write `.nexus/deploy-reports/{date}-pr{number}-land.md` with the PR, merge
+SHA, CI status, review status, and explicit "deployment skipped" verdict.
+
+## Step 6: Follow-ups
+
+If the project has a deploy contract and the user wants production verification,
+suggest `/deploy`. Otherwise suggest `/closeout`.
+
+For CLI, library, desktop app, and docs-only projects, recommend `/closeout`
+unless the user explicitly says there is a release or download surface to verify.
+
+## Important Rules
+
+- Never force push.
+- Never skip CI.
+- Never deploy from `/land`.
+- Always ask before merge.
+- Always write `.planning/current/ship/deploy-result.json` for merged and terminal pre-merge states.

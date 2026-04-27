@@ -104,6 +104,9 @@ inline when the request clearly maps to a canonical stage or support surface.
 - Visual audit or polish of a live site → invoke `/design-review`
 - Release readiness, PR gate, merge readiness → invoke `/ship`
 - Final governed verification and closure → invoke `/closeout`
+- Merge an already-shipped PR without assuming deployment → invoke `/land`
+- Deploy and verify an already-landed change → invoke `/deploy`
+- Combined merge and deploy shortcut → invoke `/land-and-deploy`
 - Update docs after shipping → invoke `/document-release`
 - Weekly retro or shipped-work summary → invoke `/retro`
 - Performance regression / baseline work → invoke `/benchmark`
@@ -125,7 +128,7 @@ Support skills are stage-context tools, not a second workflow:
 - maintainability polish: `/simplify`
 - browser QA: `/browse`, `/connect-chrome`, `/setup-browser-cookies`
 - performance/security: `/benchmark`, `/cso`
-- release tail: `/document-release`, `/land-and-deploy`, `/canary`, `/retro`, `/learn`
+- release tail: `/land`, `/deploy`, `/land-and-deploy`, `/document-release`, `/canary`, `/retro`, `/learn`
 
 Do not present these as a flat tool menu unless the user asks for that explicitly.
 Surface them when they materially help the current lifecycle stage.

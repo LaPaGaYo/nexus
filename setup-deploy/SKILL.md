@@ -3,7 +3,7 @@ name: setup-deploy
 preamble-tier: 2
 version: 1.0.0
 description: |
-  Configure deployment settings for /land-and-deploy. Detects your deploy
+  Configure deployment settings for /deploy and /land-and-deploy. Detects your deploy
   platform (Fly.io, Render, Vercel, Netlify, Heroku, GitHub Actions, custom),
   production URL, health check endpoints, and deploy status commands. Writes
   the canonical deploy contract to `.planning/deploy/` so all future deploys
@@ -564,8 +564,9 @@ automatically. Your job is to detect the deploy platform, production URL, health
 checks, and deploy status commands — then persist everything to
 `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`.
 
-After this runs once, `/land-and-deploy` reads the canonical deploy contract first and
-only falls back to legacy `CLAUDE.md` deploy config when migrating an older project.
+After this runs once, `/ship`, `/deploy`, and `/land-and-deploy` read the canonical
+deploy contract first and only fall back to legacy `CLAUDE.md` deploy config when
+migrating an older project.
 
 ## User-invocable
 When the user types `/setup-deploy`, run this skill.
@@ -836,10 +837,12 @@ Secondary surfaces:     {list or "none"}
 Contract:               .planning/deploy/deploy-contract.json
 
 Saved to `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`.
-`/land-and-deploy` and `/ship` will use these settings automatically.
+`/ship`, `/deploy`, and `/land-and-deploy` will use these settings automatically.
 
 Next steps:
-- Run /land-and-deploy to merge and deploy your current PR
+- If the PR is not merged yet, run /land first
+- If the PR is already merged, run /deploy next
+- Use /land-and-deploy only when you want the combined merge + deploy shortcut
 - Edit `.planning/deploy/deploy-contract.json` or rerun /setup-deploy to change settings
 - Run /setup-deploy again to reconfigure
 ```
@@ -851,3 +854,4 @@ Next steps:
 - **The deploy contract is the source of truth.** Persist canonical settings in `.planning/deploy/*`, not `CLAUDE.md`.
 - **Idempotent.** Running /setup-deploy multiple times overwrites the previous config cleanly.
 - **Platform CLIs are optional.** If `fly` or `vercel` CLI isn't installed, fall back to URL-based health checks.
+- **Configuration only.** `/setup-deploy` never merges or deploys. It should route back to `/land` before merge, or `/deploy` after merge.

@@ -1,0 +1,161 @@
+---
+name: deploy
+preamble-tier: 2
+version: 1.0.0
+description: |
+  Nexus deployment workflow. Use after a PR has landed and the project has a real
+  deploy surface, deploy contract, production URL, or health check. Do not use for
+  early unstable projects, CLI/library/desktop-only work, or merge-only releases.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
+  - AskUserQuestion
+sensitive: true
+---
+
+{{PREAMBLE}}
+
+{{BASE_BRANCH_DETECT}}
+
+# /deploy — Deploy and Verify a Landed Change
+
+You are a release reliability engineer. `/deploy` assumes the PR is already
+merged or queued for deployment. It reads the deploy contract, waits for deploy
+signals, verifies health, and writes deploy evidence. It does not merge PRs.
+
+## User-invocable
+When the user types `/deploy`, run this skill.
+
+## Arguments
+- `/deploy` — use `.planning/deploy/deploy-contract.json` or the latest deploy result URL
+- `/deploy <url>` — verify this production URL
+- `/deploy --status-only` — read deploy status without changing anything
+
+## Required Inputs
+- `.planning/current/ship/deploy-result.json` from `/land` or `/land-and-deploy`, or a merged PR
+- `.planning/deploy/deploy-contract.json` when the project has a configured deploy surface
+
+## Step 1: Confirm Deploy Is Appropriate
+
+Read:
+
+```bash
+[ -f .planning/current/ship/deploy-result.json ] && cat .planning/current/ship/deploy-result.json || echo "NO_LANDING_RESULT"
+[ -f .planning/deploy/deploy-contract.json ] && cat .planning/deploy/deploy-contract.json || echo "NO_DEPLOY_CONTRACT"
+```
+
+If there is no merged landing evidence and no explicitly merged PR, STOP:
+"Run `/land` before `/deploy`; deployment should not race ahead of merge."
+
+If the deploy contract is missing and no URL argument was provided, ask:
+- A) Run `/setup-deploy` first
+- B) Provide a URL now
+- C) Stop; no deploy needed
+
+If the deploy contract says platform `none`, or project type is `cli`,
+`library`, or a desktop-only app with no URL, STOP and recommend `/closeout`.
+
+## Step 2: Resolve Deploy Target
+
+Resolve the production target in this order:
+1. URL argument
+2. `.planning/current/ship/deploy-result.json.production_url`
+3. `.planning/deploy/deploy-contract.json.production.url`
+4. `.planning/deploy/deploy-contract.json.production.health_check`
+
+Resolve deploy status signal in this order:
+1. deploy contract `deploy_status.command`
+2. deploy contract `deploy_workflow`
+3. GitHub Actions runs on the base branch
+4. URL health check
+
+Show:
+
+```text
+DEPLOY TARGET
+Platform:    {platform}
+Project:     {project_type}
+URL:         {url or none}
+Workflow:    {workflow or none}
+Status cmd:  {command or none}
+Mode:        deploy verification only
+```
+
+Ask before waiting on external deploy systems:
+- **Re-ground:** "The PR is landed. I will now verify deployment for the resolved production surface."
+- **RECOMMENDATION:** Choose A if this is the intended production target.
+- A) Verify deploy
+- B) Run `/setup-deploy` first
+- C) Stop; no deploy needed
+
+## Step 3: Wait for Deploy
+
+Choose the best available signal:
+- GitHub Actions: `gh run list` then `gh run view <run-id> --json status,conclusion`
+- Fly.io: `fly status --app {app}`
+- Render/HTTP-only: poll production URL with `curl -sf`
+- Heroku: `heroku releases --app {app} -n 1`
+- Vercel/Netlify: wait 60 seconds, then verify URL
+- custom: use deploy contract status command
+
+Show progress every 2 minutes. Timeout at 20 minutes and ask whether to keep
+waiting, investigate, or mark deployment unverified.
+
+If deploy fails, ask:
+- A) Inspect logs
+- B) Revert immediately
+- C) Continue to health checks anyway
+
+## Step 4: Health Verification
+
+If a URL is available:
+
+```bash
+curl -sf <url> -o /dev/null -w "%{http_code}\n"
+```
+
+If the project is browser-facing and the browse daemon is available, optionally
+run `/canary` after `/deploy` for deeper monitoring. Do not require `/canary`
+inside `/deploy`; attach it as follow-on evidence.
+
+Pass criteria: successful status signal, successful URL or health check when
+available, no known post-merge deploy failure.
+
+## Step 5: Deploy Result
+
+Update `.planning/current/ship/deploy-result.json` using the standard deploy
+result schema with:
+- `source: "deploy"`
+- `phase: "post_merge"`
+- `failure_kind: null` when successful, otherwise `post_merge_deploy_failed`
+- `merge_status: "merged"`
+- `deploy_status: "verified"` when deploy and health checks pass
+- `deploy_status: "degraded"` when deploy is live but not fully verified
+- `verification_status: "healthy"`, `"degraded"`, or `"broken"`
+- `production_url` set to the resolved URL when available
+- `next_action: "none"` on success, otherwise `investigate_deploy` or `revert`
+
+Also write `.nexus/deploy-reports/{date}-deploy.md`.
+
+Refresh closeout follow-on evidence:
+
+```bash
+~/.claude/skills/nexus/bin/nexus-refresh-follow-on-summary
+```
+
+## Step 6: Follow-ups
+
+If verified and a production URL exists, suggest `/canary` for extended
+monitoring. If no production URL exists but deploy verification is sufficient,
+suggest `/closeout`.
+
+If deployment was intentionally skipped, do not recommend `/canary`.
+
+## Important Rules
+
+- Never merge from `/deploy`; use `/land`.
+- Never invent a production URL.
+- Do not recommend deploy for early unstable projects unless the user explicitly asks.
+- `/setup-deploy` configures deployment; `/deploy` executes and verifies it.

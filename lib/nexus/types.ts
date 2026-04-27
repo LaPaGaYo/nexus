@@ -556,7 +556,7 @@ export interface DeployReadinessRecord {
 export interface DeployResultRecord {
   schema_version: 1;
   generated_at: string;
-  source: 'land-and-deploy';
+  source: 'land' | 'deploy' | 'land-and-deploy';
   phase: DeployResultPhase;
   failure_kind: DeployResultFailureKind | null;
   ci_status: DeployResultCiStatus;

@@ -579,9 +579,11 @@ is `stop_action` or has no invocation.
 
 The advisor is where ship-level deploy awareness now lives. Use it to surface:
 
-- `/closeout` as the canonical governed continuation
-- `/land-and-deploy` as the post-lifecycle landing path
+- `/land` as the recommended post-ship PR landing path
+- `/land-and-deploy` as the compatibility shortcut for combined landing/deploy
 - `/setup-deploy` when deploy configuration is still incomplete
+- `/deploy` only after landing, when a deploy surface is configured
+- `/closeout` when landing was handled manually or intentionally deferred
 - `/document-release` as follow-on release hygiene
 
 If the session is non-interactive, print the advisor `summary` and the invocation for the

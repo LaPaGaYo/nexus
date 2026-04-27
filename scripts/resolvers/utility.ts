@@ -145,7 +145,7 @@ If a canonical deploy contract exists, treat \`PERSISTED_PRIMARY_PLATFORM\` and
 \`PERSISTED_SECONDARY_SURFACE\` entries as attached secondary surfaces.
 If only the legacy \`CLAUDE.md\` config exists, use it as a migration fallback.
 If no persisted config exists, use \`PRIMARY_PLATFORM\` as the deploy surface that
-\`/land-and-deploy\` gates on, and treat any \`SECONDARY_PLATFORM\` or
+\`/deploy\` and \`/land-and-deploy\` gate on, and treat any \`SECONDARY_PLATFORM\` or
 \`SECONDARY_DEPLOY_WORKFLOW\` output as warning-only attached surfaces like
 background services, preview surfaces, or documentation-only deploys.
 If nothing is detected, ask the user via AskUserQuestion in the decision tree below.

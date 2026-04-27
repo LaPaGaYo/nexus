@@ -91,6 +91,24 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return output;
 }
 
+function deploySurfaceConfigured(deployReadiness: DeployReadinessRecord | null): boolean {
+  if (!deployReadiness?.configured) return false;
+  if (deployReadiness.platform === 'none') return false;
+  if (deployReadiness.project_type === 'cli' || deployReadiness.project_type === 'library') return false;
+  return Boolean(
+    deployReadiness.production_url
+    || deployReadiness.health_check
+    || deployReadiness.deploy_workflow
+    || deployReadiness.deploy_status_command,
+  );
+}
+
+function canaryEvidenceRelevant(deployResult: DeployResultRecord | null): boolean {
+  if (!deployResult || deployResult.merge_status !== 'merged') return false;
+  if (deployResult.deploy_status === 'skipped') return false;
+  return Boolean(deployResult.production_url);
+}
+
 function outcomeForStatus(status: Pick<StageStatus, 'state' | 'ready'>): CompletionAdvisorRecord['stage_outcome'] {
   if (status.state === 'refused') {
     return 'refused';
@@ -1062,16 +1080,17 @@ export function buildShipCompletionAdvisor(
   pullRequest: PullRequestRecord | null = status.pull_request ?? null,
 ): CompletionAdvisorRecord {
   const setupGaps: string[] = [];
+  const deployConfigured = deploySurfaceConfigured(deployReadiness);
   const primary = [
     action(
-      'run_closeout',
-      'canonical_stage',
-      '/closeout',
-      '/closeout',
-      'Run `/closeout`',
-      'Conclude the governed run and archive its canonical artifacts.',
+      'run_land',
+      'support_skill',
+      '/land',
+      '/land',
+      'Run `/land`',
+      'Merge the PR from the ship handoff without assuming deployment.',
       true,
-      'Closeout is the canonical next lifecycle step after ship records the release gate.',
+      'Landing the PR is the clearest next operational step after ship records merge readiness.',
     ),
     action(
       'run_land_and_deploy',
@@ -1079,9 +1098,21 @@ export function buildShipCompletionAdvisor(
       '/land-and-deploy',
       '/land-and-deploy',
       'Run `/land-and-deploy`',
-      'Merge, deploy, and verify the primary deploy surface using the ship handoff.',
+      'Merge the PR and continue into deployment verification when this project has a production surface.',
       false,
-      'Landing and deployment is available now that ship has recorded PR and deploy handoff artifacts.',
+      deployConfigured
+        ? 'The deploy contract is configured, so the combined land-and-deploy shortcut is available.'
+        : 'Available as a shortcut, but use `/land` for merge-only projects or configure deploy first.',
+    ),
+    action(
+      'run_closeout_after_manual_landing',
+      'canonical_stage',
+      '/closeout',
+      '/closeout',
+      'Run `/closeout` after manual landing',
+      'Conclude the governed run if the PR has already been merged outside Nexus.',
+      false,
+      'Closeout remains available when landing was handled manually or intentionally deferred.',
     ),
   ];
   const sideSkills: CompletionAdvisorActionRecord[] = [
@@ -1108,6 +1139,20 @@ export function buildShipCompletionAdvisor(
         'Author the canonical deploy contract before landing and deployment.',
         false,
         'Landing should not rely on inferred deploy behavior when the primary deploy contract is still missing.',
+      ),
+    );
+  }
+  if (deployConfigured) {
+    sideSkills.push(
+      action(
+        'run_deploy_after_land',
+        'support_skill',
+        '/deploy',
+        '/deploy',
+        'Run `/deploy` after `/land`',
+        'Verify deployment after the PR has landed.',
+        false,
+        'The deploy contract is configured, but deployment should run after the PR is landed.',
       ),
     );
   }
@@ -1226,19 +1271,43 @@ export function buildCloseoutCompletionAdvisor(
     if (!deployResult || deployResult.merge_status === 'pending') {
       sideSkills.push(
         action(
+          'run_land',
+          'support_skill',
+          '/land',
+          '/land',
+          'Run `/land`',
+          'Use the ship handoff to merge the PR without assuming deployment.',
+          false,
+          'Landing is still pending for the shipped PR handoff.',
+        ),
+        action(
           'run_land_and_deploy',
           'support_skill',
           '/land-and-deploy',
           '/land-and-deploy',
           'Run `/land-and-deploy`',
-          'Use the ship handoff to merge and verify the primary deploy surface.',
+          'Use the combined landing and deployment shortcut when the project has a deploy surface.',
           false,
-          'Landing is still pending for the shipped PR handoff.',
+          'Landing is still pending and a combined land/deploy flow remains available.',
         ),
       );
     }
   }
-  if (deployResult?.merge_status === 'merged' && !canaryAttached) {
+  if (deployResult?.merge_status === 'merged' && deployResult.deploy_status === 'skipped') {
+    sideSkills.push(
+      action(
+        'run_deploy',
+        'support_skill',
+        '/deploy',
+        '/deploy',
+        'Run `/deploy` if needed',
+        'Deploy and verify a landed change only when this project has a production surface.',
+        false,
+        'The PR is merged and deployment was skipped; deploy remains optional and project-dependent.',
+      ),
+    );
+  }
+  if (canaryEvidenceRelevant(deployResult) && !canaryAttached) {
     sideSkills.push(
       action(
         'run_canary',

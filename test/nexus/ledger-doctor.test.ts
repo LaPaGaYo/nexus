@@ -4,10 +4,13 @@ import { describe, expect, test } from 'bun:test';
 import {
   closeoutDocumentationSyncPath,
   qaPerfVerificationPath,
+  reviewAdvisoriesPath,
+  reviewAdvisoryDispositionPath,
   reviewAttemptAuditMarkdownPath,
   reviewAttemptAuditReceiptPath,
   shipCanaryStatusPath,
   shipDeployResultPath,
+  stageCompletionAdvisorPath,
 } from '../../lib/nexus/artifacts';
 import { applySafeLedgerDoctorFix, buildLedgerDoctorReport } from '../../lib/nexus/ledger-doctor';
 import { buildReviewAuditReceiptRecord, persistReviewAuditReceipt } from '../../lib/nexus/review-receipts';
@@ -230,6 +233,102 @@ describe('nexus ledger doctor', () => {
         reviewAttemptAuditMarkdownPath('review-2026-04-21T12-00-00-000Z', 'codex'),
         reviewAttemptAuditReceiptPath('review-2026-04-21T12-00-00-000Z', 'codex'),
       ]));
+    });
+  });
+
+  test('reports and repairs review advisory drift so simplify can surface', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      writeFileSync(
+        join(cwd, '.planning/audits/current/codex.md'),
+        [
+          '# Codex Audit',
+          '',
+          'Result: pass',
+          '',
+          'Findings:',
+          '- none',
+          '',
+          'Advisories:',
+          '- The implementation has duplicated branching and should be simplified without behavior changes.',
+          '',
+        ].join('\n'),
+      );
+      writeFileSync(
+        join(cwd, '.planning/audits/current/gemini.md'),
+        [
+          '# Gemini Audit',
+          '',
+          'Result: pass',
+          '',
+          'Findings:',
+          '- none',
+          '',
+          'Advisories:',
+          '- Security-sensitive auth flow deserves a follow-up hardening pass.',
+          '',
+        ].join('\n'),
+      );
+
+      const reviewStatusPath = join(cwd, '.planning/current/review/status.json');
+      const staleStatus = JSON.parse(readFileSync(reviewStatusPath, 'utf8')) as Record<string, unknown>;
+      writeFileSync(reviewStatusPath, JSON.stringify({
+        ...staleStatus,
+        advisories_path: null,
+        advisory_count: 0,
+        advisory_categories: [],
+        advisory_disposition: null,
+        advisory_disposition_path: null,
+      }, null, 2) + '\n');
+
+      expect(buildLedgerDoctorReport(cwd)).toMatchObject({
+        status: 'action_required',
+        issues: [
+          expect.objectContaining({
+            code: 'review_advisory_drift',
+          }),
+        ],
+      });
+
+      const fix = applySafeLedgerDoctorFix(cwd);
+      expect(fix.fixed_issue_codes).toContain('review_advisory_drift');
+      expect(fix.fixed_paths).toEqual(expect.arrayContaining([
+        reviewAdvisoriesPath(),
+        reviewAdvisoryDispositionPath(),
+        stageCompletionAdvisorPath('review'),
+        '.planning/current/review/status.json',
+      ]));
+
+      const repairedStatus = JSON.parse(readFileSync(reviewStatusPath, 'utf8')) as {
+        advisory_count: number;
+        advisory_categories: string[];
+        advisories_path: string;
+        advisory_disposition_path: string;
+      };
+      expect(repairedStatus).toMatchObject({
+        advisory_count: 2,
+        advisory_categories: ['maintainability', 'security'],
+        advisories_path: reviewAdvisoriesPath(),
+        advisory_disposition_path: reviewAdvisoryDispositionPath(),
+      });
+
+      const advisor = JSON.parse(readFileSync(join(cwd, stageCompletionAdvisorPath('review')), 'utf8')) as {
+        interaction_mode: string;
+        recommended_side_skills: Array<{ surface: string }>;
+      };
+      expect(advisor.interaction_mode).toBe('required_choice');
+      expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
+        expect.objectContaining({ surface: '/simplify' }),
+        expect.objectContaining({ surface: '/cso' }),
+      ]));
+      expect(buildLedgerDoctorReport(cwd)).toEqual({
+        status: 'clean',
+        issues: [],
+      });
     });
   });
 
