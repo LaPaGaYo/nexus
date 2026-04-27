@@ -62,6 +62,10 @@ assets such as `review/checklist.md` and `cso/ACKNOWLEDGEMENTS.md` remain in
 their historical locations when generated skills reference `$NEXUS_ROOT/...`.
 `bun run skill:check` reports the active taxonomy so future source moves can be
 reviewed before they affect installs.
+The broader repo cleanup map is documented in
+`docs/architecture/repo-taxonomy-v2.md`; it records intended future roots such
+as `runtimes/`, `references/`, `hosts/gemini-cli`, and `vendor/` without moving
+current runtime paths.
 
 ## How it runs
 

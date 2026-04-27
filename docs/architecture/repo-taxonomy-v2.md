@@ -1,0 +1,101 @@
+# Nexus Repo Taxonomy v2
+
+No physical paths move in this phase. This document defines the intended
+maintenance categories so future moves can be reviewed, tested, and kept
+compatible with installed Nexus runtimes.
+
+## Target Tree
+
+```text
+nexus/
+  skills/
+    root/nexus/
+    canonical/
+    support/
+    safety/
+    aliases/
+
+  runtimes/
+    browse/
+    design/
+    design-html/
+    safety/
+
+  references/
+    review/
+    qa/
+    design/
+    cso/
+
+  lib/
+    nexus/
+
+  hosts/
+    claude/
+    codex/
+    gemini-cli/
+    factory/
+    kiro/
+
+  vendor/
+    upstream/
+    upstream-notes/
+
+  bin/
+  scripts/
+  docs/
+  test/
+```
+
+## Current Policy
+
+Current paths remain the active source of truth until a migration explicitly
+updates setup, generated host surfaces, runtime path rewrites, and tests.
+
+Representative current-to-target mappings:
+
+- `browse` -> `runtimes/browse`
+- `design` -> `runtimes/design`
+- `review` -> `references/review`
+- `qa` -> `references/qa`
+- `upstream` -> `vendor/upstream`
+- `.agents` -> `hosts/codex`
+- `.factory` -> `hosts/factory`
+
+Compatibility matters more than visual cleanup. Any future move must preserve
+installed runtime paths such as:
+
+- `$NEXUS_ROOT/browse/dist`
+- `$NEXUS_ROOT/browse/bin`
+- `$NEXUS_ROOT/design/dist`
+- `$NEXUS_ROOT/design/references`
+- `$NEXUS_ROOT/review/checklist.md`
+- `$NEXUS_ROOT/review/specialists/testing.md`
+- `$NEXUS_ROOT/qa/templates/qa-report-template.md`
+
+## First-Class Host Targets
+
+`hosts/` is a host taxonomy, not just a mirror of current generated output.
+The intended host set is:
+
+- `hosts/claude`
+- `hosts/codex`
+- `hosts/gemini-cli`
+- `hosts/factory`
+- `hosts/kiro`
+
+Gemini CLI is included even though current repo output is not yet generated
+under a dedicated Gemini host tree. It should not be added later as an ad hoc
+exception.
+
+## Move Policies
+
+- `keep_in_place`: current path already matches the target taxonomy or is a
+  stable top-level utility root.
+- `compat_required`: path can move only after setup creates compatibility
+  links/copies for the existing `$NEXUS_ROOT/...` runtime paths.
+- `future_move`: intended target is recorded, but moving now would require
+  coordinated generator, setup, docs, and test changes.
+
+The executable taxonomy contract lives in `lib/nexus/repo-taxonomy.ts`, with
+coverage in `test/nexus/repo-taxonomy.test.ts`.
