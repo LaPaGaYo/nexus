@@ -92,11 +92,13 @@ Do not release for `ignore` or `defer` decisions unless a separate Nexus-owned a
 If the refresh does change Nexus-owned assets, re-run:
 
 ```bash
-bun run maintainer:check
+bun run maintainer:check:report
 ./bin/nexus-release-preflight
 ```
 
-Do not jump straight from a refresh candidate to a publish decision without updating the maintainer report first.
+Use report-only first when you are still inspecting drift. Before publishing or recording
+maintainer truth, run `bun run maintainer:check` so `upstream-notes/maintainer-status.*`
+matches the release decision.
 
 ## CCB Boundary
 

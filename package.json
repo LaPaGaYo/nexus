@@ -14,6 +14,7 @@
   "nexus": "bun run bin/nexus.ts",
   "ledger:doctor": "./bin/nexus-ledger-doctor",
   "maintainer:check": "./bin/nexus-maintainer-check",
+  "maintainer:check:report": "./bin/nexus-maintainer-check --report-only",
   "release:publish": "./bin/nexus-release-publish",
   "upstream:check": "bun run scripts/upstream-check.ts",
     "upstream:refresh": "bun run scripts/upstream-refresh.ts",

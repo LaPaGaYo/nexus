@@ -2,7 +2,11 @@
 # nexus-maintainer-check — derive the current Nexus maintainer report from repo-visible inputs.
 #
 # Usage:
-#   nexus-maintainer-check
+#   nexus-maintainer-check [--no-write|--report-only]
+#
+# Options:
+#   --no-write     Derive the report without writing files; preserve gate exit code.
+#   --report-only  Derive the report without writing files; always exit 0 for local previews.
 #
 # Env overrides (for testing):
 #   NEXUS_DIR                — override the Nexus repo root
@@ -10,6 +14,9 @@
 #   NEXUS_EXISTING_TAGS      — override git tag --list output for release preflight
 #   NEXUS_REMOTE_RELEASE_MODE — "skip" to avoid remote release checks for now
 set -euo pipefail
+
+WRITE_REPORT=1
+REPORT_ONLY=0
 
 case "${1:-}" in
   -h|--help)
@@ -23,9 +30,16 @@ case "${1:-}" in
     ;;
   "")
     ;;
+  --no-write)
+    WRITE_REPORT=0
+    ;;
+  --report-only)
+    WRITE_REPORT=0
+    REPORT_ONLY=1
+    ;;
   *)
     echo "Unknown option: ${1}" >&2
-    echo "Usage: nexus-maintainer-check" >&2
+    echo "Usage: nexus-maintainer-check [--no-write|--report-only]" >&2
     exit 1
     ;;
 esac
@@ -48,6 +62,8 @@ const upstreamMaintenance = await import(process.env.NEXUS_UPSTREAM_MAINTENANCE_
 
 const root = process.env.NEXUS_DIR;
 const remoteMode = process.env.NEXUS_REMOTE_RELEASE_MODE ?? 'skip';
+const writeReport = process.env.NEXUS_MAINTAINER_WRITE_REPORT !== '0';
+const reportOnly = process.env.NEXUS_MAINTAINER_REPORT_ONLY === '1';
 const generatedAt = new Date().toISOString();
 
 const lock = upstreamMaintenance.parseUpstreamMaintenanceLock(
@@ -252,11 +268,13 @@ const finalReport = existingReport !== null && maintainerLoop.reportsMatchExcept
     })
   : report;
 
-writeTextIfChanged(reportPath, maintainerLoop.serializeMaintainerLoopReport(finalReport));
-writeTextIfChanged(markdownPath, maintainerLoop.renderMaintainerLoopMarkdown(finalReport));
+if (writeReport) {
+  writeTextIfChanged(reportPath, maintainerLoop.serializeMaintainerLoopReport(finalReport));
+  writeTextIfChanged(markdownPath, maintainerLoop.renderMaintainerLoopMarkdown(finalReport));
+}
 
 console.log(`${finalReport.status.toUpperCase()} ${finalReport.next_action}`);
-process.exit(finalReport.status === 'ready' ? 0 : 1);
+process.exit(reportOnly || finalReport.status === 'ready' ? 0 : 1);
 EOF
 )"
 
@@ -265,6 +283,8 @@ NEXUS_GIT_STATUS_LINES="$GIT_STATUS_LINES" \
 NEXUS_EXISTING_TAGS="$EXISTING_TAGS" \
 NEXUS_REMOTE_RELEASE_MODE="$REMOTE_RELEASE_MODE" \
 NEXUS_RELEASE_DIFF_NAMES="$RELEASE_DIFF_NAMES" \
+NEXUS_MAINTAINER_WRITE_REPORT="$WRITE_REPORT" \
+NEXUS_MAINTAINER_REPORT_ONLY="$REPORT_ONLY" \
 NEXUS_MAINTAINER_LOOP_PATH="$SCRIPT_ROOT/lib/nexus/maintainer-loop.ts" \
 NEXUS_RELEASE_CONTRACT_PATH="$SCRIPT_ROOT/lib/nexus/release-contract.ts" \
 NEXUS_RELEASE_PUBLISH_PATH="$SCRIPT_ROOT/lib/nexus/release-publish.ts" \

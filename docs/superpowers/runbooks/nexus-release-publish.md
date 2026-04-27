@@ -43,7 +43,7 @@ That command is the canonical maintainer path once version markers and release n
 If you need to debug or repair the release flow manually, run these before creating the tag:
 
 ```bash
-bun run maintainer:check
+bun run maintainer:check:report
 bun test test/nexus/release-publish.test.ts test/nexus/release-remote.test.ts
 ./bin/nexus-release-preflight
 ```
@@ -89,6 +89,7 @@ Do not publish a release if the version markers disagree or if the release notes
 Use the unified maintainer report before and after publication:
 
 - `bun run maintainer:check`
+- `bun run maintainer:check:report` for a no-write local preview
 - machine-readable report: `upstream-notes/maintainer-status.json`
 - human-readable report: `upstream-notes/maintainer-status.md`
 
