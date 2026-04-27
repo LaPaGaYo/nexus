@@ -45,6 +45,22 @@ Nexus owns the active product and engineering semantics:
 Nexus does not rely on hidden conversational state as the source of truth.
 Governed work is recorded in `lib/nexus/` and `.planning/`.
 
+## Repository structure
+
+Nexus keeps the generated host skills in `.agents/skills/` and
+`.factory/skills/`, but source templates are governed by a stricter taxonomy in
+`lib/nexus/skill-structure.ts`:
+
+- root entrypoint: `SKILL.md.tmpl`
+- canonical lifecycle commands: future target `skills/canonical/<command>/`
+- support workflows: future target `skills/support/<skill>/`
+- safety workflows: future target `skills/safety/<skill>/`
+- compatibility aliases: future target `skills/aliases/<alias>/`
+
+The current release keeps existing root-level source directories in place for
+generator compatibility. `bun run skill:check` reports the taxonomy and planned
+source moves so future migrations can be staged without breaking installs.
+
 ## How it runs
 
 Nexus supports two explicit execution modes.

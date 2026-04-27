@@ -12,6 +12,10 @@ import { validateSkill } from '../test/helpers/skill-parser';
 import { discoverTemplates, discoverSkillFiles } from './discover-skills';
 import { analyzeSkillFile, type SkillAnatomyResult } from './skill-anatomy';
 import { buildSkillDoctorReport, readSkillDoctorTargets, renderSkillDoctorReport } from './skill-doctor';
+import {
+  describeSkillSourcePath,
+  type SkillStructureCategory,
+} from '../lib/nexus/skill-structure';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -112,6 +116,46 @@ if (doctorReport.failCount > 0 || (doctorStrict && doctorReport.warnCount > 0)) 
 if (doctorStrict && doctorReport.warnCount > 0) {
   console.log('  Doctor strict mode is active: warnings are blocking (NEXUS_SKILL_DOCTOR_STRICT=1)');
 }
+
+// ─── Skill Structure ────────────────────────────────────────
+
+console.log('\n  Skill Structure (source taxonomy):');
+
+const structureCounts: Record<SkillStructureCategory, number> = {
+  root: 0,
+  canonical: 0,
+  support: 0,
+  safety: 0,
+  alias: 0,
+};
+let plannedMoves = 0;
+
+for (const { tmpl } of TEMPLATES) {
+  try {
+    const entry = describeSkillSourcePath(tmpl);
+    structureCounts[entry.category]++;
+    if (entry.movePolicy === 'planned_move') {
+      plannedMoves++;
+      console.log(`  ↪️  ${tmpl.padEnd(30)} — ${entry.category}; target ${entry.targetSourcePath}`);
+      continue;
+    }
+
+    console.log(`  ✅ ${tmpl.padEnd(30)} — ${entry.category}; in place`);
+  } catch (err: any) {
+    hasErrors = true;
+    console.log(`  ❌ ${tmpl.padEnd(30)} — unknown source taxonomy (${err?.message ?? err})`);
+  }
+}
+
+console.log(
+  `  Total: ${TEMPLATES.length} templates — `
+  + `${structureCounts.root} root, `
+  + `${structureCounts.canonical} canonical, `
+  + `${structureCounts.support} support, `
+  + `${structureCounts.safety} safety, `
+  + `${structureCounts.alias} alias; `
+  + `${plannedMoves} planned moves (non-blocking)`,
+);
 
 // ─── Templates ──────────────────────────────────────────────
 

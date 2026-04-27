@@ -1,7 +1,12 @@
 #!/usr/bin/env bun
 import * as fs from 'fs';
 import * as path from 'path';
-import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
+import { CANONICAL_MANIFEST } from '../lib/nexus/command-manifest';
+import {
+  skillNameFromSourcePath,
+  skillSourceCategoryForName,
+  type SkillStructureCategory,
+} from '../lib/nexus/skill-structure';
 import {
   analyzeSkillAnatomy,
   type SkillAnatomyCategory,
@@ -68,7 +73,6 @@ export type SkillDoctorOptions = {
 
 const DEFAULT_LONG_SKILL_LINE_THRESHOLD = 600;
 const CANONICAL_COMMANDS = new Set(Object.keys(CANONICAL_MANIFEST));
-const LEGACY_ALIAS_COMMANDS = new Set(Object.keys(LEGACY_ALIASES));
 const TARGET_KIND_LABELS: Record<SkillDoctorTargetKind, string> = {
   source_template: 'Source templates',
   generated_host: 'Generated host skills',
@@ -93,33 +97,16 @@ function stripNexusPrefix(name: string): string {
   return normalized.startsWith('nexus-') ? normalized.slice('nexus-'.length) : normalized;
 }
 
-function firstSkillSegment(filePath: string): string {
-  const normalized = normalizePath(filePath);
-  if (normalized === 'SKILL.md' || normalized === 'SKILL.md.tmpl') {
-    return 'nexus';
+function anatomyCategoryFromStructure(category: SkillStructureCategory | null): SkillAnatomyCategory {
+  if (category === 'safety') {
+    return 'support';
   }
-
-  const generatedHostMatch = normalized.match(/^(?:\.agents|\.factory)\/skills\/([^/]+)\/SKILL\.md$/);
-  if (generatedHostMatch) {
-    return generatedHostMatch[1] ?? 'nexus';
-  }
-
-  return normalized.split('/')[0] ?? 'nexus';
+  return category ?? 'support';
 }
 
 function classifyDoctorPath(filePath: string): SkillAnatomyCategory {
-  const segment = firstSkillSegment(filePath);
-  const unprefixed = stripNexusPrefix(segment);
-  if (segment === 'nexus' || segment === '.') {
-    return 'root';
-  }
-  if (CANONICAL_COMMANDS.has(unprefixed)) {
-    return 'canonical';
-  }
-  if (LEGACY_ALIAS_COMMANDS.has(unprefixed)) {
-    return 'alias';
-  }
-  return 'support';
+  const skillName = skillNameFromSourcePath(filePath);
+  return anatomyCategoryFromStructure(skillSourceCategoryForName(skillName));
 }
 
 function inferTargetKind(filePath: string): SkillDoctorTargetKind {
@@ -247,7 +234,7 @@ export function analyzeSkillDoctorTarget(input: SkillDoctorTarget & SkillDoctorO
     category,
   });
   const frontmatter = parseFrontmatter(input.content);
-  const skillName = normalizeName(frontmatter.name ?? firstSkillSegment(input.path));
+  const skillName = normalizeName(frontmatter.name ?? skillNameFromSourcePath(input.path));
   const lines = lineCount(input.content);
   const size = sizeProfile(input.content, targetKind);
   const longSkillLineThreshold = input.longSkillLineThreshold ?? DEFAULT_LONG_SKILL_LINE_THRESHOLD;
@@ -292,7 +279,7 @@ export function analyzeSkillDoctorTarget(input: SkillDoctorTarget & SkillDoctorO
   }
 
   const declaredSurface = stripNexusPrefix(skillName);
-  const pathSurface = stripNexusPrefix(firstSkillSegment(input.path));
+  const pathSurface = stripNexusPrefix(skillNameFromSourcePath(input.path));
   const conflicts = [declaredSurface, pathSurface].filter((surface) => CANONICAL_COMMANDS.has(surface));
   if (category !== 'canonical' && conflicts.length > 0) {
     issues.push(issue({

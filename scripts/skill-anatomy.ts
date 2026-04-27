@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
+import {
+  skillNameFromSourcePath,
+  skillSourceCategoryForName,
+  type SkillStructureCategory,
+} from '../lib/nexus/skill-structure';
 
 export type SkillAnatomyCategory = 'root' | 'canonical' | 'alias' | 'support';
 export type SkillAnatomyStatus = 'pass' | 'warn' | 'fail';
@@ -75,29 +79,16 @@ export const SUPPORT_SKILL_RUBRIC = {
   ] satisfies SkillAnatomyCriterion[],
 } as const;
 
-const CANONICAL_COMMANDS = new Set(Object.keys(CANONICAL_MANIFEST));
-const LEGACY_ALIAS_COMMANDS = new Set(Object.keys(LEGACY_ALIASES));
-
-function skillDirFromPath(filePath: string): string {
-  const normalized = filePath.replace(/\\/g, '/');
-  if (normalized === 'SKILL.md' || normalized === 'SKILL.md.tmpl') {
-    return '.';
+function anatomyCategoryFromStructure(category: SkillStructureCategory | null): SkillAnatomyCategory {
+  if (category === 'safety') {
+    return 'support';
   }
-  return normalized.split('/')[0] ?? '.';
+  return category ?? 'support';
 }
 
 export function classifySkillPath(filePath: string): SkillAnatomyCategory {
-  const dir = skillDirFromPath(filePath);
-  if (dir === '.') {
-    return 'root';
-  }
-  if (CANONICAL_COMMANDS.has(dir)) {
-    return 'canonical';
-  }
-  if (LEGACY_ALIAS_COMMANDS.has(dir)) {
-    return 'alias';
-  }
-  return 'support';
+  const skillName = skillNameFromSourcePath(filePath);
+  return anatomyCategoryFromStructure(skillSourceCategoryForName(skillName));
 }
 
 function frontmatterBlock(content: string): string {
