@@ -919,6 +919,47 @@ link_codex_skill_dirs() {
   fi
 }
 
+# ─── Helper: reference compatibility assets ─────────────────────
+# Source references may eventually move under references/, but installed
+# skills must keep resolving the historical $NEXUS_ROOT/review|qa|design paths.
+link_compat_asset() {
+  local repo_root="$1"
+  local runtime_root="$2"
+  local compat_rel="$3"
+  local future_rel="$4"
+  local current_rel="$5"
+  local src=""
+
+  if [ -e "$repo_root/$future_rel" ]; then
+    src="$repo_root/$future_rel"
+  elif [ -e "$repo_root/$current_rel" ]; then
+    src="$repo_root/$current_rel"
+  else
+    return 0
+  fi
+
+  local dst="$runtime_root/$compat_rel"
+  mkdir -p "$(dirname "$dst")"
+  if [ -L "$dst" ] || [ ! -e "$dst" ]; then
+    ln -snf "$src" "$dst"
+  fi
+}
+
+link_reference_compat_assets() {
+  local repo_root="$1"
+  local runtime_root="$2"
+
+  link_compat_asset "$repo_root" "$runtime_root" "review/checklist.md" "references/review/checklist.md" "review/checklist.md"
+  link_compat_asset "$repo_root" "$runtime_root" "review/design-checklist.md" "references/review/design-checklist.md" "review/design-checklist.md"
+  link_compat_asset "$repo_root" "$runtime_root" "review/greptile-triage.md" "references/review/greptile-triage.md" "review/greptile-triage.md"
+  link_compat_asset "$repo_root" "$runtime_root" "review/TODOS-format.md" "references/review/TODOS-format.md" "review/TODOS-format.md"
+  link_compat_asset "$repo_root" "$runtime_root" "review/specialists" "references/review/specialists" "review/specialists"
+  link_compat_asset "$repo_root" "$runtime_root" "qa/templates" "references/qa/templates" "qa/templates"
+  link_compat_asset "$repo_root" "$runtime_root" "qa/references" "references/qa/references" "qa/references"
+  link_compat_asset "$repo_root" "$runtime_root" "design/references" "references/design" "design/references"
+  link_compat_asset "$repo_root" "$runtime_root" "cso/ACKNOWLEDGEMENTS.md" "references/cso/ACKNOWLEDGEMENTS.md" "cso/ACKNOWLEDGEMENTS.md"
+}
+
 # ─── Helper: create .agents/skills/nexus/ sidecar symlinks ──────────
 # Codex/Gemini/Cursor read skills from .agents/skills/. We link runtime
 # assets (bin/, browse/dist/, review/, qa/, etc.) so skill templates can
@@ -938,6 +979,7 @@ create_agents_sidecar() {
       fi
     fi
   done
+  link_reference_compat_assets "$repo_root" "$agents_nexus"
 
   # Sidecar files that skills reference at runtime
   for file in ETHOS.md; do
@@ -991,6 +1033,7 @@ create_codex_runtime_root() {
   if [ -f "$agents_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$agents_dir/nexus-upgrade/SKILL.md" "$codex_nexus/nexus-upgrade/SKILL.md"
   fi
+  link_reference_compat_assets "$nexus_dir" "$codex_nexus"
   # Review runtime assets (individual files, NOT the whole review/ dir which has SKILL.md)
   for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
     if [ -f "$nexus_dir/review/$f" ]; then
@@ -1037,6 +1080,7 @@ create_factory_runtime_root() {
   if [ -f "$factory_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$factory_dir/nexus-upgrade/SKILL.md" "$factory_nexus/nexus-upgrade/SKILL.md"
   fi
+  link_reference_compat_assets "$nexus_dir" "$factory_nexus"
   for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
     if [ -f "$nexus_dir/review/$f" ]; then
       ln -snf "$nexus_dir/review/$f" "$factory_nexus/review/$f"
@@ -1178,6 +1222,7 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   if [ -f "$AGENTS_DIR/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$AGENTS_DIR/nexus-upgrade/SKILL.md" "$KIRO_NEXUS/nexus-upgrade/SKILL.md"
   fi
+  link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"
   # Review runtime assets (individual files, not whole dir)
   for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
     if [ -f "$SOURCE_NEXUS_DIR/review/$f" ]; then

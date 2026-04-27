@@ -30,6 +30,13 @@ export type RepoTaxonomyEntry = {
   runtime_compat_paths?: string[];
 };
 
+export type ReferenceCompatMapping = {
+  compat_path: string;
+  future_source_path: string;
+  current_source_path: string;
+  kind: 'file' | 'directory';
+};
+
 export const REPO_TAXONOMY_CATEGORIES: Record<RepoTaxonomyCategory, RepoTaxonomyCategorySpec> = {
   skills: {
     root: 'skills',
@@ -287,6 +294,63 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   },
 ];
 
+export const REFERENCE_COMPAT_MAPPINGS: ReferenceCompatMapping[] = [
+  {
+    compat_path: 'review/checklist.md',
+    future_source_path: 'references/review/checklist.md',
+    current_source_path: 'review/checklist.md',
+    kind: 'file',
+  },
+  {
+    compat_path: 'review/design-checklist.md',
+    future_source_path: 'references/review/design-checklist.md',
+    current_source_path: 'review/design-checklist.md',
+    kind: 'file',
+  },
+  {
+    compat_path: 'review/greptile-triage.md',
+    future_source_path: 'references/review/greptile-triage.md',
+    current_source_path: 'review/greptile-triage.md',
+    kind: 'file',
+  },
+  {
+    compat_path: 'review/TODOS-format.md',
+    future_source_path: 'references/review/TODOS-format.md',
+    current_source_path: 'review/TODOS-format.md',
+    kind: 'file',
+  },
+  {
+    compat_path: 'review/specialists',
+    future_source_path: 'references/review/specialists',
+    current_source_path: 'review/specialists',
+    kind: 'directory',
+  },
+  {
+    compat_path: 'qa/templates',
+    future_source_path: 'references/qa/templates',
+    current_source_path: 'qa/templates',
+    kind: 'directory',
+  },
+  {
+    compat_path: 'qa/references',
+    future_source_path: 'references/qa/references',
+    current_source_path: 'qa/references',
+    kind: 'directory',
+  },
+  {
+    compat_path: 'design/references',
+    future_source_path: 'references/design',
+    current_source_path: 'design/references',
+    kind: 'directory',
+  },
+  {
+    compat_path: 'cso/ACKNOWLEDGEMENTS.md',
+    future_source_path: 'references/cso/ACKNOWLEDGEMENTS.md',
+    current_source_path: 'cso/ACKNOWLEDGEMENTS.md',
+    kind: 'file',
+  },
+];
+
 export function plannedTopLevelRoots(): string[] {
   return [
     REPO_TAXONOMY_CATEGORIES.skills.root,
@@ -306,4 +370,12 @@ export function findRepoTaxonomyEntry(nameOrCurrentPath: string): RepoTaxonomyEn
   return REPO_TAXONOMY_ENTRIES.find((entry) =>
     entry.name === nameOrCurrentPath || entry.current_path === nameOrCurrentPath
   );
+}
+
+export function referenceCompatSourceCandidates(compatPath: string): string[] {
+  const mapping = REFERENCE_COMPAT_MAPPINGS.find((entry) => entry.compat_path === compatPath);
+  if (!mapping) {
+    throw new Error(`Unknown reference compatibility path: ${compatPath}`);
+  }
+  return [mapping.future_source_path, mapping.current_source_path];
 }

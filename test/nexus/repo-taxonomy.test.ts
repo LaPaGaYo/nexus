@@ -2,10 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
+  REFERENCE_COMPAT_MAPPINGS,
   REPO_TAXONOMY_CATEGORIES,
   REPO_TAXONOMY_ENTRIES,
   findRepoTaxonomyEntry,
   plannedTopLevelRoots,
+  referenceCompatSourceCandidates,
 } from '../../lib/nexus/repo-taxonomy';
 
 const ROOT = join(import.meta.dir, '..', '..');
@@ -68,6 +70,38 @@ describe('nexus repo taxonomy v2', () => {
     expect(review?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/specialists/testing.md');
     expect(qa?.runtime_compat_paths).toContain('$NEXUS_ROOT/qa/templates/qa-report-template.md');
     expect(design?.runtime_compat_paths).toContain('$NEXUS_ROOT/design/references');
+  });
+
+  test('defines future references source candidates while preserving installed compatibility paths', () => {
+    expect(REFERENCE_COMPAT_MAPPINGS).toContainEqual({
+      compat_path: 'review/specialists',
+      future_source_path: 'references/review/specialists',
+      current_source_path: 'review/specialists',
+      kind: 'directory',
+    });
+    expect(REFERENCE_COMPAT_MAPPINGS).toContainEqual({
+      compat_path: 'qa/templates',
+      future_source_path: 'references/qa/templates',
+      current_source_path: 'qa/templates',
+      kind: 'directory',
+    });
+    expect(REFERENCE_COMPAT_MAPPINGS).toContainEqual({
+      compat_path: 'design/references',
+      future_source_path: 'references/design',
+      current_source_path: 'design/references',
+      kind: 'directory',
+    });
+    expect(REFERENCE_COMPAT_MAPPINGS).toContainEqual({
+      compat_path: 'cso/ACKNOWLEDGEMENTS.md',
+      future_source_path: 'references/cso/ACKNOWLEDGEMENTS.md',
+      current_source_path: 'cso/ACKNOWLEDGEMENTS.md',
+      kind: 'file',
+    });
+
+    expect(referenceCompatSourceCandidates('review/specialists')).toEqual([
+      'references/review/specialists',
+      'review/specialists',
+    ]);
   });
 
   test('documents all high-risk visible root directories that should not be moved ad hoc', () => {

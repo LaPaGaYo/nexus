@@ -2546,6 +2546,14 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('qa');
   });
 
+  test('setup has reference compatibility mapping for future references roots', () => {
+    expect(setupContent).toContain('link_reference_compat_assets()');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "review/specialists" "references/review/specialists" "review/specialists"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "qa/templates" "references/qa/templates" "qa/templates"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "design/references" "references/design" "design/references"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "cso/ACKNOWLEDGEMENTS.md" "references/cso/ACKNOWLEDGEMENTS.md" "cso/ACKNOWLEDGEMENTS.md"');
+  });
+
   test('create_codex_runtime_root exposes only runtime assets', () => {
     const fnStart = setupContent.indexOf('create_codex_runtime_root()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('done', setupContent.indexOf('review/', fnStart)));
@@ -2556,12 +2564,18 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('design/dist');
     expect(fnBody).toContain('design/references');
     expect(fnBody).toContain('nexus-upgrade/SKILL.md');
+    expect(fnBody).toContain('link_reference_compat_assets "$nexus_dir" "$codex_nexus"');
     // Review runtime assets (individual files, not the whole dir)
     expect(fnBody).toContain('checklist.md');
     expect(fnBody).toContain('design-checklist.md');
     expect(fnBody).toContain('greptile-triage.md');
     expect(fnBody).toContain('TODOS-format.md');
     expect(fnBody).not.toContain('ln -snf "$gstack_dir" "$codex_gstack"');
+  });
+
+  test('factory and kiro runtime roots use reference compatibility mapping', () => {
+    expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$factory_nexus"');
+    expect(setupContent).toContain('link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');
   });
 
   test('direct Codex installs are migrated out of ~/.codex/skills/nexus', () => {
