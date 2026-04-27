@@ -174,6 +174,7 @@ function qaStatusTracePayload(
 }
 
 const QA_READY_NEXT_STAGES: RunLedger['allowed_next_stages'] = ['ship', 'closeout'];
+const QA_RETRY_NEXT_STAGES: RunLedger['allowed_next_stages'] = ['qa'];
 
 function nextLedger(
   ledger: RunLedger,
@@ -185,7 +186,7 @@ function nextLedger(
   return {
     ...ledger,
     status,
-    previous_stage: 'review',
+    previous_stage: ledger.current_stage === 'qa' ? 'qa' : 'review',
     current_command: 'qa',
     current_stage: 'qa',
     allowed_next_stages: allowedNextStages,
@@ -252,7 +253,11 @@ function blockedQaStatusError(
 export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const reviewStatusPath = stageStatusPath('review');
+  const statusPath = stageStatusPath('qa');
   const reviewStatus = readStageStatus(reviewStatusPath, ctx.cwd);
+  const priorQaStatus = ledger?.current_stage === 'qa'
+    ? readStageStatus(statusPath, ctx.cwd)
+    : null;
 
   if (!ledger || !reviewStatus) {
     throw new Error('Review must be completed before QA');
@@ -261,6 +266,25 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
   assertSameRunId(ledger.run_id, reviewStatus.run_id, 'review status');
   assertCanonicalTailLedger(ledger, 'QA');
   assertLegalTransition(ledger.current_stage, 'qa');
+  if (ledger.current_stage === 'qa') {
+    if (!priorQaStatus) {
+      throw new Error('QA status must exist before rerunning QA');
+    }
+
+    assertSameRunId(ledger.run_id, priorQaStatus.run_id, 'qa status');
+
+    if (priorQaStatus.state === 'completed') {
+      if (priorQaStatus.ready === false) {
+        throw new Error('QA found defects; run /build fix cycle before rerunning QA');
+      }
+
+      throw new Error('QA retry is only valid after a blocked or refused QA');
+    }
+
+    if (priorQaStatus.state !== 'blocked' && priorQaStatus.state !== 'refused') {
+      throw new Error('QA retry is only valid after a blocked or refused QA');
+    }
+  }
   try {
     assertReviewReadyForCloseout(reviewStatus, ctx.cwd);
   } catch {
@@ -291,7 +315,6 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     ?? reviewStatus.session_root
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
-  const statusPath = stageStatusPath('qa');
   const completionAdvisorPath = stageCompletionAdvisorPath('qa');
   const reportPath = qaReportPath();
   const learningCandidatesPath = qaLearningCandidatesPath();
@@ -381,7 +404,13 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       mirrorWorkspace: workspace,
       ledger: (() => {
         const next = clearQaLearningArtifactIndex(
-          nextLedger(ledgerWithExecution, result.outcome === 'refused' ? 'refused' : 'blocked', startedAt, ctx.via),
+          nextLedger(
+            ledgerWithExecution,
+            result.outcome === 'refused' ? 'refused' : 'blocked',
+            startedAt,
+            ctx.via,
+            QA_RETRY_NEXT_STAGES,
+          ),
         );
         next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
         if (reviewAdvisoryDispositionWrite) {
@@ -445,7 +474,9 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       status,
       mirrorWorkspace: workspace,
       ledger: (() => {
-        const next = clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via));
+        const next = clearQaLearningArtifactIndex(
+          nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via, QA_RETRY_NEXT_STAGES),
+        );
         next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
         if (reviewAdvisoryDispositionWrite) {
           next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());
@@ -509,7 +540,9 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
       status,
       mirrorWorkspace: workspace,
       ledger: (() => {
-        const next = clearQaLearningArtifactIndex(nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via));
+        const next = clearQaLearningArtifactIndex(
+          nextLedger(ledgerWithExecution, 'blocked', startedAt, ctx.via, QA_RETRY_NEXT_STAGES),
+        );
         next.artifact_index[completionAdvisorPath] = artifactPointerFor(completionAdvisorPath);
         if (reviewAdvisoryDispositionWrite) {
           next.artifact_index[reviewAdvisoryDispositionPath()] = artifactPointerFor(reviewAdvisoryDispositionPath());

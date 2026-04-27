@@ -8,7 +8,7 @@ const TRANSITION_RULES: Record<CanonicalCommandId, CanonicalCommandId[]> = {
   handoff: ['handoff', 'build'],
   build: ['review'],
   review: ['handoff', 'build', 'review', 'qa', 'ship', 'closeout'],
-  qa: ['build', 'ship', 'closeout'],
+  qa: ['qa', 'build', 'ship', 'closeout'],
   ship: ['closeout'],
   closeout: [],
 };

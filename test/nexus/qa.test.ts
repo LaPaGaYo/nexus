@@ -761,6 +761,134 @@ describe('nexus qa', () => {
     });
   });
 
+  test('allows blocked qa to retry qa directly without a build fix cycle', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const blockedAdapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async () => ({
+            adapter_id: 'ccb',
+            outcome: 'blocked',
+            raw_output: {
+              report_markdown: '',
+              ready: false,
+              findings: [],
+              receipt: '',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: ['QA validation transport failed before producing a report'],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await expect(run('qa', blockedAdapters)).rejects.toThrow('CCB QA validation blocked');
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        state: 'blocked',
+        ready: false,
+      });
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        status: 'blocked',
+        current_stage: 'qa',
+        allowed_next_stages: ['qa'],
+      });
+
+      const passAdapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              report_markdown: '# QA Report\n\nResult: pass\n',
+              ready: true,
+              findings: [],
+              receipt: 'qa-pass-after-retry',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/qa/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-qa-pack',
+              absorbed_capability: 'ccb-qa',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('qa', passAdapters);
+
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        state: 'completed',
+        ready: true,
+        defect_count: 0,
+      });
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      expect(ledger).toMatchObject({
+        status: 'active',
+        previous_stage: 'qa',
+        current_stage: 'qa',
+        allowed_next_stages: ['ship', 'closeout'],
+      });
+      expect(ledger.command_history.map((entry: { command: string }) => entry.command).slice(-2)).toEqual(['qa', 'qa']);
+    });
+  });
+
+  test('requires build fix cycle before rerunning completed failed qa', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const failAdapters = makeFakeAdapters({
+        ccb: {
+          execute_qa: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              report_markdown: '# QA Report\n\nResult: fail\n\n- Login form is broken\n',
+              ready: false,
+              findings: ['Login form is broken'],
+              receipt: 'qa-fail',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.generator ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/qa/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-qa-pack',
+              absorbed_capability: 'ccb-qa',
+              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+            },
+          }),
+        },
+      });
+
+      await run('qa', failAdapters);
+
+      await expect(run('qa')).rejects.toThrow('QA found defects; run /build fix cycle before rerunning QA');
+    });
+  });
+
   test('blocks qa when review advisories require an explicit disposition', async () => {
     await runInTempRepo(async ({ run }) => {
       const reviewAdapters = makeFakeAdapters({

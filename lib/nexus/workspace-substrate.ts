@@ -181,6 +181,7 @@ function gitStatusEntries(cwd: string): GitStatusEntry[] {
 function isMirroredRunArtifactPath(relativePath: string): boolean {
   return relativePath === '.planning/nexus/current-run.json'
     || relativePath.startsWith('.planning/current/')
+    || relativePath.startsWith('.planning/audits/current/')
     || relativePath === 'docs/product'
     || relativePath.startsWith('docs/product/');
 }

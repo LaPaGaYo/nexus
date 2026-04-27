@@ -156,7 +156,7 @@ export const CANONICAL_MANIFEST: Record<CanonicalCommandId, CommandContract> = {
     ],
     optional_outputs: ['.planning/current/qa/design-verification.md', stageCompletionAdvisorPath('qa')],
     exit_condition: 'QA scope is validated and recorded.',
-    legal_predecessors: ['review'],
+    legal_predecessors: ['review', 'qa'],
   },
   ship: {
     id: 'ship',

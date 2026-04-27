@@ -713,6 +713,34 @@ describe('nexus completion advisor', () => {
   });
 
   test('blocked tail advisors do not surface forward lifecycle actions', () => {
+    const qaBlocked = buildQaCompletionAdvisor({
+      ...readyStatus('qa'),
+      state: 'blocked',
+      ready: false,
+      decision: 'qa_recorded',
+      errors: ['Malformed QA response'],
+      defect_count: 0,
+    }, verificationMatrix('none'), '2026-04-20T00:00:00.000Z');
+    expect(qaBlocked).toMatchObject({
+      interaction_mode: 'required_choice',
+      stage_outcome: 'requires_choice',
+      default_action_id: 'retry_qa',
+    });
+    expect(qaBlocked.primary_next_actions.map((action) => action.surface)).toEqual(['/qa']);
+
+    const qaFailed = buildQaCompletionAdvisor({
+      ...readyStatus('qa'),
+      ready: false,
+      errors: ['Login form is broken'],
+      defect_count: 1,
+    }, verificationMatrix('none'), '2026-04-20T00:00:00.000Z');
+    expect(qaFailed).toMatchObject({
+      interaction_mode: 'required_choice',
+      stage_outcome: 'requires_choice',
+      default_action_id: 'run_build_fix_cycle',
+    });
+    expect(qaFailed.primary_next_actions.map((action) => action.surface)).toEqual(['/build']);
+
     const shipBlocked = buildShipCompletionAdvisor({
       ...readyStatus('ship'),
       state: 'blocked',

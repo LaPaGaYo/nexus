@@ -875,6 +875,32 @@ export function buildQaCompletionAdvisor(
   generatedAt: string,
 ): CompletionAdvisorRecord {
   if (!status.ready) {
+    if (status.state === 'blocked' || status.state === 'refused') {
+      const primary = action(
+        'retry_qa',
+        'canonical_stage',
+        '/qa',
+        '/qa',
+        'Retry `/qa`',
+        'QA did not record a valid validation result. Retry QA after resolving the runtime or routing blocker.',
+        true,
+        'Blocked/refused QA is a runtime validation failure, not proof that the implementation needs a build fix cycle.',
+      );
+      return baseAdvisor(
+        status,
+        generatedAt,
+        'QA did not complete. Retry `/qa` after resolving the blocking condition.',
+        {
+          stage_outcome: 'requires_choice',
+          interaction_mode: 'required_choice',
+          requires_user_choice: true,
+          choice_reason: 'qa blocked',
+          default_action_id: primary.id,
+          primary_next_actions: [primary],
+        },
+      );
+    }
+
     const primary = action(
       'run_build_fix_cycle',
       'canonical_stage',
