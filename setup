@@ -20,6 +20,7 @@ BROWSE_BIN="$SOURCE_NEXUS_DIR/browse/dist/browse"
 DESIGN_BIN="$SOURCE_NEXUS_DIR/design/dist/design"
 CODEX_SKILLS="$HOME/.codex/skills"
 CODEX_NEXUS="$CODEX_SKILLS/nexus"
+GLOBAL_AGENTS_SKILLS="$HOME/.agents/skills"
 FACTORY_SKILLS="$HOME/.factory/skills"
 FACTORY_NEXUS="$FACTORY_SKILLS/nexus"
 
@@ -702,6 +703,41 @@ link_claude_skill_dirs() {
   fi
 }
 
+quarantine_canonical_skill_conflicts() {
+  local skills_dir="$1"
+  local label="${2:-skills}"
+  local backup_root="$HOME/.nexus/nexus-conflicts/$(date +%Y%m%d%H%M%S)-$$/$label"
+  local moved=()
+
+  for skill_name in discover frame plan handoff build review qa ship closeout; do
+    target="$skills_dir/$skill_name"
+    [ -e "$target" ] || continue
+    [ -L "$target" ] && continue
+
+    mkdir -p "$backup_root"
+    backup_target="$backup_root/$skill_name"
+    if [ -e "$backup_target" ]; then
+      backup_target="$backup_root/${skill_name}.$(date +%s).$$"
+    fi
+    mv "$target" "$backup_target"
+    moved+=("$skill_name")
+  done
+
+  if [ ${#moved[@]} -gt 0 ]; then
+    echo "  quarantined conflicting canonical skills in $skills_dir: ${moved[*]}"
+    echo "  conflict backup: $backup_root"
+  fi
+}
+
+quarantine_claude_canonical_skill_conflicts() {
+  quarantine_canonical_skill_conflicts "$1" "claude"
+}
+
+quarantine_global_agents_canonical_skill_conflicts() {
+  [ -d "$1" ] || return 0
+  quarantine_canonical_skill_conflicts "$1" "agents"
+}
+
 # ─── Helper: remove old unprefixed Claude skill symlinks ──────────────────────
 # Migration: when switching from flat names to nexus- prefixed names,
 # clean up stale symlinks that point into the Nexus runtime directory.
@@ -979,7 +1015,9 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
       cleanup_old_claude_symlinks "$SOURCE_NEXUS_DIR" "$INSTALL_SKILLS_DIR"
     else
       cleanup_prefixed_claude_symlinks "$SOURCE_NEXUS_DIR" "$INSTALL_SKILLS_DIR"
+      quarantine_claude_canonical_skill_conflicts "$INSTALL_SKILLS_DIR"
     fi
+    quarantine_global_agents_canonical_skill_conflicts "$GLOBAL_AGENTS_SKILLS"
     # Patch name: fields BEFORE creating symlinks so link_claude_skill_dirs
     # reads the correct (patched) name: values for symlink naming
     "$SOURCE_NEXUS_DIR/bin/nexus-patch-names" "$SOURCE_NEXUS_DIR" "$SKILL_PREFIX"
@@ -1019,6 +1057,7 @@ if [ "$INSTALL_CODEX" -eq 1 ]; then
     CODEX_NEXUS="$INSTALL_NEXUS_DIR"
   fi
   mkdir -p "$CODEX_SKILLS"
+  quarantine_global_agents_canonical_skill_conflicts "$GLOBAL_AGENTS_SKILLS"
 
   # Skip runtime root creation for repo-local installs — the checkout IS the runtime root.
   # create_codex_runtime_root would create self-referential symlinks (bin → bin, etc.).

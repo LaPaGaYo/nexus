@@ -2556,6 +2556,41 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('nexus-*) continue');
   });
 
+  test('flat Claude install quarantines non-symlink canonical command conflicts before linking', () => {
+    expect(setupContent).toContain('quarantine_canonical_skill_conflicts');
+    const fnStart = setupContent.indexOf('quarantine_canonical_skill_conflicts()');
+    const fnEnd = setupContent.indexOf('cleanup_old_claude_symlinks()', fnStart);
+    const fnBody = setupContent.slice(fnStart, fnEnd);
+    expect(fnBody).toContain('discover frame plan handoff build review qa ship closeout');
+    expect(fnBody).toContain('nexus-conflicts');
+    expect(fnBody).toContain('mv "$target" "$backup_target"');
+    expect(fnBody).not.toContain('rm -rf "$target"');
+
+    const claudeInstallSection = setupContent.slice(
+      setupContent.indexOf('if [ "$INSTALL_CLAUDE" -eq 1 ]; then'),
+      setupContent.lastIndexOf('link_claude_skill_dirs')
+    );
+    expect(claudeInstallSection).toContain('quarantine_claude_canonical_skill_conflicts');
+  });
+
+  test('setup quarantines legacy global .agents canonical command conflicts', () => {
+    expect(setupContent).toContain('GLOBAL_AGENTS_SKILLS="$HOME/.agents/skills"');
+    expect(setupContent).toContain('quarantine_global_agents_canonical_skill_conflicts()');
+    expect(setupContent).toContain('quarantine_canonical_skill_conflicts "$1" "agents"');
+
+    const claudeInstallSection = setupContent.slice(
+      setupContent.indexOf('if [ "$INSTALL_CLAUDE" -eq 1 ]; then'),
+      setupContent.indexOf('# 5. Install for Codex')
+    );
+    expect(claudeInstallSection).toContain('quarantine_global_agents_canonical_skill_conflicts "$GLOBAL_AGENTS_SKILLS"');
+
+    const codexInstallSection = setupContent.slice(
+      setupContent.indexOf('# 5. Install for Codex'),
+      setupContent.indexOf('# 6. Install for Kiro CLI')
+    );
+    expect(codexInstallSection).toContain('quarantine_global_agents_canonical_skill_conflicts "$GLOBAL_AGENTS_SKILLS"');
+  });
+
   test('cleanup runs before link when prefix is enabled', () => {
     // In the Claude install section, cleanup should happen before linking
     const claudeInstallSection = setupContent.slice(
