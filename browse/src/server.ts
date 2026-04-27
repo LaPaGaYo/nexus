@@ -41,6 +41,11 @@ const BROWSE_PORT = parseInt(process.env.BROWSE_PORT || '0', 10);
 const IDLE_TIMEOUT_MS = parseInt(process.env.BROWSE_IDLE_TIMEOUT || '1800000', 10); // 30 min
 // Sidebar chat is always enabled in headed mode (ungated in v0.12.0)
 
+function resolveChromiumProfileDir(): string {
+  return process.env.BROWSE_CHROMIUM_PROFILE_DIR?.trim()
+    || path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+}
+
 function validateAuth(req: Request): boolean {
   const header = req.headers.get('authorization');
   return header === `Bearer ${AUTH_TOKEN}`;
@@ -886,7 +891,7 @@ async function shutdown() {
   await browserManager.close();
 
   // Clean up Chromium profile locks (prevent SingletonLock on next launch)
-  const profileDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+  const profileDir = resolveChromiumProfileDir();
   for (const lockFile of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
     try { fs.unlinkSync(path.join(profileDir, lockFile)); } catch {}
   }
@@ -917,7 +922,7 @@ function emergencyCleanup() {
   // Save session state so chat history persists across crashes
   try { saveSession(); } catch {}
   // Clean Chromium profile locks
-  const profileDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+  const profileDir = resolveChromiumProfileDir();
   for (const lockFile of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
     try { fs.unlinkSync(path.join(profileDir, lockFile)); } catch {}
   }

@@ -6,6 +6,9 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { startTestServer } from './test-server';
 import { BrowserManager, type BrowserState } from '../src/browser-manager';
 import { handleWriteCommand } from '../src/write-commands';
@@ -27,6 +30,39 @@ afterAll(async () => {
   try { await bm.close(); } catch {}
   try { testServer.server.stop(); } catch {}
 }, 10000);
+
+async function withIsolatedChromiumProfile<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = process.env.BROWSE_CHROMIUM_PROFILE_DIR;
+  const profileDir = mkdtempSync(join(tmpdir(), 'nexus-handoff-profile-'));
+  process.env.BROWSE_CHROMIUM_PROFILE_DIR = profileDir;
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.BROWSE_CHROMIUM_PROFILE_DIR;
+    } else {
+      process.env.BROWSE_CHROMIUM_PROFILE_DIR = previous;
+    }
+    rmSync(profileDir, { recursive: true, force: true });
+  }
+}
+
+async function browserDiagnostics(label: string, manager: BrowserManager): Promise<string> {
+  let tabs = '<unavailable>';
+  try {
+    tabs = JSON.stringify(await manager.getTabListWithTitles());
+  } catch (error) {
+    tabs = `error=${error instanceof Error ? error.message : String(error)}`;
+  }
+  return `${label}: mode=${manager.getConnectionMode()} headed=${manager.getIsHeaded()} tabCount=${manager.getTabCount()} active=${manager.getActiveTabId()} tabs=${tabs}`;
+}
+
+async function expectTabCount(manager: BrowserManager, expected: number, label: string): Promise<void> {
+  const actual = manager.getTabCount();
+  if (actual !== expected) {
+    throw new Error(`Expected ${expected} tabs, got ${actual}\n${await browserDiagnostics(label, manager)}`);
+  }
+}
 
 // ─── Unit Tests: Failure Tracking (no browser needed) ────────────
 
@@ -171,65 +207,74 @@ describe('handoff edge cases', () => {
 
 describe('handoff integration', () => {
   test('full handoff: cookies preserved, headed mode active, commands work', async () => {
-    const hbm = new BrowserManager();
-    await hbm.launch();
+    await withIsolatedChromiumProfile(async () => {
+      const hbm = new BrowserManager();
+      await hbm.launch();
 
-    try {
-      // Set up state
-      await handleWriteCommand('goto', [baseUrl + '/basic.html'], hbm);
-      await handleWriteCommand('cookie', ['handoff_test=preserved'], hbm);
+      try {
+        // Set up state
+        await handleWriteCommand('goto', [baseUrl + '/basic.html'], hbm);
+        await handleWriteCommand('cookie', ['handoff_test=preserved'], hbm);
 
-      // Handoff
-      const result = await hbm.handoff('Testing handoff');
-      expect(result).toContain('HANDOFF:');
-      expect(result).toContain('Testing handoff');
-      expect(result).toContain('resume');
-      expect(hbm.getIsHeaded()).toBe(true);
+        // Handoff
+        const result = await hbm.handoff('Testing handoff');
+        expect(result).toContain('HANDOFF:');
+        expect(result).toContain('Testing handoff');
+        expect(result).toContain('resume');
+        expect(hbm.getIsHeaded()).toBe(true);
 
-      // Verify cookies survived
-      const { handleReadCommand } = await import('../src/read-commands');
-      const cookiesResult = await handleReadCommand('cookies', [], hbm);
-      expect(cookiesResult).toContain('handoff_test');
+        // Verify cookies survived
+        const { handleReadCommand } = await import('../src/read-commands');
+        const cookiesResult = await handleReadCommand('cookies', [], hbm);
+        expect(cookiesResult).toContain('handoff_test');
 
-      // Verify commands still work
-      const text = await handleReadCommand('text', [], hbm);
-      expect(text.length).toBeGreaterThan(0);
+        // Verify commands still work
+        const text = await handleReadCommand('text', [], hbm);
+        expect(text.length).toBeGreaterThan(0);
 
-      // Resume
-      const resumeResult = await handleMetaCommand('resume', [], hbm, () => {});
-      expect(resumeResult).toContain('RESUMED');
-    } finally {
-      await hbm.close();
-    }
+        // Resume
+        const resumeResult = await handleMetaCommand('resume', [], hbm, () => {});
+        expect(resumeResult).toContain('RESUMED');
+      } finally {
+        await hbm.close();
+      }
+    });
   }, 45000);
 
   test('multi-tab handoff preserves all tabs', async () => {
-    const hbm = new BrowserManager();
-    await hbm.launch();
+    await withIsolatedChromiumProfile(async () => {
+      const hbm = new BrowserManager();
+      await hbm.launch();
 
-    try {
-      await handleWriteCommand('goto', [baseUrl + '/basic.html'], hbm);
-      await handleMetaCommand('newtab', [baseUrl + '/form.html'], hbm, () => {});
-      expect(hbm.getTabCount()).toBe(2);
+      try {
+        await handleWriteCommand('goto', [baseUrl + '/basic.html'], hbm);
+        await handleMetaCommand('newtab', [baseUrl + '/form.html'], hbm, () => {});
+        await expectTabCount(hbm, 2, 'before handoff');
 
-      await hbm.handoff('multi-tab test');
-      expect(hbm.getTabCount()).toBe(2);
-      expect(hbm.getIsHeaded()).toBe(true);
-    } finally {
-      await hbm.close();
-    }
+        const result = await hbm.handoff('multi-tab test');
+        if (!result.includes('HANDOFF:')) {
+          throw new Error(`Handoff did not succeed: ${result}\n${await browserDiagnostics('after failed handoff', hbm)}`);
+        }
+        await expectTabCount(hbm, 2, 'after handoff');
+        expect(hbm.getIsHeaded()).toBe(true);
+      } finally {
+        await hbm.close();
+      }
+    });
   }, 45000);
 
   test('handoff meta command joins args as message', async () => {
-    const hbm = new BrowserManager();
-    await hbm.launch();
+    await withIsolatedChromiumProfile(async () => {
+      const hbm = new BrowserManager();
+      await hbm.launch();
 
-    try {
-      await handleWriteCommand('goto', [baseUrl + '/basic.html'], hbm);
-      const result = await handleMetaCommand('handoff', ['CAPTCHA', 'stuck'], hbm, () => {});
-      expect(result).toContain('CAPTCHA stuck');
-    } finally {
-      await hbm.close();
-    }
+      try {
+        await handleWriteCommand('goto', [baseUrl + '/basic.html'], hbm);
+        const result = await handleMetaCommand('handoff', ['CAPTCHA', 'stuck'], hbm, () => {});
+        expect(result).toContain('CAPTCHA stuck');
+      } finally {
+        await hbm.close();
+      }
+    });
   }, 45000);
 });

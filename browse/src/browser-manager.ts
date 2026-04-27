@@ -73,6 +73,28 @@ export class BrowserManager {
 
   getConnectionMode(): 'launched' | 'headed' { return this.connectionMode; }
 
+  private getChromiumProfileDir(): string {
+    const path = require('path');
+    const configured = process.env.BROWSE_CHROMIUM_PROFILE_DIR?.trim();
+    if (configured) return configured;
+    return path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+  }
+
+  private async closeBrowserWithTimeout(browser: Browser): Promise<void> {
+    browser.removeAllListeners('disconnected');
+    await Promise.race([
+      browser.close(),
+      new Promise(resolve => setTimeout(resolve, 5000)),
+    ]).catch(() => {});
+  }
+
+  private async closeContextWithTimeout(context: BrowserContext): Promise<void> {
+    await Promise.race([
+      context.close(),
+      new Promise(resolve => setTimeout(resolve, 5000)),
+    ]).catch(() => {});
+  }
+
   // ─── Watch Mode Methods ─────────────────────────────────
   isWatching(): boolean { return this.watching; }
 
@@ -242,7 +264,7 @@ export class BrowserManager {
     // so we use Playwright's bundled Chromium which reliably loads extensions.
     const fs = require('fs');
     const path = require('path');
-    const userDataDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+    const userDataDir = this.getChromiumProfileDir();
     fs.mkdirSync(userDataDir, { recursive: true });
 
     this.context = await chromium.launchPersistentContext(userDataDir, {
@@ -345,17 +367,10 @@ export class BrowserManager {
         // Headed/persistent context mode: close the context (which closes the browser)
         this.intentionalDisconnect = true;
         if (this.browser) this.browser.removeAllListeners('disconnected');
-        await Promise.race([
-          this.context ? this.context.close() : Promise.resolve(),
-          new Promise(resolve => setTimeout(resolve, 5000)),
-        ]).catch(() => {});
+        if (this.context) await this.closeContextWithTimeout(this.context);
       } else {
         // Launched mode: close the browser we spawned
-        this.browser.removeAllListeners('disconnected');
-        await Promise.race([
-          this.browser.close(),
-          new Promise(resolve => setTimeout(resolve, 5000)),
-        ]).catch(() => {});
+        await this.closeBrowserWithTimeout(this.browser);
       }
       this.browser = null;
     }
@@ -845,7 +860,7 @@ export class BrowserManager {
         console.log('[browse] Handoff: extension not found — headed mode without side panel');
       }
 
-      const userDataDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+      const userDataDir = this.getChromiumProfileDir();
       fs.mkdirSync(userDataDir, { recursive: true });
 
       newContext = await chromium.launchPersistentContext(userDataDir, {
@@ -863,13 +878,27 @@ export class BrowserManager {
       return `ERROR: Cannot open headed browser — ${msg}. Headless browser still running.`;
     }
 
+    const oldBrowser = this.browser;
+    const oldContext = this.context;
+    const oldPages = new Map(this.pages);
+    const oldActiveTabId = this.activeTabId;
+    const oldNextTabId = this.nextTabId;
+    const oldConnectionMode = this.connectionMode;
+    const oldIsHeaded = this.isHeaded;
+
     // 3. Restore state into new headed browser
     try {
-      // Swap to new browser/context before restoreState (it uses this.context)
-      const oldBrowser = this.browser;
+      const newBrowser = newContext.browser();
+
+      // Persistent contexts may reopen a default/restored tab from the profile.
+      // Handoff should restore exactly the saved Nexus state, not inherit
+      // browser-profile residue from a prior headed session.
+      for (const page of newContext.pages()) {
+        await page.close().catch(() => {});
+      }
 
       this.context = newContext;
-      this.browser = newContext.browser();
+      this.browser = newBrowser;
       this.pages.clear();
       this.connectionMode = 'headed';
 
@@ -890,9 +919,9 @@ export class BrowserManager {
       this.isHeaded = true;
       this.dialogAutoAccept = false;  // User controls dialogs in headed mode
 
-      // 4. Close old headless browser (fire-and-forget)
-      oldBrowser.removeAllListeners('disconnected');
-      oldBrowser.close().catch(() => {});
+      // 4. Close old headless browser after the headed state is durable. Awaiting
+      // avoids leaking orphaned Chromium processes into later handoff runs.
+      await this.closeBrowserWithTimeout(oldBrowser);
 
       return [
         `HANDOFF: Browser opened at ${currentUrl}`,
@@ -901,7 +930,16 @@ export class BrowserManager {
       ].join('\n');
     } catch (err: unknown) {
       // Restore failed — close the new context, keep old state
-      await newContext.close().catch(() => {});
+      const newBrowser = newContext.browser();
+      if (newBrowser) newBrowser.removeAllListeners('disconnected');
+      await this.closeContextWithTimeout(newContext);
+      this.browser = oldBrowser;
+      this.context = oldContext;
+      this.pages = oldPages;
+      this.activeTabId = oldActiveTabId;
+      this.nextTabId = oldNextTabId;
+      this.connectionMode = oldConnectionMode;
+      this.isHeaded = oldIsHeaded;
       const msg = err instanceof Error ? err.message : String(err);
       return `ERROR: Handoff failed during state restore — ${msg}. Headless browser still running.`;
     }

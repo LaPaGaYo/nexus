@@ -83,6 +83,11 @@ if (IS_WINDOWS && !NODE_SERVER_SCRIPT) {
   );
 }
 
+function resolveChromiumProfileDir(): string {
+  return process.env.BROWSE_CHROMIUM_PROFILE_DIR?.trim()
+    || path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+}
+
 interface ServerState {
   pid: number;
   port: number;
@@ -517,7 +522,7 @@ Refs:           After 'snapshot', use @e1, @e2... as selectors:
     // Kill orphaned Chromium processes that may still hold the profile lock.
     // The server PID is the Bun process; Chromium is a child that can outlive it
     // if the server is killed abruptly (SIGKILL, crash, manual rm of state file).
-    const profileDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+    const profileDir = resolveChromiumProfileDir();
     try {
       const singletonLock = path.join(profileDir, 'SingletonLock');
       const lockTarget = fs.readlinkSync(singletonLock); // e.g. "hostname-12345"
@@ -653,7 +658,7 @@ Refs:           After 'snapshot', use @e1, @e2... as selectors:
       }
     }
     // Clean profile locks and state file
-    const profileDir = path.join(process.env.HOME || '/tmp', '.nexus', 'chromium-profile');
+    const profileDir = resolveChromiumProfileDir();
     for (const lockFile of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
       try { fs.unlinkSync(path.join(profileDir, lockFile)); } catch {}
     }
