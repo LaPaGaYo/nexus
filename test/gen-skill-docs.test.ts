@@ -164,6 +164,8 @@ describe('gen-skill-docs', () => {
       'design/references/design-review-methodology.md',
       'design/references/hard-rules.md',
       'design/references/outside-voices.md',
+      'design/references/plan-design-principles.md',
+      'design/references/design-consultation-cheatsheet.md',
       'design/references/shotgun-loop.md',
     ]) {
       expect(fs.existsSync(path.join(ROOT, ref))).toBe(true);
@@ -172,6 +174,8 @@ describe('gen-skill-docs', () => {
     expect(review).toContain('design/references/design-review-methodology.md');
     expect(planReview).toContain('design/references/hard-rules.md');
     expect(planReview).toContain('design/references/outside-voices.md');
+    expect(planReview).toContain('design/references/plan-design-principles.md');
+    expect(consultation).toContain('design/references/design-consultation-cheatsheet.md');
     expect(consultation).toContain('design/references/shotgun-loop.md');
   });
 

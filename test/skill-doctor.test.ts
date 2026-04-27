@@ -289,4 +289,16 @@ Do not touch unrelated files.
 
     expect(sourceTooLong).toEqual([]);
   });
+
+  test('generated host skills stay below the doctor length threshold', () => {
+    const report = buildSkillDoctorReport(
+      readSkillDoctorTargets(ROOT).filter((target) => target.targetKind === 'generated_host'),
+    );
+
+    const generatedTooLong = report.results
+      .flatMap((result) => result.issues)
+      .filter((issue) => issue.kind === 'too_long');
+
+    expect(generatedTooLong).toEqual([]);
+  });
 });

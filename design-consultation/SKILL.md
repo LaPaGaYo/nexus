@@ -846,57 +846,16 @@ The SAFE/RISK breakdown is critical. Design coherence is table stakes — every 
 
 **Options:** A) Looks great — generate the preview page. B) I want to adjust [section]. C) I want different risks — fan out 3 differentiated directions from distinct schools. D) Start over with a different direction. E) Skip the preview, just write the design context.
 
-### Your Design Knowledge (use to inform proposals — do NOT display as tables)
+### Your Design Knowledge
 
-**Aesthetic directions** (pick the one that fits the product):
-- Brutally Minimal — Type and whitespace only. No decoration. Modernist.
-- Maximalist Chaos — Dense, layered, pattern-heavy. Y2K meets contemporary.
-- Retro-Futuristic — Vintage tech nostalgia. CRT glow, pixel grids, warm monospace.
-- Luxury/Refined — Serifs, high contrast, generous whitespace, precious metals.
-- Playful/Toy-like — Rounded, bouncy, bold primaries. Approachable and fun.
-- Editorial/Magazine — Strong typographic hierarchy, asymmetric grids, pull quotes.
-- Brutalist/Raw — Exposed structure, system fonts, visible grid, no polish.
-- Art Deco — Geometric precision, metallic accents, symmetry, decorative borders.
-- Organic/Natural — Earth tones, rounded forms, hand-drawn texture, grain.
-- Industrial/Utilitarian — Function-first, data-dense, monospace accents, muted palette.
+Read the compact option-generation reference before Phase 3:
+`~/.claude/skills/nexus/design/references/design-consultation-cheatsheet.md`
 
-**Decoration levels:** minimal (typography does all the work) / intentional (subtle texture, grain, or background treatment) / expressive (full creative direction, layered depth, patterns)
-
-**Layout approaches:** grid-disciplined (strict columns, predictable alignment) / creative-editorial (asymmetry, overlap, grid-breaking) / hybrid (grid for app, creative for marketing)
-
-**Color approaches:** restrained (1 accent + neutrals, color is rare and meaningful) / balanced (primary + secondary, semantic colors for hierarchy) / expressive (color as a primary design tool, bold palettes)
-
-**Motion approaches:** minimal-functional (only transitions that aid comprehension) / intentional (subtle entrance animations, meaningful state transitions) / expressive (full choreography, scroll-driven, playful)
-
-**Font recommendations by purpose:**
-- Display/Hero: Satoshi, General Sans, Instrument Serif, Fraunces, Clash Grotesk, Cabinet Grotesk
-- Body: Instrument Sans, DM Sans, Source Sans 3, Geist, Plus Jakarta Sans, Outfit
-- Data/Tables: Geist (tabular-nums), DM Sans (tabular-nums), JetBrains Mono, IBM Plex Mono
-- Code: JetBrains Mono, Fira Code, Berkeley Mono, Geist Mono
-
-**Font blacklist** (never recommend):
-Papyrus, Comic Sans, Lobster, Impact, Jokerman, Bleeding Cowboys, Permanent Marker, Bradley Hand, Brush Script, Hobo, Trajan, Raleway, Clash Display, Courier New (for body)
-
-**Overused fonts** (never recommend as primary — use only if user specifically requests):
-Inter, Roboto, Arial, Helvetica, Open Sans, Lato, Montserrat, Poppins
-
-**AI slop anti-patterns** (never include in your recommendations):
-- Purple/violet gradients as default accent
-- 3-column feature grid with icons in colored circles
-- Centered everything with uniform spacing
-- Uniform bubbly border-radius on all elements
-- Gradient buttons as the primary CTA pattern
-- Generic stock-photo-style hero sections
-- "Built for X" / "Designed for Y" marketing copy patterns
-
-### Coherence Validation
-
-When the user overrides one section, check if the rest still coheres. Flag mismatches with a gentle nudge — never block:
-
-- Brutalist/Minimal aesthetic + expressive motion → "Heads up: brutalist aesthetics usually pair with minimal motion. Your combo is unusual — which is fine if intentional. Want me to suggest motion that fits, or keep it?"
-- Expressive color + restrained decoration → "Bold palette with minimal decoration can work, but the colors will carry a lot of weight. Want me to suggest decoration that supports the palette?"
-- Creative-editorial layout + data-heavy product → "Editorial layouts are gorgeous but can fight data density. Want me to show how a hybrid approach keeps both?"
-- Always accept the user's final choice. Never refuse to proceed.
+Use it to inform proposals, but do not display it as a menu. Pick a coherent aesthetic,
+decoration level, layout approach, color strategy, typography stack, and motion posture
+for this specific product. Never recommend blacklisted or overused fonts as the primary
+default. Never include AI slop patterns. When the user overrides one section, flag
+coherence mismatches with a gentle nudge, then accept the final choice.
 
 ---
 
