@@ -493,6 +493,7 @@ Nexus-owned ship guidance for governed release gating and explicit merge readine
 - require completed review artifacts
 - require ready QA when QA was run
 - keep merge and release readiness explicit in canonical gate artifacts
+- keep the ordering explicit: commit stage artifacts, push the ship branch, create or reuse the PR, then allow closeout
 
 ## Artifact Contract
 
@@ -505,6 +506,10 @@ Writes `.planning/current/ship/release-gate-record.md`,
 valid reusable learning candidates. `/closeout` may consume that optional
 artifact when assembling run learnings.
 Requires QA design verification for design-bearing runs before recording a ready ship state.
+Requires the ship branch to be pushed before PR creation. If the release gate is
+merge-ready but `.planning/current/ship/pull-request.json` records
+`status: "push_required"`, `/ship` remains not-ready and `/closeout` must not run
+until the branch is pushed and `/ship` is rerun to create or reuse the PR handoff.
 
 Follow-on support workflows may attach additional ship evidence without
 changing canonical ship state, including
@@ -513,7 +518,7 @@ changing canonical ship state, including
 
 ## Routing
 
-Ship content starts only after completed review and optional ready QA. It must not imply any bypass of review, audit persistence, or closeout. Superpowers ship discipline informs the release gate, but Nexus-owned ship artifacts remain the only release authority.
+Ship content starts only after completed review and optional ready QA. It must not imply any bypass of review, audit persistence, PR handoff, or closeout. Superpowers ship discipline informs the release gate, but Nexus-owned ship artifacts remain the only release authority. The PR handoff belongs to `/ship`; `/closeout` verifies the completed handoff and must not create or repair PR state.
 
 Run:
 

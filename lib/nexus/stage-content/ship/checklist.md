@@ -1,3 +1,4 @@
 - require completed review artifacts
 - require ready QA when QA was run
 - keep merge and release readiness explicit in canonical gate artifacts
+- keep the ordering explicit: commit stage artifacts, push the ship branch, create or reuse the PR, then allow closeout

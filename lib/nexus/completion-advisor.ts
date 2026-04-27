@@ -1059,6 +1059,7 @@ export function buildShipCompletionAdvisor(
   verificationMatrix: VerificationMatrixRecord | null,
   deployReadiness: DeployReadinessRecord | null,
   generatedAt: string,
+  pullRequest: PullRequestRecord | null = status.pull_request ?? null,
 ): CompletionAdvisorRecord {
   const setupGaps: string[] = [];
   const primary = [
@@ -1112,6 +1113,50 @@ export function buildShipCompletionAdvisor(
   }
 
   if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
+    if (pullRequest?.status === 'push_required') {
+      const pushCommand = pullRequest.push_command ?? `git push -u origin ${pullRequest.head_branch ?? 'HEAD'}`;
+      const pushAction = action(
+        'push_branch',
+        'manual_command',
+        'git push',
+        pushCommand,
+        'Push branch',
+        `Run \`${pushCommand}\`, then rerun \`/ship\` so Nexus can create or reuse the PR handoff.`,
+        true,
+        pullRequest.reason ?? 'The release gate passed, but GitHub cannot create a PR until the head branch exists remotely.',
+        null,
+        {
+          kind: 'stage_status',
+          summary: pullRequest.reason ?? 'Ship is waiting for the branch to be pushed before PR creation.',
+          source_paths: ['.planning/current/ship/pull-request.json'],
+          checklist_categories: [],
+        },
+      );
+      const rerunShip = action(
+        'rerun_ship_after_push',
+        'canonical_stage',
+        '/ship',
+        '/ship',
+        'Rerun `/ship` after pushing',
+        'Re-record ship after the branch is remote so the PR handoff can be created and closeout can proceed.',
+        false,
+        'The previous ship pass recorded the release gate but could not complete the PR handoff.',
+      );
+
+      return baseAdvisor(
+        status,
+        generatedAt,
+        'Ship recorded the release gate, but the branch must be pushed before PR handoff and closeout.',
+        {
+          interaction_mode: 'required_choice',
+          default_action_id: pushAction.id,
+          primary_next_actions: [pushAction, rerunShip],
+          stop_action: stopAction('ship'),
+          project_setup_gaps: uniqueStrings([...setupGaps, ...status.errors]),
+        },
+      );
+    }
+
     return baseAdvisor(
       status,
       generatedAt,

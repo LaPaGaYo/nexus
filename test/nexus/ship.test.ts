@@ -523,6 +523,22 @@ describe('nexus ship', () => {
             return { exitCode: 0, stdout: 'feature/phase-2-auth\n', stderr: '' };
           }
 
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-parse' && spec.argv[2] === 'HEAD') {
+            return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+          }
+
+          if (
+            spec.argv[0] === 'git'
+            && spec.argv[1] === 'rev-parse'
+            && spec.argv[2] === '--abbrev-ref'
+          ) {
+            return { exitCode: 0, stdout: 'origin/feature/phase-2-auth\n', stderr: '' };
+          }
+
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-list') {
+            return { exitCode: 0, stdout: '0\t0\n', stderr: '' };
+          }
+
           if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
             prViewCount += 1;
             if (prViewCount === 1) {
@@ -582,8 +598,11 @@ describe('nexus ship', () => {
       });
       expect(commands).toEqual([
         'git branch --show-current',
+        'git rev-parse HEAD',
         'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
         'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
+        'git rev-parse --abbrev-ref --symbolic-full-name @{u}',
+        'git rev-list --left-right --count @{u}...HEAD',
         'gh pr create --base main --head feature/phase-2-auth --fill',
         'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
       ]);
@@ -681,6 +700,25 @@ describe('nexus ship', () => {
             return { exitCode: 0, stdout: 'codex/run-phase-4\n', stderr: '' };
           }
 
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-parse' && spec.argv[2] === 'HEAD') {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            return { exitCode: 0, stdout: 'runworkspace123\n', stderr: '' };
+          }
+
+          if (
+            spec.argv[0] === 'git'
+            && spec.argv[1] === 'rev-parse'
+            && spec.argv[2] === '--abbrev-ref'
+          ) {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            return { exitCode: 0, stdout: 'origin/codex/run-phase-4\n', stderr: '' };
+          }
+
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-list') {
+            expect(spec.cwd).toBe(canonicalWorkspacePath);
+            return { exitCode: 0, stdout: '0\t0\n', stderr: '' };
+          }
+
           if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
             expect(spec.cwd).toBe(canonicalWorkspacePath);
             prViewCount += 1;
@@ -731,8 +769,11 @@ describe('nexus ship', () => {
       });
       expect(commands.map((command) => `${command.cwd}::${command.argv.join(' ')}`)).toEqual([
         `${canonicalWorkspacePath}::git branch --show-current`,
+        `${canonicalWorkspacePath}::git rev-parse HEAD`,
         `${canonicalWorkspacePath}::gh pr view --json number,url,state,headRefName,headRefOid,baseRefName`,
         `${canonicalWorkspacePath}::gh repo view --json defaultBranchRef -q .defaultBranchRef.name`,
+        `${canonicalWorkspacePath}::git rev-parse --abbrev-ref --symbolic-full-name @{u}`,
+        `${canonicalWorkspacePath}::git rev-list --left-right --count @{u}...HEAD`,
         `${canonicalWorkspacePath}::gh pr create --base main --head codex/run-phase-4 --fill`,
         `${canonicalWorkspacePath}::gh pr view --json number,url,state,headRefName,headRefOid,baseRefName`,
       ]);
@@ -793,6 +834,10 @@ describe('nexus ship', () => {
             return { exitCode: 0, stdout: 'feature/phase-2-auth\n', stderr: '' };
           }
 
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-parse' && spec.argv[2] === 'HEAD') {
+            return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+          }
+
           if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
             return {
               exitCode: 0,
@@ -823,6 +868,7 @@ describe('nexus ship', () => {
       });
       expect(commands).toEqual([
         'git branch --show-current',
+        'git rev-parse HEAD',
         'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
       ]);
     });
@@ -884,6 +930,22 @@ describe('nexus ship', () => {
               return { exitCode: 0, stdout: 'feature/phase-2-auth\n', stderr: '' };
             }
 
+            if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-parse' && spec.argv[2] === 'HEAD') {
+              return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+            }
+
+            if (
+              spec.argv[0] === 'git'
+              && spec.argv[1] === 'rev-parse'
+              && spec.argv[2] === '--abbrev-ref'
+            ) {
+              return { exitCode: 0, stdout: 'origin/feature/phase-2-auth\n', stderr: '' };
+            }
+
+            if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-list') {
+              return { exitCode: 0, stdout: '0\t0\n', stderr: '' };
+            }
+
             if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
               prViewCount += 1;
               if (prViewCount === 1) {
@@ -942,8 +1004,11 @@ describe('nexus ship', () => {
       });
       expect(commands).toEqual([
         'git branch --show-current',
+        'git rev-parse HEAD',
         'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
         'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
+        'git rev-parse --abbrev-ref --symbolic-full-name @{u}',
+        'git rev-list --left-right --count @{u}...HEAD',
         'gh pr create --base main --head feature/phase-2-auth --fill',
         'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
       ]);
@@ -1002,6 +1067,10 @@ describe('nexus ship', () => {
             return { exitCode: 0, stdout: 'feature/phase-2-auth\n', stderr: '' };
           }
 
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-parse' && spec.argv[2] === 'HEAD') {
+            return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+          }
+
           if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
             return { exitCode: 1, stdout: '', stderr: 'gh: authentication required\n' };
           }
@@ -1021,16 +1090,140 @@ describe('nexus ship', () => {
         pull_request: {
           status: 'unavailable',
           provider: 'github',
-          head_sha: null,
+          head_sha: 'abc123def456',
         },
       });
       expect(await run.readJson('.planning/current/ship/pull-request.json')).toMatchObject({
         status: 'unavailable',
         provider: 'github',
         head_branch: 'feature/phase-2-auth',
-        head_sha: null,
+        head_sha: 'abc123def456',
       });
       expect(await run.readJson('.planning/current/ship/pull-request.json')).toHaveProperty('reason');
+    });
+  });
+
+  test('blocks closeout and asks for a push when ship cannot create a PR for an unpushed branch', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      const commands: string[] = [];
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          ship_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
+              checklist: {
+                review_complete: true,
+                qa_ready: true,
+                merge_ready: true,
+              },
+              merge_ready: true,
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+            traceability: {
+              nexus_stage_pack: 'nexus-ship-pack',
+              absorbed_capability: 'superpowers-ship-discipline',
+              source_map: ['upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+            },
+          }),
+        },
+      });
+
+      const invocation = resolveInvocation('ship');
+      await invocation.handler({
+        cwd,
+        clock: () => new Date().toISOString(),
+        via: invocation.via,
+        adapters,
+        execution: {
+          mode: 'governed_ccb',
+          primary_provider: 'codex',
+          provider_topology: 'multi_session',
+          requested_execution_path: 'codex-via-ccb',
+        },
+        run_command: async (spec) => {
+          commands.push(spec.argv.join(' '));
+
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'branch') {
+            return { exitCode: 0, stdout: 'feature/phase-2-auth\n', stderr: '' };
+          }
+
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'rev-parse' && spec.argv[2] === 'HEAD') {
+            return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+          }
+
+          if (spec.argv[0] === 'gh' && spec.argv[1] === 'pr' && spec.argv[2] === 'view') {
+            return { exitCode: 1, stdout: '', stderr: 'no pull request found\n' };
+          }
+
+          if (spec.argv[0] === 'gh' && spec.argv[1] === 'repo' && spec.argv[2] === 'view') {
+            return { exitCode: 0, stdout: 'main\n', stderr: '' };
+          }
+
+          if (
+            spec.argv[0] === 'git'
+            && spec.argv[1] === 'rev-parse'
+            && spec.argv[2] === '--abbrev-ref'
+          ) {
+            return { exitCode: 128, stdout: '', stderr: 'fatal: no upstream configured\n' };
+          }
+
+          if (spec.argv[0] === 'git' && spec.argv[1] === 'remote') {
+            return { exitCode: 0, stdout: 'origin\n', stderr: '' };
+          }
+
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      expect(await run.readJson('.planning/current/ship/pull-request.json')).toMatchObject({
+        status: 'push_required',
+        provider: 'github',
+        head_branch: 'feature/phase-2-auth',
+        head_sha: 'abc123def456',
+        base_branch: 'main',
+        push_command: 'git push -u origin HEAD',
+      });
+      expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+        stage: 'ship',
+        state: 'completed',
+        decision: 'ship_recorded',
+        ready: false,
+        errors: ['Current branch has no upstream; push it before creating the PR.'],
+      });
+      expect(await run.readJson('.planning/current/ship/completion-advisor.json')).toMatchObject({
+        interaction_mode: 'required_choice',
+        default_action_id: 'push_branch',
+        primary_next_actions: [
+          expect.objectContaining({
+            id: 'push_branch',
+            kind: 'manual_command',
+            invocation: 'git push -u origin HEAD',
+          }),
+          expect.objectContaining({
+            id: 'rerun_ship_after_push',
+            surface: '/ship',
+          }),
+        ],
+      });
+      expect(commands).toEqual([
+        'git branch --show-current',
+        'git rev-parse HEAD',
+        'gh pr view --json number,url,state,headRefName,headRefOid,baseRefName',
+        'gh repo view --json defaultBranchRef -q .defaultBranchRef.name',
+        'git rev-parse --abbrev-ref --symbolic-full-name @{u}',
+        'git remote',
+      ]);
+      await expect(run('closeout')).rejects.toThrow('Ship must be ready before closeout');
     });
   });
 

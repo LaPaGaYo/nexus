@@ -116,6 +116,7 @@ export const COMPLETION_ADVISOR_ACTION_KINDS = [
   'compat_alias',
   'utility',
   'disposition',
+  'manual_command',
   'stop',
 ] as const;
 export type CompletionAdvisorActionKind = (typeof COMPLETION_ADVISOR_ACTION_KINDS)[number];
@@ -817,7 +818,7 @@ export interface ConflictRecord {
 
 export interface PullRequestRecord {
   provider: 'github' | 'gitlab' | 'unknown';
-  status: 'created' | 'reused' | 'unavailable' | 'not_requested';
+  status: 'created' | 'reused' | 'push_required' | 'unavailable' | 'not_requested';
   number: number | null;
   url: string | null;
   state: string | null;
@@ -825,6 +826,7 @@ export interface PullRequestRecord {
   head_sha: string | null;
   base_branch: string | null;
   reason?: string | null;
+  push_command?: string | null;
 }
 
 export const LOCAL_REVIEW_PERSONA_ROLES = ['code', 'test', 'security', 'design'] as const;

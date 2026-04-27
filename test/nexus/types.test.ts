@@ -405,6 +405,7 @@ describe('nexus types', () => {
       'summary_only',
     ]);
     expect(COMPLETION_ADVISOR_ACTION_KINDS).toContain('external_installed_skill');
+    expect(COMPLETION_ADVISOR_ACTION_KINDS).toContain('manual_command');
     expect(stageCompletionAdvisorPath('review')).toBe('.planning/current/review/completion-advisor.json');
 
     const advisor: CompletionAdvisorRecord = {

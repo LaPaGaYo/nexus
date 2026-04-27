@@ -42,6 +42,7 @@ import type {
   LearningCandidate,
   LocalPersonaShipStatusRecord,
   LocalShipPersonaRole,
+  PullRequestRecord,
   RunLedger,
   StageLearningCandidatesRecord,
   StageStatus,
@@ -251,6 +252,25 @@ function shipErrors(baseMergeReady: boolean, localPersonaMergeReady: boolean): s
     ...(baseMergeReady ? [] : ['Release gate remains blocked']),
     ...(localPersonaMergeReady ? [] : ['Local ship persona release gate failed']),
   ];
+}
+
+function pullRequestHandoffReady(pullRequest: PullRequestRecord): boolean {
+  return pullRequest.status !== 'push_required';
+}
+
+function pullRequestErrors(pullRequest: PullRequestRecord): string[] {
+  if (pullRequestHandoffReady(pullRequest)) {
+    return [];
+  }
+
+  if (pullRequest.status === 'push_required') {
+    return [
+      pullRequest.reason
+        ?? 'Branch must be pushed before Nexus can create or reuse the pull request handoff',
+    ];
+  }
+
+  return [];
 }
 
 function shipStatusTracePayload(
@@ -687,6 +707,11 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     designVerified,
   )}${perfVerificationSummary(perfVerificationPath)}${localShipPersonaReleaseGateRecord ? `\n${localShipPersonaReleaseGateRecord}\n` : ''}`;
   const pullRequest = await resolveShipPullRequest(workspace.path, finalMergeReady, ctx.run_command);
+  const shipReady = finalMergeReady && pullRequestHandoffReady(pullRequest);
+  const errors = [
+    ...shipErrors(result.raw_output.merge_ready, localPersonaMergeReady),
+    ...pullRequestErrors(pullRequest),
+  ];
   const status: StageStatus = {
     run_id: ledger.run_id,
     stage: 'ship',
@@ -699,7 +724,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     deploy_contract_path: deployReadiness.contract_path,
     state: 'completed',
     decision: 'ship_recorded',
-    ready: finalMergeReady,
+    ready: shipReady,
     inputs: predecessorArtifacts,
     outputs: [
       artifactPointerFor(releaseGateRecordPath),
@@ -713,14 +738,14 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     ],
     started_at: startedAt,
     completed_at: startedAt,
-    errors: shipErrors(result.raw_output.merge_ready, localPersonaMergeReady),
+    errors,
     workspace,
     pull_request: pullRequest,
     learning_candidates_path: learningCandidatesRecord ? learningCandidatesPath : null,
     learnings_recorded: Boolean(learningCandidatesRecord),
     local_persona_ship: localPersonaShip,
   };
-  const next = nextLedger(ledgerWithExecution, previousStage, finalMergeReady ? 'active' : 'blocked', startedAt, ctx.via);
+  const next = nextLedger(ledgerWithExecution, previousStage, shipReady ? 'active' : 'blocked', startedAt, ctx.via);
   const completionAdvisor = buildShipCompletionAdvisor(status, verificationMatrix, deployReadiness, startedAt);
   next.artifact_index = {
     ...next.artifact_index,
