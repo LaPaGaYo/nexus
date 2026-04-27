@@ -153,10 +153,10 @@ describe('gen-skill-docs', () => {
   });
 
   test('design skills absorb the shared design governance model', () => {
-    const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
-    const shotgun = fs.readFileSync(path.join(ROOT, 'design-shotgun', 'SKILL.md'), 'utf-8');
-    const review = fs.readFileSync(path.join(ROOT, 'design-review', 'SKILL.md'), 'utf-8');
-    const html = fs.readFileSync(path.join(ROOT, 'design-html', 'SKILL.md'), 'utf-8');
+    const consultation = readSkill('design-consultation');
+    const shotgun = readSkill('design-shotgun');
+    const review = readSkill('design-review');
+    const html = readSkill('design-html');
 
     for (const content of [consultation, shotgun, review, html]) {
       expect(content).toContain('Core asset protocol');
@@ -174,9 +174,9 @@ describe('gen-skill-docs', () => {
   });
 
   test('design heavy guidance is lazy-loaded from sidecar references', () => {
-    const review = fs.readFileSync(path.join(ROOT, 'design-review', 'SKILL.md'), 'utf-8');
-    const planReview = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
-    const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
+    const review = readSkill('design-review');
+    const planReview = readSkill('plan-design-review');
+    const consultation = readSkill('design-consultation');
 
     for (const ref of [
       'design/references/governance.md',
@@ -199,8 +199,8 @@ describe('gen-skill-docs', () => {
   });
 
   test('design consultation and finalization treat design context as DESIGN.md plus brand-spec.md', () => {
-    const consultation = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
-    const html = fs.readFileSync(path.join(ROOT, 'design-html', 'SKILL.md'), 'utf-8');
+    const consultation = readSkill('design-consultation');
+    const html = readSkill('design-html');
 
     expect(consultation).toContain('Creates the project\'s integrated design context');
     expect(consultation).toContain('`DESIGN.md` captures system-level rules');
@@ -210,7 +210,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('generated SKILL.md contains all command categories', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     const categories = new Set(Object.values(COMMAND_DESCRIPTIONS).map(d => d.category));
     for (const cat of categories) {
       expect(content).toContain(`### ${cat}`);
@@ -218,7 +218,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('generated SKILL.md contains all commands', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     for (const [cmd, meta] of Object.entries(COMMAND_DESCRIPTIONS)) {
       const display = meta.usage || cmd;
       expect(content).toContain(display);
@@ -226,7 +226,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('command table is sorted alphabetically within categories', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     // Extract command names from the Navigation section as a test
     const navSection = content.match(/### Navigation\n\|.*\n\|.*\n([\s\S]*?)(?=\n###|\n## )/);
     expect(navSection).not.toBeNull();
@@ -246,12 +246,12 @@ describe('gen-skill-docs', () => {
   });
 
   test('generated header is present in browse/SKILL.md', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     expect(content).toContain('AUTO-GENERATED from SKILL.md.tmpl');
   });
 
   test('snapshot flags section contains all flags', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     for (const flag of SNAPSHOT_FLAGS) {
       expect(content).toContain(flag.short);
       expect(content).toContain(flag.description);
@@ -370,7 +370,7 @@ describe('gen-skill-docs', () => {
     const rootTmpl = fs.readFileSync(path.join(ROOT, 'SKILL.md.tmpl'), 'utf-8');
     expect(rootTmpl).toContain('{{PREAMBLE}}');
 
-    const browseTmpl = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md.tmpl'), 'utf-8');
+    const browseTmpl = readTemplate('browse');
     expect(browseTmpl).toContain('{{COMMAND_REFERENCE}}');
     expect(browseTmpl).toContain('{{SNAPSHOT_FLAGS}}');
     expect(browseTmpl).toContain('{{PREAMBLE}}');
@@ -397,13 +397,13 @@ describe('gen-skill-docs', () => {
 
   test('tier 2+ skills contain ELI16 simplification rules (AskUserQuestion format)', () => {
     // Root SKILL.md is tier 1 (no AskUserQuestion format). Check a tier 2+ skill instead.
-    const content = fs.readFileSync(path.join(ROOT, 'cso', 'SKILL.md'), 'utf-8');
+    const content = readSkill('cso');
     expect(content).toContain('No raw function names');
     expect(content).toContain('plain English');
   });
 
   test('/cso stores full security reports outside the project worktree by default', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'cso', 'SKILL.md'), 'utf-8');
+    const content = readSkill('cso');
     const localState = content.indexOf('REPORT_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}/projects/${SLUG:-unknown}/security-reports"');
     const repoLocalException = content.indexOf('Repo-local exception: only write full reports to project-local');
     const preflight = content.indexOf("grep -Eq '(^|/)\\.nexus(/|$)' .gitignore");
@@ -418,18 +418,18 @@ describe('gen-skill-docs', () => {
 
   test('tier 1 skills do NOT contain AskUserQuestion format', () => {
     // Use benchmark (tier 1) instead of root — root SKILL.md gets overwritten by Codex test setup
-    const content = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
+    const content = readSkill('benchmark');
     expect(content).not.toContain('## AskUserQuestion Format');
     expect(content).not.toContain('## Completeness Principle');
   });
 
   test('generated follow-on skills expose canonical attached-evidence paths', () => {
-    const benchmark = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
-    const canary = fs.readFileSync(path.join(ROOT, 'canary', 'SKILL.md'), 'utf-8');
-    const docRelease = fs.readFileSync(path.join(ROOT, 'document-release', 'SKILL.md'), 'utf-8');
-    const land = fs.readFileSync(path.join(ROOT, 'land', 'SKILL.md'), 'utf-8');
-    const deploy = fs.readFileSync(path.join(ROOT, 'deploy', 'SKILL.md'), 'utf-8');
-    const landAndDeploy = fs.readFileSync(path.join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf-8');
+    const benchmark = readSkill('benchmark');
+    const canary = readSkill('canary');
+    const docRelease = readSkill('document-release');
+    const land = readSkill('land');
+    const deploy = readSkill('deploy');
+    const landAndDeploy = readSkill('land-and-deploy');
 
     expect(benchmark).toContain('.planning/current/qa/perf-verification.md');
     expect(canary).toContain('.planning/current/ship/canary-status.json');
@@ -521,7 +521,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('qa and qa-only templates use QA_METHODOLOGY placeholder', () => {
-    const qaTmpl = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md.tmpl'), 'utf-8');
+    const qaTmpl = readTemplate('qa');
     if (isNexusWrapperSkill('qa')) {
       expect(qaTmpl).not.toContain('{{QA_METHODOLOGY}}');
       expect(qaTmpl).toContain('{{NEXUS_RUN_COMMAND:qa}}');
@@ -530,13 +530,13 @@ describe('gen-skill-docs', () => {
       expect(qaTmpl).toContain('{{QA_METHODOLOGY}}');
     }
 
-    const qaOnlyTmpl = fs.readFileSync(path.join(ROOT, 'qa-only', 'SKILL.md.tmpl'), 'utf-8');
+    const qaOnlyTmpl = readTemplate('qa-only');
     expect(qaOnlyTmpl).toContain('{{QA_METHODOLOGY}}');
   });
 
   test('QA_METHODOLOGY appears expanded in both qa and qa-only generated files', () => {
-    const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
-    const qaOnlyContent = fs.readFileSync(path.join(ROOT, 'qa-only', 'SKILL.md'), 'utf-8');
+    const qaContent = readSkill('qa');
+    const qaOnlyContent = readSkill('qa-only');
 
     if (isNexusWrapperSkill('qa')) {
       expect(qaContent).toContain('_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"');
@@ -561,7 +561,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('qa-only has no-fix guardrails', () => {
-    const qaOnlyContent = fs.readFileSync(path.join(ROOT, 'qa-only', 'SKILL.md'), 'utf-8');
+    const qaOnlyContent = readSkill('qa-only');
     expect(qaOnlyContent).toContain('Never fix bugs');
     expect(qaOnlyContent).toContain('NEVER fix anything');
     // Should not have Edit, Glob, or Grep in allowed-tools
@@ -571,7 +571,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('qa has fix-loop tools and phases', () => {
-    const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
+    const qaContent = readSkill('qa');
     if (isNexusWrapperSkill('qa')) {
       expect(qaContent).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts qa');
       expect(qaContent).not.toContain('Edit');
@@ -591,8 +591,8 @@ describe('gen-skill-docs', () => {
   });
 
   test('frame and plan SKILL.md surface runtime-owned completion advisors and design-aware follow-ons', () => {
-    const frameContent = fs.readFileSync(path.join(ROOT, 'frame', 'SKILL.md'), 'utf-8');
-    const planContent = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
+    const frameContent = readSkill('frame');
+    const planContent = readSkill('plan');
 
     expect(frameContent).toContain('.planning/current/frame/completion-advisor.json');
     expect(frameContent).toContain('prefer the runtime JSON field `completion_advisor`');
@@ -621,7 +621,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('review SKILL.md routes advisory disposition through the runtime-owned completion advisor', () => {
-    const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const reviewContent = readSkill('review');
     expect(reviewContent).toContain('## Completion Advisor');
     expect(reviewContent).toContain('.planning/current/review/completion-advisor.json');
     expect(reviewContent).toContain('prefer the runtime JSON field `completion_advisor`');
@@ -637,7 +637,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('simplify support skill is generated as behavior-preserving review follow-on', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'simplify', 'SKILL.md'), 'utf-8');
+    const content = readSkill('simplify');
     expect(content).toContain('# /simplify');
     expect(content).toContain('Preserve behavior exactly');
     expect(content).toContain('.planning/current/review/simplification-pass.md');
@@ -645,14 +645,14 @@ describe('gen-skill-docs', () => {
   });
 
   test('review SKILL.md maps each advisory choice to an exact Nexus command', () => {
-    const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const reviewContent = readSkill('review');
     expect(reviewContent).toContain('/build --review-advisory-disposition fix_before_qa');
     expect(reviewContent).toContain('/qa --review-advisory-disposition continue_to_qa');
     expect(reviewContent).toContain('/qa --review-advisory-disposition defer_to_follow_on');
   });
 
   test('build SKILL.md consumes completion advisor output and keeps design-aware follow-ons behind review', () => {
-    const buildContent = fs.readFileSync(path.join(ROOT, 'build', 'SKILL.md'), 'utf-8');
+    const buildContent = readSkill('build');
     expect(buildContent).toContain('## Completion Advisor');
     expect(buildContent).toContain('.planning/current/build/completion-advisor.json');
     expect(buildContent).toContain('prefer the runtime JSON field `completion_advisor`');
@@ -667,7 +667,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('qa SKILL.md offers advisor-driven next-step interaction and side-skill entrypoints', () => {
-    const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
+    const qaContent = readSkill('qa');
     expect(qaContent).toContain('## Completion Advisor');
     expect(qaContent).toContain('.planning/current/qa/completion-advisor.json');
     expect(qaContent).toContain('prefer the runtime JSON field `completion_advisor`');
@@ -686,7 +686,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('ship SKILL.md offers advisor-driven closeout and deploy-facing follow-on interaction', () => {
-    const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const shipContent = readSkill('ship');
     expect(shipContent).toContain('## Completion Advisor');
     expect(shipContent).toContain('.planning/current/ship/completion-advisor.json');
     expect(shipContent).toContain('prefer the runtime JSON field `completion_advisor`');
@@ -703,7 +703,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('closeout SKILL.md offers advisor-driven next-run and follow-on side-skill interaction', () => {
-    const closeoutContent = fs.readFileSync(path.join(ROOT, 'closeout', 'SKILL.md'), 'utf-8');
+    const closeoutContent = readSkill('closeout');
     expect(closeoutContent).toContain('## Completion Advisor');
     expect(closeoutContent).toContain('.planning/current/closeout/completion-advisor.json');
     expect(closeoutContent).toContain('prefer the runtime JSON field `completion_advisor`');
@@ -750,7 +750,7 @@ describe('nexus wrapper generation', () => {
 
 describeLegacyShip('BASE_BRANCH_DETECT resolver', () => {
   // Find a generated SKILL.md that uses the placeholder (ship is guaranteed to)
-  const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipContent = readSkill('ship');
 
   test('resolver output contains PR base detection command', () => {
     expect(shipContent).toContain('gh pr view --json baseRefName');
@@ -782,8 +782,8 @@ describeLegacyShip('BASE_BRANCH_DETECT resolver', () => {
 });
 
 describeLegacyShip('GitLab support in generated skills', () => {
-  const retroContent = fs.readFileSync(path.join(ROOT, 'retro', 'SKILL.md'), 'utf-8');
-  const shipSkillContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const retroContent = readSkill('retro');
+  const shipSkillContent = readSkill('ship');
 
   test('retro contains GitLab MR number extraction', () => {
     expect(retroContent).toContain('[#!]');
@@ -812,7 +812,7 @@ describeLegacyShip('GitLab support in generated skills', () => {
 describe('description quality evals', () => {
   // Regression: snapshot flags lost value hints (-d <N>, -s <sel>, -o <path>)
   test('snapshot flags with values include value hints in output', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     for (const flag of SNAPSHOT_FLAGS) {
       if (flag.takesValue) {
         expect(flag.valueHint).toBeDefined();
@@ -879,7 +879,7 @@ describe('description quality evals', () => {
 
   // Guard: generated output uses → not ->
   test('generated SKILL.md uses unicode arrows', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill('browse');
     const body = content.split('\n').slice(20).join('\n');
     expect(body).toContain('→');
     expect(body).not.toContain('->');
@@ -898,13 +898,13 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
   }
 
   test('review dashboard appears in ship generated file', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const content = readSkill('ship');
     expect(content).toContain('reviews.jsonl');
     expect(content).toContain('REVIEW READINESS DASHBOARD');
   });
 
   test('dashboard treats review as a valid Eng Review source', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const content = readSkill('ship');
     expect(content).toContain('plan-eng-review, review, plan-design-review');
     expect(content).toContain('`review` (diff-scoped pre-landing review)');
     expect(content).toContain('`plan-eng-review` (plan-stage architecture review)');
@@ -912,13 +912,13 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
   });
 
   test('shared dashboard propagates review source to plan-eng-review', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-eng-review');
     expect(content).toContain('plan-eng-review, review, plan-design-review');
     expect(content).toContain('`review` (diff-scoped pre-landing review)');
   });
 
   test('resolver output contains key dashboard elements', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-ceo-review');
     expect(content).toContain('VERDICT');
     expect(content).toContain('CLEARED');
     expect(content).toContain('Eng Review');
@@ -928,13 +928,13 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
   });
 
   test('dashboard bash block includes git HEAD for staleness detection', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-ceo-review');
     expect(content).toContain('git rev-parse --short HEAD');
     expect(content).toContain('---HEAD---');
   });
 
   test('dashboard includes staleness detection prose', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-ceo-review');
     expect(content).toContain('Staleness detection');
     expect(content).toContain('commit');
   });
@@ -952,19 +952,19 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
   }
 
   test('plan-ceo-review chaining mentions eng and design reviews', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-ceo-review');
     expect(content).toContain('/plan-eng-review');
     expect(content).toContain('/plan-design-review');
   });
 
   test('plan-eng-review chaining mentions design and ceo reviews', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-eng-review');
     expect(content).toContain('/plan-design-review');
     expect(content).toContain('/plan-ceo-review');
   });
 
   test('plan-design-review chaining mentions eng, ceo, and design skills', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('/plan-eng-review');
     expect(content).toContain('/plan-ceo-review');
     expect(content).toContain('/design-shotgun');
@@ -972,7 +972,7 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
   });
 
   test('ship does NOT contain review chaining', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const content = readSkill('ship');
     expect(content).not.toContain('Review Chaining');
   });
 });
@@ -980,9 +980,9 @@ describeLegacyPlanAliases('REVIEW_DASHBOARD resolver', () => {
 // ─── Test Coverage Audit Resolver Tests ─────────────────────
 
 describeLegacyShip('TEST_COVERAGE_AUDIT placeholders', () => {
-  const planSkill = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-  const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+  const planSkill = readSkill('plan-eng-review');
+  const shipSkill = readSkill('ship');
+  const reviewSkill = readSkill('review');
 
   test('plan and ship modes share codepath tracing methodology', () => {
     // Review mode delegates test coverage to the Testing specialist subagent (Review Army)
@@ -1122,7 +1122,7 @@ describeLegacyShip('TEST_COVERAGE_AUDIT placeholders', () => {
 // --- {{TEST_FAILURE_TRIAGE}} resolver tests ---
 
 describeLegacyShip('TEST_FAILURE_TRIAGE resolver', () => {
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipSkill = readSkill('ship');
 
   test('contains all 4 triage steps', () => {
     expect(shipSkill).toContain('Step T1: Classify each failure');
@@ -1172,7 +1172,7 @@ describe('PLAN_FILE_REVIEW_REPORT resolver', () => {
   }
 
   test('resolver output contains key report elements', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-ceo-review');
     expect(content).toContain('Trigger');
     expect(content).toContain('Findings');
     expect(content).toContain('VERDICT');
@@ -1186,8 +1186,8 @@ describe('PLAN_FILE_REVIEW_REPORT resolver', () => {
 // --- {{PLAN_COMPLETION_AUDIT}} resolver tests ---
 
 describeLegacyShip('PLAN_COMPLETION_AUDIT placeholders', () => {
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-  const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+  const shipSkill = readSkill('ship');
+  const reviewSkill = readSkill('review');
 
   test('ship SKILL.md contains plan completion audit step', () => {
     expect(shipSkill).toContain('Plan Completion Audit');
@@ -1237,7 +1237,7 @@ describeLegacyShip('PLAN_COMPLETION_AUDIT placeholders', () => {
 // --- {{PLAN_VERIFICATION_EXEC}} resolver tests ---
 
 describeLegacyShip('PLAN_VERIFICATION_EXEC placeholder', () => {
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipSkill = readSkill('ship');
 
   test('ship SKILL.md contains plan verification step', () => {
     expect(shipSkill).toContain('Step 3.47');
@@ -1266,8 +1266,8 @@ describeLegacyShip('PLAN_VERIFICATION_EXEC placeholder', () => {
 // --- Coverage gate tests ---
 
 describeLegacyShip('Coverage gate in ship', () => {
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-  const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+  const shipSkill = readSkill('ship');
+  const reviewSkill = readSkill('review');
 
   test('ship SKILL.md contains coverage gate with thresholds', () => {
     expect(shipSkill).toContain('Coverage gate');
@@ -1295,7 +1295,7 @@ describeLegacyShip('Coverage gate in ship', () => {
 // --- Ship metrics logging ---
 
 describeLegacyShip('Ship metrics logging', () => {
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipSkill = readSkill('ship');
 
   test('ship SKILL.md contains metrics persistence step', () => {
     expect(shipSkill).toContain('Step 8.75');
@@ -1311,8 +1311,8 @@ describeLegacyShip('Ship metrics logging', () => {
 describeLegacyShip('Plan file discovery shared helper', () => {
   // The shared helper should appear in ship (via PLAN_COMPLETION_AUDIT_SHIP)
   // and in review (via PLAN_COMPLETION_AUDIT_REVIEW)
-  const shipSkill = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
-  const reviewSkill = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+  const shipSkill = readSkill('ship');
+  const reviewSkill = readSkill('review');
 
   test('plan file discovery appears in both ship and review', () => {
     expect(shipSkill).toContain('Plan File Discovery');
@@ -1333,7 +1333,7 @@ describeLegacyShip('Plan file discovery shared helper', () => {
 // --- Retro plan completion ---
 
 describe('Retro plan completion section', () => {
-  const retroSkill = fs.readFileSync(path.join(ROOT, 'retro', 'SKILL.md'), 'utf-8');
+  const retroSkill = readSkill('retro');
 
   test('retro SKILL.md contains plan completion section', () => {
     expect(retroSkill).toContain('### Plan Completion');
@@ -1347,7 +1347,7 @@ describe('Retro plan completion section', () => {
 describe('Plan status footer in preamble', () => {
   test('preamble contains plan status footer', () => {
     // Read any skill that uses PREAMBLE
-    const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+    const content = readSkill('office-hours');
     expect(content).toContain('Plan Status Footer');
     expect(content).toContain('NEXUS REVIEW REPORT');
     expect(content).toContain('nexus-review-read');
@@ -1359,7 +1359,7 @@ describe('Plan status footer in preamble', () => {
 // --- {{SPEC_REVIEW_LOOP}} resolver tests ---
 
 describeLegacyOfficeHours('SPEC_REVIEW_LOOP resolver', () => {
-  const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+  const content = readSkill('office-hours');
 
   test('contains all 5 review dimensions', () => {
     for (const dim of ['Completeness', 'Consistency', 'Clarity', 'Scope', 'Feasibility']) {
@@ -1395,7 +1395,7 @@ describeLegacyOfficeHours('SPEC_REVIEW_LOOP resolver', () => {
 // --- {{DESIGN_SKETCH}} resolver tests ---
 
 describeLegacyOfficeHours('DESIGN_SKETCH resolver', () => {
-  const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+  const content = readSkill('office-hours');
 
   test('references integrated design context for design system constraints', () => {
     expect(content).toContain('DESIGN.md');
@@ -1426,7 +1426,7 @@ describeLegacyOfficeHours('DESIGN_SKETCH resolver', () => {
 // --- {{CODEX_SECOND_OPINION}} resolver tests ---
 
 describeLegacyOfficeHours('CODEX_SECOND_OPINION resolver', () => {
-  const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+  const content = readSkill('office-hours');
   const codexContent = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'nexus-office-hours', 'SKILL.md'), 'utf-8');
 
   test('Phase 3.5 section appears in office-hours SKILL.md', () => {
@@ -1497,13 +1497,13 @@ describeLegacyPlanAliases('Codex filesystem boundary', () => {
   });
 
   test('codex skill has Filesystem Boundary section', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'codex', 'SKILL.md'), 'utf-8');
+    const content = readSkill('codex');
     expect(content).toContain('## Filesystem Boundary');
     expect(content).toContain('skill definitions meant for a different AI system');
   });
 
   test('codex skill has rabbit-hole detection rule', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'codex', 'SKILL.md'), 'utf-8');
+    const content = readSkill('codex');
     expect(content).toContain('Detect skill-file rabbit holes');
     expect(content).toContain('nexus-update-check');
     expect(content).toContain('Consider retrying');
@@ -1511,7 +1511,7 @@ describeLegacyPlanAliases('Codex filesystem boundary', () => {
 
   test('review.ts CODEX_BOUNDARY constant is interpolated into resolver output', () => {
     // The adversarial step resolver should include boundary text in codex exec prompts
-    const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const reviewContent = readSkill('review');
     // Boundary should appear near codex exec invocations
     const boundaryIdx = reviewContent.indexOf(BOUNDARY_MARKER);
     const codexExecIdx = reviewContent.indexOf('codex exec');
@@ -1521,7 +1521,7 @@ describeLegacyPlanAliases('Codex filesystem boundary', () => {
   });
 
   test('autoplan boundary text avoids host-specific paths for cross-host compatibility', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'autoplan', 'SKILL.md.tmpl'), 'utf-8');
+    const content = readTemplate('autoplan');
     // autoplan template uses generic 'skills/nexus' pattern instead of host-specific
     // paths like ~/.claude/ or .agents/skills (which break Codex/Claude output tests)
     const boundaryStart = content.indexOf('Filesystem Boundary');
@@ -1537,8 +1537,8 @@ describeLegacyPlanAliases('Codex filesystem boundary', () => {
 // --- {{BENEFITS_FROM}} resolver tests ---
 
 describeLegacyPlanAliases('BENEFITS_FROM resolver', () => {
-  const ceoContent = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
-  const engContent = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
+  const ceoContent = readSkill('plan-ceo-review');
+  const engContent = readSkill('plan-eng-review');
 
   test('plan-ceo-review contains prerequisite skill offer', () => {
     expect(ceoContent).toContain('Prerequisite Skill Offer');
@@ -1555,7 +1555,7 @@ describeLegacyPlanAliases('BENEFITS_FROM resolver', () => {
   });
 
   test('skills without benefits-from do NOT have prerequisite offer', () => {
-    const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
+    const qaContent = readSkill('qa');
     expect(qaContent).not.toContain('Prerequisite Skill Offer');
   });
 
@@ -1580,7 +1580,7 @@ describeLegacyPlanAliases('BENEFITS_FROM resolver', () => {
 // --- {{INVOKE_SKILL}} resolver tests ---
 
 describeLegacyPlanAliases('INVOKE_SKILL resolver', () => {
-  const ceoContent = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+  const ceoContent = readSkill('plan-ceo-review');
 
   test('plan-ceo-review uses INVOKE_SKILL for mid-session office-hours fallback', () => {
     // The mid-session detection path should use INVOKE_SKILL-generated prose
@@ -1600,7 +1600,7 @@ describeLegacyPlanAliases('INVOKE_SKILL resolver', () => {
   });
 
   test('template uses {{INVOKE_SKILL:office-hours}} placeholder', () => {
-    const tmpl = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md.tmpl'), 'utf-8');
+    const tmpl = readTemplate('plan-ceo-review');
     expect(tmpl).toContain('{{INVOKE_SKILL:office-hours}}');
   });
 });
@@ -1608,7 +1608,7 @@ describeLegacyPlanAliases('INVOKE_SKILL resolver', () => {
 // --- {{CHANGELOG_WORKFLOW}} resolver tests ---
 
 describeLegacyShip('CHANGELOG_WORKFLOW resolver', () => {
-  const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipContent = readSkill('ship');
 
   test('ship SKILL.md contains changelog workflow', () => {
     expect(shipContent).toContain('CHANGELOG (auto-generate)');
@@ -1625,7 +1625,7 @@ describeLegacyShip('CHANGELOG_WORKFLOW resolver', () => {
   });
 
   test('template uses {{CHANGELOG_WORKFLOW}} placeholder', () => {
-    const tmpl = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md.tmpl'), 'utf-8');
+    const tmpl = readTemplate('ship');
     expect(tmpl).toContain('{{CHANGELOG_WORKFLOW}}');
     // Should NOT contain the old inline changelog content
     expect(tmpl).not.toContain('Group commits by theme');
@@ -1643,7 +1643,7 @@ describe('parameterized resolver support', () => {
   test('gen-skill-docs regex handles colon-separated args', () => {
     // Verify the template containing {{INVOKE_SKILL:office-hours}} was processed
     // without leaving unresolved placeholders
-    const ceoContent = fs.readFileSync(path.join(ROOT, 'plan-ceo-review', 'SKILL.md'), 'utf-8');
+    const ceoContent = readSkill('plan-ceo-review');
     expect(ceoContent).not.toMatch(/\{\{INVOKE_SKILL:[^}]+\}\}/);
   });
 
@@ -1665,7 +1665,7 @@ describe('parameterized resolver support', () => {
 // --- Preamble routing injection tests ---
 
 describe('preamble routing injection', () => {
-  const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipContent = readSkill('ship');
 
   test('preamble bash checks for routing section or equivalent guidance in CLAUDE.md', () => {
     expect(shipContent).toContain('Nexus Skill Routing');
@@ -1720,7 +1720,7 @@ describe('preamble routing injection', () => {
 });
 
 describe('preamble execution mode guidance', () => {
-  const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const shipContent = readSkill('ship');
 
   test('preamble bash emits execution mode state separately from repo mode', () => {
     expect(shipContent).toContain('CCB_AVAILABLE:');
@@ -1780,14 +1780,14 @@ describe('preamble execution mode guidance', () => {
 
 describe('Nexus-first wrapper language', () => {
   test('canonical wrappers stay Nexus-first even after upstream imports exist', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan');
 
     expect(content).toContain('Nexus-owned planning guidance for execution readiness and bounded scope.');
     expect(content).not.toMatch(/GSD-native command|PM-native command|Superpowers-native command/i);
   });
 
   test('transitional aliases remain compatibility-only wrappers', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+    const content = readSkill('office-hours');
 
     expect(content).toContain('This alias routes to `/discover`.');
     expect(content).toContain('does not own separate contract, artifact, or transition logic');
@@ -1799,20 +1799,20 @@ describe('Nexus-first wrapper language', () => {
 
 describe('DESIGN_OUTSIDE_VOICES resolver', () => {
   test('plan-design-review contains outside voices section', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('Design Outside Voices');
     expect(content).toContain('CODEX_AVAILABLE');
     expect(content).toContain('LITMUS SCORECARD');
   });
 
   test('design-review contains outside voices section', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('design-review');
     expect(content).toContain('Design Outside Voices');
     expect(content).toContain('source audit');
   });
 
   test('design-consultation contains outside voices section', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
+    const content = readSkill('design-consultation');
     expect(content).toContain('Design Outside Voices');
     expect(content).toContain('design direction');
   });
@@ -1828,8 +1828,8 @@ describe('DESIGN_OUTSIDE_VOICES resolver', () => {
   });
 
   test('branches correctly per skillName — different prompts', () => {
-    const planContent = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
-    const consultContent = fs.readFileSync(path.join(ROOT, 'design-consultation', 'SKILL.md'), 'utf-8');
+    const planContent = readSkill('plan-design-review');
+    const consultContent = readSkill('design-consultation');
     // plan-design-review uses analytical prompt (high reasoning)
     expect(planContent).toContain('model_reasoning_effort="high"');
     // design-consultation uses creative prompt (medium reasoning)
@@ -1841,7 +1841,7 @@ describe('DESIGN_OUTSIDE_VOICES resolver', () => {
 
 describe('DESIGN_HARD_RULES resolver', () => {
   test('plan-design-review Pass 4 contains hard rules', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('Design Hard Rules');
     expect(content).toContain('Classifier');
     expect(content).toContain('MARKETING/LANDING PAGE');
@@ -1849,31 +1849,31 @@ describe('DESIGN_HARD_RULES resolver', () => {
   });
 
   test('design-review contains hard rules', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('design-review');
     expect(content).toContain('Design Hard Rules');
   });
 
   test('includes all 3 rule sets', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('Landing page rules');
     expect(content).toContain('App UI rules');
     expect(content).toContain('Universal rules');
   });
 
   test('references shared AI slop blacklist items', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('3-column feature grid');
     expect(content).toContain('Purple/violet/indigo');
   });
 
   test('includes OpenAI hard rejection criteria', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('Generic SaaS card grid');
     expect(content).toContain('Carousel with no narrative purpose');
   });
 
   test('includes OpenAI litmus checks', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-design-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-design-review');
     expect(content).toContain('Brand/product unmistakable');
     expect(content).toContain('premium with all decorative shadows removed');
   });
@@ -1882,7 +1882,7 @@ describe('DESIGN_HARD_RULES resolver', () => {
 // --- Extended DESIGN_SKETCH resolver tests ---
 
 describeLegacyOfficeHours('DESIGN_SKETCH extended with outside voices', () => {
-  const content = fs.readFileSync(path.join(ROOT, 'office-hours', 'SKILL.md'), 'utf-8');
+  const content = readSkill('office-hours');
 
   test('contains outside design voices step', () => {
     expect(content).toContain('Outside design voices');
@@ -1901,7 +1901,7 @@ describeLegacyOfficeHours('DESIGN_SKETCH extended with outside voices', () => {
 // --- Extended DESIGN_REVIEW_LITE resolver tests ---
 
 describeLegacyShip('DESIGN_REVIEW_LITE extended with Codex', () => {
-  const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+  const content = readSkill('ship');
 
   test('contains Codex design voice block', () => {
     expect(content).toContain('Codex design voice');
@@ -2215,7 +2215,7 @@ describe('Codex generation (--host codex)', () => {
   // ─── Claude output regression guard ─────────────────────────
 
   test('Claude output unchanged: review skill still uses .claude/skills/ paths', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     if (isNexusWrapperSkill('review')) {
       expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts review');
       expect(content).not.toContain('.claude/skills/review/checklist.md');
@@ -2228,7 +2228,7 @@ describe('Codex generation (--host codex)', () => {
   });
 
   test('Claude output unchanged: ship skill still uses .claude/skills/ paths', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const content = readSkill('ship');
     if (isNexusWrapperSkill('ship')) {
       expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ship');
     } else {
@@ -2743,10 +2743,10 @@ describe('setup script validation', () => {
       expect(content).toContain('nexus-config set provider_topology');
     }
 
-    expect(fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8')).toContain('code / security / test / performance / design');
-    expect(fs.readFileSync(path.join(ROOT, 'investigate', 'SKILL.md'), 'utf-8')).toContain('competing root-cause hypotheses');
-    expect(fs.readFileSync(path.join(ROOT, 'build', 'SKILL.md'), 'utf-8')).toContain('same-file edits or tightly coupled implementation');
-    expect(fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8')).toContain('release / QA / security / docs-deploy');
+    expect(readSkill('review')).toContain('code / security / test / performance / design');
+    expect(readSkill('investigate')).toContain('competing root-cause hypotheses');
+    expect(readSkill('build')).toContain('same-file edits or tightly coupled implementation');
+    expect(readSkill('ship')).toContain('release / QA / security / docs-deploy');
   });
 
   test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {
@@ -2988,7 +2988,7 @@ describe('community fixes wave', () => {
 
   // #573 — Feature signals: ship/SKILL.md contains feature signal detection
   test('ship/SKILL.md contains feature signal detection in Step 4', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const content = readSkill('ship');
     if (isNexusWrapperSkill('ship')) {
       expect(content).toContain('Nexus Governed Ship');
       expect(content).toContain('.planning/current/ship/status.json');
@@ -3008,7 +3008,7 @@ describe('community fixes wave', () => {
 
   // #510 — Context warnings: plan-eng-review has explicit anti-warning
   test('plan-eng-review/SKILL.md contains "Do not preemptively warn"', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'plan-eng-review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('plan-eng-review');
     if (isNexusWrapperSkill('plan-eng-review')) {
       expect(content).toContain('NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts plan-eng-review');
       expect(content).toContain('This alias routes to `/frame`.');
@@ -3142,19 +3142,19 @@ describeLegacyPlanAliases('LEARNINGS_SEARCH resolver', () => {
   }
 
   test('learnings search includes cross-project config check', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('cross_project_learnings');
     expect(content).toContain('--cross-project');
   });
 
   test('learnings search includes AskUserQuestion for first-time cross-project opt-in', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('Enable cross-project learnings');
     expect(content).toContain('project-scoped only');
   });
 
   test('learnings search mentions prior learning applied display format', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('Prior learning applied');
   });
 });
@@ -3171,21 +3171,21 @@ describeLegacyReview('LEARNINGS_LOG resolver', () => {
   }
 
   test('learnings log documents all type values', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     for (const type of ['pattern', 'pitfall', 'preference', 'architecture', 'tool']) {
       expect(content).toContain(type);
     }
   });
 
   test('learnings log documents all source values', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     for (const source of ['observed', 'user-stated', 'inferred', 'cross-model']) {
       expect(content).toContain(source);
     }
   });
 
   test('learnings log includes files field for staleness detection', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('"files"');
     expect(content).toContain('staleness detection');
   });
@@ -3203,7 +3203,7 @@ describeLegacyReview('CONFIDENCE_CALIBRATION resolver', () => {
   }
 
   test('confidence calibration includes scoring rubric with all tiers', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('9-10');
     expect(content).toContain('7-8');
     expect(content).toContain('5-6');
@@ -3212,19 +3212,19 @@ describeLegacyReview('CONFIDENCE_CALIBRATION resolver', () => {
   });
 
   test('confidence calibration includes display rules', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('Show normally');
     expect(content).toContain('Suppress from main report');
   });
 
   test('confidence calibration includes finding format example', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('[P1] (confidence:');
     expect(content).toContain('SQL injection');
   });
 
   test('confidence calibration includes calibration learning feedback loop', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill('review');
     expect(content).toContain('calibration event');
     expect(content).toContain('Log the corrected pattern');
   });

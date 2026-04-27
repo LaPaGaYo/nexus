@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'fs';
 import * as path from 'path';
 import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../../lib/nexus/command-manifest';
 import {
@@ -6,6 +7,7 @@ import {
   SUPPORT_SKILL_NAMES,
   allPlannedSkillStructureEntries,
   describeSkillSourcePath,
+  candidateSkillArtifactPathsForName,
   skillSourceCategoryForName,
   targetSkillSourcePathForName,
 } from '../../lib/nexus/skill-structure';
@@ -101,6 +103,37 @@ describe('nexus skill source structure', () => {
       category: 'safety',
       movePolicy: 'in_place',
     });
+  });
+
+  test('exposes current and future artifact candidates for generated skill files', () => {
+    expect(candidateSkillArtifactPathsForName('review', 'SKILL.md')).toEqual([
+      'skills/canonical/review/SKILL.md',
+      'review/SKILL.md',
+    ]);
+    expect(candidateSkillArtifactPathsForName('simplify', 'SKILL.md.tmpl')).toEqual([
+      'skills/support/simplify/SKILL.md.tmpl',
+      'simplify/SKILL.md.tmpl',
+    ]);
+    expect(candidateSkillArtifactPathsForName('nexus', 'SKILL.md')).toEqual(['SKILL.md']);
+  });
+
+  test('primary non-e2e tests read generated skills through structure-aware helpers', () => {
+    const files = [
+      'test/audit-compliance.test.ts',
+      'test/gen-skill-docs.test.ts',
+      'test/skill-llm-eval.test.ts',
+      'test/skill-routing-e2e.test.ts',
+      'test/skill-validation.test.ts',
+      'test/nexus/claude-boundary.test.ts',
+      'test/nexus/product-surface.test.ts',
+    ];
+    const forbiddenRootSkillPath = /\b(?:path\.)?join\(ROOT,\s*['"][^'"]+['"],\s*['"]SKILL\.md(?:\.tmpl)?['"]\)|\b(?:path\.)?join\(ROOT,\s*['"][^'"]+\/SKILL\.md(?:\.tmpl)?['"]\)/g;
+    const violations = files.flatMap((file) => {
+      const content = readFileSync(path.join(ROOT, file), 'utf-8');
+      return [...content.matchAll(forbiddenRootSkillPath)].map((match) => `${file}: ${match[0]}`);
+    });
+
+    expect(violations).toEqual([]);
   });
 
   test('has one planned entry per known skill name', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+import { readSkill } from '../helpers/skill-paths';
 import {
   PRIMARY_DEV_ROOT,
   PRIMARY_NAMESPACE,
@@ -222,11 +223,11 @@ describe('nexus product surface contract', () => {
   test('land-and-deploy consumes ship PR handoff rather than assuming closeout-owned PR creation', () => {
     const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
     const skills = readFileSync(join(ROOT, 'docs', 'skills.md'), 'utf8');
-    const land = readFileSync(join(ROOT, 'land', 'SKILL.md'), 'utf8');
-    const deploy = readFileSync(join(ROOT, 'deploy', 'SKILL.md'), 'utf8');
-    const landAndDeploy = readFileSync(join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf8');
-    const setupDeploy = readFileSync(join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf8');
-    const shipSkill = readFileSync(join(ROOT, 'ship', 'SKILL.md'), 'utf8');
+    const land = readSkill(ROOT, 'land');
+    const deploy = readSkill(ROOT, 'deploy');
+    const landAndDeploy = readSkill(ROOT, 'land-and-deploy');
+    const setupDeploy = readSkill(ROOT, 'setup-deploy');
+    const shipSkill = readSkill(ROOT, 'ship');
 
     expect(landAndDeploy).toContain('/ship` records merge readiness');
     expect(landAndDeploy).not.toContain('/ship` creates the PR');
@@ -279,9 +280,9 @@ describe('nexus product surface contract', () => {
   });
 
   test('active generated skills do not retain legacy GStack or Garry branding', () => {
-    const setupDeploy = readFileSync(join(ROOT, 'setup-deploy', 'SKILL.md'), 'utf8');
-    const landAndDeploy = readFileSync(join(ROOT, 'land-and-deploy', 'SKILL.md'), 'utf8');
-    const codexSkill = readFileSync(join(ROOT, 'codex', 'SKILL.md'), 'utf8');
+    const setupDeploy = readSkill(ROOT, 'setup-deploy');
+    const landAndDeploy = readSkill(ROOT, 'land-and-deploy');
+    const codexSkill = readSkill(ROOT, 'codex');
 
     for (const content of [setupDeploy, landAndDeploy, codexSkill]) {
       expect(content).toContain('You are Nexus');

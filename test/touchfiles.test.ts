@@ -86,6 +86,27 @@ describe('selectTests', () => {
     expect(result.skipped.length).toBe(Object.keys(E2E_TOUCHFILES).length - 5);
   });
 
+  test('structured skill path change selects the same tests as the current flat path', () => {
+    const flat = selectTests(['plan-ceo-review/SKILL.md'], E2E_TOUCHFILES);
+    const structured = selectTests(['skills/aliases/plan-ceo-review/SKILL.md'], E2E_TOUCHFILES);
+
+    expect(structured.selected.sort()).toEqual(flat.selected.sort());
+  });
+
+  test('structured template path matches wildcard skill-template touchfiles', () => {
+    const result = selectTests(['skills/support/retro/SKILL.md.tmpl'], E2E_TOUCHFILES);
+
+    expect(result.selected).toContain('retro');
+    expect(result.selected).toContain('journey-ideation');
+  });
+
+  test('structured LLM judge skill path matches legacy skill touchfile patterns', () => {
+    const result = selectTests(['skills/support/qa-only/SKILL.md'], LLM_JUDGE_TOUCHFILES);
+
+    expect(result.selected).toContain('qa/SKILL.md anti-refusal');
+    expect(result.selected).toContain('qa-only/SKILL.md workflow');
+  });
+
   test('global touchfile triggers ALL tests', () => {
     const result = selectTests(['test/helpers/session-runner.ts'], E2E_TOUCHFILES);
     expect(result.selected.length).toBe(Object.keys(E2E_TOUCHFILES).length);

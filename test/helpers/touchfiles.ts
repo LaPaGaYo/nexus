@@ -7,6 +7,11 @@
  */
 
 import { spawnSync } from 'child_process';
+import {
+  currentSkillArtifactPathForName,
+  skillSourceCategoryForName,
+  targetSkillArtifactPathForName,
+} from '../../lib/nexus/skill-structure';
 
 // --- Glob matching ---
 
@@ -23,6 +28,48 @@ export function matchGlob(file: string, pattern: string): boolean {
     .replace(/\*/g, '[^/]*')
     .replace(/\{\{GLOBSTAR\}\}/g, '.*');
   return new RegExp(`^${regexStr}$`).test(file);
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function artifactDir(artifactPath: string): string {
+  return artifactPath.replace(/\/SKILL\.md(?:\.tmpl)?$/, '');
+}
+
+function candidateSkillDirs(skillName: string): string[] {
+  if (!skillSourceCategoryForName(skillName)) {
+    return [];
+  }
+
+  return unique([
+    artifactDir(targetSkillArtifactPathForName(skillName, 'SKILL.md')),
+    artifactDir(currentSkillArtifactPathForName(skillName, 'SKILL.md')),
+  ]);
+}
+
+export function expandTouchfilePattern(pattern: string): string[] {
+  const expanded = [pattern];
+
+  if (pattern === '*/SKILL.md') {
+    expanded.push('skills/*/*/SKILL.md');
+  } else if (pattern === '*/SKILL.md.tmpl') {
+    expanded.push('skills/*/*/SKILL.md.tmpl');
+  }
+
+  const skillScoped = pattern.match(/^([^/*][^/]*)\/(.+)$/);
+  if (skillScoped?.[1] && skillScoped[2]) {
+    for (const skillDir of candidateSkillDirs(skillScoped[1])) {
+      expanded.push(`${skillDir}/${skillScoped[2]}`);
+    }
+  }
+
+  return unique(expanded);
+}
+
+function matchesTouchfilePattern(file: string, pattern: string): boolean {
+  return expandTouchfilePattern(pattern).some((expandedPattern) => matchGlob(file, expandedPattern));
 }
 
 // --- Touchfile maps ---
@@ -427,7 +474,7 @@ export function selectTests(
 
   // Global touchfile hit → run all
   for (const file of changedFiles) {
-    if (globalTouchfiles.some(g => matchGlob(file, g))) {
+    if (globalTouchfiles.some(g => matchesTouchfilePattern(file, g))) {
       return { selected: allTestNames, skipped: [], reason: `global: ${file}` };
     }
   }
@@ -436,7 +483,7 @@ export function selectTests(
   const selected: string[] = [];
   const skipped: string[] = [];
   for (const [testName, patterns] of Object.entries(touchfiles)) {
-    const hit = changedFiles.some(f => patterns.some(p => matchGlob(f, p)));
+    const hit = changedFiles.some(f => patterns.some(p => matchesTouchfilePattern(f, p)));
     (hit ? selected : skipped).push(testName);
   }
 

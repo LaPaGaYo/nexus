@@ -17,6 +17,7 @@ import * as path from 'path';
 import { callJudge, judge } from './helpers/llm-judge';
 import type { JudgeScore } from './helpers/llm-judge';
 import { EvalCollector } from './helpers/eval-store';
+import { readSkill } from './helpers/skill-paths';
 import { selectTests, detectBaseBranch, getChangedFiles, LLM_JUDGE_TOUCHFILES, GLOBAL_TOUCHFILES } from './helpers/touchfiles';
 
 const ROOT = path.resolve(import.meta.dir, '..');
@@ -120,7 +121,7 @@ describeIfSelected('LLM-as-judge quality evals', [
 
   testIfSelected('browse/SKILL.md reference', async () => {
     const t0 = Date.now();
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'SKILL.md'), 'utf-8');
+    const content = readSkill(ROOT, 'browse');
     const start = content.indexOf('## Snapshot Flags');
     const section = content.slice(start);
 
@@ -260,7 +261,7 @@ Scores are 1-5 overall quality.`,
 // --- Part 7: QA skill quality evals (C6) ---
 
 describeIfSelected('QA skill quality evals', ['qa/SKILL.md workflow', 'qa/SKILL.md health rubric', 'qa/SKILL.md anti-refusal'], () => {
-  const qaContent = fs.readFileSync(path.join(ROOT, 'qa', 'SKILL.md'), 'utf-8');
+  const qaContent = readSkill(ROOT, 'qa');
 
   testIfSelected('qa/SKILL.md workflow', async () => {
     const t0 = Date.now();
@@ -405,10 +406,10 @@ Rules:
 describeIfSelected('Cross-skill consistency evals', ['cross-skill greptile consistency'], () => {
   testIfSelected('cross-skill greptile consistency', async () => {
     const t0 = Date.now();
-    const reviewContent = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
-    const shipContent = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
+    const reviewContent = readSkill(ROOT, 'review');
+    const shipContent = readSkill(ROOT, 'ship');
     const triageContent = fs.readFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), 'utf-8');
-    const retroContent = fs.readFileSync(path.join(ROOT, 'retro', 'SKILL.md'), 'utf-8');
+    const retroContent = readSkill(ROOT, 'retro');
 
     const extractGrepLines = (content: string, filename: string) => {
       const lines = content.split('\n')
@@ -783,7 +784,7 @@ describeIfSelected('Voice directive eval', ['voice directive tone'], () => {
   testIfSelected('voice directive tone', async () => {
     const t0 = Date.now();
     // Read a tier 2+ skill to get the full voice directive in context
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8');
+    const content = readSkill(ROOT, 'review');
     const voiceStart = content.indexOf('## Voice');
     if (voiceStart === -1) {
       throw new Error('Voice section not found in review/SKILL.md. Was preamble.ts regenerated?');

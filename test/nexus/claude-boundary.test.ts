@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { readSkill } from '../helpers/skill-paths';
 
 const ROOT = join(import.meta.dir, '..', '..');
 
@@ -24,7 +25,7 @@ describe('nexus claude boundary', () => {
   });
 
   test('generated canonical wrappers do not ship gstack-owned routing contract language', () => {
-    const content = readFileSync(join(ROOT, 'discover', 'SKILL.md'), 'utf8');
+    const content = readSkill(ROOT, 'discover');
 
     expect(content).toContain('Add Nexus invocation guidance to CLAUDE.md');
     expect(content).toContain('## Nexus Skill Routing');

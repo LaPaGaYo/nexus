@@ -10,6 +10,8 @@ export type SkillStructureEntry = {
   movePolicy: 'in_place' | 'planned_move';
 };
 
+export type SkillArtifactFileName = 'SKILL.md' | 'SKILL.md.tmpl';
+
 export const SAFETY_SKILL_NAMES = [
   'careful',
   'freeze',
@@ -133,6 +135,25 @@ export function targetSkillSourcePathForName(name: string): string {
     case 'support':
       return `skills/support/${normalized}/SKILL.md.tmpl`;
   }
+}
+
+function artifactPathFromTemplatePath(templatePath: string, fileName: SkillArtifactFileName): string {
+  return fileName === 'SKILL.md.tmpl' ? templatePath : templatePath.replace(/\.tmpl$/, '');
+}
+
+export function currentSkillArtifactPathForName(name: string, fileName: SkillArtifactFileName): string {
+  return artifactPathFromTemplatePath(currentSkillSourcePathForName(name), fileName);
+}
+
+export function targetSkillArtifactPathForName(name: string, fileName: SkillArtifactFileName): string {
+  return artifactPathFromTemplatePath(targetSkillSourcePathForName(name), fileName);
+}
+
+export function candidateSkillArtifactPathsForName(name: string, fileName: SkillArtifactFileName): string[] {
+  return [
+    targetSkillArtifactPathForName(name, fileName),
+    currentSkillArtifactPathForName(name, fileName),
+  ].filter((candidate, index, candidates) => candidates.indexOf(candidate) === index);
 }
 
 export function describeSkillSourcePath(filePath: string): SkillStructureEntry {

@@ -1,38 +1,27 @@
 import { describe, test, expect } from 'bun:test';
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
+import { discoverGeneratedSkillArtifacts, readSkill, readSkillTemplate } from './helpers/skill-paths';
 
 const ROOT = join(import.meta.dir, '..');
 
 function getAllSkillMds(): Array<{ name: string; content: string }> {
-  const results: Array<{ name: string; content: string }> = [];
-  const rootPath = join(ROOT, 'SKILL.md');
-  if (existsSync(rootPath)) {
-    results.push({ name: 'root', content: readFileSync(rootPath, 'utf-8') });
-  }
-  for (const entry of readdirSync(ROOT, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-    const skillPath = join(ROOT, entry.name, 'SKILL.md');
-    if (existsSync(skillPath)) {
-      results.push({ name: entry.name, content: readFileSync(skillPath, 'utf-8') });
-    }
-  }
-  return results;
+  return discoverGeneratedSkillArtifacts(ROOT).map(({ name, content }) => ({ name, content }));
 }
 
 describe('Audit compliance', () => {
   // Fix 1: W007 — No hardcoded credentials in documentation
   test('skill templates contain no hardcoded credential patterns', () => {
-    const templatePaths = [
-      'SKILL.md.tmpl',
-      'browse/SKILL.md.tmpl',
-      'qa/SKILL.md.tmpl',
-      'qa-only/SKILL.md.tmpl',
-      'setup-browser-cookies/SKILL.md.tmpl',
+    const templateSkills = [
+      'nexus',
+      'browse',
+      'qa',
+      'qa-only',
+      'setup-browser-cookies',
     ];
 
-    for (const templatePath of templatePaths) {
-      const tmpl = readFileSync(join(ROOT, templatePath), 'utf-8');
+    for (const templateSkill of templateSkills) {
+      const tmpl = readSkillTemplate(ROOT, templateSkill);
       expect(tmpl).not.toContain('"password123"');
       expect(tmpl).not.toContain('"test@example.com"');
       expect(tmpl).not.toContain('"test@test.com"');
@@ -84,7 +73,7 @@ describe('Audit compliance', () => {
 
   // Fix 4: W011 — Untrusted content warning in command reference
   test('browse command reference includes untrusted content warning after Navigation', () => {
-    const browseSkill = readFileSync(join(ROOT, 'browse/SKILL.md'), 'utf-8');
+    const browseSkill = readSkill(ROOT, 'browse');
     const navIdx = browseSkill.indexOf('### Navigation');
     const readingIdx = browseSkill.indexOf('### Reading');
     expect(navIdx).toBeGreaterThan(-1);

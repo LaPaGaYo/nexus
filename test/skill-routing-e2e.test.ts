@@ -3,6 +3,7 @@ import { runSkillTest } from './helpers/session-runner';
 import type { SkillTestResult } from './helpers/session-runner';
 import { EvalCollector } from './helpers/eval-store';
 import type { EvalTestEntry } from './helpers/eval-store';
+import { skillArtifactPath } from './helpers/skill-paths';
 import { selectTests, detectBaseBranch, getChangedFiles, E2E_TOUCHFILES, E2E_TIERS, GLOBAL_TOUCHFILES } from './helpers/touchfiles';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
@@ -23,8 +24,8 @@ const runId = new Date().toISOString().replace(/[:.]/g, '').replace('T', '-').sl
 
 describe('upgrade routing surface', () => {
   test('nexus-upgrade is the canonical installed skill and gstack-upgrade is removed', () => {
-    const nexusUpgradePath = path.join(ROOT, 'nexus-upgrade', 'SKILL.md');
-    const gstackUpgradePath = path.join(ROOT, 'gstack-upgrade', 'SKILL.md');
+    const nexusUpgradePath = skillArtifactPath(ROOT, 'nexus-upgrade');
+    const gstackUpgradePath = skillArtifactPath(ROOT, 'gstack-upgrade');
 
     expect(fs.existsSync(nexusUpgradePath)).toBe(true);
     expect(fs.existsSync(gstackUpgradePath)).toBe(false);
