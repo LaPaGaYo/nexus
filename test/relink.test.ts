@@ -40,9 +40,13 @@ function setupMockInstall(skills: string[]): void {
   }
 
   for (const skill of skills) {
-    fs.mkdirSync(path.join(installDir, skill), { recursive: true });
-    fs.writeFileSync(path.join(installDir, skill, 'SKILL.md'), `---\nname: ${skill}\ndescription: test\n---\n# ${skill}`);
+    writeMockSkill(skill);
   }
+}
+
+function writeMockSkill(relDir: string, skillName = path.basename(relDir)): void {
+  fs.mkdirSync(path.join(installDir, relDir), { recursive: true });
+  fs.writeFileSync(path.join(installDir, relDir, 'SKILL.md'), `---\nname: ${skillName}\ndescription: test\n---\n# ${skillName}`);
 }
 
 function readSkillName(skillDir: string): string | null {
@@ -143,6 +147,23 @@ describe('nexus-relink', () => {
     expect(fs.existsSync(path.join(skillsDir, 'nexus-nexus-upgrade'))).toBe(false);
   });
 
+  test('discovers structured source skill directories when relinking', () => {
+    setupMockInstall([]);
+    writeMockSkill('skills/canonical/review', 'review');
+    writeMockSkill('skills/support/simplify', 'simplify');
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+
+    const output = run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
+      NEXUS_INSTALL_DIR: installDir,
+      NEXUS_SKILLS_DIR: skillsDir,
+    });
+
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-review'))).toBe(true);
+    expect(fs.existsSync(path.join(skillsDir, 'nexus-simplify'))).toBe(true);
+    expect(fs.readlinkSync(path.join(skillsDir, 'nexus-review'))).toBe(path.join(installDir, 'skills/canonical/review'));
+    expect(output).toContain('Relinked 2 skills as nexus-*');
+  });
+
   test('nexus-config set skill_prefix triggers relink', () => {
     setupMockInstall(['qa', 'ship']);
     run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`, {
@@ -187,6 +208,20 @@ describe('nexus-patch-names', () => {
     expect(readSkillName(path.join(installDir, 'qa'))).toBe('nexus-qa');
     expect(readSkillName(path.join(installDir, 'ship'))).toBe('nexus-ship');
     expect(readSkillName(path.join(installDir, 'review'))).toBe('nexus-review');
+  });
+
+  test('prefix=true patches structured source skill names', () => {
+    setupMockInstall([]);
+    writeMockSkill('skills/canonical/review', 'review');
+    writeMockSkill('skills/support/simplify', 'simplify');
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix true`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
+      NEXUS_INSTALL_DIR: installDir,
+      NEXUS_SKILLS_DIR: skillsDir,
+    });
+
+    expect(readSkillName(path.join(installDir, 'skills/canonical/review'))).toBe('nexus-review');
+    expect(readSkillName(path.join(installDir, 'skills/support/simplify'))).toBe('nexus-simplify');
   });
 
   test('prefix=false restores flat names', () => {

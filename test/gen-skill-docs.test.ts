@@ -2483,12 +2483,13 @@ describe('setup script validation', () => {
   });
 
   test('link_claude_skill_dirs creates relative symlinks', () => {
-    // Claude links should be relative: ln -snf "nexus/$dir_name"
-    // Uses dir_name (not skill_name) because symlink target must point to the physical directory
+    // Claude links should be relative and preserve nested source paths for future structured dirs.
     const fnStart = setupContent.indexOf('link_claude_skill_dirs()');
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('linked[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
-    expect(fnBody).toContain('ln -snf "nexus/$dir_name"');
+    expect(fnBody).toContain('find_claude_skill_files "$nexus_dir"');
+    expect(fnBody).toContain('rel_dir="${skill_dir#$nexus_dir/}"');
+    expect(fnBody).toContain('ln -snf "nexus/$rel_dir"');
   });
 
   test('setup supports --host auto|claude|codex|kiro', () => {
@@ -2594,8 +2595,9 @@ describe('setup script validation', () => {
     // Should check readlink before removing
     expect(fnBody).toContain('readlink');
     expect(fnBody).toContain('nexus/*');
-    // Should skip already-prefixed dirs
-    expect(fnBody).toContain('nexus-*) continue');
+    expect(fnBody).toContain('find_claude_skill_files "$nexus_dir"');
+    expect(fnBody).toContain('old_name="${skill_name#nexus-}"');
+    expect(fnBody).toContain('is_inherently_prefixed_skill "$skill_name" && continue');
   });
 
   test('flat Claude install quarantines non-symlink canonical command conflicts before linking', () => {
@@ -2778,7 +2780,9 @@ describe('setup script validation', () => {
     const fnEnd = setupContent.indexOf('}', setupContent.indexOf('removed[@]}', fnStart));
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('readlink');
-    expect(fnBody).toContain('nexus-$skill_name');
+    expect(fnBody).toContain('find_claude_skill_files "$nexus_dir"');
+    expect(fnBody).toContain('flat_name="${skill_name#nexus-}"');
+    expect(fnBody).toContain('nexus-$flat_name');
   });
 
   test('reverse cleanup runs before link when prefix is disabled', () => {

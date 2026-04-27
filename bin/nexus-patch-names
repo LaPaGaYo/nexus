@@ -9,11 +9,12 @@ DO_PREFIX="$2"
 case "$DO_PREFIX" in true|1) DO_PREFIX=1 ;; *) DO_PREFIX=0 ;; esac
 
 PATCHED=0
-for skill_dir in "$SKILLS_DIR"/*/; do
-  [ -f "$skill_dir/SKILL.md" ] || continue
+while IFS= read -r skill_file; do
+  skill_dir="$(dirname "$skill_file")"
+  [ "$skill_dir" = "$SKILLS_DIR" ] && continue
   dir_name="$(basename "$skill_dir")"
   [ "$dir_name" = "node_modules" ] && continue
-  cur=$(grep -m1 '^name:' "$skill_dir/SKILL.md" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]' || true)
+  cur=$(grep -m1 '^name:' "$skill_file" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]' || true)
   [ -z "$cur" ] && continue
   [ "$cur" = "nexus" ] && continue
   if [ "$DO_PREFIX" -eq 1 ]; then
@@ -30,9 +31,19 @@ for skill_dir in "$SKILLS_DIR"/*/; do
     esac
   fi
   tmp="$(mktemp "${skill_dir}/SKILL.md.XXXXXX")"
-  sed "1,/^---$/s/^name:[[:space:]]*${cur}/name: ${new}/" "$skill_dir/SKILL.md" > "$tmp" && mv "$tmp" "$skill_dir/SKILL.md"
+  sed "1,/^---$/s/^name:[[:space:]]*${cur}/name: ${new}/" "$skill_file" > "$tmp" && mv "$tmp" "$skill_file"
   PATCHED=$((PATCHED + 1))
-done
+done < <(
+  find "$SKILLS_DIR" \
+    \( -path "$SKILLS_DIR/.git" -o \
+       -path "$SKILLS_DIR/.github" -o \
+       -path "$SKILLS_DIR/.agents" -o \
+       -path "$SKILLS_DIR/.factory" -o \
+       -path "$SKILLS_DIR/node_modules" -o \
+       -path "$SKILLS_DIR/dist" -o \
+       -path "$SKILLS_DIR/upstream" \) -prune -o \
+    -type f -name SKILL.md -print
+)
 if [ "$PATCHED" -gt 0 ]; then
   echo "  patched name: field in $PATCHED skills"
 fi

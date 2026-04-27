@@ -717,43 +717,70 @@ mkdir -p "$NEXUS_STATE_DIR/projects"
 # When SKILL_PREFIX=1, symlinks are prefixed with "nexus-" to make Nexus the
 # visible namespace owner (e.g., nexus-review instead of review).
 # Use --no-prefix to restore the old flat names.
+find_claude_skill_files() {
+  local nexus_dir="$1"
+  find "$nexus_dir" \
+    \( -path "$nexus_dir/.git" -o \
+       -path "$nexus_dir/.github" -o \
+       -path "$nexus_dir/.agents" -o \
+       -path "$nexus_dir/.factory" -o \
+       -path "$nexus_dir/node_modules" -o \
+       -path "$nexus_dir/dist" -o \
+       -path "$nexus_dir/upstream" \) -prune -o \
+    -type f -name SKILL.md -print
+}
+
+skill_name_from_skill_file() {
+  local skill_file="$1"
+  local fallback="$2"
+  local name
+  name=$(grep -m1 '^name:' "$skill_file" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]' || true)
+  [ -n "$name" ] && echo "$name" || echo "$fallback"
+}
+
+is_inherently_prefixed_skill() {
+  case "$1" in
+    nexus-upgrade) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 link_claude_skill_dirs() {
   local nexus_dir="$1"
   local skills_dir="$2"
   local linked=()
-  for skill_dir in "$nexus_dir"/*/; do
-    if [ -f "$skill_dir/SKILL.md" ]; then
-      dir_name="$(basename "$skill_dir")"
-      # Skip node_modules
-      [ "$dir_name" = "node_modules" ] && continue
-      # Use frontmatter name: if present (e.g., run-tests/ with name: test → symlink as "test")
-      skill_name=$(grep -m1 '^name:' "$skill_dir/SKILL.md" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]')
-      [ -z "$skill_name" ] && skill_name="$dir_name"
-      # Apply nexus- prefix unless --no-prefix or already inherently prefixed
-      if [ "$SKILL_PREFIX" -eq 1 ]; then
-        case "$skill_name" in
-          nexus-*) link_name="$skill_name" ;;
-          *)       link_name="nexus-$skill_name" ;;
-        esac
-      else
+  while IFS= read -r skill_file; do
+    skill_dir="$(dirname "$skill_file")"
+    [ "$skill_dir" = "$nexus_dir" ] && continue
+    rel_dir="${skill_dir#$nexus_dir/}"
+    # Use frontmatter name: if present (e.g., run-tests/ with name: test → symlink as "test")
+    skill_name=$(skill_name_from_skill_file "$skill_file" "$(basename "$skill_dir")")
+    # Apply nexus- prefix unless --no-prefix or already inherently prefixed
+    if [ "$SKILL_PREFIX" -eq 1 ]; then
+      case "$skill_name" in
+        nexus-*) link_name="$skill_name" ;;
+        *)       link_name="nexus-$skill_name" ;;
+      esac
+    else
+      if is_inherently_prefixed_skill "$skill_name"; then
         link_name="$skill_name"
-      fi
-      target="$skills_dir/$link_name"
-      # Create or update symlink; skip if a real file/directory exists
-      if [ -L "$target" ] || [ ! -e "$target" ]; then
-        ln -snf "nexus/$dir_name" "$target"
-        linked+=("$link_name")
-      fi
-      if [ "$SKILL_PREFIX" -eq 1 ]; then
-        case "$skill_name" in
-          nexus-*) ;;
-          *)
-            [ -L "$skills_dir/$skill_name" ] && rm -f "$skills_dir/$skill_name"
-            ;;
-        esac
+      else
+        link_name="${skill_name#nexus-}"
       fi
     fi
-  done
+    target="$skills_dir/$link_name"
+    # Create or update symlink; skip if a real file/directory exists
+    if [ -L "$target" ] || [ ! -e "$target" ]; then
+      ln -snf "nexus/$rel_dir" "$target"
+      linked+=("$link_name")
+    fi
+    if [ "$SKILL_PREFIX" -eq 1 ]; then
+      old_name="${skill_name#nexus-}"
+      if ! is_inherently_prefixed_skill "$skill_name"; then
+        [ -L "$skills_dir/$old_name" ] && rm -f "$skills_dir/$old_name"
+      fi
+    fi
+  done < <(find_claude_skill_files "$nexus_dir")
   if [ ${#linked[@]} -gt 0 ]; then
     echo "  linked skills: ${linked[*]}"
   fi
@@ -801,25 +828,24 @@ cleanup_old_claude_symlinks() {
   local nexus_dir="$1"
   local skills_dir="$2"
   local removed=()
-  for skill_dir in "$nexus_dir"/*/; do
-    if [ -f "$skill_dir/SKILL.md" ]; then
-      skill_name="$(basename "$skill_dir")"
-      [ "$skill_name" = "node_modules" ] && continue
-      # Skip already-prefixed dirs (nexus-upgrade) — no old symlink to clean
-      case "$skill_name" in nexus-*) continue ;; esac
-      old_target="$skills_dir/$skill_name"
-      # Only remove if it's a symlink pointing into nexus/
-      if [ -L "$old_target" ]; then
-        link_dest="$(readlink "$old_target" 2>/dev/null || true)"
-        case "$link_dest" in
-          nexus/*|*/nexus/*)
-            rm -f "$old_target"
-            removed+=("$skill_name")
-            ;;
-        esac
-      fi
+  while IFS= read -r skill_file; do
+    skill_dir="$(dirname "$skill_file")"
+    [ "$skill_dir" = "$nexus_dir" ] && continue
+    skill_name=$(skill_name_from_skill_file "$skill_file" "$(basename "$skill_dir")")
+    is_inherently_prefixed_skill "$skill_name" && continue
+    old_name="${skill_name#nexus-}"
+    old_target="$skills_dir/$old_name"
+    # Only remove if it's a symlink pointing into nexus/
+    if [ -L "$old_target" ]; then
+      link_dest="$(readlink "$old_target" 2>/dev/null || true)"
+      case "$link_dest" in
+        nexus/*|*/nexus/*)
+          rm -f "$old_target"
+          removed+=("$old_name")
+          ;;
+      esac
     fi
-  done
+  done < <(find_claude_skill_files "$nexus_dir")
   if [ ${#removed[@]} -gt 0 ]; then
     echo "  cleaned up old symlinks: ${removed[*]}"
   fi
@@ -832,26 +858,23 @@ cleanup_prefixed_claude_symlinks() {
   local nexus_dir="$1"
   local skills_dir="$2"
   local removed=()
-  for skill_dir in "$nexus_dir"/*/; do
-    if [ -f "$skill_dir/SKILL.md" ]; then
-      skill_name="$(basename "$skill_dir")"
-      [ "$skill_name" = "node_modules" ] && continue
-      # Only clean up prefixed symlinks for dirs that AREN'T already prefixed
-      # (e.g., remove nexus-qa but NOT nexus-upgrade which is the real dir name)
-      case "$skill_name" in nexus-*) continue ;; esac
-      for prefixed_target in "$skills_dir/nexus-$skill_name"; do
-        if [ -L "$prefixed_target" ]; then
-          link_dest="$(readlink "$prefixed_target" 2>/dev/null || true)"
-          case "$link_dest" in
-            nexus/*|*/nexus/*)
-              rm -f "$prefixed_target"
-              removed+=("$(basename "$prefixed_target")")
-              ;;
-          esac
-        fi
-      done
+  while IFS= read -r skill_file; do
+    skill_dir="$(dirname "$skill_file")"
+    [ "$skill_dir" = "$nexus_dir" ] && continue
+    skill_name=$(skill_name_from_skill_file "$skill_file" "$(basename "$skill_dir")")
+    is_inherently_prefixed_skill "$skill_name" && continue
+    flat_name="${skill_name#nexus-}"
+    prefixed_target="$skills_dir/nexus-$flat_name"
+    if [ -L "$prefixed_target" ]; then
+      link_dest="$(readlink "$prefixed_target" 2>/dev/null || true)"
+      case "$link_dest" in
+        nexus/*|*/nexus/*)
+          rm -f "$prefixed_target"
+          removed+=("$(basename "$prefixed_target")")
+          ;;
+      esac
     fi
-  done
+  done < <(find_claude_skill_files "$nexus_dir")
   if [ ${#removed[@]} -gt 0 ]; then
     echo "  cleaned up prefixed symlinks: ${removed[*]}"
   fi

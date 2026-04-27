@@ -52,29 +52,59 @@ SKILLS_DIR="${NEXUS_SKILLS_DIR:-$(dirname "$INSTALL_DIR")}"
 
 PREFIX=$("$NEXUS_CONFIG" get skill_prefix 2>/dev/null || echo "false")
 
+find_claude_skill_files() {
+  find "$INSTALL_DIR" \
+    \( -path "$INSTALL_DIR/.git" -o \
+       -path "$INSTALL_DIR/.github" -o \
+       -path "$INSTALL_DIR/.agents" -o \
+       -path "$INSTALL_DIR/.factory" -o \
+       -path "$INSTALL_DIR/node_modules" -o \
+       -path "$INSTALL_DIR/dist" -o \
+       -path "$INSTALL_DIR/upstream" \) -prune -o \
+    -type f -name SKILL.md -print
+}
+
+skill_name_from_file() {
+  local skill_file="$1"
+  local fallback="$2"
+  local name
+  name=$(grep -m1 '^name:' "$skill_file" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]' || true)
+  [ -n "$name" ] && echo "$name" || echo "$fallback"
+}
+
+is_inherently_prefixed_skill() {
+  case "$1" in
+    nexus-upgrade) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 SKILL_COUNT=0
-for skill_dir in "$INSTALL_DIR"/*/; do
-  [ -d "$skill_dir" ] || continue
-  skill=$(basename "$skill_dir")
-  case "$skill" in bin|browse|design|docs|extension|lib|node_modules|scripts|test|.git|.github) continue ;; esac
-  [ -f "$skill_dir/SKILL.md" ] || continue
+while IFS= read -r skill_file; do
+  skill_dir="$(dirname "$skill_file")"
+  [ "$skill_dir" = "$INSTALL_DIR" ] && continue
+  rel_dir="${skill_dir#$INSTALL_DIR/}"
+  skill=$(skill_name_from_file "$skill_file" "$(basename "$skill_dir")")
 
   if [ "$PREFIX" = "true" ]; then
     case "$skill" in
       nexus-*) link_name="$skill" ;;
       *) link_name="nexus-$skill" ;;
     esac
-    ln -sfn "$INSTALL_DIR/$skill" "$SKILLS_DIR/$link_name"
+    ln -sfn "$INSTALL_DIR/$rel_dir" "$SKILLS_DIR/$link_name"
     [ "$link_name" != "$skill" ] && [ -L "$SKILLS_DIR/$skill" ] && rm -f "$SKILLS_DIR/$skill"
   else
-    ln -sfn "$INSTALL_DIR/$skill" "$SKILLS_DIR/$skill"
-    case "$skill" in
-      nexus-*) ;;
-      *) [ -L "$SKILLS_DIR/nexus-$skill" ] && rm -f "$SKILLS_DIR/nexus-$skill" ;;
-    esac
+    if is_inherently_prefixed_skill "$skill"; then
+      link_name="$skill"
+    else
+      link_name="${skill#nexus-}"
+    fi
+    ln -sfn "$INSTALL_DIR/$rel_dir" "$SKILLS_DIR/$link_name"
+    [ "$link_name" != "$skill" ] && [ -L "$SKILLS_DIR/$skill" ] && rm -f "$SKILLS_DIR/$skill"
+    [ -L "$SKILLS_DIR/nexus-$link_name" ] && [ "$link_name" != "nexus-$link_name" ] && rm -f "$SKILLS_DIR/nexus-$link_name"
   fi
   SKILL_COUNT=$((SKILL_COUNT + 1))
-done
+done < <(find_claude_skill_files)
 
 "$INSTALL_DIR/bin/nexus-patch-names" "$INSTALL_DIR" "$PREFIX"
 
