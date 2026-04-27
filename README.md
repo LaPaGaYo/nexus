@@ -57,9 +57,11 @@ Nexus keeps the generated host skills in `.agents/skills/` and
 - safety workflows: future target `skills/safety/<skill>/`
 - compatibility aliases: future target `skills/aliases/<alias>/`
 
-The current release keeps existing root-level source directories in place for
-generator compatibility. `bun run skill:check` reports the taxonomy and planned
-source moves so future migrations can be staged without breaking installs.
+The current release keeps existing root-level source directories in place, but
+the shared discovery and generator path already understand the target
+`skills/<category>/<name>/SKILL.md.tmpl` layout. `bun run skill:check` reports
+the taxonomy and planned source moves so future migrations can be staged without
+breaking installs.
 
 ## How it runs
 

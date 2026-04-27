@@ -2,6 +2,8 @@ import { describe, test, expect } from 'bun:test';
 import { COMMAND_DESCRIPTIONS } from '../browse/src/commands';
 import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
 import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
+import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
+import { discoverTemplates } from '../scripts/discover-skills';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -44,18 +46,19 @@ function extractDescription(content: string): string {
 // Dynamic template discovery — matches the generator's findTemplates() behavior.
 // New skills automatically get test coverage without updating a static list.
 const ALL_SKILLS = (() => {
-  const skills: Array<{ dir: string; name: string }> = [];
-  if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
-    skills.push({ dir: '.', name: 'root nexus' });
-  }
-  for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-    if (fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md.tmpl'))) {
-      skills.push({ dir: entry.name, name: entry.name });
-    }
-  }
-  return skills;
+  return discoverTemplates(ROOT).map(({ tmpl, output }) => {
+    const dir = path.dirname(tmpl);
+    const skillName = skillNameFromSourcePath(tmpl);
+    return {
+      dir: dir === '.' ? '.' : dir,
+      name: skillName === 'nexus' ? 'root nexus' : skillName,
+      skillName,
+      tmpl,
+      output,
+    };
+  });
 })();
+const SKILL_BY_NAME = new Map(ALL_SKILLS.map((skill) => [skill.skillName, skill]));
 
 const NEXUS_CANONICAL_SKILLS = new Set([
   'discover',
@@ -80,12 +83,28 @@ function isNexusWrapperSkill(dir: string): boolean {
   return NEXUS_CANONICAL_SKILLS.has(dir) || NEXUS_ALIAS_SKILLS.has(dir);
 }
 
-function readSkill(dir: string): string {
-  return fs.readFileSync(path.join(ROOT, dir, 'SKILL.md'), 'utf-8');
+function skillPath(nameOrDir: string, fileName: 'SKILL.md' | 'SKILL.md.tmpl'): string {
+  const directPath = nameOrDir === '.'
+    ? path.join(ROOT, fileName)
+    : path.join(ROOT, nameOrDir, fileName);
+  if (fs.existsSync(directPath)) {
+    return directPath;
+  }
+
+  const skill = SKILL_BY_NAME.get(nameOrDir);
+  if (skill) {
+    return path.join(ROOT, fileName === 'SKILL.md' ? skill.output : skill.tmpl);
+  }
+
+  return directPath;
 }
 
-function readTemplate(dir: string): string {
-  return fs.readFileSync(path.join(ROOT, dir, 'SKILL.md.tmpl'), 'utf-8');
+function readSkill(nameOrDir: string): string {
+  return fs.readFileSync(skillPath(nameOrDir, 'SKILL.md'), 'utf-8');
+}
+
+function readTemplate(nameOrDir: string): string {
+  return fs.readFileSync(skillPath(nameOrDir, 'SKILL.md.tmpl'), 'utf-8');
 }
 
 const describeLegacyShip = isNexusWrapperSkill('ship') ? describe.skip : describe;
@@ -98,17 +117,17 @@ const describeLegacyPlanAliases = (
 ) ? describe.skip : describe;
 
 describe('gen-skill-docs', () => {
-  test('creates the new canonical directories', () => {
+  test('discovers the canonical lifecycle templates', () => {
     for (const dir of ['discover', 'frame', 'plan', 'handoff', 'build', 'closeout']) {
-      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(SKILL_BY_NAME.has(dir)).toBe(true);
     }
   });
 
   test('nexus canonical directories stay aligned with the manifest', () => {
     expect(new Set(Object.keys(CANONICAL_MANIFEST))).toEqual(NEXUS_CANONICAL_SKILLS);
     for (const dir of NEXUS_CANONICAL_SKILLS) {
-      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
-      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md'))).toBe(true);
+      expect(fs.existsSync(skillPath(dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(fs.existsSync(skillPath(dir, 'SKILL.md'))).toBe(true);
     }
   });
 
@@ -117,8 +136,8 @@ describe('gen-skill-docs', () => {
       new Set(['office-hours', 'plan-ceo-review', 'plan-eng-review', 'autoplan', 'start-work', 'execute-wave', 'governed-execute', 'verify-close']),
     );
     for (const dir of NEXUS_ALIAS_SKILLS) {
-      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md.tmpl'))).toBe(true);
-      expect(fs.existsSync(path.join(ROOT, dir, 'SKILL.md'))).toBe(true);
+      expect(fs.existsSync(skillPath(dir, 'SKILL.md.tmpl'))).toBe(true);
+      expect(fs.existsSync(skillPath(dir, 'SKILL.md'))).toBe(true);
     }
   });
 
@@ -255,14 +274,14 @@ describe('gen-skill-docs', () => {
 
   test('every skill has a SKILL.md.tmpl template', () => {
     for (const skill of ALL_SKILLS) {
-      const tmplPath = path.join(ROOT, skill.dir, 'SKILL.md.tmpl');
+      const tmplPath = path.join(ROOT, skill.tmpl);
       expect(fs.existsSync(tmplPath)).toBe(true);
     }
   });
 
   test('every skill has a generated SKILL.md with auto-generated header', () => {
     for (const skill of ALL_SKILLS) {
-      const mdPath = path.join(ROOT, skill.dir, 'SKILL.md');
+      const mdPath = path.join(ROOT, skill.output);
       expect(fs.existsSync(mdPath)).toBe(true);
       const content = fs.readFileSync(mdPath, 'utf-8');
       expect(content).toContain('AUTO-GENERATED from SKILL.md.tmpl');
@@ -272,7 +291,7 @@ describe('gen-skill-docs', () => {
 
   test('every generated SKILL.md has valid YAML frontmatter', () => {
     for (const skill of ALL_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = fs.readFileSync(path.join(ROOT, skill.output), 'utf-8');
       expect(content.startsWith('---\n')).toBe(true);
       expect(content).toContain('name:');
       expect(content).toContain('description:');
@@ -281,7 +300,7 @@ describe('gen-skill-docs', () => {
 
   test(`every generated SKILL.md description stays within ${MAX_SKILL_DESCRIPTION_LENGTH} chars`, () => {
     for (const skill of ALL_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = fs.readFileSync(path.join(ROOT, skill.output), 'utf-8');
       const description = extractDescription(content);
       expect(description.length).toBeLessThanOrEqual(MAX_SKILL_DESCRIPTION_LENGTH);
     }
@@ -334,15 +353,14 @@ describe('gen-skill-docs', () => {
     const output = result.stdout.toString();
     // Every skill should be FRESH
     for (const skill of ALL_SKILLS) {
-      const file = skill.dir === '.' ? 'SKILL.md' : `${skill.dir}/SKILL.md`;
-      expect(output).toContain(`FRESH: ${file}`);
+      expect(output).toContain(`FRESH: ${skill.output}`);
     }
     expect(output).not.toContain('STALE');
   });
 
   test('no generated SKILL.md contains unresolved placeholders', () => {
     for (const skill of ALL_SKILLS) {
-      const content = fs.readFileSync(path.join(ROOT, skill.dir, 'SKILL.md'), 'utf-8');
+      const content = fs.readFileSync(path.join(ROOT, skill.output), 'utf-8');
       const unresolved = content.match(/\{\{[A-Z_]+\}\}/g);
       expect(unresolved).toBeNull();
     }
@@ -2794,6 +2812,73 @@ describe('discover-skills hidden directory filtering', () => {
 
       expect(dirs).toContain('visible/SKILL.md.tmpl');
       expect(dirs).not.toContain('.hidden/SKILL.md.tmpl');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('discoverTemplates includes planned structured skill source directories', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-structured-'));
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'SKILL.md.tmpl'), '---\nname: nexus\n---\nroot');
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'canonical', 'review'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'canonical', 'review', 'SKILL.md.tmpl'), '---\nname: review\n---\nreview');
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'support', 'simplify'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'support', 'simplify', 'SKILL.md.tmpl'), '---\nname: simplify\n---\nsimplify');
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'safety', 'guard'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'safety', 'guard', 'SKILL.md.tmpl'), '---\nname: guard\n---\nguard');
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'aliases', 'autoplan'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'aliases', 'autoplan', 'SKILL.md.tmpl'), '---\nname: autoplan\n---\nautoplan');
+
+      const results = discoverTemplates(tmpDir);
+
+      expect(results).toContainEqual({ tmpl: 'SKILL.md.tmpl', output: 'SKILL.md' });
+      expect(results).toContainEqual({
+        tmpl: 'skills/canonical/review/SKILL.md.tmpl',
+        output: 'skills/canonical/review/SKILL.md',
+      });
+      expect(results).toContainEqual({
+        tmpl: 'skills/support/simplify/SKILL.md.tmpl',
+        output: 'skills/support/simplify/SKILL.md',
+      });
+      expect(results).toContainEqual({
+        tmpl: 'skills/safety/guard/SKILL.md.tmpl',
+        output: 'skills/safety/guard/SKILL.md',
+      });
+      expect(results).toContainEqual({
+        tmpl: 'skills/aliases/autoplan/SKILL.md.tmpl',
+        output: 'skills/aliases/autoplan/SKILL.md',
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('discoverTemplates prefers structured templates during same-skill migration overlap', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-overlap-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, 'review'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'review', 'SKILL.md.tmpl'), '---\nname: review\n---\nlegacy');
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'canonical', 'review'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'canonical', 'review', 'SKILL.md.tmpl'), '---\nname: review\n---\nstructured');
+
+      const templates = discoverTemplates(tmpDir).map((entry) => entry.tmpl);
+
+      expect(templates).toContain('skills/canonical/review/SKILL.md.tmpl');
+      expect(templates).not.toContain('review/SKILL.md.tmpl');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('discoverSkillFiles includes planned structured generated skill directories', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-generated-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'support', 'browse'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'support', 'browse', 'SKILL.md'), '---\nname: browse\n---\nbrowse');
+
+      const { discoverSkillFiles } = await import('../scripts/discover-skills');
+      expect(discoverSkillFiles(tmpDir)).toContain('skills/support/browse/SKILL.md');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
