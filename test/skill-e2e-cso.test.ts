@@ -12,6 +12,20 @@ import * as os from 'os';
 
 const evalCollector = createEvalCollector('e2e-cso');
 
+function findSecurityReports(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  const reports: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      reports.push(...findSecurityReports(fullPath));
+    } else if (fullPath.includes(`${path.sep}security-reports${path.sep}`) && fullPath.endsWith('.json')) {
+      reports.push(fullPath);
+    }
+  }
+  return reports;
+}
+
 afterAll(() => {
   finalizeEvalCollector(evalCollector);
 });
@@ -71,7 +85,7 @@ IMPORTANT:
 - Do NOT use AskUserQuestion — skip any interactive prompts.
 - Focus on finding the planted vulnerabilities in this small repo.
 - Produce the SECURITY FINDINGS table.
-- Save the report to .nexus/security-reports/.`,
+- Save the report to the user-local Nexus security report directory, not project .nexus/.`,
       workingDirectory: csoDir,
       maxTurns: 30,
       allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob', 'Agent'],
@@ -98,10 +112,9 @@ IMPORTANT:
     ).toBe(true);
 
     // Should save a report
-    const reportDir = path.join(csoDir, '.gstack', 'security-reports');
-    const reportExists = fs.existsSync(reportDir);
-    if (reportExists) {
-      const reports = fs.readdirSync(reportDir).filter(f => f.endsWith('.json'));
+    const reportDir = path.join(os.homedir(), '.nexus', 'projects');
+    if (fs.existsSync(reportDir)) {
+      const reports = findSecurityReports(reportDir);
       expect(reports.length).toBeGreaterThanOrEqual(1);
     }
 

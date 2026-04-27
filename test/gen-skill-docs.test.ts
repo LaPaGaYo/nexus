@@ -384,6 +384,20 @@ describe('gen-skill-docs', () => {
     expect(content).toContain('plain English');
   });
 
+  test('/cso stores full security reports outside the project worktree by default', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'cso', 'SKILL.md'), 'utf-8');
+    const localState = content.indexOf('REPORT_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}/projects/${SLUG:-unknown}/security-reports"');
+    const repoLocalException = content.indexOf('Repo-local exception: only write full reports to project-local');
+    const preflight = content.indexOf("grep -Eq '(^|/)\\.nexus(/|$)' .gitignore");
+
+    expect(localState).toBeGreaterThan(0);
+    expect(repoLocalException).toBeGreaterThan(localState);
+    expect(preflight).toBeGreaterThan(repoLocalException);
+    expect(content).toContain('pause and ask to add `.nexus/` before writing');
+    expect(content).toContain('Security reports are diagnostic artifacts');
+    expect(content).not.toContain('mkdir -p .nexus/security-reports');
+  });
+
   test('tier 1 skills do NOT contain AskUserQuestion format', () => {
     // Use benchmark (tier 1) instead of root — root SKILL.md gets overwritten by Codex test setup
     const content = fs.readFileSync(path.join(ROOT, 'benchmark', 'SKILL.md'), 'utf-8');
