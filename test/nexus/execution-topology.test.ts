@@ -127,6 +127,29 @@ describe('execution topology selection', () => {
     );
   });
 
+  test('accepts claude local agent_team topology from config', () => {
+    withExecutionState(
+      [
+        'execution_mode: local_provider',
+        'primary_provider: claude',
+        'provider_topology: agent_team',
+      ].join('\n'),
+      {
+        NEXUS_EXECUTION_MODE: undefined,
+        NEXUS_PRIMARY_PROVIDER: undefined,
+        NEXUS_PROVIDER_TOPOLOGY: undefined,
+      },
+      () => {
+        expect(defaultExecutionSelection()).toEqual({
+          mode: 'local_provider',
+          primary_provider: 'claude',
+          provider_topology: 'agent_team',
+          requested_execution_path: 'claude-local-agent_team',
+        });
+      },
+    );
+  });
+
   test('uses governed_ccb as the machine default only when required providers are mounted', () => {
     const selection = runSelectionWithPath((binDir) => {
       writeFileSync(join(binDir, 'ask'), '#!/usr/bin/env bash\nexit 0\n');

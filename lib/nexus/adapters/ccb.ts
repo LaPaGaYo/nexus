@@ -636,40 +636,7 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
     throw new Error('Malformed QA response: advisories must be an array when present');
   }
 
-  let learningCandidates: LearningCandidate[] | undefined;
-  if (typeof parsed.learning_candidates !== 'undefined') {
-    if (!Array.isArray(parsed.learning_candidates)) {
-      throw new Error('Malformed QA response: learning_candidates must be an array when present');
-    }
-
-    learningCandidates = parsed.learning_candidates.map((candidate, index) => {
-      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-        throw new Error(`Malformed QA response: learning_candidates[${index}] must be an object`);
-      }
-
-      const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
-      if (
-        typeof rawCandidate.type !== 'string'
-        || typeof rawCandidate.key !== 'string'
-        || typeof rawCandidate.insight !== 'string'
-        || typeof rawCandidate.confidence !== 'number'
-        || typeof rawCandidate.source !== 'string'
-        || !Array.isArray(rawCandidate.files)
-        || rawCandidate.files.some((file) => typeof file !== 'string')
-      ) {
-        throw new Error(`Malformed QA response: learning_candidates[${index}] must match the LearningCandidate shape`);
-      }
-
-      return {
-        type: rawCandidate.type,
-        key: rawCandidate.key,
-        insight: rawCandidate.insight,
-        confidence: rawCandidate.confidence,
-        source: rawCandidate.source,
-        files: rawCandidate.files,
-      };
-    });
-  }
+  const learningCandidates = normalizeOptionalQaLearningCandidates(parsed.learning_candidates);
 
   return {
     ready: parsed.ready,
@@ -680,6 +647,55 @@ function parseQaPayload(stdout: string): Omit<CcbExecuteQaRaw, 'receipt' | 'disp
       ? { learning_candidates: learningCandidates }
       : {}),
   };
+}
+
+function normalizeOptionalQaLearningCandidates(rawCandidates: unknown): LearningCandidate[] | undefined {
+  if (typeof rawCandidates === 'undefined') {
+    return undefined;
+  }
+
+  if (!Array.isArray(rawCandidates)) {
+    return undefined;
+  }
+
+  const candidates: LearningCandidate[] = [];
+  for (const candidate of rawCandidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      continue;
+    }
+
+    const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+    if (
+      typeof rawCandidate.type !== 'string'
+      || typeof rawCandidate.key !== 'string'
+      || typeof rawCandidate.insight !== 'string'
+      || typeof rawCandidate.confidence !== 'number'
+      || typeof rawCandidate.source !== 'string'
+      || !Array.isArray(rawCandidate.files)
+    ) {
+      continue;
+    }
+
+    const files = rawCandidate.files
+      .filter((file): file is string => typeof file === 'string')
+      .map((file) => file.trim())
+      .filter(Boolean);
+
+    if (!rawCandidate.key.trim() || !rawCandidate.insight.trim()) {
+      continue;
+    }
+
+    candidates.push({
+      type: rawCandidate.type,
+      key: rawCandidate.key.trim(),
+      insight: rawCandidate.insight.trim(),
+      confidence: rawCandidate.confidence,
+      source: rawCandidate.source,
+      files,
+    });
+  }
+
+  return candidates;
 }
 
 function summarizeCommandOutput(stdout: string, stderr: string): string {

@@ -11,6 +11,7 @@ import {
   allocateFreshRunWorkspace,
   resolveExecutionWorkspace,
   resolveSessionRootRecord,
+  syncRunWorkspaceArtifacts,
 } from '../../lib/nexus/workspace-substrate';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 
@@ -423,6 +424,22 @@ describe('nexus workspace substrate', () => {
       expect(seen).toEqual([
         { stage: 'handoff', cwd: expectedCwd, workspace: expectedWorkspace },
       ]);
+    });
+  });
+
+  test('mirrors current audit artifacts into the run-owned worktree', async () => {
+    await runInTempGitRepo(async ({ cwd }) => {
+      const workspace = allocateFreshRunWorkspace(cwd, 'run-2026-04-27T00-00-00-000Z');
+      mkdirSync(join(cwd, '.planning/audits/current'), { recursive: true });
+      writeFileSync(join(cwd, '.planning/audits/current/codex.md'), '# Codex Audit\n\nResult: pass\n');
+      writeFileSync(join(cwd, '.planning/audits/current/gemini.md'), '# Gemini Audit\n\nResult: pass\n');
+      writeFileSync(join(cwd, '.planning/audits/current/gate-decision.md'), 'Gate: pass\n');
+
+      syncRunWorkspaceArtifacts(cwd, workspace);
+
+      expect(readFileSync(join(workspace.path, '.planning/audits/current/codex.md'), 'utf8')).toContain('Codex Audit');
+      expect(readFileSync(join(workspace.path, '.planning/audits/current/gemini.md'), 'utf8')).toContain('Gemini Audit');
+      expect(readFileSync(join(workspace.path, '.planning/audits/current/gate-decision.md'), 'utf8')).toContain('Gate: pass');
     });
   });
 });

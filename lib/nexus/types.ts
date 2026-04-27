@@ -53,7 +53,7 @@ export type ExecutionMode = (typeof EXECUTION_MODES)[number];
 export const PRIMARY_PROVIDERS = ['claude', 'codex', 'gemini'] as const;
 export type PrimaryProvider = (typeof PRIMARY_PROVIDERS)[number];
 
-export const PROVIDER_TOPOLOGIES = ['single_agent', 'subagents', 'multi_session'] as const;
+export const PROVIDER_TOPOLOGIES = ['single_agent', 'subagents', 'agent_team', 'multi_session'] as const;
 export type ProviderTopology = (typeof PROVIDER_TOPOLOGIES)[number];
 
 export const WORKSPACE_KINDS = ['root', 'worktree'] as const;

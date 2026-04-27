@@ -2682,6 +2682,29 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('Codex does not use a Nexus-managed global instruction file equivalent to ~/.claude/CLAUDE.md');
   });
 
+  test('setup exposes Claude local agent team topology when available', () => {
+    expect(setupContent).toContain('supports_local_claude_agent_team');
+    expect(setupContent).toContain('agent_team');
+    expect(setupContent).toContain('selected local_provider (claude, agent_team)');
+    expect(setupContent).toContain('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS');
+  });
+
+  test('stage skills include a Claude local topology chooser for high-leverage stages', () => {
+    for (const skill of ['frame', 'plan', 'build', 'review', 'investigate', 'ship']) {
+      const content = fs.readFileSync(path.join(ROOT, skill, 'SKILL.md'), 'utf-8');
+      expect(content).toContain('## Stage-Aware Local Topology Chooser');
+      expect(content).toContain('single_agent');
+      expect(content).toContain('subagents');
+      expect(content).toContain('agent_team');
+      expect(content).toContain('nexus-config set provider_topology');
+    }
+
+    expect(fs.readFileSync(path.join(ROOT, 'review', 'SKILL.md'), 'utf-8')).toContain('code / security / test / performance / design');
+    expect(fs.readFileSync(path.join(ROOT, 'investigate', 'SKILL.md'), 'utf-8')).toContain('competing root-cause hypotheses');
+    expect(fs.readFileSync(path.join(ROOT, 'build', 'SKILL.md'), 'utf-8')).toContain('same-file edits or tightly coupled implementation');
+    expect(fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8')).toContain('release / QA / security / docs-deploy');
+  });
+
   test('setup offers to update ~/.claude/CLAUDE.md during interactive Claude installs', () => {
     expect(setupContent).toContain('~/.claude/CLAUDE.md');
     expect(setupContent).toContain('nexus-global-claude');

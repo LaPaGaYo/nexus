@@ -103,6 +103,10 @@ if [ -n "$_EFFECTIVE_EXECUTION" ]; then
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_requested_execution_path:/{print $2; exit}')
   _LOCAL_PROVIDER_READY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_ready:/{print $2; exit}')
+  _LOCAL_CLAUDE_AGENT_TEAM_READY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_claude_agent_team_ready:/{print $2; exit}')
+  _LOCAL_CLAUDE_AGENT_TEAM_REASON=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_claude_agent_team_readiness_reason:/{print $2; exit}')
 else
   _EXECUTION_MODE_SOURCE=""
   _EXECUTION_PATH=""
@@ -115,6 +119,8 @@ else
   _LOCAL_PROVIDER_TOPOLOGY=""
   _LOCAL_PROVIDER_EXECUTION_PATH=""
   _LOCAL_PROVIDER_READY=""
+  _LOCAL_CLAUDE_AGENT_TEAM_READY=""
+  _LOCAL_CLAUDE_AGENT_TEAM_REASON=""
 fi
 echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
 echo "EXECUTION_MODE: $_EXECUTION_MODE"
@@ -132,6 +138,8 @@ echo "LOCAL_PROVIDER_CANDIDATE: $_LOCAL_PROVIDER_CANDIDATE"
 echo "LOCAL_PROVIDER_TOPOLOGY: $_LOCAL_PROVIDER_TOPOLOGY"
 echo "LOCAL_PROVIDER_EXECUTION_PATH: $_LOCAL_PROVIDER_EXECUTION_PATH"
 echo "LOCAL_PROVIDER_READY: $_LOCAL_PROVIDER_READY"
+echo "LOCAL_CLAUDE_AGENT_TEAM_READY: $_LOCAL_CLAUDE_AGENT_TEAM_READY"
+echo "LOCAL_CLAUDE_AGENT_TEAM_REASON: $_LOCAL_CLAUDE_AGENT_TEAM_REASON"
 source <(~/.claude/skills/nexus/bin/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -342,6 +350,43 @@ This only happens once per project. If `HAS_ROUTING` is `yes` or `ROUTING_DECLIN
 **Writing rules:** No em dashes (use commas, periods, "..."). No AI vocabulary (delve, crucial, robust, comprehensive, nuanced, etc.). Short paragraphs. End with what to do.
 
 The user always has context you don't. Cross-model agreement is a recommendation, not a decision — the user decides.
+
+## Stage-Aware Local Topology Chooser
+
+If `EXECUTION_MODE=local_provider` and `PRIMARY_PROVIDER=claude`, ask the user which local execution topology to use before starting `/review`.
+
+RECOMMENDATION: Choose C when available because review benefits from independent code / security / test / performance / design perspectives challenging each other. Completeness: 10/10.
+
+Use AskUserQuestion with these options:
+- A) `single_agent` — One Claude session. Lowest coordination overhead and safest for sequential work.
+- B) `subagents` — Focused local Claude subagents. Good for quick parallel checks whose results return to the lead.
+- C) `agent_team` — Claude Code Agent Teams. Best when teammates should coordinate, challenge each other, or work from independent perspectives.
+
+If `LOCAL_CLAUDE_AGENT_TEAM_READY` is not `yes`, still show option C but mark it unavailable and include `LOCAL_CLAUDE_AGENT_TEAM_REASON`. Do not set `agent_team` unless the user explicitly chooses to configure Claude Code first.
+
+Stage-specific guidance:
+- `/review`: `agent_team` maps naturally to code / security / test / performance / design reviewers.
+- `/investigate`: `agent_team` maps naturally to competing root-cause hypotheses.
+- `/frame` and `/plan`: `agent_team` maps naturally to CEO / engineering / design / risk perspectives.
+- `/build`: prefer `single_agent` for same-file edits or tightly coupled implementation; only choose team modes when file ownership can be split.
+- `/ship`: `subagents` or `agent_team` can cover release / QA / security / docs-deploy gates.
+
+If the user chooses A:
+```bash
+~/.claude/skills/nexus/bin/nexus-config set provider_topology single_agent
+```
+
+If the user chooses B:
+```bash
+~/.claude/skills/nexus/bin/nexus-config set provider_topology subagents
+```
+
+If the user chooses C and `LOCAL_CLAUDE_AGENT_TEAM_READY=yes`:
+```bash
+~/.claude/skills/nexus/bin/nexus-config set provider_topology agent_team
+```
+
+After setting the topology, continue with the canonical Nexus command.
 
 ## Contributor Mode
 

@@ -95,6 +95,8 @@ if [ -n "$_EFFECTIVE_EXECUTION" ]; then
   _LOCAL_PROVIDER_TOPOLOGY=$(printf '%s\n' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_topology:/{print $2; exit}')
   _LOCAL_PROVIDER_EXECUTION_PATH=$(printf '%s\n' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_requested_execution_path:/{print $2; exit}')
   _LOCAL_PROVIDER_READY=$(printf '%s\n' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_ready:/{print $2; exit}')
+  _LOCAL_CLAUDE_AGENT_TEAM_READY=$(printf '%s\n' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_claude_agent_team_ready:/{print $2; exit}')
+  _LOCAL_CLAUDE_AGENT_TEAM_REASON=$(printf '%s\n' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_claude_agent_team_readiness_reason:/{print $2; exit}')
 else
   _EXECUTION_MODE_SOURCE=""
   _EXECUTION_PATH=""
@@ -107,6 +109,8 @@ else
   _LOCAL_PROVIDER_TOPOLOGY=""
   _LOCAL_PROVIDER_EXECUTION_PATH=""
   _LOCAL_PROVIDER_READY=""
+  _LOCAL_CLAUDE_AGENT_TEAM_READY=""
+  _LOCAL_CLAUDE_AGENT_TEAM_REASON=""
 fi
 echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
 echo "EXECUTION_MODE: $_EXECUTION_MODE"
@@ -124,6 +128,8 @@ echo "LOCAL_PROVIDER_CANDIDATE: $_LOCAL_PROVIDER_CANDIDATE"
 echo "LOCAL_PROVIDER_TOPOLOGY: $_LOCAL_PROVIDER_TOPOLOGY"
 echo "LOCAL_PROVIDER_EXECUTION_PATH: $_LOCAL_PROVIDER_EXECUTION_PATH"
 echo "LOCAL_PROVIDER_READY: $_LOCAL_PROVIDER_READY"
+echo "LOCAL_CLAUDE_AGENT_TEAM_READY: $_LOCAL_CLAUDE_AGENT_TEAM_READY"
+echo "LOCAL_CLAUDE_AGENT_TEAM_REASON: $_LOCAL_CLAUDE_AGENT_TEAM_REASON"
 source <(${ctx.paths.binDir}/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=\${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -304,6 +310,72 @@ Whenever you summarize the current state, show both:
 - If local because governed is not session-ready: mounted providers, missing providers, and the local fallback route
 
 If \`EXECUTION_MODE_CONFIGURED\` is \`no\`, explicitly say the execution mode is a default derived from machine state, not a persisted preference.`;
+}
+
+function stageTopologyRecommendation(skillName: string): string {
+  switch (skillName) {
+    case 'review':
+      return 'RECOMMENDATION: Choose C when available because review benefits from independent code / security / test / performance / design perspectives challenging each other. Completeness: 10/10.';
+    case 'investigate':
+      return 'RECOMMENDATION: Choose C when available because investigation benefits from competing root-cause hypotheses and adversarial falsification. Completeness: 10/10.';
+    case 'frame':
+    case 'plan':
+      return 'RECOMMENDATION: Choose C when available for broad product/engineering/design tradeoff exploration; choose B for a faster structured second pass. Completeness: 9/10.';
+    case 'build':
+      return 'RECOMMENDATION: Choose A for same-file edits or tightly coupled implementation; choose B or C only when the work can be split cleanly by file or domain. Completeness: 9/10.';
+    case 'ship':
+      return 'RECOMMENDATION: Choose B by default for release / QA / security / docs-deploy gates; choose C when you want the reviewers to coordinate directly before the ship decision. Completeness: 9/10.';
+    default:
+      return 'RECOMMENDATION: Choose A for simple sequential work, B for focused parallel passes, or C when teammate coordination materially improves the result.';
+  }
+}
+
+function generateStageAwareLocalTopologyChooser(ctx: TemplateContext): string {
+  if (ctx.host !== 'claude') {
+    return '';
+  }
+
+  const enabledStages = new Set(['frame', 'plan', 'build', 'review', 'investigate', 'ship']);
+  if (!enabledStages.has(ctx.skillName)) {
+    return '';
+  }
+
+  return `## Stage-Aware Local Topology Chooser
+
+If \`EXECUTION_MODE=local_provider\` and \`PRIMARY_PROVIDER=claude\`, ask the user which local execution topology to use before starting \`/${ctx.skillName}\`.
+
+${stageTopologyRecommendation(ctx.skillName)}
+
+Use AskUserQuestion with these options:
+- A) \`single_agent\` — One Claude session. Lowest coordination overhead and safest for sequential work.
+- B) \`subagents\` — Focused local Claude subagents. Good for quick parallel checks whose results return to the lead.
+- C) \`agent_team\` — Claude Code Agent Teams. Best when teammates should coordinate, challenge each other, or work from independent perspectives.
+
+If \`LOCAL_CLAUDE_AGENT_TEAM_READY\` is not \`yes\`, still show option C but mark it unavailable and include \`LOCAL_CLAUDE_AGENT_TEAM_REASON\`. Do not set \`agent_team\` unless the user explicitly chooses to configure Claude Code first.
+
+Stage-specific guidance:
+- \`/review\`: \`agent_team\` maps naturally to code / security / test / performance / design reviewers.
+- \`/investigate\`: \`agent_team\` maps naturally to competing root-cause hypotheses.
+- \`/frame\` and \`/plan\`: \`agent_team\` maps naturally to CEO / engineering / design / risk perspectives.
+- \`/build\`: prefer \`single_agent\` for same-file edits or tightly coupled implementation; only choose team modes when file ownership can be split.
+- \`/ship\`: \`subagents\` or \`agent_team\` can cover release / QA / security / docs-deploy gates.
+
+If the user chooses A:
+\`\`\`bash
+${ctx.paths.binDir}/nexus-config set provider_topology single_agent
+\`\`\`
+
+If the user chooses B:
+\`\`\`bash
+${ctx.paths.binDir}/nexus-config set provider_topology subagents
+\`\`\`
+
+If the user chooses C and \`LOCAL_CLAUDE_AGENT_TEAM_READY=yes\`:
+\`\`\`bash
+${ctx.paths.binDir}/nexus-config set provider_topology agent_team
+\`\`\`
+
+After setting the topology, continue with the canonical Nexus command.`;
 }
 
 function generateLakeIntro(): string {
@@ -736,6 +808,7 @@ export function generatePreamble(ctx: TemplateContext): string {
     generateRoutingInjection(ctx),
     generateVoiceDirective(tier),
     ...(tier >= 2 ? [generateAskUserFormat(ctx), generateCompletenessSection(), generateExecutionModeSection(ctx)] : []),
+    generateStageAwareLocalTopologyChooser(ctx),
     ...(tier >= 3 ? [generateRepoModeSection(), generateSearchBeforeBuildingSection(ctx)] : []),
     generateContributorMode(),
     generateCompletionStatus(ctx),

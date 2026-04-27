@@ -7,6 +7,7 @@ import type { SessionRootRecord, WorkspaceRecord } from './types';
 const LEGACY_WORKTREE_ROOT = '.worktrees';
 const RUN_WORKSPACE_SYNC_PATHS = [
   '.planning/current',
+  '.planning/audits/current',
   '.planning/nexus/current-run.json',
   'docs/product',
 ] as const;

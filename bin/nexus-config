@@ -45,6 +45,7 @@ CONFIG_HEADER='# Nexus configuration (stored in the active Nexus host state root
 #                           # local_provider only, ignored by governed_ccb
 #                           # active local topologies:
 #                           # subagents = claude, codex, or gemini
+#                           # agent_team = claude only, requires Claude Code Agent Teams
 #                           # multi_session = codex only
 #
 # ─── Skill naming ────────────────────────────────────────────────────
@@ -118,6 +119,57 @@ help_has_command() {
   printf '%s\n' "$output" | grep -Eq "(^|[[:space:]])${command_name}([[:space:],]|$)"
 }
 
+version_at_least() {
+  local current="$1"
+  local required="$2"
+  awk -v current="$current" -v required="$required" '
+    function split_version(value, parts) {
+      split(value, parts, ".")
+      for (i = 1; i <= 3; i++) {
+        parts[i] = parts[i] == "" ? 0 : parts[i] + 0
+      }
+    }
+    BEGIN {
+      split_version(current, c)
+      split_version(required, r)
+      for (i = 1; i <= 3; i++) {
+        if (c[i] > r[i]) exit 0
+        if (c[i] < r[i]) exit 1
+      }
+      exit 0
+    }
+  '
+}
+
+claude_agent_teams_enabled() {
+  [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" = "1" ] && return 0
+  [ -f "$HOME/.claude/settings.json" ] || return 1
+  grep -Eq '"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"[[:space:]]*:[[:space:]]*"1"' "$HOME/.claude/settings.json" 2>/dev/null
+}
+
+resolve_claude_agent_team_readiness() {
+  local version_output version
+
+  if ! command_exists claude; then
+    printf 'no|claude CLI is not available'
+    return 0
+  fi
+
+  version_output="$(claude --version 2>/dev/null || true)"
+  version="$(printf '%s\n' "$version_output" | sed -E 's/^([0-9]+[.][0-9]+[.][0-9]+).*/\1/' | head -1)"
+  if [ -z "$version" ] || ! version_at_least "$version" "2.1.32"; then
+    printf 'no|Claude Code agent teams require claude >= 2.1.32'
+    return 0
+  fi
+
+  if ! claude_agent_teams_enabled; then
+    printf 'no|Claude Code agent teams require CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1'
+    return 0
+  fi
+
+  printf 'yes|claude agent teams are enabled'
+}
+
 resolve_local_provider_readiness() {
   local provider="$1"
   local topology="$2"
@@ -153,6 +205,13 @@ resolve_local_provider_readiness() {
           ;;
       esac
       ;;
+    agent_team)
+      if [ "$provider" != "claude" ]; then
+        printf 'no|local_provider topology agent_team is only active for claude'
+        return 0
+      fi
+      resolve_claude_agent_team_readiness
+      ;;
     multi_session)
       if [ "$provider" != "codex" ]; then
         printf 'no|local_provider topology multi_session is only active for codex'
@@ -181,6 +240,7 @@ print_effective_execution() {
   local provider_cli_available current_session_ready execution_mode_source
   local local_provider local_provider_topology local_provider_requested_execution_path local_provider_ready
   local local_provider_readiness local_provider_readiness_reason
+  local local_claude_agent_team_readiness local_claude_agent_team_ready local_claude_agent_team_readiness_reason
 
   configured_mode="$(get_value execution_mode)"
   configured_provider="$(get_value primary_provider)"
@@ -228,6 +288,9 @@ print_effective_execution() {
   local_provider_readiness="$(resolve_local_provider_readiness "$local_provider" "$local_provider_topology")"
   local_provider_ready="${local_provider_readiness%%|*}"
   local_provider_readiness_reason="${local_provider_readiness#*|}"
+  local_claude_agent_team_readiness="$(resolve_claude_agent_team_readiness)"
+  local_claude_agent_team_ready="${local_claude_agent_team_readiness%%|*}"
+  local_claude_agent_team_readiness_reason="${local_claude_agent_team_readiness#*|}"
   if command_exists "$local_provider"; then
     provider_cli_available="yes"
   else
@@ -276,6 +339,8 @@ local_provider_topology: $local_provider_topology
 local_provider_requested_execution_path: $local_provider_requested_execution_path
 local_provider_ready: $local_provider_ready
 local_provider_readiness_reason: $local_provider_readiness_reason
+local_claude_agent_team_ready: $local_claude_agent_team_ready
+local_claude_agent_team_readiness_reason: $local_claude_agent_team_readiness_reason
 provider_cli_available: $provider_cli_available
 note: primary_provider and provider_topology are local_provider-only config keys and may be unset when execution_mode=governed_ccb
 EOF
@@ -306,6 +371,8 @@ local_provider_topology: $local_provider_topology
 local_provider_requested_execution_path: $local_provider_requested_execution_path
 local_provider_ready: $local_provider_ready
 local_provider_readiness_reason: $local_provider_readiness_reason
+local_claude_agent_team_ready: $local_claude_agent_team_ready
+local_claude_agent_team_readiness_reason: $local_claude_agent_team_readiness_reason
 EOF
 }
 

@@ -713,6 +713,92 @@ describe('nexus review', () => {
     });
   });
 
+  test('counts inline ADVISORY finding bullets as review advisories', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+
+      const adapters = makeFakeAdapters({
+        superpowers: {
+          review_discipline: async () => ({
+            adapter_id: 'superpowers',
+            outcome: 'success',
+            raw_output: {
+              discipline_summary: 'Verification-before-completion passed',
+            },
+            requested_route: null,
+            actual_route: null,
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+        ccb: {
+          execute_audit_a: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: '# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n',
+              receipt: 'codex-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'codex',
+              route: ctx.requested_route?.evaluator_a ?? 'codex-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+          execute_audit_b: async (ctx) => ({
+            adapter_id: 'ccb',
+            outcome: 'success',
+            raw_output: {
+              markdown: [
+                '# Gemini Audit',
+                '',
+                'Result: pass',
+                '',
+                'Findings:',
+                '- ADVISORY (medium): project-open status refresh should be scheduled for Sprint 2.',
+                '- ADVISORY (low): build-request design_impact should be reconciled with DESIGN.md.',
+                '- INFO: all blocking gates pass.',
+              ].join('\n'),
+              receipt: 'gemini-review-receipt',
+            },
+            requested_route: ctx.requested_route,
+            actual_route: {
+              provider: 'gemini',
+              route: ctx.requested_route?.evaluator_b ?? 'gemini-via-ccb',
+              substrate: ctx.requested_route?.substrate ?? 'superpowers-core',
+              transport: 'ccb',
+              receipt_path: '.planning/current/review/adapter-output.json',
+            },
+            notices: [],
+            conflict_candidates: [],
+          }),
+        },
+      });
+
+      await run('review', adapters);
+
+      expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+        gate_decision: 'pass',
+        ready: true,
+        advisory_count: 2,
+        advisories_path: reviewAdvisoriesPath(),
+      });
+      expect(await run.readJson(reviewAdvisoriesPath())).toMatchObject({
+        advisories: [
+          'project-open status refresh should be scheduled for Sprint 2.',
+          'build-request design_impact should be reconciled with DESIGN.md.',
+        ],
+      });
+    });
+  });
+
   test('default review discipline summary carries Nexus-owned absorbed review guidance', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan');

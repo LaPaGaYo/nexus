@@ -115,6 +115,10 @@ if [ -n "$_EFFECTIVE_EXECUTION" ]; then
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_requested_execution_path:/{print $2; exit}')
   _LOCAL_PROVIDER_READY=$(printf '%s
 ' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_provider_ready:/{print $2; exit}')
+  _LOCAL_CLAUDE_AGENT_TEAM_READY=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_claude_agent_team_ready:/{print $2; exit}')
+  _LOCAL_CLAUDE_AGENT_TEAM_REASON=$(printf '%s
+' "$_EFFECTIVE_EXECUTION" | awk -F': ' '/^local_claude_agent_team_readiness_reason:/{print $2; exit}')
 else
   _EXECUTION_MODE_SOURCE=""
   _EXECUTION_PATH=""
@@ -127,6 +131,8 @@ else
   _LOCAL_PROVIDER_TOPOLOGY=""
   _LOCAL_PROVIDER_EXECUTION_PATH=""
   _LOCAL_PROVIDER_READY=""
+  _LOCAL_CLAUDE_AGENT_TEAM_READY=""
+  _LOCAL_CLAUDE_AGENT_TEAM_REASON=""
 fi
 echo "CCB_AVAILABLE: $_CCB_AVAILABLE"
 echo "EXECUTION_MODE: $_EXECUTION_MODE"
@@ -144,6 +150,8 @@ echo "LOCAL_PROVIDER_CANDIDATE: $_LOCAL_PROVIDER_CANDIDATE"
 echo "LOCAL_PROVIDER_TOPOLOGY: $_LOCAL_PROVIDER_TOPOLOGY"
 echo "LOCAL_PROVIDER_EXECUTION_PATH: $_LOCAL_PROVIDER_EXECUTION_PATH"
 echo "LOCAL_PROVIDER_READY: $_LOCAL_PROVIDER_READY"
+echo "LOCAL_CLAUDE_AGENT_TEAM_READY: $_LOCAL_CLAUDE_AGENT_TEAM_READY"
+echo "LOCAL_CLAUDE_AGENT_TEAM_REASON: $_LOCAL_CLAUDE_AGENT_TEAM_REASON"
 source <(~/.claude/skills/nexus/bin/nexus-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -453,6 +461,8 @@ Whenever you summarize the current state, show both:
 - If local because governed is not session-ready: mounted providers, missing providers, and the local fallback route
 
 If `EXECUTION_MODE_CONFIGURED` is `no`, explicitly say the execution mode is a default derived from machine state, not a persisted preference.
+
+
 
 ## Repo Ownership — See Something, Say Something
 

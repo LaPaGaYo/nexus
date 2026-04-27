@@ -108,17 +108,31 @@ function extractFindingsSection(markdown: string): string[] {
 
 export function extractAdvisoriesSection(markdown: string): string[] {
   const normalized = markdown.replace(/\r\n/g, '\n');
-  const sectionMatch = normalized.match(/(?:^|\n)Advisories:\s*\n([\s\S]*?)(?:\n[A-Z][A-Za-z ]+:\s*\n|$)/);
-  if (!sectionMatch) {
-    return [];
+  const sectionMatch = normalized.match(/(?:^|\n)Advisories:\s*\n([\s\S]*?)(?:\n[A-Z][A-Za-z ]+:\s*\n|$)/i);
+  const advisories: string[] = [];
+
+  if (sectionMatch) {
+    advisories.push(...sectionMatch[1]
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('- '))
+      .map((line) => normalizeLine(line.slice(2)))
+      .filter((line) => line.length > 0 && line.toLowerCase() !== 'none'));
   }
 
-  return sectionMatch[1]
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- '))
-    .map((line) => normalizeLine(line.slice(2)))
-    .filter((line) => line.length > 0 && line.toLowerCase() !== 'none');
+  for (const rawLine of normalized.split('\n')) {
+    const bullet = rawLine.trim().match(/^[-*]\s+(.+)$/)?.[1];
+    if (!bullet) {
+      continue;
+    }
+
+    const advisoryMatch = bullet.match(/^advisory(?:\s+for\s+[^:]+)?(?:\s*\([^)]*\))?\s*:\s*(.+)$/i);
+    if (advisoryMatch?.[1]) {
+      advisories.push(normalizeLine(advisoryMatch[1]));
+    }
+  }
+
+  return advisories.filter((line) => line.length > 0 && line.toLowerCase() !== 'none');
 }
 
 export function boundedFixCycleReviewScopeFromAudits(codexMarkdown: string, geminiMarkdown: string): ReviewScopeRecord {

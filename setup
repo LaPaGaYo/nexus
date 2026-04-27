@@ -308,6 +308,44 @@ supports_local_claude_subagents() {
   printf '%s' "$_claude_help" | grep -q -- '--agent' || return 1
 }
 
+version_at_least() {
+  _current="$1"
+  _required="$2"
+  awk -v current="$_current" -v required="$_required" '
+    function split_version(value, parts) {
+      split(value, parts, ".")
+      for (i = 1; i <= 3; i++) {
+        parts[i] = parts[i] == "" ? 0 : parts[i] + 0
+      }
+    }
+    BEGIN {
+      split_version(current, c)
+      split_version(required, r)
+      for (i = 1; i <= 3; i++) {
+        if (c[i] > r[i]) exit 0
+        if (c[i] < r[i]) exit 1
+      }
+      exit 0
+    }
+  '
+}
+
+claude_agent_teams_enabled() {
+  [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" = "1" ] && return 0
+  [ -f "$HOME/.claude/settings.json" ] || return 1
+  grep -Eq '"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"[[:space:]]*:[[:space:]]*"1"' "$HOME/.claude/settings.json" 2>/dev/null
+}
+
+supports_local_claude_agent_team() {
+  command -v claude >/dev/null 2>&1 || return 1
+
+  _claude_version_output="$(claude --version 2>/dev/null || true)"
+  _claude_version="$(printf '%s\n' "$_claude_version_output" | sed -E 's/^([0-9]+[.][0-9]+[.][0-9]+).*/\1/' | head -1)"
+  [ -n "$_claude_version" ] || return 1
+  version_at_least "$_claude_version" "2.1.32" || return 1
+  claude_agent_teams_enabled || return 1
+}
+
 supports_local_codex_multi_session() {
   command -v codex >/dev/null 2>&1 || return 1
 
@@ -385,9 +423,19 @@ maybe_offer_local_topology_choice() {
     fi
   else
     echo "     Claude local subagents for build, review, and QA."
+    if supports_local_claude_agent_team; then
+      echo ""
+      echo "  3) agent_team"
+      echo "     Claude Code Agent Teams for review, investigation, planning, and release-gate passes."
+    else
+      echo ""
+      echo "     agent_team unavailable: requires Claude Code >= 2.1.32 and CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1."
+    fi
   fi
   echo ""
   if [ "$_provider" = "codex" ] && supports_local_codex_multi_session; then
+    printf "Choice [1/2/3] (default: 1, auto-selects in 10s): "
+  elif [ "$_provider" = "claude" ] && supports_local_claude_agent_team; then
     printf "Choice [1/2/3] (default: 1, auto-selects in 10s): "
   else
     printf "Choice [1/2] (default: 1, auto-selects in 10s): "
@@ -396,8 +444,16 @@ maybe_offer_local_topology_choice() {
 
   case "$_topology_choice" in
     3)
-      "$NEXUS_CONFIG" set provider_topology multi_session 2>/dev/null || true
-      echo "  selected local_provider (codex, multi_session)"
+      if [ "$_provider" = "codex" ]; then
+        "$NEXUS_CONFIG" set provider_topology multi_session 2>/dev/null || true
+        echo "  selected local_provider (codex, multi_session)"
+      elif supports_local_claude_agent_team; then
+        "$NEXUS_CONFIG" set provider_topology agent_team 2>/dev/null || true
+        echo "  selected local_provider (claude, agent_team)"
+      else
+        "$NEXUS_CONFIG" set provider_topology single_agent 2>/dev/null || true
+        echo "  selected local_provider (claude, single_agent)"
+      fi
       ;;
     2)
       "$NEXUS_CONFIG" set provider_topology subagents 2>/dev/null || true

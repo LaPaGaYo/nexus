@@ -1,5 +1,5 @@
 import { mkdtempSync, readFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import {
@@ -98,7 +98,7 @@ const DEFAULT_TIMEOUTS_MS = {
 } as const;
 
 interface ActiveLocalTopology {
-  mode: 'single_agent' | 'claude_subagents' | 'codex_subagents' | 'codex_multi_session' | 'gemini_subagents';
+  mode: 'single_agent' | 'claude_subagents' | 'claude_agent_team' | 'codex_subagents' | 'codex_multi_session' | 'gemini_subagents';
 }
 
 function backendConflict(stage: NexusAdapterContext['stage'], message: string): ConflictRecord {
@@ -131,6 +131,14 @@ function activeLocalTopology(provider: PrimaryProvider, topology: ProviderTopolo
     }
 
     return 'local_provider topology subagents is only active for claude, codex, or gemini';
+  }
+
+  if (topology === 'agent_team') {
+    if (provider === 'claude') {
+      return { mode: 'claude_agent_team' };
+    }
+
+    return 'local_provider topology agent_team is only active for claude';
   }
 
   if (topology === 'multi_session') {
@@ -651,6 +659,55 @@ function stripMarkdownFences(text: string): string {
   return lines.slice(1, -1).join('\n').trim();
 }
 
+function normalizeOptionalQaLearningCandidates(rawCandidates: unknown): LearningCandidate[] | undefined {
+  if (typeof rawCandidates === 'undefined') {
+    return undefined;
+  }
+
+  if (!Array.isArray(rawCandidates)) {
+    return undefined;
+  }
+
+  const candidates: LearningCandidate[] = [];
+  for (const candidate of rawCandidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      continue;
+    }
+
+    const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+    if (
+      typeof rawCandidate.type !== 'string'
+      || typeof rawCandidate.key !== 'string'
+      || typeof rawCandidate.insight !== 'string'
+      || typeof rawCandidate.confidence !== 'number'
+      || typeof rawCandidate.source !== 'string'
+      || !Array.isArray(rawCandidate.files)
+    ) {
+      continue;
+    }
+
+    const files = rawCandidate.files
+      .filter((file): file is string => typeof file === 'string')
+      .map((file) => file.trim())
+      .filter(Boolean);
+
+    if (!rawCandidate.key.trim() || !rawCandidate.insight.trim()) {
+      continue;
+    }
+
+    candidates.push({
+      type: rawCandidate.type,
+      key: rawCandidate.key.trim(),
+      insight: rawCandidate.insight.trim(),
+      confidence: rawCandidate.confidence,
+      source: rawCandidate.source,
+      files,
+    });
+  }
+
+  return candidates;
+}
+
 function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'dispatch_command'> {
   const normalized = stripMarkdownFences(stdout);
   const firstBrace = normalized.indexOf('{');
@@ -686,40 +743,7 @@ function parseQaPayload(stdout: string): Omit<LocalExecuteQaRaw, 'receipt' | 'di
     throw new Error('Malformed QA response: advisories must be an array when present');
   }
 
-  let learningCandidates: LearningCandidate[] | undefined;
-  if (typeof parsed.learning_candidates !== 'undefined') {
-    if (!Array.isArray(parsed.learning_candidates)) {
-      throw new Error('Malformed QA response: learning_candidates must be an array when present');
-    }
-
-    learningCandidates = parsed.learning_candidates.map((candidate, index) => {
-      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-        throw new Error(`Malformed QA response: learning_candidates[${index}] must be an object`);
-      }
-
-      const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
-      if (
-        typeof rawCandidate.type !== 'string'
-        || typeof rawCandidate.key !== 'string'
-        || typeof rawCandidate.insight !== 'string'
-        || typeof rawCandidate.confidence !== 'number'
-        || typeof rawCandidate.source !== 'string'
-        || !Array.isArray(rawCandidate.files)
-        || rawCandidate.files.some((file) => typeof file !== 'string')
-      ) {
-        throw new Error(`Malformed QA response: learning_candidates[${index}] must match the LearningCandidate shape`);
-      }
-
-      return {
-        type: rawCandidate.type,
-        key: rawCandidate.key,
-        insight: rawCandidate.insight,
-        confidence: rawCandidate.confidence,
-        source: rawCandidate.source,
-        files: rawCandidate.files,
-      };
-    });
-  }
+  const learningCandidates = normalizeOptionalQaLearningCandidates(parsed.learning_candidates);
 
   return {
     ready: parsed.ready,
@@ -846,6 +870,8 @@ function localRoleRunnerForMode(mode: ActiveLocalTopology['mode']) {
   switch (mode) {
     case 'claude_subagents':
       return runClaudeNamedAgentCommand;
+    case 'claude_agent_team':
+      return null;
     case 'codex_subagents':
     case 'codex_multi_session':
       return runCodexRoleCommand;
@@ -854,6 +880,211 @@ function localRoleRunnerForMode(mode: ActiveLocalTopology['mode']) {
     case 'single_agent':
       return null;
   }
+}
+
+function semanticVersionAtLeast(current: string, required: string): boolean {
+  const currentParts = current.split('.').map((part) => Number.parseInt(part, 10));
+  const requiredParts = required.split('.').map((part) => Number.parseInt(part, 10));
+
+  for (let index = 0; index < Math.max(currentParts.length, requiredParts.length); index += 1) {
+    const currentPart = Number.isFinite(currentParts[index]) ? currentParts[index] : 0;
+    const requiredPart = Number.isFinite(requiredParts[index]) ? requiredParts[index] : 0;
+    if (currentPart > requiredPart) {
+      return true;
+    }
+    if (currentPart < requiredPart) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function parseClaudeVersion(output: string): string | null {
+  return output.match(/\b([0-9]+[.][0-9]+[.][0-9]+)\b/)?.[1] ?? null;
+}
+
+function claudeAgentTeamsEnabled(): boolean {
+  if (process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1') {
+    return true;
+  }
+
+  try {
+    const settings = JSON.parse(readFileSync(join(homedir(), '.claude', 'settings.json'), 'utf8')) as {
+      env?: Record<string, unknown>;
+    };
+    return settings.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1';
+  } catch {
+    return false;
+  }
+}
+
+async function verifyClaudeAgentTeamSupport(
+  cwd: string,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ ok: true; verificationCommands: string[]; verificationOutput: string } | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string }> {
+  const argv = ['claude', '--version'];
+  const result = await runCommand({
+    argv,
+    cwd,
+    timeout_ms: DEFAULT_TIMEOUTS_MS.handoff,
+  });
+  const output = `${result.stdout}\n${result.stderr}`.trim();
+  const version = parseClaudeVersion(output);
+  const verificationCommands = [describeCommand(argv)];
+
+  if (result.exit_code !== 0) {
+    return {
+      ok: false,
+      message: output || 'claude --version failed while verifying local agent team support',
+      verificationCommands,
+      verificationOutput: output,
+    };
+  }
+
+  if (!version || !semanticVersionAtLeast(version, '2.1.32')) {
+    return {
+      ok: false,
+      message: 'Claude Code agent teams require claude >= 2.1.32',
+      verificationCommands,
+      verificationOutput: output,
+    };
+  }
+
+  if (!claudeAgentTeamsEnabled()) {
+    return {
+      ok: false,
+      message: 'Claude Code agent teams require CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1',
+      verificationCommands,
+      verificationOutput: output,
+    };
+  }
+
+  return {
+    ok: true,
+    verificationCommands,
+    verificationOutput: output,
+  };
+}
+
+function buildClaudeAgentTeamCommand(): string[] {
+  return [
+    'claude',
+    '-p',
+    '--output-format',
+    'text',
+    '--dangerously-skip-permissions',
+    '--teammate-mode',
+    'in-process',
+  ];
+}
+
+async function runClaudeAgentTeamCommand(
+  prompt: string,
+  cwd: string,
+  timeoutMs: number,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  const argv = buildClaudeAgentTeamCommand();
+  const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+  if (result.exit_code !== 0) {
+    throw new Error(localCommandFailureMessage('claude agent team', result));
+  }
+  return { stdout: result.stdout, stderr: result.stderr, argv };
+}
+
+function buildClaudeAgentTeamBuildPrompt(ctx: NexusAdapterContext): string {
+  return [
+    buildPromptContextPreamble(ctx, 'Nexus Claude agent-team build'),
+    'Create a Claude Code agent team for this Nexus /build stage.',
+    'Use at least two teammates: nexus_builder and nexus_verifier.',
+    'The builder owns the bounded implementation contract. The verifier owns repository-state verification after the builder finishes.',
+    'Avoid file conflicts: assign disjoint file ownership when implementation work is parallelized.',
+    'Wait for teammates to finish before synthesizing.',
+    'Return only the final build summary markdown in the standard Nexus shape.',
+    '',
+    buildGeneratorPrompt(ctx),
+  ].join('\n');
+}
+
+function buildClaudeAgentTeamReviewPrompt(ctx: NexusAdapterContext, slot: 'a' | 'b'): string {
+  const roles = slot === 'a'
+    ? 'code and test'
+    : 'security and design';
+  return [
+    buildPromptContextPreamble(ctx, 'Nexus Claude agent-team review'),
+    `Create a Claude Code agent team for Nexus /review audit slot ${slot.toUpperCase()}.`,
+    `Spawn teammates focused on ${roles}.`,
+    'Each teammate should review independently, then challenge material findings before the lead synthesizes.',
+    'Do not edit files.',
+    'Return only markdown in this exact group shape:',
+    `# Local Persona Audit ${slot.toUpperCase()}`,
+    '',
+    'Result: pass | fail',
+    '',
+    'Findings:',
+    '- ...',
+    '',
+    'Advisories:',
+    '- ...',
+    '',
+    'Persona evidence:',
+    '- ...',
+    '',
+    buildAuditPrompt(ctx, slot),
+  ].join('\n');
+}
+
+function buildClaudeAgentTeamQaPrompt(ctx: NexusAdapterContext): string {
+  return [
+    buildPromptContextPreamble(ctx, 'Nexus Claude agent-team QA'),
+    'Create a Claude Code agent team for Nexus /qa validation.',
+    'Use teammates for browser/manual validation, regression coverage, accessibility, and release-critical edge cases as applicable.',
+    'Wait for teammates to finish and synthesize one JSON object only.',
+    'Return only JSON with ready, findings, report_markdown, optional advisories, and optional learning_candidates.',
+    '',
+    buildQaPrompt(ctx),
+  ].join('\n');
+}
+
+function buildClaudeAgentTeamShipPrompt(ctx: NexusAdapterContext): string {
+  return [
+    buildPromptContextPreamble(ctx, 'Nexus Claude agent-team ship'),
+    'Create a Claude Code agent team for Nexus /ship release gate.',
+    'Use teammates for release / QA / security / docs-deploy gates.',
+    'This is release gating, not broad implementation work. Do not edit files.',
+    'Wait for teammates to finish and synthesize one release gate markdown record.',
+    'Return only markdown in this shape:',
+    '# Local Agent Team Ship Release Gate',
+    '',
+    'Result: pass | fail',
+    'Merge ready: yes | no',
+    '',
+    'Findings:',
+    '- ...',
+    '',
+    'Advisories:',
+    '- ...',
+  ].join('\n');
+}
+
+function parseAgentTeamMergeReady(markdown: string): boolean {
+  const verdict = [...markdown.matchAll(/Result:\s*(pass|fail)/gi)].at(-1)?.[1]?.toLowerCase();
+  if (!verdict) {
+    throw new Error('Claude agent team ship gate is missing Result: pass|fail');
+  }
+  return verdict === 'pass';
+}
+
+function buildClaudeAgentTeamShipPersonaGates(markdown: string): LocalShipPersonaGateRaw[] {
+  const verdict = parseAgentTeamMergeReady(markdown) ? 'pass' : 'fail';
+  return localShipPersonaAgents().map((agent) => ({
+    role: agent.role,
+    markdown,
+    verdict,
+    gate_affecting: agent.gateAffecting,
+    artifact_path: shipPersonaGatePath(agent.role),
+  }));
 }
 
 function combineBuildSummary(builderSummary: string, verifierSummary: string): string {
@@ -1176,20 +1407,25 @@ export function createDefaultLocalAdapter(): LocalAdapter {
                   actions: 'local claude subagent build',
                   verification: 'local verifier subagent',
                 }
-              : topology.mode === 'codex_multi_session'
+              : topology.mode === 'claude_agent_team'
                 ? {
-                    actions: 'local codex multi-session build',
-                    verification: 'local verifier session',
+                    actions: 'local claude agent-team build',
+                    verification: 'local agent-team synthesis',
                   }
-                : topology.mode === 'gemini_subagents'
+                : topology.mode === 'codex_multi_session'
                   ? {
-                      actions: 'local gemini subagent build',
-                      verification: 'local verifier pass',
+                      actions: 'local codex multi-session build',
+                      verification: 'local verifier session',
                     }
-              : {
-                  actions: 'local codex subagent build',
-                  verification: 'local verifier pass',
-                }),
+                  : topology.mode === 'gemini_subagents'
+                    ? {
+                        actions: 'local gemini subagent build',
+                        verification: 'local verifier pass',
+                      }
+                    : {
+                        actions: 'local codex subagent build',
+                        verification: 'local verifier pass',
+                      }),
           agent_roles: topology.mode === 'single_agent' ? undefined : ['nexus_builder', 'nexus_verifier'],
         },
         buildActualRoute(
@@ -1452,6 +1688,40 @@ export function createRuntimeLocalAdapter(
           );
         }
 
+        if (topology.mode === 'claude_agent_team') {
+          const agentTeamSupport = await verifyClaudeAgentTeamSupport(executionCwd, runCommand);
+          if (!agentTeamSupport.ok) {
+            return blockedResult(
+              ctx.stage,
+              agentTeamSupport.message,
+              {
+                available: false,
+                provider,
+                topology: ctx.ledger.execution.provider_topology,
+                verification_command: `which ${providerCommand(provider)}`,
+                verification_output: [result.stdout.trim(), agentTeamSupport.verificationOutput].filter(Boolean).join('\n'),
+                verification_commands: [`which ${providerCommand(provider)}`, ...agentTeamSupport.verificationCommands],
+              },
+              ctx.requested_route,
+              localTraceability('local-provider-routing'),
+            );
+          }
+
+          return successResult<LocalResolveRouteRaw>(
+            {
+              available: true,
+              provider,
+              topology: ctx.ledger.execution.provider_topology,
+              verification_command: `which ${providerCommand(provider)}`,
+              verification_output: [result.stdout.trim(), agentTeamSupport.verificationOutput].filter(Boolean).join('\n'),
+              verification_commands: [`which ${providerCommand(provider)}`, ...agentTeamSupport.verificationCommands],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'handoff'),
+            ctx.requested_route,
+            localTraceability('local-provider-routing'),
+          );
+        }
+
         if (topology.mode === 'codex_multi_session') {
           const multiSessionSupport = await verifyCodexMultiSessionSupport(executionCwd, runCommand);
           if (!multiSessionSupport.ok) {
@@ -1529,6 +1799,28 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_agent_team') {
+          const execution = await runClaudeAgentTeamCommand(
+            buildClaudeAgentTeamBuildPrompt(ctx),
+            executionCwd,
+            DEFAULT_TIMEOUTS_MS.build,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteGeneratorRaw>(
+            {
+              receipt: `local-build-${provider}-${sanitizeTimestamp(now())}`,
+              summary_markdown: execution.stdout.trim(),
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: ['nexus_agent_team'],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'build'),
+            ctx.requested_route,
+            localTraceability('local-provider-execution'),
+          );
+        }
+
         if (topology.mode !== 'single_agent') {
           const builderAgent = buildClaudeBuilderAgent();
           const verifierAgent = buildClaudeVerifierAgent();
@@ -1616,6 +1908,29 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_agent_team') {
+          const execution = await runClaudeAgentTeamCommand(
+            buildClaudeAgentTeamReviewPrompt(ctx, 'a'),
+            executionCwd,
+            DEFAULT_TIMEOUTS_MS.review,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteAuditRaw>(
+            {
+              markdown: execution.stdout.trim(),
+              receipt: `local-review-a-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: ['nexus_review_agent_team'],
+              persona_group: 'code_test',
+            },
+            buildActualRoute(provider, ctx.requested_route?.evaluator_a ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'review'),
+            ctx.requested_route,
+            localTraceability('local-provider-review-a'),
+          );
+        }
+
         if (topology.mode !== 'single_agent') {
           const personaSlot = await runLocalReviewPersonaSlot(
             ctx,
@@ -1691,6 +2006,29 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_agent_team') {
+          const execution = await runClaudeAgentTeamCommand(
+            buildClaudeAgentTeamReviewPrompt(ctx, 'b'),
+            executionCwd,
+            DEFAULT_TIMEOUTS_MS.review,
+            runCommand,
+          );
+
+          return successResult<LocalExecuteAuditRaw>(
+            {
+              markdown: execution.stdout.trim(),
+              receipt: `local-review-b-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: ['nexus_review_agent_team'],
+              persona_group: 'security_design',
+            },
+            buildActualRoute(provider, ctx.requested_route?.evaluator_b ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'review'),
+            ctx.requested_route,
+            localTraceability('local-provider-review-b'),
+          );
+        }
+
         if (topology.mode !== 'single_agent') {
           const personaSlot = await runLocalReviewPersonaSlot(
             ctx,
@@ -1768,6 +2106,29 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_agent_team') {
+          const execution = await runClaudeAgentTeamCommand(
+            buildClaudeAgentTeamQaPrompt(ctx),
+            executionCwd,
+            DEFAULT_TIMEOUTS_MS.qa,
+            runCommand,
+          );
+          const parsed = parseQaPayload(execution.stdout);
+
+          return successResult<LocalExecuteQaRaw>(
+            {
+              ...parsed,
+              receipt: `local-qa-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: ['nexus_qa_agent_team'],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'qa'),
+            ctx.requested_route,
+            localTraceability('local-provider-qa'),
+          );
+        }
+
         if (topology.mode !== 'single_agent') {
           const agent = buildClaudeQaAgent();
           const runLocalSubagent = localRoleRunnerForMode(topology.mode);
@@ -1851,6 +2212,32 @@ export function createRuntimeLocalAdapter(
       }
 
       try {
+        if (topology.mode === 'claude_agent_team') {
+          const execution = await runClaudeAgentTeamCommand(
+            buildClaudeAgentTeamShipPrompt(ctx),
+            executionCwd,
+            DEFAULT_TIMEOUTS_MS.ship,
+            runCommand,
+          );
+          const releaseGateRecord = execution.stdout.trim();
+          const personaGates = buildClaudeAgentTeamShipPersonaGates(releaseGateRecord);
+
+          return successResult<LocalExecuteShipPersonasRaw>(
+            {
+              release_gate_record: releaseGateRecord,
+              merge_ready: personaGates.every((gate) => !gate.gate_affecting || gate.verdict === 'pass'),
+              persona_gates: personaGates,
+              receipt: `local-ship-personas-${provider}-${sanitizeTimestamp(now())}`,
+              dispatch_command: describeCommand(execution.argv),
+              dispatch_commands: [describeCommand(execution.argv)],
+              agent_roles: ['nexus_ship_agent_team'],
+            },
+            buildActualRoute(provider, ctx.requested_route?.generator ?? `${ctx.ledger.execution.requested_path}-ship`, ctx.requested_route?.substrate ?? 'superpowers-core', 'ship'),
+            ctx.requested_route,
+            localTraceability('local-provider-ship-personas'),
+          );
+        }
+
         if (topology.mode !== 'single_agent') {
           const personaGate = await runLocalShipPersonas(
             ctx,

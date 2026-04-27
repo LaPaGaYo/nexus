@@ -18,6 +18,13 @@ const LOCAL_SUBAGENT_EXECUTION = {
   requested_execution_path: 'claude-local-subagents',
 };
 
+const LOCAL_AGENT_TEAM_EXECUTION = {
+  mode: 'local_provider' as const,
+  primary_provider: 'claude' as const,
+  provider_topology: 'agent_team' as const,
+  requested_execution_path: 'claude-local-agent_team',
+};
+
 const CODEX_LOCAL_SUBAGENT_EXECUTION = {
   mode: 'local_provider' as const,
   primary_provider: 'codex' as const,
@@ -30,6 +37,13 @@ const CODEX_LOCAL_MULTI_SESSION_EXECUTION = {
   primary_provider: 'codex' as const,
   provider_topology: 'multi_session' as const,
   requested_execution_path: 'codex-local-multi_session',
+};
+
+const CODEX_LOCAL_AGENT_TEAM_EXECUTION = {
+  mode: 'local_provider' as const,
+  primary_provider: 'codex' as const,
+  provider_topology: 'agent_team' as const,
+  requested_execution_path: 'codex-local-agent_team',
 };
 
 const GEMINI_LOCAL_SUBAGENT_EXECUTION = {
@@ -257,6 +271,74 @@ describe('nexus local_provider mode', () => {
         actual_route: {
           provider: 'claude',
           route: 'claude-local-subagents-qa',
+          transport: 'local',
+        },
+      });
+    });
+  });
+
+  test('runs the thin slice end-to-end with claude local agent_team and records topology explicitly', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+      await run('handoff', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+      await run('build', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+      await run('review', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+      await run('qa', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+      await run('ship', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+      await run('closeout', undefined, LOCAL_AGENT_TEAM_EXECUTION);
+
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'closeout',
+        status: 'completed',
+        execution: {
+          mode: 'local_provider',
+          primary_provider: 'claude',
+          provider_topology: 'agent_team',
+          requested_path: 'claude-local-agent_team',
+          actual_path: 'claude-local-agent_team',
+        },
+      });
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'claude',
+        provider_topology: 'agent_team',
+        requested_execution_path: 'claude-local-agent_team',
+        requested_route: {
+          transport: 'local',
+          generator: 'claude-local-agent_team',
+          evaluator_a: 'claude-local-agent_team-audit-a',
+          evaluator_b: 'claude-local-agent_team-audit-b',
+        },
+        route_validation: {
+          transport: 'local',
+          available: true,
+          approved: true,
+        },
+      });
+
+      expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+        stage: 'build',
+        execution_mode: 'local_provider',
+        provider_topology: 'agent_team',
+        requested_execution_path: 'claude-local-agent_team',
+        actual_execution_path: 'claude-local-agent_team',
+        actual_route: {
+          provider: 'claude',
+          route: 'claude-local-agent_team',
+          transport: 'local',
+        },
+      });
+
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        stage: 'qa',
+        execution_mode: 'local_provider',
+        provider_topology: 'agent_team',
+        ready: true,
+        actual_route: {
+          provider: 'claude',
+          route: 'claude-local-agent_team-qa',
           transport: 'local',
         },
       });
@@ -543,6 +625,86 @@ describe('nexus local_provider mode', () => {
     });
   });
 
+  test('blocks handoff when local agent_team is selected for codex', async () => {
+    await runInTempRepo(async ({ run }) => {
+      await run('plan', undefined, CODEX_LOCAL_AGENT_TEAM_EXECUTION);
+      await expect(run('handoff', undefined, CODEX_LOCAL_AGENT_TEAM_EXECUTION)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'agent_team',
+        state: 'blocked',
+        decision: 'route_recorded',
+        ready: false,
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'local_provider topology agent_team is only active for claude',
+        },
+        errors: ['local_provider topology agent_team is only active for claude'],
+      });
+    });
+  });
+
+  test('blocks handoff when claude local agent_team is selected but claude is too old', async () => {
+    const previousAgentTeamsEnv = process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;
+    process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = '1';
+
+    try {
+      await runInTempRepo(async ({ run }) => {
+        const adapters = getDefaultNexusAdapters();
+        adapters.local = createRuntimeLocalAdapter({
+          runCommand: async (spec) => {
+            if (spec.argv[0] === 'which') {
+              return {
+                exit_code: 0,
+                stdout: '/Users/henry/.local/bin/claude\n',
+                stderr: '',
+              };
+            }
+            if (spec.argv[0] === 'claude' && spec.argv.includes('--version')) {
+              return {
+                exit_code: 0,
+                stdout: '2.1.31 (Claude Code)\n',
+                stderr: '',
+              };
+            }
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          },
+        });
+
+        await run('plan', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+        await expect(run('handoff', adapters, LOCAL_AGENT_TEAM_EXECUTION)).rejects.toThrow(
+          'Local provider route is not approved by Nexus',
+        );
+
+        expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+          stage: 'handoff',
+          execution_mode: 'local_provider',
+          primary_provider: 'claude',
+          provider_topology: 'agent_team',
+          state: 'blocked',
+          route_validation: {
+            available: false,
+            approved: false,
+            reason: 'Claude Code agent teams require claude >= 2.1.32',
+          },
+        });
+      });
+    } finally {
+      if (typeof previousAgentTeamsEnv === 'undefined') {
+        delete process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;
+      } else {
+        process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = previousAgentTeamsEnv;
+      }
+    }
+  });
+
   test('blocks handoff when local multi_session is selected for gemini', async () => {
     await runInTempRepo(async ({ run }) => {
       const reservedExecution = {
@@ -682,6 +844,256 @@ describe('nexus local_provider mode', () => {
         },
       });
     });
+  });
+
+  test('ignores malformed optional QA learning candidates without blocking a valid local QA result', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        now: () => '2026-04-11T00:00:00.000Z',
+        runCommand: async (spec) => {
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/claude\n',
+              stderr: '',
+            };
+          }
+
+          if (spec.argv[0] !== 'claude') {
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          }
+
+          const prompt = spec.stdin_text ?? '';
+          if (prompt.includes('Execute the bounded Nexus /build contract')) {
+            return {
+              exit_code: 0,
+              stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: applied local build\n- Files touched: README.md\n- Verification: checked current repo state\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('local Nexus /review audit pass A')) {
+            return {
+              exit_code: 0,
+              stdout: '# Local Audit A\n\nResult: pass\n\nFindings:\n- none\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('local Nexus /review audit pass B')) {
+            return {
+              exit_code: 0,
+              stdout: '# Local Audit B\n\nResult: pass\n\nFindings:\n- none\n',
+              stderr: '',
+            };
+          }
+          if (prompt.includes('Perform Nexus /qa validation')) {
+            return {
+              exit_code: 0,
+              stdout: JSON.stringify({
+                ready: true,
+                findings: [],
+                advisories: ['sample non-blocking note'],
+                report_markdown: '# QA Report\n\nResult: pass\n\n507 passed, 2 skipped.\n',
+                learning_candidates: [
+                  {
+                    title: 'Fork QA discipline',
+                    category: 'qa',
+                    context: 'Malformed ancillary learning candidates should not discard QA evidence.',
+                    rule: 'Ignore invalid optional learning candidates and keep the core QA verdict.',
+                    applies_to: ['local_provider'],
+                  },
+                ],
+              }),
+              stderr: '',
+            };
+          }
+
+          throw new Error(`unexpected prompt: ${prompt}`);
+        },
+      });
+
+      await run('plan', adapters, LOCAL_EXECUTION);
+      await run('handoff', adapters, LOCAL_EXECUTION);
+      await run('build', adapters, LOCAL_EXECUTION);
+      await run('review', adapters, LOCAL_EXECUTION);
+      await run('qa', adapters, LOCAL_EXECUTION);
+
+      expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+        stage: 'qa',
+        state: 'completed',
+        ready: true,
+        learning_candidates_path: null,
+        learnings_recorded: false,
+        defect_count: 0,
+      });
+      expect(await run.readFile('.planning/current/qa/qa-report.md')).toContain('507 passed, 2 skipped');
+      expect(await run.readJson('.planning/nexus/current-run.json')).toMatchObject({
+        current_stage: 'qa',
+        status: 'active',
+        allowed_next_stages: ['ship', 'closeout'],
+      });
+    });
+  });
+
+  test('uses claude agent-team mode for local execution at runtime', async () => {
+    const previousAgentTeamsEnv = process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;
+    process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = '1';
+
+    try {
+      await runInTempRepo(async ({ run }) => {
+        const calls: Array<{ argv: string[]; stdin_text?: string }> = [];
+        const adapters = getDefaultNexusAdapters();
+        adapters.local = createRuntimeLocalAdapter({
+          now: () => '2026-04-11T00:00:00.000Z',
+          runCommand: async (spec) => {
+            calls.push({ argv: spec.argv, stdin_text: spec.stdin_text });
+
+            if (spec.argv[0] === 'which') {
+              return {
+                exit_code: 0,
+                stdout: '/Users/henry/.local/bin/claude\n',
+                stderr: '',
+              };
+            }
+
+            if (spec.argv[0] === 'claude' && spec.argv.includes('--version')) {
+              return {
+                exit_code: 0,
+                stdout: '2.1.119 (Claude Code)\n',
+                stderr: '',
+              };
+            }
+
+            if (spec.argv[0] !== 'claude' || !spec.argv.includes('--teammate-mode')) {
+              throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+            }
+
+            const prompt = spec.stdin_text ?? '';
+            if (prompt.includes('Nexus /build stage')) {
+              return {
+                exit_code: 0,
+                stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: applied local agent-team build\n- Files touched: README.md\n- Verification: agent team verifier checked the resulting repo state\n',
+                stderr: '',
+              };
+            }
+            if (prompt.includes('audit slot A')) {
+              return {
+                exit_code: 0,
+                stdout: '# Local Persona Audit A\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n\nPersona evidence:\n- code/test team passed\n',
+                stderr: '',
+              };
+            }
+            if (prompt.includes('audit slot B')) {
+              return {
+                exit_code: 0,
+                stdout: '# Local Persona Audit B\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n\nPersona evidence:\n- security/design team passed\n',
+                stderr: '',
+              };
+            }
+            if (prompt.includes('Nexus /qa validation')) {
+              return {
+                exit_code: 0,
+                stdout: JSON.stringify({
+                  ready: true,
+                  findings: [],
+                  advisories: [],
+                  report_markdown: '# QA Report\n\nResult: pass\n',
+                }),
+                stderr: '',
+              };
+            }
+            if (prompt.includes('Nexus /ship release gate')) {
+              return {
+                exit_code: 0,
+                stdout: '# Local Agent Team Ship Release Gate\n\nResult: pass\nMerge ready: yes\n\nFindings:\n- none\n\nAdvisories:\n- none\n',
+                stderr: '',
+              };
+            }
+
+            throw new Error(`unexpected agent-team prompt: ${prompt}`);
+          },
+        });
+
+        await run('plan', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+        await run('handoff', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+        await run('build', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+        await run('review', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+        await run('qa', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+        await run('ship', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+
+        expect(calls.map((call) => call.argv.join(' '))).toEqual([
+          'which claude',
+          'claude --version',
+          expect.stringContaining('--teammate-mode in-process'),
+          expect.stringContaining('--teammate-mode in-process'),
+          expect.stringContaining('--teammate-mode in-process'),
+          expect.stringContaining('--teammate-mode in-process'),
+          expect.stringContaining('--teammate-mode in-process'),
+        ]);
+
+        expect(calls[2]?.stdin_text).toContain('Create a Claude Code agent team for this Nexus /build stage.');
+        expect(calls[3]?.stdin_text).toContain('audit slot A');
+        expect(calls[4]?.stdin_text).toContain('audit slot B');
+        expect(calls[5]?.stdin_text).toContain('Nexus /qa validation');
+        expect(calls[6]?.stdin_text).toContain('release / QA / security / docs-deploy gates');
+
+        expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+          execution_mode: 'local_provider',
+          provider_topology: 'agent_team',
+          route_validation: {
+            available: true,
+            approved: true,
+          },
+        });
+
+        expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+          execution_mode: 'local_provider',
+          provider_topology: 'agent_team',
+          actual_route: {
+            provider: 'claude',
+            route: 'claude-local-agent_team',
+            transport: 'local',
+          },
+        });
+        expect((await run.readJson('.planning/current/build/adapter-output.json')).transport.raw_output.dispatch_command).toContain(
+          '--teammate-mode in-process',
+        );
+
+        expect(await run.readFile('.planning/audits/current/codex.md')).toContain('# Local Persona Audit A');
+        expect(await run.readFile('.planning/audits/current/gemini.md')).toContain('# Local Persona Audit B');
+        expect(await run.readJson('.planning/current/review/status.json')).toMatchObject({
+          execution_mode: 'local_provider',
+          provider_topology: 'agent_team',
+          gate_decision: 'pass',
+          ready: true,
+        });
+
+        expect(await run.readJson('.planning/current/qa/status.json')).toMatchObject({
+          execution_mode: 'local_provider',
+          provider_topology: 'agent_team',
+          ready: true,
+        });
+
+        expect(await run.readFile('.planning/current/ship/persona-gates/release.md')).toContain(
+          '# Local Agent Team Ship Release Gate',
+        );
+        expect(await run.readJson('.planning/current/ship/status.json')).toMatchObject({
+          execution_mode: 'local_provider',
+          provider_topology: 'agent_team',
+          ready: true,
+          local_persona_ship: {
+            enabled: true,
+            roles: ['release', 'qa', 'security', 'docs_deploy'],
+          },
+        });
+      });
+    } finally {
+      if (typeof previousAgentTeamsEnv === 'undefined') {
+        delete process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;
+      } else {
+        process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = previousAgentTeamsEnv;
+      }
+    }
   });
 
   test('persists local review persona fan-out evidence for claude subagents', async () => {
