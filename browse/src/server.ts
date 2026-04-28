@@ -510,7 +510,7 @@ function spawnClaude(userMessage: string, extensionUrl?: string | null, forTabId
   // Never resume — each message is a fresh context. Resuming carries stale
   // page URLs and old navigation state that makes the agent fight the user.
   const args = ['-p', prompt, '--model', 'opus', '--output-format', 'stream-json', '--verbose',
-    '--allowedTools', 'Bash,Read,Glob,Grep'];
+    '--allowedTools', 'Bash,Read,Glob,Grep,Write'];
 
   addChatEntry({ ts: new Date().toISOString(), role: 'agent', type: 'agent_start' });
 

@@ -217,6 +217,20 @@ async function handleStreamEvent(event: any, tabId?: number): Promise<void> {
   }
 }
 
+function hasVisibleAgentOutput(event: any): boolean {
+  if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
+    return event.message.content.some((block: any) =>
+      block?.type === 'tool_use' || (block?.type === 'text' && String(block.text || '').trim().length > 0)
+    );
+  }
+  if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') return true;
+  if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+    return String(event.delta.text || '').trim().length > 0;
+  }
+  if (event.type === 'result') return String(event.result || '').trim().length > 0;
+  return false;
+}
+
 async function askClaude(queueEntry: any): Promise<void> {
   const { prompt, args, stateFile, cwd, tabId } = queueEntry;
   const tid = tabId ?? 0;
@@ -251,6 +265,24 @@ async function askClaude(queueEntry: any): Promise<void> {
     proc.stdin.end();
 
     let buffer = '';
+    let sawVisibleOutput = false;
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const relayEvent = (event: any) => {
+      if (hasVisibleAgentOutput(event)) sawVisibleOutput = true;
+      handleStreamEvent(event, tid);
+    };
+
+    const finish = (event: Record<string, any>) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      sendEvent(event, tid).then(() => {
+        processingTabs.delete(tid);
+        resolve();
+      });
+    };
 
     proc.stdout.on('data', (data: Buffer) => {
       buffer += data.toString();
@@ -258,7 +290,7 @@ async function askClaude(queueEntry: any): Promise<void> {
       buffer = lines.pop() || '';
       for (const line of lines) {
         if (!line.trim()) continue;
-        try { handleStreamEvent(JSON.parse(line), tid); } catch {}
+        try { relayEvent(JSON.parse(line)); } catch {}
       }
     });
 
@@ -269,39 +301,38 @@ async function askClaude(queueEntry: any): Promise<void> {
 
     proc.on('close', (code) => {
       if (buffer.trim()) {
-        try { handleStreamEvent(JSON.parse(buffer), tid); } catch {}
+        try { relayEvent(JSON.parse(buffer)); } catch {}
       }
-      const doneEvent: Record<string, any> = { type: 'agent_done' };
-      if (code !== 0 && stderrBuffer.trim()) {
-        doneEvent.stderr = stderrBuffer.trim().slice(-500);
+      if (code !== 0) {
+        const stderr = stderrBuffer.trim();
+        const error = stderr
+          ? `Claude exited with code ${code}\nstderr: ${stderr.slice(-500)}`
+          : `Claude exited with code ${code}`;
+        finish({ type: 'agent_error', error });
+        return;
       }
-      sendEvent(doneEvent, tid).then(() => {
-        processingTabs.delete(tid);
-        resolve();
-      });
+      if (!sawVisibleOutput) {
+        finish({ type: 'agent_error', error: 'Claude finished without output.' });
+        return;
+      }
+      finish({ type: 'agent_done' });
     });
 
     proc.on('error', (err) => {
       const errorMsg = stderrBuffer.trim()
         ? `${err.message}\nstderr: ${stderrBuffer.trim().slice(-500)}`
         : err.message;
-      sendEvent({ type: 'agent_error', error: errorMsg }, tid).then(() => {
-        processingTabs.delete(tid);
-        resolve();
-      });
+      finish({ type: 'agent_error', error: errorMsg });
     });
 
     // Timeout (default 300s / 5 min — multi-page tasks need time)
     const timeoutMs = parseInt(process.env.SIDEBAR_AGENT_TIMEOUT || '300000', 10);
-    setTimeout(() => {
+    timeout = setTimeout(() => {
       try { proc.kill(); } catch {}
       const timeoutMsg = stderrBuffer.trim()
         ? `Timed out after ${timeoutMs / 1000}s\nstderr: ${stderrBuffer.trim().slice(-500)}`
         : `Timed out after ${timeoutMs / 1000}s`;
-      sendEvent({ type: 'agent_error', error: timeoutMsg }, tid).then(() => {
-        processingTabs.delete(tid);
-        resolve();
-      });
+      finish({ type: 'agent_error', error: timeoutMsg });
     }, timeoutMs);
   });
 }

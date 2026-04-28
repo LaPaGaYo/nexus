@@ -117,4 +117,10 @@ describe('Sidebar prompt injection defense', () => {
     // Backward compatibility: if old queue entries lack args, use defaults
     expect(AGENT_SRC).toContain("'--allowedTools', 'Bash,Read,Glob,Grep,Write'");
   });
+
+  test('server-queued sidebar agents can write files when asked', () => {
+    // The server owns the real queue args. The sidebar-agent fallback only
+    // applies to legacy queue entries, so Write must be present here too.
+    expect(SERVER_SRC).toContain("'--allowedTools', 'Bash,Read,Glob,Grep,Write'");
+  });
 });
