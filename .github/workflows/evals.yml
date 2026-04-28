@@ -5,7 +5,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: evals-${{ github.head_ref }}
+  # v2 separates current PR evals from pre-runner-fallback runs that may be
+  # stuck forever on unavailable self-hosted labels.
+  group: evals-v2-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
