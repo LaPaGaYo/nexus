@@ -125,5 +125,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eval-periodic-${{ matrix.suite.name }}
-          path: ~/.nexus-dev/evals/*.json
+          path: |
+            ~/.nexus/projects/*/evals/*.json
+            ~/.nexus-dev/evals/*.json
           retention-days: 90

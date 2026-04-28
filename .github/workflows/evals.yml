@@ -13,6 +13,7 @@ concurrency:
 env:
   IMAGE: ghcr.io/lapagayo/nexus/ci
   EVALS_TIER: gate
+  PR_EVAL_SUITES: " e2e-qa-bugs e2e-routing e2e-codex e2e-gemini "
 
 jobs:
   # Build Docker image with pre-baked toolchain (cached — only rebuilds on Dockerfile/lockfile change)
@@ -125,13 +126,20 @@ jobs:
 
       # Verify Playwright can launch Chromium (fails fast if sandbox/deps are broken)
       - name: Verify Chromium
-        if: matrix.suite.name == 'e2e-browse'
+        if: matrix.suite.name == 'e2e-browse' && (github.event_name != 'pull_request' || contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name)))
         run: |
           echo "whoami=$(whoami) HOME=$HOME TMPDIR=${TMPDIR:-unset}"
           touch /tmp/.bun-test && rm /tmp/.bun-test && echo "/tmp writable"
           bun -e "import {chromium} from 'playwright';const b=await chromium.launch({args:['--no-sandbox']});console.log('Chromium OK');await b.close()"
 
+      - name: Skip provider-backed PR eval
+        if: github.event_name == 'pull_request' && !contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name))
+        run: |
+          echo "Skipping ${{ matrix.suite.name }} on pull_request fallback."
+          echo "This suite requires hosted provider auth or persistent CLI login; run workflow_dispatch for the full configured-runner eval set."
+
       - name: Run ${{ matrix.suite.name }}
+        if: github.event_name != 'pull_request' || contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name))
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -141,11 +149,13 @@ jobs:
         run: EVALS=1 bun test --retry 2 --concurrent --max-concurrency 40 ${{ matrix.suite.file }}
 
       - name: Upload eval results
-        if: always()
+        if: always() && (github.event_name != 'pull_request' || contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name)))
         uses: actions/upload-artifact@v4
         with:
           name: eval-${{ matrix.suite.name }}
-          path: ~/.nexus-dev/evals/*.json
+          path: |
+            ~/.nexus/projects/*/evals/*.json
+            ~/.nexus-dev/evals/*.json
           retention-days: 90
 
   report:
