@@ -2405,19 +2405,70 @@ describe('Factory generation (--host factory)', () => {
   });
 });
 
+// ─── Gemini CLI generation tests ─────────────────────────────
+
+describe('Gemini CLI generation (--host gemini-cli)', () => {
+  const GEMINI_DIR = path.join(ROOT, '.gemini', 'skills');
+
+  Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'gemini-cli'], {
+    cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
+  });
+
+  test('--host gemini-cli generates Gemini skill paths', () => {
+    expect(fs.existsSync(path.join(GEMINI_DIR, 'nexus', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(GEMINI_DIR, 'nexus-review', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(GEMINI_DIR, 'nexus-ship', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(GEMINI_DIR, 'nexus-codex'))).toBe(false);
+  });
+
+  test('Gemini CLI frontmatter is portable name + description only', () => {
+    const content = fs.readFileSync(path.join(GEMINI_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
+    const fmEnd = content.indexOf('\n---', 4);
+    const frontmatter = content.slice(4, fmEnd);
+    expect(frontmatter).toContain('name: nexus-review');
+    expect(frontmatter).toContain('description:');
+    expect(frontmatter).not.toContain('allowed-tools:');
+    expect(frontmatter).not.toContain('version:');
+    expect(frontmatter).not.toContain('hooks:');
+  });
+
+  test('Gemini CLI skills use .gemini runtime paths and no OpenAI metadata', () => {
+    const content = fs.readFileSync(path.join(GEMINI_DIR, 'nexus-review', 'SKILL.md'), 'utf-8');
+    expect(content).toContain('NEXUS_ROOT');
+    expect(content).toContain('$_ROOT/.gemini/skills/nexus');
+    expect(content).toContain('$NEXUS_BIN/nexus-config');
+    expect(content).not.toContain('.claude/skills');
+    expect(content).not.toContain('.agents/skills');
+    expect(fs.existsSync(path.join(GEMINI_DIR, 'nexus-review', 'agents', 'openai.yaml'))).toBe(false);
+  });
+
+  test('--host gemini alias matches --host gemini-cli', () => {
+    const geminiCliResult = Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'gemini-cli', '--dry-run'], {
+      cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
+    });
+    const geminiResult = Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'gemini', '--dry-run'], {
+      cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
+    });
+    expect(geminiCliResult.exitCode).toBe(0);
+    expect(geminiResult.exitCode).toBe(0);
+    expect(geminiCliResult.stdout.toString()).toBe(geminiResult.stdout.toString());
+    expect(geminiCliResult.stdout.toString()).toContain('FRESH: .gemini/skills/nexus-review/SKILL.md');
+  });
+});
+
 // ─── --host all tests ────────────────────────────────────────
 
 describe('--host all', () => {
-  test('--host all generates for claude, codex, and factory', () => {
+  test('--host all generates for claude, codex, factory, and gemini-cli', () => {
     const result = Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'all', '--dry-run'], {
       cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
     });
     expect(result.exitCode).toBe(0);
     const output = result.stdout.toString();
-    // All three hosts should appear in output
     expect(output).toContain('FRESH: SKILL.md');           // claude
     expect(output).toContain('FRESH: .agents/skills/');     // codex
     expect(output).toContain('FRESH: .factory/skills/');    // factory
+    expect(output).toContain('FRESH: .gemini/skills/');     // gemini-cli
   });
 });
 
@@ -2498,14 +2549,15 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('ln -snf "nexus/$rel_dir"');
   });
 
-  test('setup supports --host auto|claude|codex|kiro', () => {
+  test('setup supports --host auto|claude|codex|gemini-cli|kiro|factory', () => {
     expect(setupContent).toContain('--host');
-    expect(setupContent).toContain('claude|codex|kiro|factory|auto');
+    expect(setupContent).toContain('claude|codex|gemini-cli|gemini|kiro|factory|auto');
   });
 
-  test('auto mode detects claude, codex, and kiro binaries', () => {
+  test('auto mode detects claude, codex, gemini, and kiro binaries', () => {
     expect(setupContent).toContain('command -v claude');
     expect(setupContent).toContain('command -v codex');
+    expect(setupContent).toContain('command -v gemini');
     expect(setupContent).toContain('command -v kiro-cli');
   });
 
@@ -2575,7 +2627,15 @@ describe('setup script validation', () => {
 
   test('factory and kiro runtime roots use reference compatibility mapping', () => {
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$factory_nexus"');
+    expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$gemini_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');
+  });
+
+  test('setup supports Gemini CLI host install surface', () => {
+    expect(setupContent).toContain('GEMINI_SKILLS="$HOME/.gemini/skills"');
+    expect(setupContent).toContain('create_gemini_runtime_root "$SOURCE_NEXUS_DIR" "$GEMINI_NEXUS"');
+    expect(setupContent).toContain('link_gemini_skill_dirs "$SOURCE_NEXUS_DIR" "$GEMINI_SKILLS"');
+    expect(setupContent).toContain('bun run gen:skill-docs --host gemini-cli');
   });
 
   test('direct Codex installs are migrated out of ~/.codex/skills/nexus', () => {

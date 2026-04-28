@@ -20,6 +20,8 @@ BROWSE_BIN="$SOURCE_NEXUS_DIR/browse/dist/browse"
 DESIGN_BIN="$SOURCE_NEXUS_DIR/design/dist/design"
 CODEX_SKILLS="$HOME/.codex/skills"
 CODEX_NEXUS="$CODEX_SKILLS/nexus"
+GEMINI_SKILLS="$HOME/.gemini/skills"
+GEMINI_NEXUS="$GEMINI_SKILLS/nexus"
 GLOBAL_AGENTS_SKILLS="$HOME/.agents/skills"
 FACTORY_SKILLS="$HOME/.factory/skills"
 FACTORY_NEXUS="$FACTORY_SKILLS/nexus"
@@ -36,7 +38,7 @@ SKILL_PREFIX=1
 SKILL_PREFIX_FLAG=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --host) [ -z "$2" ] && echo "Missing value for --host (expected claude, codex, kiro, or auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
+    --host) [ -z "$2" ] && echo "Missing value for --host (expected claude, codex, gemini-cli, gemini, kiro, factory, or auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
     --host=*) HOST="${1#--host=}"; shift ;;
     --local) LOCAL_INSTALL=1; shift ;;
     --prefix)    SKILL_PREFIX=1; SKILL_PREFIX_FLAG=1; shift ;;
@@ -46,8 +48,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$HOST" in
-  claude|codex|kiro|factory|auto) ;;
-  *) echo "Unknown --host value: $HOST (expected claude, codex, kiro, factory, or auto)" >&2; exit 1 ;;
+  claude|codex|gemini-cli|gemini|kiro|factory|auto) ;;
+  *) echo "Unknown --host value: $HOST (expected claude, codex, gemini-cli, gemini, kiro, factory, or auto)" >&2; exit 1 ;;
 esac
 
 # ─── Resolve skill prefix preference ─────────────────────────
@@ -529,8 +531,8 @@ announce_execution_mode() {
 
 # --local: install to .claude/skills/ in the current working directory
 if [ "$LOCAL_INSTALL" -eq 1 ]; then
-  if [ "$HOST" = "codex" ]; then
-    echo "Error: --local is only supported for Claude Code (not Codex)." >&2
+  if [ "$HOST" != "claude" ]; then
+    echo "Error: --local is only supported for Claude Code (not $HOST)." >&2
     exit 1
   fi
   INSTALL_SKILLS_DIR="$(pwd)/.claude/skills"
@@ -542,21 +544,25 @@ fi
 # For auto: detect which agents are installed
 INSTALL_CLAUDE=0
 INSTALL_CODEX=0
+INSTALL_GEMINI=0
 INSTALL_KIRO=0
 INSTALL_FACTORY=0
 if [ "$HOST" = "auto" ]; then
   command -v claude >/dev/null 2>&1 && INSTALL_CLAUDE=1
   command -v codex >/dev/null 2>&1 && INSTALL_CODEX=1
+  command -v gemini >/dev/null 2>&1 && INSTALL_GEMINI=1
   command -v kiro-cli >/dev/null 2>&1 && INSTALL_KIRO=1
   command -v droid >/dev/null 2>&1 && INSTALL_FACTORY=1
   # If none found, default to claude
-  if [ "$INSTALL_CLAUDE" -eq 0 ] && [ "$INSTALL_CODEX" -eq 0 ] && [ "$INSTALL_KIRO" -eq 0 ] && [ "$INSTALL_FACTORY" -eq 0 ]; then
+  if [ "$INSTALL_CLAUDE" -eq 0 ] && [ "$INSTALL_CODEX" -eq 0 ] && [ "$INSTALL_GEMINI" -eq 0 ] && [ "$INSTALL_KIRO" -eq 0 ] && [ "$INSTALL_FACTORY" -eq 0 ]; then
     INSTALL_CLAUDE=1
   fi
 elif [ "$HOST" = "claude" ]; then
   INSTALL_CLAUDE=1
 elif [ "$HOST" = "codex" ]; then
   INSTALL_CODEX=1
+elif [ "$HOST" = "gemini-cli" ] || [ "$HOST" = "gemini" ]; then
+  INSTALL_GEMINI=1
 elif [ "$HOST" = "kiro" ]; then
   INSTALL_KIRO=1
 elif [ "$HOST" = "factory" ]; then
@@ -671,6 +677,16 @@ if [ "$INSTALL_FACTORY" -eq 1 ] && [ "$NEEDS_BUILD" -eq 0 ]; then
   )
 fi
 
+# 1d. Generate .gemini/ Gemini CLI skill docs
+if [ "$INSTALL_GEMINI" -eq 1 ] && [ "$NEEDS_BUILD" -eq 0 ]; then
+  echo "Generating .gemini/ skill docs..."
+  (
+    cd "$SOURCE_NEXUS_DIR"
+    bun install --frozen-lockfile 2>/dev/null || bun install
+    bun run gen:skill-docs --host gemini-cli
+  )
+fi
+
 # 2. Ensure Playwright's Chromium is available
 if ! ensure_playwright_browser; then
   echo "Installing Playwright Chromium..."
@@ -724,6 +740,7 @@ find_claude_skill_files() {
        -path "$nexus_dir/.github" -o \
        -path "$nexus_dir/.agents" -o \
        -path "$nexus_dir/.factory" -o \
+       -path "$nexus_dir/.gemini" -o \
        -path "$nexus_dir/node_modules" -o \
        -path "$nexus_dir/dist" -o \
        -path "$nexus_dir/upstream" \) -prune -o \
@@ -1123,6 +1140,83 @@ link_factory_skill_dirs() {
   fi
 }
 
+create_gemini_runtime_root() {
+  local nexus_dir="$1"
+  local gemini_nexus="$2"
+  local gemini_dir="$nexus_dir/.gemini/skills"
+
+  if [ -L "$gemini_nexus" ]; then
+    rm -f "$gemini_nexus"
+  elif [ -d "$gemini_nexus" ] && [ "$gemini_nexus" != "$nexus_dir" ]; then
+    rm -rf "$gemini_nexus"
+  fi
+
+  mkdir -p "$gemini_nexus" "$gemini_nexus/browse" "$gemini_nexus/design" "$gemini_nexus/nexus-upgrade" "$gemini_nexus/review"
+
+  if [ -f "$gemini_dir/nexus/SKILL.md" ]; then
+    ln -snf "$gemini_dir/nexus/SKILL.md" "$gemini_nexus/SKILL.md"
+  fi
+  if [ -d "$nexus_dir/bin" ]; then
+    ln -snf "$nexus_dir/bin" "$gemini_nexus/bin"
+  fi
+  if [ -d "$nexus_dir/browse/dist" ]; then
+    ln -snf "$nexus_dir/browse/dist" "$gemini_nexus/browse/dist"
+  fi
+  if [ -d "$nexus_dir/browse/bin" ]; then
+    ln -snf "$nexus_dir/browse/bin" "$gemini_nexus/browse/bin"
+  fi
+  if [ -d "$nexus_dir/design/dist" ]; then
+    ln -snf "$nexus_dir/design/dist" "$gemini_nexus/design/dist"
+  fi
+  if [ -d "$nexus_dir/design/references" ]; then
+    ln -snf "$nexus_dir/design/references" "$gemini_nexus/design/references"
+  fi
+  if [ -f "$gemini_dir/nexus-upgrade/SKILL.md" ]; then
+    ln -snf "$gemini_dir/nexus-upgrade/SKILL.md" "$gemini_nexus/nexus-upgrade/SKILL.md"
+  fi
+  link_reference_compat_assets "$nexus_dir" "$gemini_nexus"
+  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
+    if [ -f "$nexus_dir/review/$f" ]; then
+      ln -snf "$nexus_dir/review/$f" "$gemini_nexus/review/$f"
+    fi
+  done
+  if [ -f "$nexus_dir/ETHOS.md" ]; then
+    ln -snf "$nexus_dir/ETHOS.md" "$gemini_nexus/ETHOS.md"
+  fi
+}
+
+link_gemini_skill_dirs() {
+  local nexus_dir="$1"
+  local skills_dir="$2"
+  local gemini_dir="$nexus_dir/.gemini/skills"
+  local linked=()
+
+  if [ ! -d "$gemini_dir" ]; then
+    echo "  Generating .gemini/ skill docs..."
+    ( cd "$nexus_dir" && bun run gen:skill-docs --host gemini-cli )
+  fi
+
+  if [ ! -d "$gemini_dir" ]; then
+    echo "  warning: .gemini/skills/ generation failed — run 'bun run gen:skill-docs --host gemini-cli' manually" >&2
+    return 1
+  fi
+
+  for skill_dir in "$gemini_dir"/nexus*/; do
+    if [ -f "$skill_dir/SKILL.md" ]; then
+      skill_name="$(basename "$skill_dir")"
+      [ "$skill_name" = "nexus" ] && continue
+      target="$skills_dir/$skill_name"
+      if [ -L "$target" ] || [ ! -e "$target" ]; then
+        ln -snf "$skill_dir" "$target"
+        linked+=("$skill_name")
+      fi
+    fi
+  done
+  if [ ${#linked[@]} -gt 0 ]; then
+    echo "  linked skills: ${linked[*]}"
+  fi
+}
+
 # 4. Install for Claude (default)
 SKILLS_BASENAME="$(basename "$INSTALL_SKILLS_DIR")"
 SKILLS_PARENT_BASENAME="$(basename "$(dirname "$INSTALL_SKILLS_DIR")")"
@@ -1198,7 +1292,19 @@ if [ "$INSTALL_CODEX" -eq 1 ]; then
   announce_execution_mode
 fi
 
-# 6. Install for Kiro CLI (copy from .agents/skills, rewrite paths)
+# 6. Install for Gemini CLI
+if [ "$INSTALL_GEMINI" -eq 1 ]; then
+  mkdir -p "$GEMINI_SKILLS"
+  create_gemini_runtime_root "$SOURCE_NEXUS_DIR" "$GEMINI_NEXUS"
+  link_gemini_skill_dirs "$SOURCE_NEXUS_DIR" "$GEMINI_SKILLS"
+  echo "Nexus ready (gemini-cli)."
+  echo "  browse: $BROWSE_BIN"
+  echo "  gemini skills: $GEMINI_SKILLS"
+  echo "  next: run /skills reload in Gemini CLI if a session is already open"
+  announce_execution_mode
+fi
+
+# 7. Install for Kiro CLI (copy from .agents/skills, rewrite paths)
 if [ "$INSTALL_KIRO" -eq 1 ]; then
   KIRO_SKILLS="$HOME/.kiro/skills"
   AGENTS_DIR="$SOURCE_NEXUS_DIR/.agents/skills"

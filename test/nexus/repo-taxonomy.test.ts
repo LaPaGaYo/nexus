@@ -56,6 +56,12 @@ describe('nexus repo taxonomy v2', () => {
       target_path: 'vendor/upstream',
       move_policy: 'future_move',
     });
+
+    expect(findRepoTaxonomyEntry('gemini-cli-host')).toMatchObject({
+      current_path: '.gemini',
+      target_path: 'hosts/gemini-cli',
+      move_policy: 'future_move',
+    });
   });
 
   test('records compatibility paths for runtime and reference assets installed under NEXUS_ROOT', () => {

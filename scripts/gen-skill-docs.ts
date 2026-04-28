@@ -32,9 +32,10 @@ const HOST_ARG_VAL: HostArg = (() => {
   const val = HOST_ARG.includes('=') ? HOST_ARG.split('=')[1] : process.argv[process.argv.indexOf(HOST_ARG) + 1];
   if (val === 'codex' || val === 'agents') return 'codex';
   if (val === 'factory' || val === 'droid') return 'factory';
+  if (val === 'gemini-cli' || val === 'gemini') return 'gemini-cli';
   if (val === 'claude') return 'claude';
   if (val === 'all') return 'all';
-  throw new Error(`Unknown host: ${val}. Use claude, codex, factory, droid, agents, or all.`);
+  throw new Error(`Unknown host: ${val}. Use claude, codex, factory, gemini-cli, gemini, droid, agents, or all.`);
 })();
 
 // For single-host mode, HOST is the host. For --host all, it's set per iteration below.
@@ -157,7 +158,7 @@ policy:
 /**
  * Transform frontmatter for external hosts.
  * Claude: strips `sensitive:` field (only Factory uses it).
- * Codex: keeps name + description only, enforces 1024-char limit.
+ * Codex/Gemini CLI: keeps name + description only, enforces 1024-char limit.
  * Factory: keeps name + description + user-invocable, conditionally adds disable-model-invocation.
  */
 function transformFrontmatter(content: string, host: Host, nameOverride?: string): string {
@@ -175,8 +176,8 @@ function transformFrontmatter(content: string, host: Host, nameOverride?: string
   const { name, description } = extractNameAndDescription(content);
   const emittedName = nameOverride ?? name;
 
-  if (host === 'codex') {
-    // Codex 1024-char description limit — fail build, don't ship broken skills
+  if (host === 'codex' || host === 'gemini-cli') {
+    // External host 1024-char description limit — fail build, don't ship broken skills
     const MAX_DESC = 1024;
     if (description.length > MAX_DESC) {
       throw new Error(
@@ -242,6 +243,7 @@ interface ExternalHostConfig {
 const EXTERNAL_HOST_CONFIG: Record<string, ExternalHostConfig> = {
   codex:   { hostSubdir: '.agents',  generateMetadata: true,  descriptionLimit: 1024 },
   factory: { hostSubdir: '.factory', generateMetadata: false },
+  'gemini-cli': { hostSubdir: '.gemini', generateMetadata: false, descriptionLimit: 1024 },
 };
 
 // ─── Template Processing ────────────────────────────────────
@@ -428,7 +430,7 @@ function cleanupLegacyExternalHostOutputs(host: Host): void {
   }
 }
 
-const ALL_HOSTS: Host[] = ['claude', 'codex', 'factory'];
+const ALL_HOSTS: Host[] = ['claude', 'codex', 'factory', 'gemini-cli'];
 const hostsToRun: Host[] = HOST_ARG_VAL === 'all' ? ALL_HOSTS : [HOST];
 const failures: { host: string; error: Error }[] = [];
 
@@ -488,7 +490,7 @@ for (const currentHost of hostsToRun) {
       console.log(`Token Budget (${currentHost} host)`);
       console.log('═'.repeat(60));
       for (const t of tokenBudget) {
-        const name = t.skill.replace(/\/SKILL\.md$/, '').replace(/^\.(agents|factory)\/skills\//, '');
+        const name = t.skill.replace(/\/SKILL\.md$/, '').replace(/^\.(agents|factory|gemini)\/skills\//, '');
         console.log(`  ${name.padEnd(30)} ${String(t.lines).padStart(5)} lines  ~${String(t.tokens).padStart(6)} tokens`);
       }
       console.log('─'.repeat(60));

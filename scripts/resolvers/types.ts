@@ -1,4 +1,4 @@
-export type Host = 'claude' | 'codex' | 'factory';
+export type Host = 'claude' | 'codex' | 'factory' | 'gemini-cli';
 
 export interface HostPaths {
   skillRoot: string;
@@ -26,6 +26,13 @@ export const HOST_PATHS: Record<Host, HostPaths> = {
   factory: {
     skillRoot: '$NEXUS_ROOT',
     localSkillRoot: '.factory/skills/nexus',
+    binDir: '$NEXUS_BIN',
+    browseDir: '$NEXUS_BROWSE',
+    designDir: '$NEXUS_DESIGN',
+  },
+  'gemini-cli': {
+    skillRoot: '$NEXUS_ROOT',
+    localSkillRoot: '.gemini/skills/nexus',
     binDir: '$NEXUS_BIN',
     browseDir: '$NEXUS_BROWSE',
     designDir: '$NEXUS_DESIGN',

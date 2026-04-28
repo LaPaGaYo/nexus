@@ -83,7 +83,7 @@ export function skillNameFromSourcePath(filePath: string): string {
     return structuredMatch[1];
   }
 
-  const generatedMatch = normalized.match(/^(?:\.agents|\.factory)\/skills\/([^/]+)\/SKILL\.md$/);
+  const generatedMatch = normalized.match(/^(?:\.agents|\.factory|\.gemini)\/skills\/([^/]+)\/SKILL\.md$/);
   if (generatedMatch?.[1]) {
     return stripGeneratedPrefix(generatedMatch[1]);
   }

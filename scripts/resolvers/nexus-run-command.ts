@@ -8,6 +8,8 @@ function defaultRuntimeRoot(ctx: TemplateContext): string {
       return '${NEXUS_ROOT:-$HOME/.codex/skills/nexus}';
     case 'factory':
       return '${NEXUS_ROOT:-$HOME/.factory/skills/nexus}';
+    case 'gemini-cli':
+      return '${NEXUS_ROOT:-$HOME/.gemini/skills/nexus}';
   }
 }
 

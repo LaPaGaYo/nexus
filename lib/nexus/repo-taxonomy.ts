@@ -223,11 +223,11 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'gemini-cli-host',
     category: 'hosts',
-    current_path: 'N/A',
+    current_path: '.gemini',
     target_path: 'hosts/gemini-cli',
     move_policy: 'future_move',
     risk_level: 'medium',
-    rationale: 'Gemini CLI should be a first-class host target once host-specific generation exists.',
+    rationale: 'Gemini CLI host skill output is currently generated under .gemini for compatibility with Gemini CLI skill discovery.',
   },
   {
     name: 'factory-host',
