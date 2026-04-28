@@ -37,10 +37,10 @@
  * Output: next to the HTML file, same basename with .mp4 suffix.
  */
 
-const { chromium } = require('playwright');
-const path = require('path');
-const fs = require('fs');
-const { spawnSync } = require('child_process');
+import { spawnSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { chromium } from 'playwright';
 
 function arg(name, def) {
   const p = process.argv.find(a => a.startsWith('--' + name + '='));

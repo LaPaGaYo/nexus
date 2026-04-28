@@ -46,4 +46,17 @@ describe('absorbed design runtime assets', () => {
       expect(existsSync(join(ROOT, relativePath))).toBe(true);
     }
   });
+
+  test('render-video script loads under the repo ESM package boundary', () => {
+    const proc = Bun.spawnSync({
+      cmd: ['node', join(ROOT, 'scripts/render-video.js')],
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const stderr = proc.stderr.toString();
+    expect(proc.exitCode).toBe(1);
+    expect(stderr).toContain('Usage: node render-video.js <html-file>');
+    expect(stderr).not.toContain('ReferenceError: require is not defined');
+  });
 });
