@@ -1,8 +1,12 @@
 # Nexus Repo Taxonomy v2
 
-No physical paths move in this phase. This document defines the intended
+No active source paths move in this phase. This document defines the intended
 maintenance categories so future moves can be reviewed, tested, and kept
 compatible with installed Nexus runtimes.
+
+Phase 3 adds documentation-only facades under `runtimes/`, `references/`, and
+`hosts/`. These facades improve repo navigation, but they are not executable
+runtime roots, not installable reference sources, and not generated host output.
 
 ## Target Tree
 
@@ -72,6 +76,31 @@ installed runtime paths such as:
 - `$NEXUS_ROOT/review/checklist.md`
 - `$NEXUS_ROOT/review/specialists/testing.md`
 - `$NEXUS_ROOT/qa/templates/qa-report-template.md`
+
+## Phase 3 Facade Slice
+
+The physical facade slice is intentionally conservative:
+
+- `runtimes/*.md` points to active runtime roots without creating future runtime
+  directories such as `runtimes/browse/`.
+- `references/review/README.md`, `references/qa/README.md`, and
+  `references/cso/README.md` document active reference roots without creating
+  concrete future assets.
+- `references/design.md` is intentionally a file, not `references/design/`,
+  because `setup` treats `references/design` as a real future source for
+  `design/references`.
+- `hosts/*/README.md` records intended host categories while `.claude/`,
+  `.agents/`, `.gemini/`, and `.factory/` remain active host surfaces.
+
+Guarded future paths must stay absent until the migration actually moves assets
+and updates compatibility logic. Examples include:
+
+- `references/design`
+- `references/review/checklist.md`
+- `references/review/specialists`
+- `references/qa/templates`
+- `references/qa/references`
+- `references/cso/ACKNOWLEDGEMENTS.md`
 
 ## First-Class Host Targets
 
