@@ -254,10 +254,11 @@ describe('nexus repo taxonomy v2', () => {
     }
   });
 
-  test('architecture note explains the no-physical-move policy and target tree', () => {
+  test('architecture note explains the conservative move policy and target tree', () => {
     const doc = readFileSync(join(ROOT, 'docs/architecture/repo-taxonomy-v2.md'), 'utf8');
 
-    expect(doc).toContain('No active source paths move in this phase.');
+    expect(doc).toContain('The root `/nexus` source template has moved into the skill taxonomy.');
+    expect(doc).toContain('root `SKILL.md` remains a generated');
     expect(doc).toContain('documentation-only facades');
     expect(doc).toContain('hosts/gemini-cli');
     expect(doc).toContain('runtimes/browse');

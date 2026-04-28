@@ -1,8 +1,9 @@
 # Nexus Repo Taxonomy v2
 
-No active source paths move in this phase. This document defines the intended
-maintenance categories so future moves can be reviewed, tested, and kept
-compatible with installed Nexus runtimes.
+The root `/nexus` source template has moved into the skill taxonomy. Other
+runtime, reference, vendor, and host source paths remain in their compatibility
+locations until a migration explicitly updates setup, generated host surfaces,
+runtime path rewrites, and tests.
 
 Phase 3 adds documentation-only facades under `runtimes/`, `references/`, and
 `hosts/`. These facades improve repo navigation, but they are not executable
@@ -54,11 +55,16 @@ nexus/
 
 ## Current Policy
 
-Current paths remain the active source of truth until a migration explicitly
-updates setup, generated host surfaces, runtime path rewrites, and tests.
+Most current paths remain the active source of truth until a migration
+explicitly updates setup, generated host surfaces, runtime path rewrites, and
+tests. The root `/nexus` source template is the first physical move and now
+lives under `skills/root/nexus/`; root `SKILL.md` remains a generated
+compatibility mirror.
 
 Representative current-to-target mappings:
 
+- `skills/root/nexus/SKILL.md.tmpl` -> `skills/root/nexus/SKILL.md.tmpl`
+- `SKILL.md` -> `skills/root/nexus/SKILL.md` (generated compatibility mirror)
 - `browse` -> `runtimes/browse`
 - `extension` -> `runtimes/browse/extension`
 - `design` -> `runtimes/design`

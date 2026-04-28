@@ -51,13 +51,14 @@ Nexus keeps the generated host skills in `.agents/skills/` and
 `.factory/skills/`, but source templates are governed by a stricter taxonomy in
 `lib/nexus/skill-structure.ts`:
 
-- root entrypoint: `SKILL.md.tmpl`
+- root entrypoint source: `skills/root/nexus/SKILL.md.tmpl`
+- root entrypoint compatibility mirror: `SKILL.md`
 - canonical lifecycle commands: `skills/canonical/<command>/`
 - support workflows: `skills/support/<skill>/`
 - safety workflows: `skills/safety/<skill>/`
 - compatibility aliases: `skills/aliases/<alias>/`
 
-Only the root `/nexus` entrypoint stays at the repository root. Runtime sidecar
+Only the generated root `/nexus` compatibility mirror stays at the repository root. Runtime sidecar
 assets such as `review/checklist.md` and `cso/ACKNOWLEDGEMENTS.md` remain in
 their historical locations when generated skills reference `$NEXUS_ROOT/...`.
 `bun run skill:check` reports the active taxonomy so future source moves can be

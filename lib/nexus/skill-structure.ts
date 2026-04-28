@@ -12,7 +12,6 @@ export type SkillStructureEntry = {
 
 export type SkillArtifactFileName = 'SKILL.md' | 'SKILL.md.tmpl';
 
-const ROOT_SKILL_CURRENT_SOURCE_PATH = 'SKILL.md.tmpl';
 const ROOT_SKILL_TARGET_SOURCE_PATH = 'skills/root/nexus/SKILL.md.tmpl';
 
 export const SAFETY_SKILL_NAMES = [
@@ -122,7 +121,7 @@ export function skillSourceCategoryForName(name: string): SkillStructureCategory
 export function currentSkillSourcePathForName(name: string): string {
   const normalized = stripGeneratedPrefix(name);
   if (normalized === 'nexus') {
-    return ROOT_SKILL_CURRENT_SOURCE_PATH;
+    return ROOT_SKILL_TARGET_SOURCE_PATH;
   }
   return targetSkillSourcePathForName(name);
 }

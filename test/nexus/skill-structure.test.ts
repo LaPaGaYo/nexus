@@ -64,7 +64,7 @@ describe('nexus skill source structure', () => {
       movePolicy: 'planned_move',
     });
 
-    expect(currentSkillSourcePathForName('nexus')).toBe('SKILL.md.tmpl');
+    expect(currentSkillSourcePathForName('nexus')).toBe('skills/root/nexus/SKILL.md.tmpl');
     expect(targetSkillSourcePathForName('nexus')).toBe('skills/root/nexus/SKILL.md.tmpl');
     expect(skillNameFromSourcePath('skills/root/nexus/SKILL.md.tmpl')).toBe('nexus');
     expect(describeSkillSourcePath('skills/root/nexus/SKILL.md.tmpl')).toMatchObject({
@@ -125,7 +125,6 @@ describe('nexus skill source structure', () => {
     ]);
     expect(candidateSkillArtifactPathsForName('nexus', 'SKILL.md')).toEqual([
       'skills/root/nexus/SKILL.md',
-      'SKILL.md',
     ]);
   });
 

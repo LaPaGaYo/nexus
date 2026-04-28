@@ -258,6 +258,15 @@ describe('gen-skill-docs', () => {
     expect(content).toContain('Regenerate: bun run gen:skill-docs');
   });
 
+  test('root nexus source lives under skills/root while legacy SKILL.md remains a generated mirror', () => {
+    expect(fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))).toBe(false);
+    expect(fs.existsSync(path.join(ROOT, 'skills', 'root', 'nexus', 'SKILL.md.tmpl'))).toBe(true);
+    expect(fs.existsSync(path.join(ROOT, 'skills', 'root', 'nexus', 'SKILL.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8')).toBe(
+      fs.readFileSync(path.join(ROOT, 'skills', 'root', 'nexus', 'SKILL.md'), 'utf-8'),
+    );
+  });
+
   test('generated header is present in browse/SKILL.md', () => {
     const content = readSkill('browse');
     expect(content).toContain('AUTO-GENERATED from SKILL.md.tmpl');
@@ -380,7 +389,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('templates contain placeholders', () => {
-    const rootTmpl = fs.readFileSync(path.join(ROOT, 'SKILL.md.tmpl'), 'utf-8');
+    const rootTmpl = readTemplate('nexus');
     expect(rootTmpl).toContain('{{PREAMBLE}}');
 
     const browseTmpl = readTemplate('browse');
@@ -1946,7 +1955,7 @@ describe('Codex generation (--host codex)', () => {
         return fs.realpathSync(agentSkillDir) === fs.realpathSync(ROOT);
       } catch { return false; }
     };
-    if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
+    if (SKILL_BY_NAME.has('nexus')) {
       if (!isSymlinkLoop('nexus')) {
         skills.push({ dir: '.', codexName: 'nexus' });
       }
@@ -2288,7 +2297,7 @@ describe('Factory generation (--host factory)', () => {
       try { return fs.realpathSync(factorySkillDir) === fs.realpathSync(ROOT); }
       catch { return false; }
     };
-    if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
+    if (SKILL_BY_NAME.has('nexus')) {
       if (!isSymlinkLoop('nexus')) skills.push({ dir: '.', factoryName: 'nexus' });
     }
     for (const skill of ALL_SKILLS) {
