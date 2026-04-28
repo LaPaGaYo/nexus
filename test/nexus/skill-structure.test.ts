@@ -7,8 +7,10 @@ import {
   SAFETY_SKILL_NAMES,
   SUPPORT_SKILL_NAMES,
   allPlannedSkillStructureEntries,
+  currentSkillSourcePathForName,
   describeSkillSourcePath,
   candidateSkillArtifactPathsForName,
+  skillNameFromSourcePath,
   skillSourceCategoryForName,
   targetSkillSourcePathForName,
 } from '../../lib/nexus/skill-structure';
@@ -58,7 +60,17 @@ describe('nexus skill source structure', () => {
     expect(describeSkillSourcePath('SKILL.md.tmpl')).toMatchObject({
       name: 'nexus',
       category: 'root',
-      targetSourcePath: 'SKILL.md.tmpl',
+      targetSourcePath: 'skills/root/nexus/SKILL.md.tmpl',
+      movePolicy: 'planned_move',
+    });
+
+    expect(currentSkillSourcePathForName('nexus')).toBe('SKILL.md.tmpl');
+    expect(targetSkillSourcePathForName('nexus')).toBe('skills/root/nexus/SKILL.md.tmpl');
+    expect(skillNameFromSourcePath('skills/root/nexus/SKILL.md.tmpl')).toBe('nexus');
+    expect(describeSkillSourcePath('skills/root/nexus/SKILL.md.tmpl')).toMatchObject({
+      name: 'nexus',
+      category: 'root',
+      targetSourcePath: 'skills/root/nexus/SKILL.md.tmpl',
       movePolicy: 'in_place',
     });
   });
@@ -111,7 +123,10 @@ describe('nexus skill source structure', () => {
     expect(candidateSkillArtifactPathsForName('simplify', 'SKILL.md.tmpl')).toEqual([
       'skills/support/simplify/SKILL.md.tmpl',
     ]);
-    expect(candidateSkillArtifactPathsForName('nexus', 'SKILL.md')).toEqual(['SKILL.md']);
+    expect(candidateSkillArtifactPathsForName('nexus', 'SKILL.md')).toEqual([
+      'skills/root/nexus/SKILL.md',
+      'SKILL.md',
+    ]);
   });
 
   test('primary non-e2e tests read generated skills through structure-aware helpers', () => {

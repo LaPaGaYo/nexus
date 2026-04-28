@@ -329,11 +329,15 @@ function processExternalHost(
     const agentsDir = path.join(outputDir, 'agents');
     fs.mkdirSync(agentsDir, { recursive: true });
     const shortDescription = condenseOpenAIShortDescription(extractedDescription);
-    fs.writeFileSync(path.join(agentsDir, 'openai.yaml'), generateOpenAIYaml(name, shortDescription));
+    const metadata = generateOpenAIYaml(name, shortDescription);
+    fs.writeFileSync(path.join(agentsDir, 'openai.yaml'), metadata);
     if (host === 'codex' && (skillDir === '.' || skillDir === '')) {
       const rootAgentsDir = path.join(ROOT, 'agents');
       fs.mkdirSync(rootAgentsDir, { recursive: true });
-      fs.writeFileSync(path.join(rootAgentsDir, 'openai.yaml'), generateOpenAIYaml(name, shortDescription));
+      fs.writeFileSync(path.join(rootAgentsDir, 'openai.yaml'), metadata);
+      const futureCodexHostDir = path.join(ROOT, 'hosts', 'codex');
+      fs.mkdirSync(futureCodexHostDir, { recursive: true });
+      fs.writeFileSync(path.join(futureCodexHostDir, 'openai.yaml'), metadata);
     }
   }
 

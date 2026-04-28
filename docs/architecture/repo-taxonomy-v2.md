@@ -96,6 +96,9 @@ The physical facade slice is intentionally conservative:
   `design/references`.
 - `hosts/*/README.md` records intended host categories while `.claude/`,
   `.agents/`, `.gemini/`, and `.factory/` remain active host surfaces.
+- `hosts/codex/openai.yaml` is a compatibility mirror for future Codex host
+  metadata. The active legacy compatibility path remains `agents/openai.yaml`
+  until setup/install switches deliberately.
 
 Guarded future paths must stay absent until the migration actually moves assets
 and updates compatibility logic. Examples include:

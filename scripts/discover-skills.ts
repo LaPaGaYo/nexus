@@ -10,7 +10,7 @@ import * as path from 'path';
 import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
 
 const SKIP = new Set(['node_modules', '.git', 'dist']);
-const STRUCTURED_SKILL_CATEGORIES = ['canonical', 'support', 'safety', 'aliases'];
+const STRUCTURED_SKILL_CATEGORIES = ['root', 'canonical', 'support', 'safety', 'aliases'];
 
 function subdirs(root: string): string[] {
   return fs.readdirSync(root, { withFileTypes: true })
@@ -64,8 +64,8 @@ function dedupeBySkillName(paths: string[]): string[] {
 
 export function discoverTemplates(root: string): Array<{ tmpl: string; output: string }> {
   const results: string[] = [];
-  pushIfExists(results, root, 'SKILL.md.tmpl');
   results.push(...structuredSkillPaths(root, 'SKILL.md.tmpl'));
+  pushIfExists(results, root, 'SKILL.md.tmpl');
 
   for (const dir of subdirs(root)) {
     if (dir === 'skills') {
@@ -81,8 +81,8 @@ export function discoverTemplates(root: string): Array<{ tmpl: string; output: s
 
 export function discoverSkillFiles(root: string): string[] {
   const results: string[] = [];
-  pushIfExists(results, root, 'SKILL.md');
   results.push(...structuredSkillPaths(root, 'SKILL.md'));
+  pushIfExists(results, root, 'SKILL.md');
 
   for (const dir of subdirs(root)) {
     if (dir === 'skills') {

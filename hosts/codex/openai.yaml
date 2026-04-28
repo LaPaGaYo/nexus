@@ -1,0 +1,6 @@
+interface:
+  display_name: "nexus"
+  short_description: "Nexus workflow harness entrypoint. Start here to confirm whether this session is using governed CCB or a local..."
+  default_prompt: "Use $nexus to locate the bundled Nexus skills."
+policy:
+  allow_implicit_invocation: true
