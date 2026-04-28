@@ -37,6 +37,15 @@ export type ReferenceCompatMapping = {
   kind: 'file' | 'directory';
 };
 
+export type RepoTaxonomyFacade = {
+  facade_path: string;
+  category: RepoTaxonomyCategory;
+  kind: 'navigation_only';
+  active_source_paths: string[];
+  guarded_future_paths?: string[];
+  note: string;
+};
+
 export const REPO_TAXONOMY_CATEGORIES: Record<RepoTaxonomyCategory, RepoTaxonomyCategorySpec> = {
   skills: {
     root: 'skills',
@@ -351,6 +360,128 @@ export const REFERENCE_COMPAT_MAPPINGS: ReferenceCompatMapping[] = [
   },
 ];
 
+export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
+  {
+    facade_path: 'runtimes/README.md',
+    category: 'runtimes',
+    kind: 'navigation_only',
+    active_source_paths: ['browse', 'design', 'design-html', 'careful', 'freeze'],
+    note: 'Runtime facade root. Existing runtime roots remain executable source of truth.',
+  },
+  {
+    facade_path: 'runtimes/browse.md',
+    category: 'runtimes',
+    kind: 'navigation_only',
+    active_source_paths: ['browse'],
+    guarded_future_paths: ['runtimes/browse'],
+    note: 'Browse runtime facade. Do not create runtimes/browse until setup and runtime resolvers are migrated.',
+  },
+  {
+    facade_path: 'runtimes/design.md',
+    category: 'runtimes',
+    kind: 'navigation_only',
+    active_source_paths: ['design'],
+    guarded_future_paths: ['runtimes/design'],
+    note: 'Design runtime facade. Do not create runtimes/design until compiled runtime and references are migrated together.',
+  },
+  {
+    facade_path: 'runtimes/design-html.md',
+    category: 'runtimes',
+    kind: 'navigation_only',
+    active_source_paths: ['design-html'],
+    guarded_future_paths: ['runtimes/design-html'],
+    note: 'Design HTML runtime facade. Vendor assets stay under design-html until resolver compatibility is updated.',
+  },
+  {
+    facade_path: 'runtimes/safety.md',
+    category: 'runtimes',
+    kind: 'navigation_only',
+    active_source_paths: ['careful', 'freeze'],
+    guarded_future_paths: ['runtimes/safety/careful', 'runtimes/safety/freeze'],
+    note: 'Safety runtime facade. Hook helper binaries stay under careful/ and freeze/ for installed skill compatibility.',
+  },
+  {
+    facade_path: 'references/README.md',
+    category: 'references',
+    kind: 'navigation_only',
+    active_source_paths: ['review', 'qa', 'design/references', 'cso'],
+    note: 'Reference facade root. Do not place real installable assets here until setup compatibility is migrated.',
+  },
+  {
+    facade_path: 'references/review/README.md',
+    category: 'references',
+    kind: 'navigation_only',
+    active_source_paths: ['review'],
+    guarded_future_paths: [
+      'references/review/checklist.md',
+      'references/review/design-checklist.md',
+      'references/review/greptile-triage.md',
+      'references/review/TODOS-format.md',
+      'references/review/specialists',
+    ],
+    note: 'Review reference facade. Concrete checklists and specialists stay in review/ for installed compatibility.',
+  },
+  {
+    facade_path: 'references/qa/README.md',
+    category: 'references',
+    kind: 'navigation_only',
+    active_source_paths: ['qa'],
+    guarded_future_paths: ['references/qa/templates', 'references/qa/references'],
+    note: 'QA reference facade. Templates and issue taxonomy stay in qa/ until setup switches deliberately.',
+  },
+  {
+    facade_path: 'references/design.md',
+    category: 'references',
+    kind: 'navigation_only',
+    active_source_paths: ['design/references'],
+    guarded_future_paths: ['references/design'],
+    note: 'Design reference facade. It is intentionally a file, not references/design/, because setup treats that directory as a real future source.',
+  },
+  {
+    facade_path: 'references/cso/README.md',
+    category: 'references',
+    kind: 'navigation_only',
+    active_source_paths: ['cso'],
+    guarded_future_paths: ['references/cso/ACKNOWLEDGEMENTS.md'],
+    note: 'CSO reference facade. Acknowledgement assets stay in cso/ until compatibility links are migrated.',
+  },
+  {
+    facade_path: 'hosts/README.md',
+    category: 'hosts',
+    kind: 'navigation_only',
+    active_source_paths: ['CLAUDE.md', '.claude', '.agents', '.gemini', '.factory'],
+    note: 'Host facade root. Generated host output remains in current discovery roots.',
+  },
+  {
+    facade_path: 'hosts/claude/README.md',
+    category: 'hosts',
+    kind: 'navigation_only',
+    active_source_paths: ['CLAUDE.md', '.claude'],
+    note: 'Claude host facade. CLAUDE.md and .claude remain the active Claude host surface.',
+  },
+  {
+    facade_path: 'hosts/codex/README.md',
+    category: 'hosts',
+    kind: 'navigation_only',
+    active_source_paths: ['.agents'],
+    note: 'Codex host facade. .agents remains the active Codex host surface.',
+  },
+  {
+    facade_path: 'hosts/gemini-cli/README.md',
+    category: 'hosts',
+    kind: 'navigation_only',
+    active_source_paths: ['.gemini'],
+    note: 'Gemini CLI host facade. .gemini remains the active Gemini CLI host surface.',
+  },
+  {
+    facade_path: 'hosts/factory/README.md',
+    category: 'hosts',
+    kind: 'navigation_only',
+    active_source_paths: ['.factory'],
+    note: 'Factory host facade. .factory remains the active Factory host surface.',
+  },
+];
+
 export function plannedTopLevelRoots(): string[] {
   return [
     REPO_TAXONOMY_CATEGORIES.skills.root,
@@ -366,10 +497,18 @@ export function plannedTopLevelRoots(): string[] {
   ];
 }
 
+export function plannedFacadePaths(): string[] {
+  return REPO_TAXONOMY_FACADES.map((facade) => facade.facade_path);
+}
+
 export function findRepoTaxonomyEntry(nameOrCurrentPath: string): RepoTaxonomyEntry | undefined {
   return REPO_TAXONOMY_ENTRIES.find((entry) =>
     entry.name === nameOrCurrentPath || entry.current_path === nameOrCurrentPath
   );
+}
+
+export function findRepoTaxonomyFacade(facadePath: string): RepoTaxonomyFacade | undefined {
+  return REPO_TAXONOMY_FACADES.find((facade) => facade.facade_path === facadePath);
 }
 
 export function referenceCompatSourceCandidates(compatPath: string): string[] {

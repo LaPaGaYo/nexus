@@ -5,7 +5,10 @@ import {
   REFERENCE_COMPAT_MAPPINGS,
   REPO_TAXONOMY_CATEGORIES,
   REPO_TAXONOMY_ENTRIES,
+  REPO_TAXONOMY_FACADES,
+  findRepoTaxonomyFacade,
   findRepoTaxonomyEntry,
+  plannedFacadePaths,
   plannedTopLevelRoots,
   referenceCompatSourceCandidates,
 } from '../../lib/nexus/repo-taxonomy';
@@ -110,6 +113,59 @@ describe('nexus repo taxonomy v2', () => {
     ]);
   });
 
+  test('creates only safe navigation facades for physical taxonomy roots', () => {
+    expect(plannedFacadePaths()).toEqual([
+      'runtimes/README.md',
+      'runtimes/browse.md',
+      'runtimes/design.md',
+      'runtimes/design-html.md',
+      'runtimes/safety.md',
+      'references/README.md',
+      'references/review/README.md',
+      'references/qa/README.md',
+      'references/design.md',
+      'references/cso/README.md',
+      'hosts/README.md',
+      'hosts/claude/README.md',
+      'hosts/codex/README.md',
+      'hosts/gemini-cli/README.md',
+      'hosts/factory/README.md',
+    ]);
+
+    for (const facade of REPO_TAXONOMY_FACADES) {
+      expect(facade.kind).toBe('navigation_only');
+      expect(existsSync(join(ROOT, facade.facade_path))).toBe(true);
+      expect(facade.active_source_paths.length).toBeGreaterThan(0);
+      for (const activeSourcePath of facade.active_source_paths) {
+        expect(existsSync(join(ROOT, activeSourcePath))).toBe(true);
+      }
+    }
+
+    expect(findRepoTaxonomyFacade('references/design.md')).toMatchObject({
+      active_source_paths: ['design/references'],
+      guarded_future_paths: ['references/design'],
+    });
+
+    const facadePaths = new Set(plannedFacadePaths());
+    for (const mapping of REFERENCE_COMPAT_MAPPINGS) {
+      expect(facadePaths.has(mapping.future_source_path)).toBe(false);
+    }
+  });
+
+  test('does not create guarded future reference sources that setup would treat as real assets', () => {
+    const guardedFuturePaths = REPO_TAXONOMY_FACADES.flatMap(
+      (facade) => facade.guarded_future_paths ?? []
+    );
+
+    expect(guardedFuturePaths).toContain('references/design');
+    expect(guardedFuturePaths).toContain('references/review/checklist.md');
+    expect(guardedFuturePaths).toContain('references/qa/templates');
+
+    for (const guardedPath of guardedFuturePaths) {
+      expect(existsSync(join(ROOT, guardedPath))).toBe(false);
+    }
+  });
+
   test('documents all high-risk visible root directories that should not be moved ad hoc', () => {
     const documented = new Set(REPO_TAXONOMY_ENTRIES.map((entry) => entry.current_path));
     const highRiskRoots = [
@@ -137,10 +193,12 @@ describe('nexus repo taxonomy v2', () => {
   test('architecture note explains the no-physical-move policy and target tree', () => {
     const doc = readFileSync(join(ROOT, 'docs/architecture/repo-taxonomy-v2.md'), 'utf8');
 
-    expect(doc).toContain('No physical paths move in this phase.');
+    expect(doc).toContain('No active source paths move in this phase.');
+    expect(doc).toContain('documentation-only facades');
     expect(doc).toContain('hosts/gemini-cli');
     expect(doc).toContain('runtimes/browse');
     expect(doc).toContain('references/review');
+    expect(doc).toContain('references/design.md');
     expect(doc).toContain('$NEXUS_ROOT/review/checklist.md');
   });
 });
