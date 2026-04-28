@@ -410,7 +410,9 @@ describe('nexus product surface contract', () => {
     expect(dockerfile).toContain('/home/runner/.nexus-dev');
     expect(dockerfile).not.toContain('/home/runner/.gstack');
 
+    expect(evalsWorkflow).toContain('~/.nexus/projects/*/evals/*.json');
     expect(evalsWorkflow).toContain('~/.nexus-dev/evals/*.json');
+    expect(periodicWorkflow).toContain('~/.nexus/projects/*/evals/*.json');
     expect(periodicWorkflow).toContain('~/.nexus-dev/evals/*.json');
     expect(evalsWorkflow).not.toContain('~/.gstack-dev/evals/*.json');
     expect(periodicWorkflow).not.toContain('~/.gstack-dev/evals/*.json');

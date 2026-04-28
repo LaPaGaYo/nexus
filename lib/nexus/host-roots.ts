@@ -8,6 +8,7 @@ export const PRIMARY_HOST_ROOTS = {
   claude_local: '.claude/skills/nexus',
   codex_sidecar: '.agents/skills/nexus',
   codex_global: '~/.codex/skills/nexus',
+  gemini_cli_global: '~/.gemini/skills/nexus',
   kiro_global: '~/.kiro/skills/nexus',
   factory_global: '~/.factory/skills/nexus',
 } as const;

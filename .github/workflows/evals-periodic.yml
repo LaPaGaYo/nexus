@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}/ci
+  IMAGE: ghcr.io/lapagayo/nexus/ci
   EVALS_TIER: periodic
   EVALS_ALL: 1  # Ignore diff — run all periodic tests
 
@@ -125,5 +125,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eval-periodic-${{ matrix.suite.name }}
-          path: ~/.nexus-dev/evals/*.json
+          path: |
+            ~/.nexus/projects/*/evals/*.json
+            ~/.nexus-dev/evals/*.json
           retention-days: 90

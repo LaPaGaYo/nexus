@@ -5,17 +5,20 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: evals-${{ github.head_ref }}
+  # v2 separates current PR evals from pre-runner-fallback runs that may be
+  # stuck forever on unavailable self-hosted labels.
+  group: evals-v2-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}/ci
+  IMAGE: ghcr.io/lapagayo/nexus/ci
   EVALS_TIER: gate
+  PR_EVAL_SUITES: " e2e-qa-bugs e2e-routing e2e-codex e2e-gemini "
 
 jobs:
   # Build Docker image with pre-baked toolchain (cached — only rebuilds on Dockerfile/lockfile change)
   build-image:
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     permissions:
       contents: read
       packages: write
@@ -56,7 +59,7 @@ jobs:
             ${{ env.IMAGE }}:latest
 
   evals:
-    runs-on: ${{ matrix.suite.runner || 'ubicloud-standard-2' }}
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || matrix.suite.runner || 'ubicloud-standard-2' }}
     needs: build-image
     container:
       image: ${{ needs.build-image.outputs.image-tag }}
@@ -123,13 +126,20 @@ jobs:
 
       # Verify Playwright can launch Chromium (fails fast if sandbox/deps are broken)
       - name: Verify Chromium
-        if: matrix.suite.name == 'e2e-browse'
+        if: matrix.suite.name == 'e2e-browse' && (github.event_name != 'pull_request' || contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name)))
         run: |
           echo "whoami=$(whoami) HOME=$HOME TMPDIR=${TMPDIR:-unset}"
           touch /tmp/.bun-test && rm /tmp/.bun-test && echo "/tmp writable"
           bun -e "import {chromium} from 'playwright';const b=await chromium.launch({args:['--no-sandbox']});console.log('Chromium OK');await b.close()"
 
+      - name: Skip provider-backed PR eval
+        if: github.event_name == 'pull_request' && !contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name))
+        run: |
+          echo "Skipping ${{ matrix.suite.name }} on pull_request fallback."
+          echo "This suite requires hosted provider auth or persistent CLI login; run workflow_dispatch for the full configured-runner eval set."
+
       - name: Run ${{ matrix.suite.name }}
+        if: github.event_name != 'pull_request' || contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name))
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -139,15 +149,17 @@ jobs:
         run: EVALS=1 bun test --retry 2 --concurrent --max-concurrency 40 ${{ matrix.suite.file }}
 
       - name: Upload eval results
-        if: always()
+        if: always() && (github.event_name != 'pull_request' || contains(env.PR_EVAL_SUITES, format(' {0} ', matrix.suite.name)))
         uses: actions/upload-artifact@v4
         with:
           name: eval-${{ matrix.suite.name }}
-          path: ~/.nexus-dev/evals/*.json
+          path: |
+            ~/.nexus/projects/*/evals/*.json
+            ~/.nexus-dev/evals/*.json
           retention-days: 90
 
   report:
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     needs: evals
     if: always() && github.event_name == 'pull_request'
     timeout-minutes: 5
@@ -204,14 +216,14 @@ jobs:
 
           BODY="## E2E Evals: ${STATUS}
 
-          **${PASSED}/${TOTAL}** tests passed | **\$${COST}** total cost | **12 parallel runners**
+          **${PASSED}/${TOTAL}** tests passed | **\$${COST}** total cost | **parallel matrix jobs**
 
           | Suite | Result | Status | Cost |
           |-------|--------|--------|------|
           $(echo -e "$SUITE_LINES")
 
           ---
-          *12x ubicloud-standard-2 (Docker: pre-baked toolchain + deps) | wall clock ≈ slowest suite*"
+          *pull_request: ubuntu-latest fallback; workflow_dispatch: configured suite runners | Docker: pre-baked toolchain + deps | wall clock ≈ slowest suite*"
 
           if [ "$FAILED" -gt 0 ]; then
             FAILURES=""
