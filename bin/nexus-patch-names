@@ -17,6 +17,7 @@ while IFS= read -r skill_file; do
   cur=$(grep -m1 '^name:' "$skill_file" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]' || true)
   [ -z "$cur" ] && continue
   [ "$cur" = "nexus" ] && continue
+  [ "$cur" = "nexus-upgrade" ] && continue
   if [ "$DO_PREFIX" -eq 1 ]; then
     case "$cur" in
       nexus-*) continue ;;

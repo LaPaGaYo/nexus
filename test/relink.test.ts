@@ -240,4 +240,15 @@ describe('nexus-patch-names', () => {
     expect(readSkillName(path.join(installDir, 'qa'))).toBe('qa');
     expect(readSkillName(path.join(installDir, 'ship'))).toBe('ship');
   });
+
+  test('prefix=false preserves inherently prefixed nexus-upgrade', () => {
+    setupMockInstall(['nexus-upgrade']);
+    run(`${path.join(installDir, 'bin', 'nexus-config')} set skill_prefix false`);
+    run(`${path.join(installDir, 'bin', 'nexus-relink')}`, {
+      NEXUS_INSTALL_DIR: installDir,
+      NEXUS_SKILLS_DIR: skillsDir,
+    });
+
+    expect(readSkillName(path.join(installDir, 'nexus-upgrade'))).toBe('nexus-upgrade');
+  });
 });
