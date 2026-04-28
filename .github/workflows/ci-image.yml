@@ -36,5 +36,5 @@ jobs:
           file: .github/docker/Dockerfile.ci
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/ci:latest
-            ghcr.io/${{ github.repository }}/ci:${{ github.sha }}
+            ghcr.io/lapagayo/nexus/ci:latest
+            ghcr.io/lapagayo/nexus/ci:${{ github.sha }}
