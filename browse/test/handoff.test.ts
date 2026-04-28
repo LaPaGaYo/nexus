@@ -18,6 +18,12 @@ let testServer: ReturnType<typeof startTestServer>;
 let bm: BrowserManager;
 let baseUrl: string;
 
+// Handoff launches a headed persistent Chromium context and restores every
+// saved tab. In the full suite this file runs alongside other browser tests,
+// so the test timeout needs headroom beyond the internal 15s launch timeout
+// plus 15s per restored tab.
+const HANDOFF_INTEGRATION_TIMEOUT_MS = 90_000;
+
 beforeAll(async () => {
   testServer = startTestServer(0);
   baseUrl = testServer.url;
@@ -239,7 +245,7 @@ describe('handoff integration', () => {
         await hbm.close();
       }
     });
-  }, 45000);
+  }, HANDOFF_INTEGRATION_TIMEOUT_MS);
 
   test('multi-tab handoff preserves all tabs', async () => {
     await withIsolatedChromiumProfile(async () => {
@@ -261,7 +267,7 @@ describe('handoff integration', () => {
         await hbm.close();
       }
     });
-  }, 45000);
+  }, HANDOFF_INTEGRATION_TIMEOUT_MS);
 
   test('handoff meta command joins args as message', async () => {
     await withIsolatedChromiumProfile(async () => {
@@ -276,5 +282,5 @@ describe('handoff integration', () => {
         await hbm.close();
       }
     });
-  }, 45000);
+  }, HANDOFF_INTEGRATION_TIMEOUT_MS);
 });
