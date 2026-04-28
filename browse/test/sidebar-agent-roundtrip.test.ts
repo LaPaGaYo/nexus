@@ -33,7 +33,6 @@ async function api(pathname: string, opts: RequestInit = {}): Promise<Response> 
 
 async function resetState() {
   await api('/sidebar-session/new', { method: 'POST' });
-  fs.writeFileSync(queueFile, '');
 }
 
 async function pollChatUntil(
@@ -189,7 +188,40 @@ exit 1
     const session = await (await api('/sidebar-session')).json();
     expect(session.agent.status).toBe('idle');
 
+    const errorEntry = entries.find((e: any) => e.type === 'agent_error');
+    expect(errorEntry).toBeDefined();
+    expect(errorEntry.error).toContain('Claude exited with code 1');
+
     // Restore working mock
+    writeMockClaude(`#!/bin/bash
+echo '{"type":"assistant","message":{"content":[{"type":"text","text":"recovered"}]}}'
+`);
+  }, 20000);
+
+  test('empty claude output produces visible agent_error', async () => {
+    await resetState();
+
+    writeMockClaude(`#!/bin/bash
+exit 0
+`);
+
+    await api('/sidebar-command', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'empty output test' }),
+    });
+
+    const entries = await pollChatUntil(
+      (entries) => entries.some((e: any) => e.type === 'agent_error'),
+      15000,
+    );
+
+    const errorEntry = entries.find((e: any) => e.type === 'agent_error');
+    expect(errorEntry).toBeDefined();
+    expect(errorEntry.error).toContain('Claude finished without output');
+
+    const session = await (await api('/sidebar-session')).json();
+    expect(session.agent.status).toBe('idle');
+
     writeMockClaude(`#!/bin/bash
 echo '{"type":"assistant","message":{"content":[{"type":"text","text":"recovered"}]}}'
 `);
