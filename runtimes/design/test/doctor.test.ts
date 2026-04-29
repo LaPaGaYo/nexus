@@ -21,12 +21,12 @@ function createProbe(overrides: Partial<DesignRuntimeDoctorProbe> = {}): DesignR
 describe('design runtime doctor', () => {
   test('finds the Nexus runtime root from nested design binary paths', () => {
     const tmpRoot = `/tmp/design-doctor-root-${Date.now()}`;
-    fs.mkdirSync(path.join(tmpRoot, 'design', 'scripts'), { recursive: true });
-    fs.mkdirSync(path.join(tmpRoot, 'design', 'assets'), { recursive: true });
-    fs.mkdirSync(path.join(tmpRoot, 'design', 'dist'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRoot, 'runtimes', 'design', 'scripts'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRoot, 'runtimes', 'design', 'assets'), { recursive: true });
+    fs.mkdirSync(path.join(tmpRoot, 'runtimes', 'design', 'dist'), { recursive: true });
     fs.writeFileSync(path.join(tmpRoot, 'package.json'), '{"name":"nexus"}');
 
-    const resolved = resolveDesignRuntimeRoot([path.join(tmpRoot, 'design', 'dist', 'design')]);
+    const resolved = resolveDesignRuntimeRoot([path.join(tmpRoot, 'runtimes', 'design', 'dist', 'design')]);
     expect(resolved).toBe(tmpRoot);
 
     fs.rmSync(tmpRoot, { recursive: true, force: true });

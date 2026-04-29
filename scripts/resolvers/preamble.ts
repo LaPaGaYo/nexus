@@ -17,6 +17,7 @@ NEXUS_ROOT="$HOME/${hostConfigDir[ctx.host]}/skills/nexus"
 NEXUS_BIN="$NEXUS_ROOT/bin"
 NEXUS_BROWSE="$NEXUS_ROOT/browse/dist"
 NEXUS_DESIGN="$NEXUS_ROOT/design/dist"
+[ ! -x "$NEXUS_DESIGN/design" ] && [ -x "$NEXUS_ROOT/runtimes/design/dist/design" ] && NEXUS_DESIGN="$NEXUS_ROOT/runtimes/design/dist"
 `
     : '';
 

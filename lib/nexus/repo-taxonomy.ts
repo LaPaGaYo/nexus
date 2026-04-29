@@ -150,11 +150,11 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'design',
     category: 'runtimes',
-    current_path: 'design',
+    current_path: 'runtimes/design',
     target_path: 'runtimes/design',
-    move_policy: 'future_move',
+    move_policy: 'keep_in_place',
     risk_level: 'high',
-    rationale: 'Design owns a compiled runtime plus reference sidecars currently installed under $NEXUS_ROOT/design.',
+    rationale: 'The design runtime has moved under runtimes/design while installed hosts keep $NEXUS_ROOT/design/dist and $NEXUS_ROOT/design/references as compatibility paths.',
     runtime_compat_paths: ['$NEXUS_ROOT/design/dist', '$NEXUS_ROOT/design/references'],
   },
   {
@@ -438,7 +438,7 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     facade_path: 'runtimes/README.md',
     category: 'runtimes',
     kind: 'navigation_only',
-    active_source_paths: ['browse', 'runtimes/browse/extension', 'design', 'design-html', 'careful', 'freeze'],
+    active_source_paths: ['browse', 'runtimes/browse/extension', 'runtimes/design', 'design-html', 'careful', 'freeze'],
     note: 'Runtime facade root. Existing runtime roots remain executable source of truth.',
   },
   {
@@ -452,9 +452,8 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     facade_path: 'runtimes/design.md',
     category: 'runtimes',
     kind: 'navigation_only',
-    active_source_paths: ['design'],
-    guarded_future_paths: ['runtimes/design'],
-    note: 'Design runtime facade. Do not create runtimes/design until compiled runtime and references are migrated together.',
+    active_source_paths: ['runtimes/design'],
+    note: 'Design runtime facade. The compiled runtime, scripts, tests, and assets now live under runtimes/design.',
   },
   {
     facade_path: 'runtimes/design-html.md',

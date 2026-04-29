@@ -6,12 +6,13 @@ Active runtime source paths remain:
 
 - `browse/`
 - `runtimes/browse/extension/`
-- `design/`
+- `runtimes/design/`
 - `design-html/`
 - `careful/`
 - `freeze/`
 
 Do not execute or import runtime code from `runtimes/` unless the taxonomy
-contract marks that path as migrated. `runtimes/browse/extension/` is migrated;
-the rest of the browse runtime still lives at `browse/`. Installed compatibility
-paths under `$NEXUS_ROOT/...` remain authoritative.
+contract marks that path as migrated. `runtimes/browse/extension/` and
+`runtimes/design/` are migrated; the rest of the browse runtime still lives at
+`browse/`. Installed compatibility paths under `$NEXUS_ROOT/...` remain
+authoritative.

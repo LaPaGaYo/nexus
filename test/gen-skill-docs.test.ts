@@ -186,6 +186,19 @@ describe('gen-skill-docs', () => {
     expect(consultation).toContain('"deliverableType": "[ui-mockup|prototype|slides|motion|infographic]"');
   });
 
+  test('design skills can resolve the migrated design runtime source path', () => {
+    for (const content of [
+      readSkill('design-consultation'),
+      readSkill('design-shotgun'),
+      readSkill('design-review'),
+      readSkill('design-html'),
+      readSkill('plan-design-review'),
+    ]) {
+      expect(content).toContain('runtimes/design/dist/design');
+      expect(content).toContain('design/dist/design');
+    }
+  });
+
   test('design heavy guidance is lazy-loaded from sidecar references', () => {
     const review = readSkill('design-review');
     const planReview = readSkill('plan-design-review');
@@ -2628,6 +2641,7 @@ describe('setup script validation', () => {
   test('setup has runtime compatibility mapping for moved runtime roots', () => {
     expect(setupContent).toContain('link_runtime_compat_assets()');
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "extension" "runtimes/browse/extension" "extension"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "design/dist" "runtimes/design/dist" "design/dist"');
   });
 
   test('create_codex_runtime_root exposes only runtime assets', () => {

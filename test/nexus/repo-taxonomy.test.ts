@@ -71,6 +71,13 @@ describe('nexus repo taxonomy v2', () => {
       risk_level: 'medium',
     });
 
+    expect(findRepoTaxonomyEntry('design')).toMatchObject({
+      current_path: 'runtimes/design',
+      target_path: 'runtimes/design',
+      move_policy: 'keep_in_place',
+      risk_level: 'high',
+    });
+
     expect(findRepoTaxonomyEntry('qa')).toMatchObject({
       current_path: 'references/qa',
       target_path: 'references/qa',
@@ -243,6 +250,11 @@ describe('nexus repo taxonomy v2', () => {
     });
     expect(findRepoTaxonomyFacade('runtimes/browse.md')).not.toHaveProperty('guarded_future_paths');
 
+    expect(findRepoTaxonomyFacade('runtimes/design.md')).toMatchObject({
+      active_source_paths: ['runtimes/design'],
+    });
+    expect(findRepoTaxonomyFacade('runtimes/design.md')).not.toHaveProperty('guarded_future_paths');
+
     const facadePaths = new Set(plannedFacadePaths());
     for (const mapping of REFERENCE_COMPAT_MAPPINGS) {
       expect(facadePaths.has(mapping.future_source_path)).toBe(false);
@@ -320,7 +332,6 @@ describe('nexus repo taxonomy v2', () => {
     const documented = new Set(REPO_TAXONOMY_ENTRIES.map((entry) => entry.current_path));
     const highRiskRoots = [
       'browse',
-      'design',
       'design-html',
       'careful',
       'freeze',
@@ -356,6 +367,13 @@ describe('nexus repo taxonomy v2', () => {
       target_path: 'references/design/hard-rules.md',
       move_policy: 'keep_in_place',
       rule: 'design-references',
+    });
+
+    expect(classifyRepoPath('runtimes/design/src/cli.ts')).toMatchObject({
+      category: 'runtimes',
+      target_path: 'runtimes/design/src/cli.ts',
+      move_policy: 'keep_in_place',
+      rule: 'design',
     });
 
     expect(classifyRepoPath('references/review/checklist.md')).toMatchObject({

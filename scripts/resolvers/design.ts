@@ -311,13 +311,12 @@ Mandatory examples to preserve in findings:
 }
 
 export function generateDesignSetup(ctx: TemplateContext): string {
+  const designBinaryResolution = generateDesignBinaryResolution(ctx);
   return `## DESIGN SETUP (run this check BEFORE any design mockup command)
 
 \`\`\`bash
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-D=""
-[ -n "$_ROOT" ] && [ -x "$_ROOT/${ctx.paths.localSkillRoot}/design/dist/design" ] && D="$_ROOT/${ctx.paths.localSkillRoot}/design/dist/design"
-[ -z "$D" ] && D=${ctx.paths.designDir}/design
+${designBinaryResolution}
 if [ -x "$D" ]; then
   echo "DESIGN_READY: $D"
 else
@@ -343,13 +342,12 @@ Core commands: \`$D generate\`, \`$D variants\`, \`$D compare --serve\`, \`$D ch
 }
 
 export function generateDesignMockup(ctx: TemplateContext): string {
+  const designBinaryResolution = generateDesignBinaryResolution(ctx);
   return `## Visual Design Exploration
 
 \`\`\`bash
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-D=""
-[ -n "$_ROOT" ] && [ -x "$_ROOT/${ctx.paths.localSkillRoot}/design/dist/design" ] && D="$_ROOT/${ctx.paths.localSkillRoot}/design/dist/design"
-[ -z "$D" ] && D=${ctx.paths.designDir}/design
+${designBinaryResolution}
 [ -x "$D" ] && echo "DESIGN_READY" || echo "DESIGN_NOT_AVAILABLE"
 \`\`\`
 
@@ -444,6 +442,15 @@ fs.writeFileSync(dir + "/approved.json", JSON.stringify(approved, null, 2) + "\n
 \`\`\`
 
 Reference the saved mockup in the design doc or plan.`;
+}
+
+function generateDesignBinaryResolution(ctx: TemplateContext): string {
+  return `D=""
+[ -n "$_ROOT" ] && [ -x "$_ROOT/${ctx.paths.localSkillRoot}/design/dist/design" ] && D="$_ROOT/${ctx.paths.localSkillRoot}/design/dist/design"
+[ -n "$_ROOT" ] && [ -z "$D" ] && [ -x "$_ROOT/${ctx.paths.localSkillRoot}/runtimes/design/dist/design" ] && D="$_ROOT/${ctx.paths.localSkillRoot}/runtimes/design/dist/design"
+_SOURCE_DESIGN=${ctx.paths.skillRoot}/runtimes/design/dist/design
+[ -z "$D" ] && [ -x "$_SOURCE_DESIGN" ] && D="$_SOURCE_DESIGN"
+[ -z "$D" ] && D=${ctx.paths.designDir}/design`;
 }
 
 export function generateDesignShotgunLoop(_ctx: TemplateContext): string {

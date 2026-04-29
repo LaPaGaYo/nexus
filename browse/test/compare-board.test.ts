@@ -14,7 +14,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { BrowserManager } from '../src/browser-manager';
 import { handleReadCommand } from '../src/read-commands';
 import { handleWriteCommand } from '../src/write-commands';
-import { generateCompareHtml } from '../../design/src/compare';
+import { generateCompareHtml } from '../../runtimes/design/src/compare';
 import * as fs from 'fs';
 import * as path from 'path';
 

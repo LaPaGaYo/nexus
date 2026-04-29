@@ -191,9 +191,9 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'design-review-fix':              ['design-review/**', 'references/design/**', 'browse/src/**', 'scripts/gen-skill-docs.ts'],
 
   // Design Shotgun
-  'design-shotgun-path':            ['design-shotgun/**', 'design/src/**', 'references/design/**', 'scripts/resolvers/design.ts'],
+  'design-shotgun-path':            ['design-shotgun/**', 'runtimes/design/src/**', 'references/design/**', 'scripts/resolvers/design.ts'],
   'design-shotgun-session':         ['design-shotgun/**', 'references/design/**', 'scripts/resolvers/design.ts'],
-  'design-shotgun-full':            ['design-shotgun/**', 'design/src/**', 'references/design/**', 'browse/src/**'],
+  'design-shotgun-full':            ['design-shotgun/**', 'runtimes/design/src/**', 'references/design/**', 'browse/src/**'],
 
   // nexus-upgrade
   'nexus-upgrade-happy-path': ['nexus-upgrade/**', 'nexus-upgrade/**'],

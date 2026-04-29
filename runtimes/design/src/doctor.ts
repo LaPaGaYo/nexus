@@ -44,8 +44,16 @@ function defaultWhich(command: string): string | null {
 function looksLikeNexusRuntimeRoot(candidate: string): boolean {
   return (
     fs.existsSync(path.join(candidate, "package.json")) &&
-    fs.existsSync(path.join(candidate, "design", "scripts")) &&
-    fs.existsSync(path.join(candidate, "design", "assets"))
+    (
+      (
+        fs.existsSync(path.join(candidate, "runtimes", "design", "scripts")) &&
+        fs.existsSync(path.join(candidate, "runtimes", "design", "assets"))
+      ) ||
+      (
+        fs.existsSync(path.join(candidate, "design", "scripts")) &&
+        fs.existsSync(path.join(candidate, "design", "assets"))
+      )
+    )
   );
 }
 

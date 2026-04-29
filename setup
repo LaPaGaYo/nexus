@@ -17,7 +17,7 @@ INSTALL_NEXUS_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_NEXUS_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 INSTALL_SKILLS_DIR="$(dirname "$INSTALL_NEXUS_DIR")"
 BROWSE_BIN="$SOURCE_NEXUS_DIR/browse/dist/browse"
-DESIGN_BIN="$SOURCE_NEXUS_DIR/design/dist/design"
+DESIGN_BIN="$SOURCE_NEXUS_DIR/runtimes/design/dist/design"
 CODEX_SKILLS="$HOME/.codex/skills"
 CODEX_NEXUS="$CODEX_SKILLS/nexus"
 GEMINI_SKILLS="$HOME/.gemini/skills"
@@ -982,6 +982,7 @@ link_runtime_compat_assets() {
   local runtime_root="$2"
 
   link_compat_asset "$repo_root" "$runtime_root" "extension" "runtimes/browse/extension" "extension"
+  link_compat_asset "$repo_root" "$runtime_root" "design/dist" "runtimes/design/dist" "design/dist"
 }
 
 # ─── Helper: create .agents/skills/nexus/ sidecar symlinks ──────────
@@ -1009,9 +1010,6 @@ create_agents_sidecar() {
   fi
   if [ -d "$repo_root/browse/bin" ]; then
     ln -snf "$repo_root/browse/bin" "$agents_nexus/browse/bin"
-  fi
-  if [ -d "$repo_root/design/dist" ]; then
-    ln -snf "$repo_root/design/dist" "$agents_nexus/design/dist"
   fi
   link_runtime_compat_assets "$repo_root" "$agents_nexus"
   link_reference_compat_assets "$repo_root" "$agents_nexus"
@@ -1059,9 +1057,6 @@ create_codex_runtime_root() {
   if [ -d "$nexus_dir/browse/bin" ]; then
     ln -snf "$nexus_dir/browse/bin" "$codex_nexus/browse/bin"
   fi
-  if [ -d "$nexus_dir/design/dist" ]; then
-    ln -snf "$nexus_dir/design/dist" "$codex_nexus/design/dist"
-  fi
   if [ -f "$agents_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$agents_dir/nexus-upgrade/SKILL.md" "$codex_nexus/nexus-upgrade/SKILL.md"
   fi
@@ -1097,9 +1092,6 @@ create_factory_runtime_root() {
   fi
   if [ -d "$nexus_dir/browse/bin" ]; then
     ln -snf "$nexus_dir/browse/bin" "$factory_nexus/browse/bin"
-  fi
-  if [ -d "$nexus_dir/design/dist" ]; then
-    ln -snf "$nexus_dir/design/dist" "$factory_nexus/design/dist"
   fi
   if [ -f "$factory_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$factory_dir/nexus-upgrade/SKILL.md" "$factory_nexus/nexus-upgrade/SKILL.md"
@@ -1167,9 +1159,6 @@ create_gemini_runtime_root() {
   fi
   if [ -d "$nexus_dir/browse/bin" ]; then
     ln -snf "$nexus_dir/browse/bin" "$gemini_nexus/browse/bin"
-  fi
-  if [ -d "$nexus_dir/design/dist" ]; then
-    ln -snf "$nexus_dir/design/dist" "$gemini_nexus/design/dist"
   fi
   if [ -f "$gemini_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$gemini_dir/nexus-upgrade/SKILL.md" "$gemini_nexus/nexus-upgrade/SKILL.md"
@@ -1314,7 +1303,6 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   ln -snf "$SOURCE_NEXUS_DIR/bin" "$KIRO_NEXUS/bin"
   ln -snf "$SOURCE_NEXUS_DIR/browse/dist" "$KIRO_NEXUS/browse/dist"
   ln -snf "$SOURCE_NEXUS_DIR/browse/bin" "$KIRO_NEXUS/browse/bin"
-  [ -d "$SOURCE_NEXUS_DIR/design/dist" ] && ln -snf "$SOURCE_NEXUS_DIR/design/dist" "$KIRO_NEXUS/design/dist"
   # ETHOS.md — referenced by "Search Before Building" in all skill preambles
   if [ -f "$SOURCE_NEXUS_DIR/ETHOS.md" ]; then
     ln -snf "$SOURCE_NEXUS_DIR/ETHOS.md" "$KIRO_NEXUS/ETHOS.md"

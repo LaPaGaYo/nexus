@@ -4,6 +4,7 @@ import { join } from 'path';
 import { COMMANDS } from '../src/commands';
 
 const ROOT = join(import.meta.dir, '..');
+const REFERENCES_ROOT = join(ROOT, '..', '..', 'references', 'design');
 
 describe('absorbed design runtime assets', () => {
   test('registers absorbed exporter and verification commands', () => {
@@ -22,13 +23,6 @@ describe('absorbed design runtime assets', () => {
       'scripts/convert-formats.sh',
       'scripts/add-music.sh',
       'scripts/verify.py',
-      'references/editable-pptx.md',
-      'references/video-export.md',
-      'references/verification.md',
-      'references/slide-decks.md',
-      'references/tweaks-system.md',
-      'references/animations.md',
-      'references/design-context.md',
       'assets/design_canvas.jsx',
       'assets/deck_stage.js',
       'assets/ios_frame.jsx',
@@ -44,6 +38,18 @@ describe('absorbed design runtime assets', () => {
 
     for (const relativePath of requiredPaths) {
       expect(existsSync(join(ROOT, relativePath))).toBe(true);
+    }
+
+    for (const relativePath of [
+      'editable-pptx.md',
+      'video-export.md',
+      'verification.md',
+      'slide-decks.md',
+      'tweaks-system.md',
+      'animations.md',
+      'design-context.md',
+    ]) {
+      expect(existsSync(join(REFERENCES_ROOT, relativePath))).toBe(true);
     }
   });
 
