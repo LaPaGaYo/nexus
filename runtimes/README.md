@@ -6,11 +6,10 @@ Active runtime source paths remain:
 
 - `runtimes/browse/`
 - `runtimes/design/`
-- `design-html/`
-- `careful/`
-- `freeze/`
+- `runtimes/design-html/`
+- `runtimes/safety/careful/`
+- `runtimes/safety/freeze/`
 
-Do not execute or import runtime code from `runtimes/` unless the taxonomy
-contract marks that path as migrated. `runtimes/browse/` and
-`runtimes/design/` are migrated. Installed compatibility paths under
-`$NEXUS_ROOT/...` remain authoritative.
+Runtime source lives under `runtimes/` for browse, design, design-html, and
+safety helper assets. Installed compatibility paths under `$NEXUS_ROOT/...`
+remain authoritative for existing host installs.
