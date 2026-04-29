@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 
 const ROOT = path.resolve(import.meta.dir, '..');
-const CAREFUL_SCRIPT = path.join(ROOT, 'careful', 'bin', 'check-careful.sh');
-const FREEZE_SCRIPT = path.join(ROOT, 'freeze', 'bin', 'check-freeze.sh');
+const CAREFUL_SCRIPT = path.join(ROOT, 'runtimes', 'safety', 'careful', 'bin', 'check-careful.sh');
+const FREEZE_SCRIPT = path.join(ROOT, 'runtimes', 'safety', 'freeze', 'bin', 'check-freeze.sh');
 
 function runHook(scriptPath: string, input: object, env?: Record<string, string>): { exitCode: number; output: any; raw: string } {
   const result = spawnSync('bash', [scriptPath], {

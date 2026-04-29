@@ -806,7 +806,8 @@ For **vanilla HTML output**, check for the vendored Pretext bundle:
 ```bash
 _PRETEXT_VENDOR=""
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-[ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/nexus/design-html/vendor/pretext.js" ] && _PRETEXT_VENDOR="$_ROOT/.claude/skills/nexus/design-html/vendor/pretext.js"
+[ -n "$_ROOT" ] && [ -f "$_ROOT/runtimes/design-html/vendor/pretext.js" ] && _PRETEXT_VENDOR="$_ROOT/runtimes/design-html/vendor/pretext.js"
+[ -z "$_PRETEXT_VENDOR" ] && [ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/nexus/design-html/vendor/pretext.js" ] && _PRETEXT_VENDOR="$_ROOT/.claude/skills/nexus/design-html/vendor/pretext.js"
 [ -z "$_PRETEXT_VENDOR" ] && [ -f ~/.claude/skills/nexus/design-html/vendor/pretext.js ] && _PRETEXT_VENDOR=~/.claude/skills/nexus/design-html/vendor/pretext.js
 [ -n "$_PRETEXT_VENDOR" ] && echo "VENDOR: $_PRETEXT_VENDOR" || echo "VENDOR_MISSING"
 ```

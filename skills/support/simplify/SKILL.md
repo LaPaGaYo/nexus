@@ -19,12 +19,12 @@ hooks:
     - matcher: "Edit"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
           statusMessage: "Checking simplification scope boundary..."
     - matcher: "Write"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
           statusMessage: "Checking simplification scope boundary..."
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->

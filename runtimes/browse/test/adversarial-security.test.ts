@@ -22,7 +22,7 @@ describe('Adversarial security', () => {
 
   test('freeze hook uses trailing slash in boundary check', () => {
     const source = fs.readFileSync(
-      path.join(import.meta.dir, '../../../freeze/bin/check-freeze.sh'),
+      path.join(import.meta.dir, '../../safety/freeze/bin/check-freeze.sh'),
       'utf-8',
     );
     // The boundary check must use "${FREEZE_DIR}/" with a trailing slash

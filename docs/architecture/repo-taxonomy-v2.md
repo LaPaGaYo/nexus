@@ -60,10 +60,10 @@ Most current paths remain the active source of truth until a migration
 explicitly updates setup, generated host surfaces, runtime path rewrites, and
 tests. The root `/nexus` source template now lives under
 `skills/root/nexus/`; root `SKILL.md` remains a generated compatibility mirror.
-The Chrome extension source now lives under `runtimes/browse/extension/`, and
-the design runtime now lives under `runtimes/design/`, while installed hosts keep
-historical `$NEXUS_ROOT/extension` and `$NEXUS_ROOT/design/...` compatibility
-paths.
+The Chrome extension source now lives under `runtimes/browse/extension/`, the
+design runtime now lives under `runtimes/design/`, and runtime sidecars now live
+under `runtimes/design-html/` and `runtimes/safety/`, while installed hosts keep
+historical `$NEXUS_ROOT/...` compatibility paths.
 
 Representative current-to-target mappings:
 
@@ -72,6 +72,9 @@ Representative current-to-target mappings:
 - `browse` -> `runtimes/browse`
 - `runtimes/browse/extension` -> `runtimes/browse/extension`
 - `runtimes/design` -> `runtimes/design`
+- `runtimes/design-html` -> `runtimes/design-html`
+- `runtimes/safety/careful` -> `runtimes/safety/careful`
+- `runtimes/safety/freeze` -> `runtimes/safety/freeze`
 - `design/references` -> `references/design`
 - `review` -> `references/review`
 - `qa` -> `references/qa`
@@ -88,6 +91,9 @@ installed runtime paths such as:
 - `$NEXUS_ROOT/extension/manifest.json`
 - `$NEXUS_ROOT/design/dist`
 - `$NEXUS_ROOT/design/references`
+- `$NEXUS_ROOT/design-html/vendor`
+- `$NEXUS_ROOT/careful/bin`
+- `$NEXUS_ROOT/freeze/bin`
 - `$NEXUS_ROOT/review/checklist.md`
 - `$NEXUS_ROOT/review/specialists/testing.md`
 - `$NEXUS_ROOT/qa/templates/qa-report-template.md`
@@ -156,13 +162,27 @@ Generated skills still use `$NEXUS_ROOT/design/dist` for the design binary and
 those installed compatibility paths to `runtimes/design/dist` and
 `references/design`.
 
+## Phase 9 Runtime Sidecar Move
+
+Runtime sidecars have moved under the runtime taxonomy:
+
+- `design-html/` -> `runtimes/design-html/`
+- `careful/` -> `runtimes/safety/careful/`
+- `freeze/` -> `runtimes/safety/freeze/`
+
+Generated and installed skills still use historical compatibility paths for
+runtime sidecars. Setup maps `$NEXUS_ROOT/design-html/vendor` to
+`runtimes/design-html/vendor`, `$NEXUS_ROOT/careful/bin` to
+`runtimes/safety/careful/bin`, and `$NEXUS_ROOT/freeze/bin` to
+`runtimes/safety/freeze/bin`.
+
 ## Remaining Conservative Facades
 
 The remaining facade slice is intentionally conservative:
 
-- `runtimes/*.md` points to active runtime roots. `runtimes/browse/extension/`
-  and `runtimes/design/` are migrated source paths; the compiled browse runtime
-  still lives at `browse/`.
+- `runtimes/*.md` points to active runtime roots. `runtimes/browse/`,
+  `runtimes/design/`, `runtimes/design-html/`, and `runtimes/safety/` are
+  migrated source paths while installed compatibility paths remain stable.
 - `references/review/README.md`, `references/qa/README.md`,
   `references/design/README.md`, and `references/cso/README.md` document active
   reference roots and the runtime compatibility paths that still point at
@@ -174,8 +194,8 @@ The remaining facade slice is intentionally conservative:
   until setup/install switches deliberately.
 
 Guarded future paths must stay absent until their migration batch moves assets
-and updates compatibility logic. Remaining examples are runtime-focused, such
-as `runtimes/safety/careful`.
+and updates compatibility logic. Remaining examples are host/vendor-focused,
+such as `hosts/codex` and `vendor/upstream`.
 
 ## First-Class Host Targets
 

@@ -24,12 +24,12 @@ hooks:
     - matcher: "Edit"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
           statusMessage: "Checking debug scope boundary..."
     - matcher: "Write"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
           statusMessage: "Checking debug scope boundary..."
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
@@ -684,7 +684,7 @@ Output: **"Root cause hypothesis: ..."** — a specific, testable claim about wh
 After forming your root cause hypothesis, lock edits to the affected module to prevent scope creep.
 
 ```bash
-[ -x "${CLAUDE_SKILL_DIR}/../freeze/bin/check-freeze.sh" ] && echo "FREEZE_AVAILABLE" || echo "FREEZE_UNAVAILABLE"
+[ -x "${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh" ] && echo "FREEZE_AVAILABLE" || echo "FREEZE_UNAVAILABLE"
 ```
 
 **If FREEZE_AVAILABLE:** Identify the narrowest directory containing the affected files. Write it to the freeze state file:

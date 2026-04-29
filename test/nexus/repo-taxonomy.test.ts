@@ -124,6 +124,9 @@ describe('nexus repo taxonomy v2', () => {
     const reviewSidecars = findRepoTaxonomyEntry('review-reference-sidecars');
     const qa = findRepoTaxonomyEntry('qa');
     const design = findRepoTaxonomyEntry('design');
+    const designHtml = findRepoTaxonomyEntry('design-html');
+    const careful = findRepoTaxonomyEntry('careful');
+    const freeze = findRepoTaxonomyEntry('freeze');
 
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/dist');
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/bin');
@@ -134,6 +137,9 @@ describe('nexus repo taxonomy v2', () => {
     expect(reviewSidecars?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/checklist.md');
     expect(qa?.runtime_compat_paths).toContain('$NEXUS_ROOT/qa/templates/qa-report-template.md');
     expect(design?.runtime_compat_paths).toContain('$NEXUS_ROOT/design/references');
+    expect(designHtml?.runtime_compat_paths).toContain('$NEXUS_ROOT/design-html/vendor');
+    expect(careful?.runtime_compat_paths).toContain('$NEXUS_ROOT/careful/bin/check-careful.sh');
+    expect(freeze?.runtime_compat_paths).toContain('$NEXUS_ROOT/freeze/bin/check-freeze.sh');
   });
 
   test('defines future references source candidates while preserving installed compatibility paths', () => {
@@ -322,6 +328,9 @@ describe('nexus repo taxonomy v2', () => {
     expect(guardedFuturePaths).not.toContain('references/review/checklist.md');
     expect(guardedFuturePaths).not.toContain('references/qa/templates');
     expect(guardedFuturePaths).not.toContain('references/cso/ACKNOWLEDGEMENTS.md');
+    expect(guardedFuturePaths).not.toContain('runtimes/design-html');
+    expect(guardedFuturePaths).not.toContain('runtimes/safety/careful');
+    expect(guardedFuturePaths).not.toContain('runtimes/safety/freeze');
 
     for (const guardedPath of guardedFuturePaths) {
       expect(existsSync(join(ROOT, guardedPath))).toBe(false);
@@ -331,9 +340,6 @@ describe('nexus repo taxonomy v2', () => {
   test('documents all high-risk visible root directories that should not be moved ad hoc', () => {
     const documented = new Set(REPO_TAXONOMY_ENTRIES.map((entry) => entry.current_path));
     const highRiskRoots = [
-      'design-html',
-      'careful',
-      'freeze',
       'upstream',
       'upstream-notes',
       '.agents',
@@ -380,6 +386,27 @@ describe('nexus repo taxonomy v2', () => {
       target_path: 'runtimes/design/src/cli.ts',
       move_policy: 'keep_in_place',
       rule: 'design',
+    });
+
+    expect(classifyRepoPath('runtimes/design-html/vendor/pretext.js')).toMatchObject({
+      category: 'runtimes',
+      target_path: 'runtimes/design-html/vendor/pretext.js',
+      move_policy: 'keep_in_place',
+      rule: 'design-html',
+    });
+
+    expect(classifyRepoPath('runtimes/safety/careful/bin/check-careful.sh')).toMatchObject({
+      category: 'runtimes',
+      target_path: 'runtimes/safety/careful/bin/check-careful.sh',
+      move_policy: 'keep_in_place',
+      rule: 'careful',
+    });
+
+    expect(classifyRepoPath('runtimes/safety/freeze/bin/check-freeze.sh')).toMatchObject({
+      category: 'runtimes',
+      target_path: 'runtimes/safety/freeze/bin/check-freeze.sh',
+      move_policy: 'keep_in_place',
+      rule: 'freeze',
     });
 
     expect(classifyRepoPath('references/review/checklist.md')).toMatchObject({
