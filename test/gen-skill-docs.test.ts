@@ -192,13 +192,13 @@ describe('gen-skill-docs', () => {
     const consultation = readSkill('design-consultation');
 
     for (const ref of [
-      'design/references/governance.md',
-      'design/references/design-review-methodology.md',
-      'design/references/hard-rules.md',
-      'design/references/outside-voices.md',
-      'design/references/plan-design-principles.md',
-      'design/references/design-consultation-cheatsheet.md',
-      'design/references/shotgun-loop.md',
+      'references/design/governance.md',
+      'references/design/design-review-methodology.md',
+      'references/design/hard-rules.md',
+      'references/design/outside-voices.md',
+      'references/design/plan-design-principles.md',
+      'references/design/design-consultation-cheatsheet.md',
+      'references/design/shotgun-loop.md',
     ]) {
       expect(fs.existsSync(path.join(ROOT, ref))).toBe(true);
     }

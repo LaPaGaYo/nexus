@@ -182,18 +182,18 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'review-plan-completion': ['review/**', 'references/review/**', 'scripts/gen-skill-docs.ts'],
 
   // Design
-  'design-consultation-core':       ['design-consultation/**', 'scripts/gen-skill-docs.ts', 'test/helpers/llm-judge.ts'],
-  'design-consultation-existing':   ['design-consultation/**', 'scripts/gen-skill-docs.ts'],
-  'design-consultation-research':   ['design-consultation/**', 'scripts/gen-skill-docs.ts'],
-  'design-consultation-preview':    ['design-consultation/**', 'scripts/gen-skill-docs.ts'],
-  'plan-design-review-plan-mode':   ['plan-design-review/**', 'scripts/gen-skill-docs.ts'],
-  'plan-design-review-no-ui-scope': ['plan-design-review/**', 'scripts/gen-skill-docs.ts'],
-  'design-review-fix':              ['design-review/**', 'browse/src/**', 'scripts/gen-skill-docs.ts'],
+  'design-consultation-core':       ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts', 'test/helpers/llm-judge.ts'],
+  'design-consultation-existing':   ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'design-consultation-research':   ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'design-consultation-preview':    ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'plan-design-review-plan-mode':   ['plan-design-review/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'plan-design-review-no-ui-scope': ['plan-design-review/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'design-review-fix':              ['design-review/**', 'references/design/**', 'browse/src/**', 'scripts/gen-skill-docs.ts'],
 
   // Design Shotgun
-  'design-shotgun-path':            ['design-shotgun/**', 'design/src/**', 'scripts/resolvers/design.ts'],
-  'design-shotgun-session':         ['design-shotgun/**', 'scripts/resolvers/design.ts'],
-  'design-shotgun-full':            ['design-shotgun/**', 'design/src/**', 'browse/src/**'],
+  'design-shotgun-path':            ['design-shotgun/**', 'design/src/**', 'references/design/**', 'scripts/resolvers/design.ts'],
+  'design-shotgun-session':         ['design-shotgun/**', 'references/design/**', 'scripts/resolvers/design.ts'],
+  'design-shotgun-full':            ['design-shotgun/**', 'design/src/**', 'references/design/**', 'browse/src/**'],
 
   // nexus-upgrade
   'nexus-upgrade-happy-path': ['nexus-upgrade/**', 'nexus-upgrade/**'],
@@ -393,8 +393,8 @@ export const LLM_JUDGE_TOUCHFILES: Record<string, string[]> = {
   'plan-design-review/SKILL.md passes':   ['plan-design-review/SKILL.md', 'plan-design-review/SKILL.md.tmpl'],
 
   // Design skills
-  'design-review/SKILL.md fix loop':      ['design-review/SKILL.md', 'design-review/SKILL.md.tmpl'],
-  'design-consultation/SKILL.md research': ['design-consultation/SKILL.md', 'design-consultation/SKILL.md.tmpl'],
+  'design-review/SKILL.md fix loop':      ['design-review/SKILL.md', 'design-review/SKILL.md.tmpl', 'references/design/**'],
+  'design-consultation/SKILL.md research': ['design-consultation/SKILL.md', 'design-consultation/SKILL.md.tmpl', 'references/design/**'],
 
   // Office Hours
   'office-hours/SKILL.md spec review':    ['office-hours/SKILL.md', 'office-hours/SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],

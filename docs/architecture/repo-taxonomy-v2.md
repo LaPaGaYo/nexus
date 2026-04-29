@@ -106,18 +106,27 @@ Generated skills may still reference historical install paths like
 `$NEXUS_ROOT/review/checklist.md`; setup maps those paths to the moved source
 paths.
 
+## Phase 5 Design Reference Move
+
+The design methodology sidecars have moved under the real reference taxonomy
+root:
+
+- `design/references/` -> `references/design/`
+
+Generated design skills may still reference `$NEXUS_ROOT/design/references/...`;
+setup maps that installed compatibility path to the moved `references/design/`
+source directory.
+
 ## Remaining Conservative Facades
 
 The remaining facade slice is intentionally conservative:
 
 - `runtimes/*.md` points to active runtime roots without creating future runtime
   directories such as `runtimes/browse/`.
-- `references/review/README.md`, `references/qa/README.md`, and
-  `references/cso/README.md` document active reference roots and the runtime
-  compatibility paths that still point at historical install locations.
-- `references/design.md` is intentionally a file, not `references/design/`,
-  because `setup` treats `references/design` as a real future source for
-  `design/references`.
+- `references/review/README.md`, `references/qa/README.md`,
+  `references/design/README.md`, and `references/cso/README.md` document active
+  reference roots and the runtime compatibility paths that still point at
+  historical install locations.
 - `hosts/*/README.md` records intended host categories while `.claude/`,
   `.agents/`, `.gemini/`, and `.factory/` remain active host surfaces.
 - `hosts/codex/openai.yaml` is a compatibility mirror for future Codex host
@@ -127,7 +136,6 @@ The remaining facade slice is intentionally conservative:
 Guarded future paths must stay absent until their migration batch moves assets
 and updates compatibility logic. Current examples:
 
-- `references/design`
 - `references/review/specialists`
 
 ## First-Class Host Targets

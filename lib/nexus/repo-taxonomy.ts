@@ -160,11 +160,11 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'design-references',
     category: 'references',
-    current_path: 'design/references',
+    current_path: 'references/design',
     target_path: 'references/design',
-    move_policy: 'compat_required',
-    risk_level: 'high',
-    rationale: 'Design methodology sidecars are reference material, but installed design skills still load them from $NEXUS_ROOT/design/references.',
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rationale: 'Design methodology sidecars have moved under references/ while installed design skills still load them from $NEXUS_ROOT/design/references.',
     runtime_compat_paths: ['$NEXUS_ROOT/design/references'],
   },
   {
@@ -480,8 +480,8 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     facade_path: 'references/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['review', 'references/review', 'references/qa', 'design/references', 'references/cso'],
-    note: 'Reference facade root. First-batch references now live here; installed runtime paths stay stable through setup compatibility links.',
+    active_source_paths: ['review', 'references/review', 'references/qa', 'references/design', 'references/cso'],
+    note: 'Reference facade root. Migrated references now live here; installed runtime paths stay stable through setup compatibility links.',
   },
   {
     facade_path: 'references/review/README.md',
@@ -499,12 +499,11 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     note: 'QA reference templates and taxonomy now live under references/qa while installed $NEXUS_ROOT/qa paths remain compatibility links.',
   },
   {
-    facade_path: 'references/design.md',
+    facade_path: 'references/design/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['design/references'],
-    guarded_future_paths: ['references/design'],
-    note: 'Design reference facade. It is intentionally a file, not references/design/, because setup treats that directory as a real future source.',
+    active_source_paths: ['references/design'],
+    note: 'Design methodology sidecars now live under references/design while installed $NEXUS_ROOT/design/references paths remain compatibility links.',
   },
   {
     facade_path: 'references/cso/README.md',

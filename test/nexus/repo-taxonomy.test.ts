@@ -64,6 +64,13 @@ describe('nexus repo taxonomy v2', () => {
       risk_level: 'medium',
     });
 
+    expect(findRepoTaxonomyEntry('design-references')).toMatchObject({
+      current_path: 'references/design',
+      target_path: 'references/design',
+      move_policy: 'keep_in_place',
+      risk_level: 'medium',
+    });
+
     expect(findRepoTaxonomyEntry('qa')).toMatchObject({
       current_path: 'references/qa',
       target_path: 'references/qa',
@@ -188,7 +195,7 @@ describe('nexus repo taxonomy v2', () => {
       'references/README.md',
       'references/review/README.md',
       'references/qa/README.md',
-      'references/design.md',
+      'references/design/README.md',
       'references/cso/README.md',
       'hosts/README.md',
       'hosts/claude/README.md',
@@ -216,10 +223,10 @@ describe('nexus repo taxonomy v2', () => {
     });
     expect(findRepoTaxonomyFacade('references/qa/README.md')).not.toHaveProperty('guarded_future_paths');
 
-    expect(findRepoTaxonomyFacade('references/design.md')).toMatchObject({
-      active_source_paths: ['design/references'],
-      guarded_future_paths: ['references/design'],
+    expect(findRepoTaxonomyFacade('references/design/README.md')).toMatchObject({
+      active_source_paths: ['references/design'],
     });
+    expect(findRepoTaxonomyFacade('references/design/README.md')).not.toHaveProperty('guarded_future_paths');
 
     expect(findRepoTaxonomyFacade('references/cso/README.md')).toMatchObject({
       active_source_paths: ['references/cso'],
@@ -232,7 +239,7 @@ describe('nexus repo taxonomy v2', () => {
     }
   });
 
-  test('moves the first reference batch under references while preserving runtime compatibility paths', () => {
+  test('moves reference batches under references while preserving runtime compatibility paths', () => {
     const movedReferencePaths = [
       ['review/checklist.md', 'references/review/checklist.md'],
       ['review/design-checklist.md', 'references/review/design-checklist.md'],
@@ -241,6 +248,21 @@ describe('nexus repo taxonomy v2', () => {
       ['qa/templates/qa-report-template.md', 'references/qa/templates/qa-report-template.md'],
       ['qa/references/issue-taxonomy.md', 'references/qa/references/issue-taxonomy.md'],
       ['cso/ACKNOWLEDGEMENTS.md', 'references/cso/ACKNOWLEDGEMENTS.md'],
+      ['design/references/animations.md', 'references/design/animations.md'],
+      ['design/references/design-consultation-cheatsheet.md', 'references/design/design-consultation-cheatsheet.md'],
+      ['design/references/design-context.md', 'references/design/design-context.md'],
+      ['design/references/design-review-methodology.md', 'references/design/design-review-methodology.md'],
+      ['design/references/editable-pptx.md', 'references/design/editable-pptx.md'],
+      ['design/references/governance.md', 'references/design/governance.md'],
+      ['design/references/hard-rules.md', 'references/design/hard-rules.md'],
+      ['design/references/outside-voices.md', 'references/design/outside-voices.md'],
+      ['design/references/plan-design-principles.md', 'references/design/plan-design-principles.md'],
+      ['design/references/pretext-html-engine.md', 'references/design/pretext-html-engine.md'],
+      ['design/references/shotgun-loop.md', 'references/design/shotgun-loop.md'],
+      ['design/references/slide-decks.md', 'references/design/slide-decks.md'],
+      ['design/references/tweaks-system.md', 'references/design/tweaks-system.md'],
+      ['design/references/verification.md', 'references/design/verification.md'],
+      ['design/references/video-export.md', 'references/design/video-export.md'],
     ];
 
     for (const [legacySourcePath, movedSourcePath] of movedReferencePaths) {
@@ -255,6 +277,7 @@ describe('nexus repo taxonomy v2', () => {
     expect(resolveReferenceCompatSource('cso/ACKNOWLEDGEMENTS.md', ROOT)).toBe(
       'references/cso/ACKNOWLEDGEMENTS.md'
     );
+    expect(resolveReferenceCompatSource('design/references', ROOT)).toBe('references/design');
   });
 
   test('does not create remaining guarded future reference sources that setup would treat as real assets', () => {
@@ -262,8 +285,8 @@ describe('nexus repo taxonomy v2', () => {
       (facade) => facade.guarded_future_paths ?? []
     );
 
-    expect(guardedFuturePaths).toContain('references/design');
     expect(guardedFuturePaths).toContain('references/review/specialists');
+    expect(guardedFuturePaths).not.toContain('references/design');
     expect(guardedFuturePaths).not.toContain('references/review/checklist.md');
     expect(guardedFuturePaths).not.toContain('references/qa/templates');
     expect(guardedFuturePaths).not.toContain('references/cso/ACKNOWLEDGEMENTS.md');
@@ -310,10 +333,11 @@ describe('nexus repo taxonomy v2', () => {
       move_policy: 'future_move',
     });
 
-    expect(classifyRepoPath('design/references/hard-rules.md')).toMatchObject({
+    expect(classifyRepoPath('references/design/hard-rules.md')).toMatchObject({
       category: 'references',
       target_path: 'references/design/hard-rules.md',
-      move_policy: 'compat_required',
+      move_policy: 'keep_in_place',
+      rule: 'design-references',
     });
 
     expect(classifyRepoPath('references/review/checklist.md')).toMatchObject({
@@ -364,7 +388,7 @@ describe('nexus repo taxonomy v2', () => {
     expect(doc).toContain('runtimes/browse');
     expect(doc).toContain('runtimes/browse/extension');
     expect(doc).toContain('references/review');
-    expect(doc).toContain('references/design.md');
+    expect(doc).toContain('references/design/README.md');
     expect(doc).toContain('hosts/codex/openai.yaml');
     expect(doc).toContain('$NEXUS_ROOT/review/checklist.md');
     expect(doc).toContain('docs/architecture/repo-path-inventory.md');
