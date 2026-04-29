@@ -3,7 +3,7 @@ import { runSkillTest } from './helpers/session-runner';
 import {
   ROOT, browseBin, runId, evalsEnabled,
   describeIfSelected, testConcurrentIfSelected,
-  copyDirSync, setupBrowseShims, logCost, recordE2E,
+  copyDirSync, copyReviewRuntimeFiles, setupBrowseShims, logCost, recordE2E,
   createEvalCollector, finalizeEvalCollector,
 } from './helpers/e2e-helpers';
 import { spawnSync } from 'child_process';
@@ -318,7 +318,7 @@ describeIfSelected('Test Coverage Audit E2E', ['ship-coverage-audit'], () => {
 
     // Copy ship skill files
     copyDirSync(path.join(ROOT, 'ship'), path.join(coverageDir, 'ship'));
-    copyDirSync(path.join(ROOT, 'review'), path.join(coverageDir, 'review'));
+    copyReviewRuntimeFiles(coverageDir);
 
     // Create a Node.js project WITH test framework but coverage gaps
     fs.writeFileSync(path.join(coverageDir, 'package.json'), JSON.stringify({

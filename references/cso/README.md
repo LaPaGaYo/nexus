@@ -1,11 +1,11 @@
-# CSO Reference Facade
+# CSO References
 
-Active source: `cso/`
+Active source: `references/cso/`
 
 Installed compatibility path:
 
 - `$NEXUS_ROOT/cso/ACKNOWLEDGEMENTS.md`
 
-Do not create `references/cso/ACKNOWLEDGEMENTS.md` until setup compatibility is
-migrated deliberately.
-
+Setup links the installed `$NEXUS_ROOT/cso/...` paths back to the moved
+`references/cso/...` source paths, so security-audit skills retain their runtime
+compatibility while source references live under the taxonomy root.

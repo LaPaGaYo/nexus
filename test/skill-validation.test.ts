@@ -354,14 +354,14 @@ describe('Update check preamble', () => {
 
 describe('Cross-skill path consistency', () => {
   test('REMOTE_SLUG derivation pattern is identical across files that use it', () => {
-    const patterns = extractRemoteSlugPatterns(ROOT, ['qa', 'review']);
+    const patterns = extractRemoteSlugPatterns(ROOT, ['skills/canonical/qa', 'references/review']);
     const allPatterns: string[] = [];
 
     for (const [, filePatterns] of patterns) {
       allPatterns.push(...filePatterns);
     }
 
-    // Should find at least 2 occurrences (qa/SKILL.md + review/greptile-triage.md)
+    // Should find at least 2 occurrences (qa/SKILL.md + references/review/greptile-triage.md)
     expect(allPatterns.length).toBeGreaterThanOrEqual(2);
 
     // All occurrences must be character-for-character identical
@@ -381,7 +381,7 @@ describe('Cross-skill path consistency', () => {
     const filesToCheck = [
       'review/SKILL.md',
       'ship/SKILL.md',
-      'review/greptile-triage.md',
+      'references/review/greptile-triage.md',
     ];
 
     for (const file of filesToCheck) {
@@ -397,7 +397,7 @@ describe('Cross-skill path consistency', () => {
   });
 
   test('greptile-triage.md contains both project and global history paths', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'references', 'review', 'greptile-triage.md'), 'utf-8');
     expect(content).toContain('$REMOTE_SLUG/greptile-history.md');
     expect(content).toContain('~/.nexus/greptile-history.md');
   });
@@ -585,7 +585,7 @@ describeLegacyQa('QA skill structure validation', () => {
 
 describe('Greptile history format consistency', () => {
   test('greptile-triage.md defines the canonical history format', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'references', 'review', 'greptile-triage.md'), 'utf-8');
     expect(content).toContain('<YYYY-MM-DD>');
     expect(content).toContain('<owner/repo>');
     expect(content).toContain('<type');
@@ -604,7 +604,7 @@ describe('Greptile history format consistency', () => {
   });
 
   test('greptile-triage.md defines all 9 valid categories', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'references', 'review', 'greptile-triage.md'), 'utf-8');
     const categories = [
       'race-condition', 'null-check', 'error-handling', 'style',
       'type-safety', 'security', 'performance', 'correctness', 'other',
@@ -680,8 +680,8 @@ describe('No hardcoded branch names in SKILL templates', () => {
 // --- Part 7b: TODOS-format.md reference consistency ---
 
 describe('TODOS-format.md reference consistency', () => {
-  test('review/TODOS-format.md exists and defines canonical format', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'review', 'TODOS-format.md'), 'utf-8');
+  test('references/review/TODOS-format.md exists and defines canonical format', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'references', 'review', 'TODOS-format.md'), 'utf-8');
     expect(content).toContain('**What:**');
     expect(content).toContain('**Why:**');
     expect(content).toContain('**Priority:**');
@@ -943,7 +943,7 @@ describe('Contributor mode preamble structure', () => {
 });
 
 describe('Enum & Value Completeness in review checklist', () => {
-  const checklist = fs.readFileSync(path.join(ROOT, 'review', 'checklist.md'), 'utf-8');
+  const checklist = fs.readFileSync(path.join(ROOT, 'references', 'review', 'checklist.md'), 'utf-8');
 
   test('checklist has Enum & Value Completeness section', () => {
     expect(checklist).toContain('Enum & Value Completeness');
@@ -1428,7 +1428,7 @@ describe('Retro test health tracking', () => {
 
 describe('QA report template', () => {
   test('qa-report-template.md has Regression Tests section', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'qa', 'templates', 'qa-report-template.md'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'references', 'qa', 'templates', 'qa-report-template.md'), 'utf-8');
     expect(content).toContain('## Regression Tests');
     expect(content).toContain('committed / deferred / skipped');
     expect(content).toContain('### Deferred Tests');

@@ -88,15 +88,33 @@ installed runtime paths such as:
 - `$NEXUS_ROOT/review/specialists/testing.md`
 - `$NEXUS_ROOT/qa/templates/qa-report-template.md`
 
-## Phase 3 Facade Slice
+## Phase 4 First Reference Move
 
-The physical facade slice is intentionally conservative:
+The first physical reference batch has moved low-risk sidecars into
+`references/` while preserving installed runtime paths through setup compatibility
+links:
+
+- `review/checklist.md` -> `references/review/checklist.md`
+- `review/design-checklist.md` -> `references/review/design-checklist.md`
+- `review/greptile-triage.md` -> `references/review/greptile-triage.md`
+- `review/TODOS-format.md` -> `references/review/TODOS-format.md`
+- `qa/templates/` -> `references/qa/templates/`
+- `qa/references/` -> `references/qa/references/`
+- `cso/ACKNOWLEDGEMENTS.md` -> `references/cso/ACKNOWLEDGEMENTS.md`
+
+Generated skills may still reference historical install paths like
+`$NEXUS_ROOT/review/checklist.md`; setup maps those paths to the moved source
+paths.
+
+## Remaining Conservative Facades
+
+The remaining facade slice is intentionally conservative:
 
 - `runtimes/*.md` points to active runtime roots without creating future runtime
   directories such as `runtimes/browse/`.
 - `references/review/README.md`, `references/qa/README.md`, and
-  `references/cso/README.md` document active reference roots without creating
-  concrete future assets.
+  `references/cso/README.md` document active reference roots and the runtime
+  compatibility paths that still point at historical install locations.
 - `references/design.md` is intentionally a file, not `references/design/`,
   because `setup` treats `references/design` as a real future source for
   `design/references`.
@@ -106,15 +124,11 @@ The physical facade slice is intentionally conservative:
   metadata. The active legacy compatibility path remains `agents/openai.yaml`
   until setup/install switches deliberately.
 
-Guarded future paths must stay absent until the migration actually moves assets
-and updates compatibility logic. Examples include:
+Guarded future paths must stay absent until their migration batch moves assets
+and updates compatibility logic. Current examples:
 
 - `references/design`
-- `references/review/checklist.md`
 - `references/review/specialists`
-- `references/qa/templates`
-- `references/qa/references`
-- `references/cso/ACKNOWLEDGEMENTS.md`
 
 ## First-Class Host Targets
 

@@ -5,7 +5,7 @@ import { judgePassed } from './helpers/eval-store';
 import {
   ROOT, browseBin, runId, evalsEnabled, selectedTests, hasApiKey,
   describeIfSelected, describeE2E, testConcurrentIfSelected,
-  copyDirSync, setupBrowseShims, logCost, recordE2E, dumpOutcomeDiagnostic,
+  copyQaRuntimeFiles, setupBrowseShims, logCost, recordE2E, dumpOutcomeDiagnostic,
   createEvalCollector, finalizeEvalCollector,
 } from './helpers/e2e-helpers';
 import { startTestServer } from '../browse/test/test-server';
@@ -35,8 +35,8 @@ let testServer: ReturnType<typeof startTestServer>;
     outcomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-outcome-'));
     setupBrowseShims(outcomeDir);
 
-    // Copy qa skill files
-    copyDirSync(path.join(ROOT, 'qa'), path.join(outcomeDir, 'qa'));
+    // Copy installed QA compatibility files
+    copyQaRuntimeFiles(outcomeDir);
   });
 
   afterAll(() => {
