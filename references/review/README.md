@@ -3,7 +3,7 @@
 Active sources:
 
 - `references/review/` for single-file review checklists and shared formats.
-- `review/specialists/` for specialist review prompts not yet moved in this batch.
+- `references/review/specialists/` for specialist review prompts.
 
 Installed compatibility paths include:
 
@@ -15,5 +15,3 @@ Installed compatibility paths include:
 
 Setup links the installed `$NEXUS_ROOT/review/...` paths back to whichever source
 exists first: the moved `references/review/...` path or the legacy fallback.
-`references/review/specialists/` remains guarded until the specialist prompts
-move as a separate batch.

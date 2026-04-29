@@ -61,8 +61,8 @@ Nexus keeps the generated host skills in `.agents/skills/` and
 Only the generated root `/nexus` compatibility mirror stays at the repository root. Migrated
 reference sidecars now live under `references/`, while setup preserves installed
 runtime paths such as `$NEXUS_ROOT/review/checklist.md`,
-`$NEXUS_ROOT/design/references`, and `$NEXUS_ROOT/cso/ACKNOWLEDGEMENTS.md` for
-generated skills.
+`$NEXUS_ROOT/review/specialists`, `$NEXUS_ROOT/design/references`, and
+`$NEXUS_ROOT/cso/ACKNOWLEDGEMENTS.md` for generated skills.
 `bun run skill:check` reports the active taxonomy so future source moves can be
 reviewed before they affect installs.
 The broader repo cleanup map is documented in

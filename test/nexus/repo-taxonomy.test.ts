@@ -51,10 +51,10 @@ describe('nexus repo taxonomy v2', () => {
     });
 
     expect(findRepoTaxonomyEntry('review')).toMatchObject({
-      current_path: 'review',
-      target_path: 'references/review',
-      move_policy: 'compat_required',
-      risk_level: 'high',
+      current_path: 'references/review/specialists',
+      target_path: 'references/review/specialists',
+      move_policy: 'keep_in_place',
+      risk_level: 'medium',
     });
 
     expect(findRepoTaxonomyEntry('review-reference-sidecars')).toMatchObject({
@@ -113,13 +113,14 @@ describe('nexus repo taxonomy v2', () => {
   test('records compatibility paths for runtime and reference assets installed under NEXUS_ROOT', () => {
     const browse = findRepoTaxonomyEntry('browse');
     const review = findRepoTaxonomyEntry('review');
+    const reviewSidecars = findRepoTaxonomyEntry('review-reference-sidecars');
     const qa = findRepoTaxonomyEntry('qa');
     const design = findRepoTaxonomyEntry('design');
 
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/dist');
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/bin');
-    expect(review?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/checklist.md');
     expect(review?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/specialists/testing.md');
+    expect(reviewSidecars?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/checklist.md');
     expect(qa?.runtime_compat_paths).toContain('$NEXUS_ROOT/qa/templates/qa-report-template.md');
     expect(design?.runtime_compat_paths).toContain('$NEXUS_ROOT/design/references');
   });
@@ -214,9 +215,9 @@ describe('nexus repo taxonomy v2', () => {
     }
 
     expect(findRepoTaxonomyFacade('references/review/README.md')).toMatchObject({
-      active_source_paths: ['review', 'references/review'],
-      guarded_future_paths: ['references/review/specialists'],
+      active_source_paths: ['references/review'],
     });
+    expect(findRepoTaxonomyFacade('references/review/README.md')).not.toHaveProperty('guarded_future_paths');
 
     expect(findRepoTaxonomyFacade('references/qa/README.md')).toMatchObject({
       active_source_paths: ['references/qa'],
@@ -245,6 +246,13 @@ describe('nexus repo taxonomy v2', () => {
       ['review/design-checklist.md', 'references/review/design-checklist.md'],
       ['review/greptile-triage.md', 'references/review/greptile-triage.md'],
       ['review/TODOS-format.md', 'references/review/TODOS-format.md'],
+      ['review/specialists/api-contract.md', 'references/review/specialists/api-contract.md'],
+      ['review/specialists/data-migration.md', 'references/review/specialists/data-migration.md'],
+      ['review/specialists/maintainability.md', 'references/review/specialists/maintainability.md'],
+      ['review/specialists/performance.md', 'references/review/specialists/performance.md'],
+      ['review/specialists/red-team.md', 'references/review/specialists/red-team.md'],
+      ['review/specialists/security.md', 'references/review/specialists/security.md'],
+      ['review/specialists/testing.md', 'references/review/specialists/testing.md'],
       ['qa/templates/qa-report-template.md', 'references/qa/templates/qa-report-template.md'],
       ['qa/references/issue-taxonomy.md', 'references/qa/references/issue-taxonomy.md'],
       ['cso/ACKNOWLEDGEMENTS.md', 'references/cso/ACKNOWLEDGEMENTS.md'],
@@ -273,6 +281,9 @@ describe('nexus repo taxonomy v2', () => {
     expect(resolveReferenceCompatSource('review/checklist.md', ROOT)).toBe(
       'references/review/checklist.md'
     );
+    expect(resolveReferenceCompatSource('review/specialists', ROOT)).toBe(
+      'references/review/specialists'
+    );
     expect(resolveReferenceCompatSource('qa/templates', ROOT)).toBe('references/qa/templates');
     expect(resolveReferenceCompatSource('cso/ACKNOWLEDGEMENTS.md', ROOT)).toBe(
       'references/cso/ACKNOWLEDGEMENTS.md'
@@ -285,7 +296,7 @@ describe('nexus repo taxonomy v2', () => {
       (facade) => facade.guarded_future_paths ?? []
     );
 
-    expect(guardedFuturePaths).toContain('references/review/specialists');
+    expect(guardedFuturePaths).not.toContain('references/review/specialists');
     expect(guardedFuturePaths).not.toContain('references/design');
     expect(guardedFuturePaths).not.toContain('references/review/checklist.md');
     expect(guardedFuturePaths).not.toContain('references/qa/templates');
@@ -302,7 +313,6 @@ describe('nexus repo taxonomy v2', () => {
       'browse',
       'design',
       'design-html',
-      'review',
       'careful',
       'freeze',
       'upstream',
@@ -345,6 +355,13 @@ describe('nexus repo taxonomy v2', () => {
       target_path: 'references/review/checklist.md',
       move_policy: 'keep_in_place',
       rule: 'review-reference-sidecars',
+    });
+
+    expect(classifyRepoPath('references/review/specialists/testing.md')).toMatchObject({
+      category: 'references',
+      target_path: 'references/review/specialists/testing.md',
+      move_policy: 'keep_in_place',
+      rule: 'review',
     });
 
     expect(classifyRepoPath('skills/support/land/SKILL.md.tmpl')).toMatchObject({

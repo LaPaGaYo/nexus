@@ -4,7 +4,6 @@ This directory is a navigation facade for repo taxonomy v2.
 
 Active reference source paths remain:
 
-- `review/`
 - `references/review/`
 - `references/qa/`
 - `references/design/`

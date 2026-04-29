@@ -53,7 +53,7 @@ function readyStatus(stage: StageStatus['stage']): StageStatus {
 const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord> = {
   testing: {
     category: 'testing',
-    source_path: 'review/specialists/testing.md',
+    source_path: 'references/review/specialists/testing.md',
     applies: true,
     rationale: 'Testing checklist is always-on for review and release readiness.',
     triggers: ['always_on'],
@@ -61,7 +61,7 @@ const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixCheckl
   },
   security: {
     category: 'security',
-    source_path: 'review/specialists/security.md',
+    source_path: 'references/review/specialists/security.md',
     applies: false,
     rationale: 'Security checklist applies when auth, backend, or trust-boundary surfaces are in scope.',
     triggers: [],
@@ -69,7 +69,7 @@ const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixCheckl
   },
   maintainability: {
     category: 'maintainability',
-    source_path: 'review/specialists/maintainability.md',
+    source_path: 'references/review/specialists/maintainability.md',
     applies: true,
     rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
     triggers: ['always_on'],
@@ -77,7 +77,7 @@ const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixCheckl
   },
   performance: {
     category: 'performance',
-    source_path: 'review/specialists/performance.md',
+    source_path: 'references/review/specialists/performance.md',
     applies: true,
     rationale: 'Performance checklist applies to frontend and backend execution surfaces.',
     triggers: ['frontend_surface'],
@@ -356,7 +356,7 @@ describe('nexus completion advisor', () => {
     expect(advisor.recommended_side_skills.find((action) => action.surface === '/design-review')?.visibility_reason)
       .toContain('Checklist-backed rationale: design review/design-checklist.md');
     expect(advisor.recommended_side_skills.find((action) => action.surface === '/browse')?.visibility_reason)
-      .toContain('Checklist-backed rationale: testing review/specialists/testing.md');
+      .toContain('Checklist-backed rationale: testing references/review/specialists/testing.md');
   });
 
   test('build advisor keeps the stage chooser visible even without side-skill follow-ups', () => {
@@ -398,7 +398,7 @@ describe('nexus completion advisor', () => {
       why_this_skill: 'Use this because the verification matrix ties this run to the testing and accessibility checklists.',
       evidence_signal: {
         kind: 'verification_matrix',
-        source_paths: ['review/specialists/testing.md', 'review/design-checklist.md'],
+        source_paths: ['references/review/specialists/testing.md', 'review/design-checklist.md'],
         checklist_categories: ['testing', 'accessibility'],
         summary: expect.stringContaining('testing'),
       },
@@ -554,11 +554,11 @@ describe('nexus completion advisor', () => {
       }),
       expect.objectContaining({
         surface: '/browse',
-        visibility_reason: expect.stringContaining('Checklist-backed rationale: testing review/specialists/testing.md'),
+        visibility_reason: expect.stringContaining('Checklist-backed rationale: testing references/review/specialists/testing.md'),
       }),
       expect.objectContaining({
         surface: '/connect-chrome',
-        visibility_reason: expect.stringContaining('Checklist-backed rationale: testing review/specialists/testing.md'),
+        visibility_reason: expect.stringContaining('Checklist-backed rationale: testing references/review/specialists/testing.md'),
       }),
     ]));
   });

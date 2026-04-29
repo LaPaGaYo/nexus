@@ -117,6 +117,17 @@ Generated design skills may still reference `$NEXUS_ROOT/design/references/...`;
 setup maps that installed compatibility path to the moved `references/design/`
 source directory.
 
+## Phase 6 Review Specialist Move
+
+The review specialist prompts have moved under the review reference taxonomy
+root:
+
+- `review/specialists/` -> `references/review/specialists/`
+
+Generated review skills may still reference
+`$NEXUS_ROOT/review/specialists/...`; setup maps that installed compatibility
+path to the moved `references/review/specialists/` source directory.
+
 ## Remaining Conservative Facades
 
 The remaining facade slice is intentionally conservative:
@@ -134,9 +145,9 @@ The remaining facade slice is intentionally conservative:
   until setup/install switches deliberately.
 
 Guarded future paths must stay absent until their migration batch moves assets
-and updates compatibility logic. Current examples:
-
-- `references/review/specialists`
+and updates compatibility logic. Current examples are currently runtime-focused,
+such as `runtimes/browse`, `runtimes/design`, and
+`runtimes/safety/careful`.
 
 ## First-Class Host Targets
 
