@@ -12,6 +12,8 @@ export type SkillStructureEntry = {
 
 export type SkillArtifactFileName = 'SKILL.md' | 'SKILL.md.tmpl';
 
+const ROOT_SKILL_TARGET_SOURCE_PATH = 'skills/root/nexus/SKILL.md.tmpl';
+
 export const SAFETY_SKILL_NAMES = [
   'careful',
   'freeze',
@@ -78,6 +80,11 @@ export function skillNameFromSourcePath(filePath: string): string {
     return 'nexus';
   }
 
+  const structuredRootMatch = normalized.match(/^skills\/root\/nexus\/SKILL\.md(?:\.tmpl)?$/);
+  if (structuredRootMatch) {
+    return 'nexus';
+  }
+
   const structuredMatch = normalized.match(/^skills\/(?:canonical|support|safety|aliases)\/([^/]+)\/SKILL\.md(?:\.tmpl)?$/);
   if (structuredMatch?.[1]) {
     return structuredMatch[1];
@@ -112,6 +119,10 @@ export function skillSourceCategoryForName(name: string): SkillStructureCategory
 }
 
 export function currentSkillSourcePathForName(name: string): string {
+  const normalized = stripGeneratedPrefix(name);
+  if (normalized === 'nexus') {
+    return ROOT_SKILL_TARGET_SOURCE_PATH;
+  }
   return targetSkillSourcePathForName(name);
 }
 
@@ -124,7 +135,7 @@ export function targetSkillSourcePathForName(name: string): string {
 
   switch (category) {
     case 'root':
-      return 'SKILL.md.tmpl';
+      return ROOT_SKILL_TARGET_SOURCE_PATH;
     case 'canonical':
       return `skills/canonical/${normalized}/SKILL.md.tmpl`;
     case 'alias':

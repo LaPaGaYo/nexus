@@ -50,7 +50,7 @@ function readSkillReference(reference: string): string {
 
 function templatePathForSkillReference(reference: string): string {
   if (reference === 'SKILL.md') {
-    return path.join(ROOT, 'SKILL.md.tmpl');
+    return skillArtifactPath(ROOT, 'nexus', 'SKILL.md.tmpl');
   }
 
   const skillName = skillNameFromReference(reference);

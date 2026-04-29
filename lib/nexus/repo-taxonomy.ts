@@ -10,6 +10,7 @@ export type RepoTaxonomyCategory =
   | 'docs'
   | 'test';
 
+export type RepoPathInventoryCategory = RepoTaxonomyCategory | 'root' | 'ci';
 export type RepoMovePolicy = 'keep_in_place' | 'compat_required' | 'future_move';
 export type RepoRiskLevel = 'low' | 'medium' | 'high';
 
@@ -44,6 +45,16 @@ export type RepoTaxonomyFacade = {
   active_source_paths: string[];
   guarded_future_paths?: string[];
   note: string;
+};
+
+export type RepoPathClassification = {
+  current_path: string;
+  category: RepoPathInventoryCategory;
+  target_path: string;
+  move_policy: RepoMovePolicy;
+  risk_level: RepoRiskLevel;
+  rule: string;
+  rationale: string;
 };
 
 export const REPO_TAXONOMY_CATEGORIES: Record<RepoTaxonomyCategory, RepoTaxonomyCategorySpec> = {
@@ -99,11 +110,20 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'root-skill',
     category: 'skills',
-    current_path: 'SKILL.md.tmpl',
+    current_path: 'skills/root/nexus/SKILL.md.tmpl',
     target_path: 'skills/root/nexus/SKILL.md.tmpl',
-    move_policy: 'future_move',
+    move_policy: 'keep_in_place',
+    risk_level: 'low',
+    rationale: 'The root /nexus source template now lives in the skills/root taxonomy while the root generated mirror preserves install compatibility.',
+  },
+  {
+    name: 'root-skill-generated',
+    category: 'skills',
+    current_path: 'SKILL.md',
+    target_path: 'skills/root/nexus/SKILL.md',
+    move_policy: 'compat_required',
     risk_level: 'medium',
-    rationale: 'The root /nexus entrypoint remains at repo root until setup and docs can resolve a nested root skill template.',
+    rationale: 'The generated root /nexus skill is mirrored at repo root for legacy Claude install compatibility.',
   },
   {
     name: 'skills',
@@ -135,6 +155,16 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
     runtime_compat_paths: ['$NEXUS_ROOT/design/dist', '$NEXUS_ROOT/design/references'],
   },
   {
+    name: 'design-references',
+    category: 'references',
+    current_path: 'design/references',
+    target_path: 'references/design',
+    move_policy: 'compat_required',
+    risk_level: 'high',
+    rationale: 'Design methodology sidecars are reference material, but installed design skills still load them from $NEXUS_ROOT/design/references.',
+    runtime_compat_paths: ['$NEXUS_ROOT/design/references'],
+  },
+  {
     name: 'design-html',
     category: 'runtimes',
     current_path: 'design-html',
@@ -143,6 +173,16 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
     risk_level: 'medium',
     rationale: 'The remaining design-html root stores runtime vendor assets after the skill source moved under skills/support.',
     runtime_compat_paths: ['$NEXUS_ROOT/design-html/vendor'],
+  },
+  {
+    name: 'browse-extension',
+    category: 'runtimes',
+    current_path: 'extension',
+    target_path: 'runtimes/browse/extension',
+    move_policy: 'compat_required',
+    risk_level: 'medium',
+    rationale: 'The Chrome side panel extension is part of the browse runtime, but setup and launch helpers still expect $NEXUS_ROOT/extension.',
+    runtime_compat_paths: ['$NEXUS_ROOT/extension/manifest.json'],
   },
   {
     name: 'careful',
@@ -212,6 +252,15 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
     rationale: 'The runtime core is already in the intended lib/nexus location.',
   },
   {
+    name: 'lib',
+    category: 'lib',
+    current_path: 'lib',
+    target_path: 'lib',
+    move_policy: 'keep_in_place',
+    risk_level: 'low',
+    rationale: 'Shared library helpers remain in the top-level lib root next to lib/nexus.',
+  },
+  {
     name: 'claude-host',
     category: 'hosts',
     current_path: '.claude',
@@ -228,6 +277,15 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
     move_policy: 'future_move',
     risk_level: 'medium',
     rationale: 'Codex host skill output is currently generated under .agents for compatibility with existing installs.',
+  },
+  {
+    name: 'codex-openai-metadata',
+    category: 'hosts',
+    current_path: 'agents/openai.yaml',
+    target_path: 'hosts/codex/openai.yaml',
+    move_policy: 'future_move',
+    risk_level: 'low',
+    rationale: 'OpenAI/Codex metadata belongs with the Codex host surface, but the current setup still reads the agents/openai.yaml compatibility path.',
   },
   {
     name: 'gemini-cli-host',
@@ -481,6 +539,100 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     note: 'Factory host facade. .factory remains the active Factory host surface.',
   },
 ];
+
+const ROOT_FILES = new Set([
+  '.env.example',
+  '.gitignore',
+  'AGENTS.md',
+  'ARCHITECTURE.md',
+  'BROWSER.md',
+  'CHANGELOG.md',
+  'CLAUDE.md',
+  'CONTRIBUTING.md',
+  'DESIGN.md',
+  'ETHOS.md',
+  'LICENSE',
+  'README.md',
+  'TODOS.md',
+  'VERSION',
+  'bun.lock',
+  'conductor.json',
+  'package.json',
+  'release.json',
+  'setup',
+]);
+
+function normalizeRepoPath(repoPath: string): string {
+  return repoPath.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
+}
+
+function appendTargetSuffix(currentPath: string, currentRoot: string, targetRoot: string): string {
+  if (currentPath === currentRoot) return targetRoot;
+  return `${targetRoot}/${currentPath.slice(currentRoot.length + 1)}`;
+}
+
+function entryMatchesPath(entry: RepoTaxonomyEntry, repoPath: string): boolean {
+  return repoPath === entry.current_path || repoPath.startsWith(`${entry.current_path}/`);
+}
+
+export function classifyRepoPath(repoPath: string): RepoPathClassification {
+  const normalized = normalizeRepoPath(repoPath);
+
+  const matchingEntry = [...REPO_TAXONOMY_ENTRIES]
+    .filter((entry) => entryMatchesPath(entry, normalized))
+    .sort((a, b) => b.current_path.length - a.current_path.length)[0];
+
+  if (matchingEntry) {
+    return {
+      current_path: normalized,
+      category: matchingEntry.category,
+      target_path: appendTargetSuffix(normalized, matchingEntry.current_path, matchingEntry.target_path),
+      move_policy: matchingEntry.move_policy,
+      risk_level: matchingEntry.risk_level,
+      rule: matchingEntry.name,
+      rationale: matchingEntry.rationale,
+    };
+  }
+
+  if (normalized === 'actionlint.yaml' || normalized.startsWith('.github/')) {
+    return {
+      current_path: normalized,
+      category: 'ci',
+      target_path: normalized,
+      move_policy: 'keep_in_place',
+      risk_level: 'low',
+      rule: 'ci-surface',
+      rationale: 'GitHub and actionlint configuration use tool-defined paths and should remain in place.',
+    };
+  }
+
+  if (normalized.startsWith('runtimes/') || normalized.startsWith('references/') || normalized.startsWith('hosts/')) {
+    const category = normalized.split('/')[0] as 'runtimes' | 'references' | 'hosts';
+    return {
+      current_path: normalized,
+      category,
+      target_path: normalized,
+      move_policy: 'keep_in_place',
+      risk_level: 'low',
+      rule: `${category}-facade`,
+      rationale: 'Navigation facade files already live in the intended taxonomy path.',
+    };
+  }
+
+  if (ROOT_FILES.has(normalized)) {
+    return {
+      current_path: normalized,
+      category: 'root',
+      target_path: normalized,
+      move_policy: 'keep_in_place',
+      risk_level: 'low',
+      rule: 'root-project-metadata',
+      rationale: 'Project metadata, entry documentation, and package manifests stay at the repository root.',
+    };
+  }
+
+  throw new Error(`No repo taxonomy classification for path: ${normalized}`);
+}
 
 export function plannedTopLevelRoots(): string[] {
   return [

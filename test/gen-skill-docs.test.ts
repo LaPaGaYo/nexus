@@ -258,6 +258,15 @@ describe('gen-skill-docs', () => {
     expect(content).toContain('Regenerate: bun run gen:skill-docs');
   });
 
+  test('root nexus source lives under skills/root while legacy SKILL.md remains a generated mirror', () => {
+    expect(fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))).toBe(false);
+    expect(fs.existsSync(path.join(ROOT, 'skills', 'root', 'nexus', 'SKILL.md.tmpl'))).toBe(true);
+    expect(fs.existsSync(path.join(ROOT, 'skills', 'root', 'nexus', 'SKILL.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8')).toBe(
+      fs.readFileSync(path.join(ROOT, 'skills', 'root', 'nexus', 'SKILL.md'), 'utf-8'),
+    );
+  });
+
   test('generated header is present in browse/SKILL.md', () => {
     const content = readSkill('browse');
     expect(content).toContain('AUTO-GENERATED from SKILL.md.tmpl');
@@ -380,7 +389,7 @@ describe('gen-skill-docs', () => {
   });
 
   test('templates contain placeholders', () => {
-    const rootTmpl = fs.readFileSync(path.join(ROOT, 'SKILL.md.tmpl'), 'utf-8');
+    const rootTmpl = readTemplate('nexus');
     expect(rootTmpl).toContain('{{PREAMBLE}}');
 
     const browseTmpl = readTemplate('browse');
@@ -1946,7 +1955,7 @@ describe('Codex generation (--host codex)', () => {
         return fs.realpathSync(agentSkillDir) === fs.realpathSync(ROOT);
       } catch { return false; }
     };
-    if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
+    if (SKILL_BY_NAME.has('nexus')) {
       if (!isSymlinkLoop('nexus')) {
         skills.push({ dir: '.', codexName: 'nexus' });
       }
@@ -1971,11 +1980,15 @@ describe('Codex generation (--host codex)', () => {
 
   test('root nexus bundle has OpenAI metadata for Codex skill browsing', () => {
     const rootMetadata = path.join(ROOT, 'agents', 'openai.yaml');
+    const futureRootMetadata = path.join(ROOT, 'hosts', 'codex', 'openai.yaml');
     expect(fs.existsSync(rootMetadata)).toBe(true);
+    expect(fs.existsSync(futureRootMetadata)).toBe(true);
     const content = fs.readFileSync(rootMetadata, 'utf-8');
+    const futureContent = fs.readFileSync(futureRootMetadata, 'utf-8');
     expect(content).toContain('display_name: "nexus"');
     expect(content).toContain('Use $nexus to locate the bundled Nexus skills.');
     expect(content).toContain('allow_implicit_invocation: true');
+    expect(futureContent).toBe(content);
   });
 
   test('externalSkillName mapping: root is nexus, others are nexus-{dir}', () => {
@@ -2284,7 +2297,7 @@ describe('Factory generation (--host factory)', () => {
       try { return fs.realpathSync(factorySkillDir) === fs.realpathSync(ROOT); }
       catch { return false; }
     };
-    if (fs.existsSync(path.join(ROOT, 'SKILL.md.tmpl'))) {
+    if (SKILL_BY_NAME.has('nexus')) {
       if (!isSymlinkLoop('nexus')) skills.push({ dir: '.', factoryName: 'nexus' });
     }
     for (const skill of ALL_SKILLS) {
@@ -2905,6 +2918,8 @@ describe('discover-skills hidden directory filtering', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-structured-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'SKILL.md.tmpl'), '---\nname: nexus\n---\nroot');
+      fs.mkdirSync(path.join(tmpDir, 'skills', 'root', 'nexus'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, 'skills', 'root', 'nexus', 'SKILL.md.tmpl'), '---\nname: nexus\n---\nstructured root');
       fs.mkdirSync(path.join(tmpDir, 'skills', 'canonical', 'review'), { recursive: true });
       fs.writeFileSync(path.join(tmpDir, 'skills', 'canonical', 'review', 'SKILL.md.tmpl'), '---\nname: review\n---\nreview');
       fs.mkdirSync(path.join(tmpDir, 'skills', 'support', 'simplify'), { recursive: true });
@@ -2916,7 +2931,11 @@ describe('discover-skills hidden directory filtering', () => {
 
       const results = discoverTemplates(tmpDir);
 
-      expect(results).toContainEqual({ tmpl: 'SKILL.md.tmpl', output: 'SKILL.md' });
+      expect(results).not.toContainEqual({ tmpl: 'SKILL.md.tmpl', output: 'SKILL.md' });
+      expect(results).toContainEqual({
+        tmpl: 'skills/root/nexus/SKILL.md.tmpl',
+        output: 'skills/root/nexus/SKILL.md',
+      });
       expect(results).toContainEqual({
         tmpl: 'skills/canonical/review/SKILL.md.tmpl',
         output: 'skills/canonical/review/SKILL.md',
@@ -2933,6 +2952,17 @@ describe('discover-skills hidden directory filtering', () => {
         tmpl: 'skills/aliases/autoplan/SKILL.md.tmpl',
         output: 'skills/aliases/autoplan/SKILL.md',
       });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('discoverTemplates falls back to the legacy root template until the root source moves', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-discover-root-fallback-'));
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'SKILL.md.tmpl'), '---\nname: nexus\n---\nlegacy root');
+
+      expect(discoverTemplates(tmpDir)).toContainEqual({ tmpl: 'SKILL.md.tmpl', output: 'SKILL.md' });
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

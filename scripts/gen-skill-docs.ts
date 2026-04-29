@@ -88,6 +88,8 @@ const OPENAI_LITMUS_CHECKS = [
 function externalSkillName(skillDir: string, frontmatterName?: string): string {
   // Root skill (skillDir === '' or '.') always maps to 'nexus' regardless of frontmatter
   if (skillDir === '.' || skillDir === '') return 'nexus';
+  // The root source may live under skills/root/nexus while still publishing as "nexus".
+  if (frontmatterName === 'nexus') return 'nexus';
   // Use frontmatter name when it differs from directory name (e.g., run-tests/ with name: test)
   const baseName = frontmatterName && frontmatterName !== skillDir ? frontmatterName : skillDir;
   if (baseName.startsWith('nexus-')) return baseName;
@@ -329,11 +331,15 @@ function processExternalHost(
     const agentsDir = path.join(outputDir, 'agents');
     fs.mkdirSync(agentsDir, { recursive: true });
     const shortDescription = condenseOpenAIShortDescription(extractedDescription);
-    fs.writeFileSync(path.join(agentsDir, 'openai.yaml'), generateOpenAIYaml(name, shortDescription));
-    if (host === 'codex' && (skillDir === '.' || skillDir === '')) {
+    const metadata = generateOpenAIYaml(name, shortDescription);
+    fs.writeFileSync(path.join(agentsDir, 'openai.yaml'), metadata);
+    if (host === 'codex' && name === 'nexus') {
       const rootAgentsDir = path.join(ROOT, 'agents');
       fs.mkdirSync(rootAgentsDir, { recursive: true });
-      fs.writeFileSync(path.join(rootAgentsDir, 'openai.yaml'), generateOpenAIYaml(name, shortDescription));
+      fs.writeFileSync(path.join(rootAgentsDir, 'openai.yaml'), metadata);
+      const futureCodexHostDir = path.join(ROOT, 'hosts', 'codex');
+      fs.mkdirSync(futureCodexHostDir, { recursive: true });
+      fs.writeFileSync(path.join(futureCodexHostDir, 'openai.yaml'), metadata);
     }
   }
 
@@ -408,6 +414,22 @@ function processTemplate(tmplPath: string, host: Host = 'claude'): { outputPath:
   return { outputPath, content, symlinkLoop };
 }
 
+type ProcessedTemplate = ReturnType<typeof processTemplate>;
+
+function compatibilityOutputsForTemplate(tmplPath: string, host: Host, primary: ProcessedTemplate): ProcessedTemplate[] {
+  const relTmplPath = path.relative(ROOT, tmplPath).replace(/\\/g, '/');
+  if (host !== 'claude' || relTmplPath !== 'skills/root/nexus/SKILL.md.tmpl') {
+    return [];
+  }
+
+  return [
+    {
+      ...primary,
+      outputPath: path.join(ROOT, 'SKILL.md'),
+    },
+  ];
+}
+
 // ─── Main ───────────────────────────────────────────────────
 
 function findTemplates(): string[] {
@@ -450,28 +472,33 @@ for (const currentHost of hostsToRun) {
         if (dir === 'codex') continue;
       }
 
-      const { outputPath, content, symlinkLoop } = processTemplate(tmplPath, currentHost);
-      const relOutput = path.relative(ROOT, outputPath);
+      const primaryOutput = processTemplate(tmplPath, currentHost);
+      const outputs = [primaryOutput, ...compatibilityOutputsForTemplate(tmplPath, currentHost, primaryOutput)];
 
-      if (symlinkLoop) {
-        console.log(`SKIPPED (symlink loop): ${relOutput}`);
-      } else if (DRY_RUN) {
-        const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
-        if (existing !== content) {
-          console.log(`STALE: ${relOutput}`);
-          hasChanges = true;
+      for (const { outputPath, content, symlinkLoop } of outputs) {
+        const relOutput = path.relative(ROOT, outputPath);
+
+        if (symlinkLoop) {
+          console.log(`SKIPPED (symlink loop): ${relOutput}`);
+        } else if (DRY_RUN) {
+          const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
+          if (existing !== content) {
+            console.log(`STALE: ${relOutput}`);
+            hasChanges = true;
+          } else {
+            console.log(`FRESH: ${relOutput}`);
+          }
         } else {
-          console.log(`FRESH: ${relOutput}`);
+          fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+          fs.writeFileSync(outputPath, content);
+          console.log(`GENERATED: ${relOutput}`);
         }
-      } else {
-        fs.writeFileSync(outputPath, content);
-        console.log(`GENERATED: ${relOutput}`);
-      }
 
-      // Track token budget
-      const lines = content.split('\n').length;
-      const tokens = Math.round(content.length / 4); // ~4 chars per token
-      tokenBudget.push({ skill: relOutput, lines, tokens });
+        // Track token budget
+        const lines = content.split('\n').length;
+        const tokens = Math.round(content.length / 4); // ~4 chars per token
+        tokenBudget.push({ skill: relOutput, lines, tokens });
+      }
     }
 
     if (DRY_RUN && hasChanges) {
