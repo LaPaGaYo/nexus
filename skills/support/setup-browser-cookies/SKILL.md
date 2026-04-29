@@ -486,6 +486,9 @@ If `CDP_MODE=true`: tell the user "Not needed — you're connected to your real 
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 B=""
 [ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/nexus/browse/dist/browse" ] && B="$_ROOT/.claude/skills/nexus/browse/dist/browse"
+[ -n "$_ROOT" ] && [ -z "$B" ] && [ -x "$_ROOT/.claude/skills/nexus/runtimes/browse/dist/browse" ] && B="$_ROOT/.claude/skills/nexus/runtimes/browse/dist/browse"
+_SOURCE_BROWSE=~/.claude/skills/nexus/runtimes/browse/dist/browse
+[ -z "$B" ] && [ -x "$_SOURCE_BROWSE" ] && B="$_SOURCE_BROWSE"
 [ -z "$B" ] && B=~/.claude/skills/nexus/browse/dist/browse
 if [ -x "$B" ]; then
   echo "READY: $B"

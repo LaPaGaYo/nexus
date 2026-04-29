@@ -209,7 +209,7 @@ describeIfSelected('Ship workflow E2E', ['ship-local-workflow'], () => {
 });
 
 // setup-cookies-detect REMOVED: The cookie-import-browser module has 30+ thorough
-// unit tests in browse/test/cookie-import-browser.test.ts (decryption, profile
+// unit tests in runtimes/browse/test/cookie-import-browser.test.ts (decryption, profile
 // detection, error handling, path traversal). The E2E just tested LLM instruction-
 // following ("write a file saying no browsers") on a CI box with no browsers.
 

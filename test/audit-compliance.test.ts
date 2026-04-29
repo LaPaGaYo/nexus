@@ -84,10 +84,10 @@ describe('Audit compliance', () => {
 
   test('browse integration tests do not terminate the shared test runner', () => {
     const testPaths = [
-      'browse/test/commands.test.ts',
-      'browse/test/compare-board.test.ts',
-      'browse/test/snapshot.test.ts',
-      'browse/test/handoff.test.ts',
+      'runtimes/browse/test/commands.test.ts',
+      'runtimes/browse/test/compare-board.test.ts',
+      'runtimes/browse/test/snapshot.test.ts',
+      'runtimes/browse/test/handoff.test.ts',
     ];
 
     for (const testPath of testPaths) {
@@ -98,12 +98,12 @@ describe('Audit compliance', () => {
 
   // Round 2 Fix 2: Trust boundary markers + helper + wrapping in all paths
   test('browse wraps untrusted content with trust boundary markers', () => {
-    const commands = readFileSync(join(ROOT, 'browse/src/commands.ts'), 'utf-8');
+    const commands = readFileSync(join(ROOT, 'runtimes/browse/src/commands.ts'), 'utf-8');
     expect(commands).toContain('PAGE_CONTENT_COMMANDS');
     expect(commands).toContain('wrapUntrustedContent');
-    const server = readFileSync(join(ROOT, 'browse/src/server.ts'), 'utf-8');
+    const server = readFileSync(join(ROOT, 'runtimes/browse/src/server.ts'), 'utf-8');
     expect(server).toContain('wrapUntrustedContent');
-    const meta = readFileSync(join(ROOT, 'browse/src/meta-commands.ts'), 'utf-8');
+    const meta = readFileSync(join(ROOT, 'runtimes/browse/src/meta-commands.ts'), 'utf-8');
     expect(meta).toContain('wrapUntrustedContent');
   });
 

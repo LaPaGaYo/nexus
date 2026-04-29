@@ -9,8 +9,8 @@
  * Used by skill:check and CI freshness checks.
  */
 
-import { COMMAND_DESCRIPTIONS } from '../browse/src/commands';
-import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { COMMAND_DESCRIPTIONS } from '../runtimes/browse/src/commands';
+import { SNAPSHOT_FLAGS } from '../runtimes/browse/src/snapshot';
 import { discoverTemplates } from './discover-skills';
 import * as fs from 'fs';
 import * as path from 'path';

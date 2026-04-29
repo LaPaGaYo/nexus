@@ -43,13 +43,6 @@ describe('nexus repo taxonomy v2', () => {
   });
 
   test('keeps current paths as the active source of truth while recording future target paths', () => {
-    expect(findRepoTaxonomyEntry('browse')).toMatchObject({
-      current_path: 'browse',
-      target_path: 'runtimes/browse',
-      move_policy: 'future_move',
-      risk_level: 'high',
-    });
-
     expect(findRepoTaxonomyEntry('review')).toMatchObject({
       current_path: 'references/review/specialists',
       target_path: 'references/review/specialists',
@@ -74,6 +67,13 @@ describe('nexus repo taxonomy v2', () => {
     expect(findRepoTaxonomyEntry('design')).toMatchObject({
       current_path: 'runtimes/design',
       target_path: 'runtimes/design',
+      move_policy: 'keep_in_place',
+      risk_level: 'high',
+    });
+
+    expect(findRepoTaxonomyEntry('browse')).toMatchObject({
+      current_path: 'runtimes/browse',
+      target_path: 'runtimes/browse',
       move_policy: 'keep_in_place',
       risk_level: 'high',
     });
@@ -246,7 +246,7 @@ describe('nexus repo taxonomy v2', () => {
     expect(findRepoTaxonomyFacade('references/cso/README.md')).not.toHaveProperty('guarded_future_paths');
 
     expect(findRepoTaxonomyFacade('runtimes/browse.md')).toMatchObject({
-      active_source_paths: ['browse', 'runtimes/browse/extension'],
+      active_source_paths: ['runtimes/browse'],
     });
     expect(findRepoTaxonomyFacade('runtimes/browse.md')).not.toHaveProperty('guarded_future_paths');
 
@@ -331,7 +331,6 @@ describe('nexus repo taxonomy v2', () => {
   test('documents all high-risk visible root directories that should not be moved ad hoc', () => {
     const documented = new Set(REPO_TAXONOMY_ENTRIES.map((entry) => entry.current_path));
     const highRiskRoots = [
-      'browse',
       'design-html',
       'careful',
       'freeze',
@@ -354,6 +353,13 @@ describe('nexus repo taxonomy v2', () => {
       category: 'runtimes',
       target_path: 'runtimes/browse/extension/sidepanel.js',
       move_policy: 'keep_in_place',
+    });
+
+    expect(classifyRepoPath('runtimes/browse/src/cli.ts')).toMatchObject({
+      category: 'runtimes',
+      target_path: 'runtimes/browse/src/cli.ts',
+      move_policy: 'keep_in_place',
+      rule: 'browse',
     });
 
     expect(classifyRepoPath('agents/openai.yaml')).toMatchObject({

@@ -8,7 +8,7 @@ import {
   copyQaRuntimeFiles, setupBrowseShims, logCost, recordE2E, dumpOutcomeDiagnostic,
   createEvalCollector, finalizeEvalCollector,
 } from './helpers/e2e-helpers';
-import { startTestServer } from '../browse/test/test-server';
+import { startTestServer } from '../runtimes/browse/test/test-server';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';

@@ -194,8 +194,10 @@ function getChatBuffer(tabId?: number): ChatEntry[] {
 function findBrowseBin(): string {
   const candidates = [
     path.resolve(__dirname, '..', 'dist', 'browse'),
-    path.resolve(__dirname, '..', '..', '.claude', 'skills', 'nexus', 'browse', 'dist', 'browse'),
+    path.resolve(__dirname, '..', '..', '..', '.claude', 'skills', 'nexus', 'browse', 'dist', 'browse'),
+    path.resolve(__dirname, '..', '..', '..', '.claude', 'skills', 'nexus', 'runtimes', 'browse', 'dist', 'browse'),
     path.join(process.env.HOME || '', '.claude', 'skills', 'nexus', 'browse', 'dist', 'browse'),
+    path.join(process.env.HOME || '', '.claude', 'skills', 'nexus', 'runtimes', 'browse', 'dist', 'browse'),
   ];
   for (const c of candidates) {
     try { if (fs.existsSync(c)) return c; } catch {}

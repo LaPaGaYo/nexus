@@ -324,6 +324,9 @@ else
 fi
 B=""
 [ -n "$_ROOT" ] && [ -x "$_ROOT/${ctx.paths.localSkillRoot}/browse/dist/browse" ] && B="$_ROOT/${ctx.paths.localSkillRoot}/browse/dist/browse"
+[ -n "$_ROOT" ] && [ -z "$B" ] && [ -x "$_ROOT/${ctx.paths.localSkillRoot}/runtimes/browse/dist/browse" ] && B="$_ROOT/${ctx.paths.localSkillRoot}/runtimes/browse/dist/browse"
+_SOURCE_BROWSE=${ctx.paths.skillRoot}/runtimes/browse/dist/browse
+[ -z "$B" ] && [ -x "$_SOURCE_BROWSE" ] && B="$_SOURCE_BROWSE"
 [ -z "$B" ] && B=${ctx.paths.browseDir}/browse
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"

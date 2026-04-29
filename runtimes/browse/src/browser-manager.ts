@@ -129,10 +129,10 @@ export class BrowserManager {
     const fs = require('fs');
     const path = require('path');
     const candidates = [
-      // Relative to this source file (dev mode: browse/src/ -> ../../runtimes/browse/extension)
-      path.resolve(__dirname, '..', '..', 'runtimes', 'browse', 'extension'),
+      // Relative to this source file (dev mode: runtimes/browse/src/ -> ../extension)
+      path.resolve(__dirname, '..', 'extension'),
       // Legacy source checkout path retained for older installs and branches.
-      path.resolve(__dirname, '..', '..', 'extension'),
+      path.resolve(__dirname, '..', '..', '..', 'extension'),
       // Global Nexus install
       path.join(process.env.HOME || '', '.claude', 'skills', 'nexus', 'extension'),
       path.join(process.env.HOME || '', '.claude', 'skills', 'nexus', 'runtimes', 'browse', 'extension'),

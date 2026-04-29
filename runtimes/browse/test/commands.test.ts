@@ -678,10 +678,10 @@ describe('Status', () => {
 // ─── CLI server script resolution ───────────────────────────────
 
 describe('CLI server script resolution', () => {
-  test('prefers adjacent browse/src/server.ts for compiled project installs', () => {
+  test('prefers adjacent runtimes/browse/src/server.ts for compiled project installs', () => {
     const root = fs.mkdtempSync('/tmp/nexus-cli-');
     const execPath = path.join(root, '.claude/skills/nexus/browse/dist/browse');
-    const serverPath = path.join(root, '.claude/skills/nexus/browse/src/server.ts');
+    const serverPath = path.join(root, '.claude/skills/nexus/runtimes/browse/src/server.ts');
 
     fs.mkdirSync(path.dirname(execPath), { recursive: true });
     fs.mkdirSync(path.dirname(serverPath), { recursive: true });

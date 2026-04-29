@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const ROOT = path.resolve(__dirname, '..');
-const EXTENSION_ROOT = path.join(ROOT, '..', 'runtimes', 'browse', 'extension');
+const EXTENSION_ROOT = path.join(ROOT, 'extension');
 
 // ─── System prompt tests (server.ts spawnClaude) ─────────────────
 

@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync, chmodSync
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const SCRIPT = join(import.meta.dir, '..', '..', 'bin', 'nexus-config');
+const SCRIPT = join(import.meta.dir, '..', '..', '..', 'bin', 'nexus-config');
 
 let stateDir: string;
 

@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test';
-import { COMMAND_DESCRIPTIONS } from '../browse/src/commands';
-import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { COMMAND_DESCRIPTIONS } from '../runtimes/browse/src/commands';
+import { SNAPSHOT_FLAGS } from '../runtimes/browse/src/snapshot';
 import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
 import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
 import { discoverTemplates } from '../scripts/discover-skills';
@@ -196,6 +196,20 @@ describe('gen-skill-docs', () => {
     ]) {
       expect(content).toContain('runtimes/design/dist/design');
       expect(content).toContain('design/dist/design');
+    }
+  });
+
+  test('browse skills can resolve the migrated browse runtime source path', () => {
+    for (const content of [
+      readSkill('browse'),
+      readSkill('connect-chrome'),
+      readSkill('setup-browser-cookies'),
+      readSkill('qa-only'),
+      readSkill('canary'),
+      readSkill('benchmark'),
+    ]) {
+      expect(content).toContain('runtimes/browse/dist/browse');
+      expect(content).toContain('browse/dist/browse');
     }
   });
 
@@ -2622,8 +2636,6 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('design');
     expect(fnBody).toContain('review');
     expect(fnBody).toContain('qa');
-    expect(fnBody).toContain('browse/dist');
-    expect(fnBody).toContain('design/dist');
     expect(fnBody).toContain('link_runtime_compat_assets "$repo_root" "$agents_nexus"');
     expect(fnBody).toContain('link_reference_compat_assets "$repo_root" "$agents_nexus"');
     expect(fnBody).toContain('for legacy_parent in browse design extension review qa cso; do');
@@ -2641,6 +2653,8 @@ describe('setup script validation', () => {
   test('setup has runtime compatibility mapping for moved runtime roots', () => {
     expect(setupContent).toContain('link_runtime_compat_assets()');
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "extension" "runtimes/browse/extension" "extension"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "browse/dist" "runtimes/browse/dist" "browse/dist"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "browse/bin" "runtimes/browse/bin" "browse/bin"');
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "design/dist" "runtimes/design/dist" "design/dist"');
   });
 
@@ -2649,9 +2663,6 @@ describe('setup script validation', () => {
     const fnEnd = setupContent.indexOf('\ncreate_factory_runtime_root()', fnStart);
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('nexus/SKILL.md');
-    expect(fnBody).toContain('browse/dist');
-    expect(fnBody).toContain('browse/bin');
-    expect(fnBody).toContain('design/dist');
     expect(fnBody).toContain('nexus-upgrade/SKILL.md');
     expect(fnBody).toContain('link_runtime_compat_assets "$nexus_dir" "$codex_nexus"');
     expect(fnBody).toContain('link_reference_compat_assets "$nexus_dir" "$codex_nexus"');

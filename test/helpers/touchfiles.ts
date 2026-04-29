@@ -80,8 +80,8 @@ function matchesTouchfilePattern(file: string, pattern: string): boolean {
  */
 export const E2E_TOUCHFILES: Record<string, string[]> = {
   // Browse core (+ test-server dependency)
-  'browse-basic':    ['browse/src/**', 'browse/test/test-server.ts'],
-  'browse-snapshot': ['browse/src/**', 'browse/test/test-server.ts'],
+  'browse-basic':    ['runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts'],
+  'browse-snapshot': ['runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts'],
 
   // SKILL.md setup + preamble (depend on ROOT SKILL.md + gen-skill-docs)
   'skillmd-setup-discovery':  ['SKILL.md', 'SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],
@@ -92,12 +92,12 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'session-awareness':        ['SKILL.md', 'SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],
 
   // QA (+ test-server dependency)
-  'qa-quick':       ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts'],
-  'qa-b6-static':   ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval.html', 'test/fixtures/qa-eval-ground-truth.json'],
-  'qa-b7-spa':      ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-spa.html', 'test/fixtures/qa-eval-spa-ground-truth.json'],
-  'qa-b8-checkout': ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-checkout.html', 'test/fixtures/qa-eval-checkout-ground-truth.json'],
+  'qa-quick':       ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts'],
+  'qa-b6-static':   ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'runtimes/browse/test/fixtures/qa-eval.html', 'test/fixtures/qa-eval-ground-truth.json'],
+  'qa-b7-spa':      ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'runtimes/browse/test/fixtures/qa-eval-spa.html', 'test/fixtures/qa-eval-spa-ground-truth.json'],
+  'qa-b8-checkout': ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'runtimes/browse/test/fixtures/qa-eval-checkout.html', 'test/fixtures/qa-eval-checkout-ground-truth.json'],
   'qa-only-no-fix': ['qa-only/**', 'references/qa/templates/**'],
-  'qa-fix-loop':    ['qa/**', 'references/qa/**', 'browse/src/**', 'browse/test/test-server.ts'],
+  'qa-fix-loop':    ['qa/**', 'references/qa/**', 'runtimes/browse/src/**', 'runtimes/browse/test/test-server.ts'],
   'qa-bootstrap':   ['qa/**', 'references/qa/**', 'ship/**'],
 
   // Review
@@ -188,12 +188,12 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'design-consultation-preview':    ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
   'plan-design-review-plan-mode':   ['plan-design-review/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
   'plan-design-review-no-ui-scope': ['plan-design-review/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
-  'design-review-fix':              ['design-review/**', 'references/design/**', 'browse/src/**', 'scripts/gen-skill-docs.ts'],
+  'design-review-fix':              ['design-review/**', 'references/design/**', 'runtimes/browse/src/**', 'scripts/gen-skill-docs.ts'],
 
   // Design Shotgun
   'design-shotgun-path':            ['design-shotgun/**', 'runtimes/design/src/**', 'references/design/**', 'scripts/resolvers/design.ts'],
   'design-shotgun-session':         ['design-shotgun/**', 'references/design/**', 'scripts/resolvers/design.ts'],
-  'design-shotgun-full':            ['design-shotgun/**', 'runtimes/design/src/**', 'references/design/**', 'browse/src/**'],
+  'design-shotgun-full':            ['design-shotgun/**', 'runtimes/design/src/**', 'references/design/**', 'runtimes/browse/src/**'],
 
   // nexus-upgrade
   'nexus-upgrade-happy-path': ['nexus-upgrade/**', 'nexus-upgrade/**'],
@@ -202,14 +202,14 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'land-and-deploy-workflow':      ['land-and-deploy/**', 'scripts/gen-skill-docs.ts'],
   'land-and-deploy-first-run':     ['land-and-deploy/**', 'scripts/gen-skill-docs.ts', 'bin/nexus-slug'],
   'land-and-deploy-review-gate':   ['land-and-deploy/**', 'bin/nexus-review-read'],
-  'canary-workflow':               ['canary/**', 'browse/src/**'],
-  'benchmark-workflow':            ['benchmark/**', 'browse/src/**'],
+  'canary-workflow':               ['canary/**', 'runtimes/browse/src/**'],
+  'benchmark-workflow':            ['benchmark/**', 'runtimes/browse/src/**'],
   'setup-deploy-workflow':         ['setup-deploy/**', 'scripts/gen-skill-docs.ts'],
 
   // Sidebar agent
-  'sidebar-navigate':              ['browse/src/server.ts', 'browse/src/sidebar-agent.ts', 'browse/src/sidebar-utils.ts', 'runtimes/browse/extension/**'],
-  'sidebar-url-accuracy':          ['browse/src/server.ts', 'browse/src/sidebar-agent.ts', 'browse/src/sidebar-utils.ts', 'runtimes/browse/extension/background.js'],
-  'sidebar-css-interaction':       ['browse/src/server.ts', 'browse/src/sidebar-agent.ts', 'browse/src/write-commands.ts', 'browse/src/read-commands.ts', 'browse/src/cdp-inspector.ts', 'runtimes/browse/extension/**'],
+  'sidebar-navigate':              ['runtimes/browse/src/server.ts', 'runtimes/browse/src/sidebar-agent.ts', 'runtimes/browse/src/sidebar-utils.ts', 'runtimes/browse/extension/**'],
+  'sidebar-url-accuracy':          ['runtimes/browse/src/server.ts', 'runtimes/browse/src/sidebar-agent.ts', 'runtimes/browse/src/sidebar-utils.ts', 'runtimes/browse/extension/background.js'],
+  'sidebar-css-interaction':       ['runtimes/browse/src/server.ts', 'runtimes/browse/src/sidebar-agent.ts', 'runtimes/browse/src/write-commands.ts', 'runtimes/browse/src/read-commands.ts', 'runtimes/browse/src/cdp-inspector.ts', 'runtimes/browse/extension/**'],
 
   // Autoplan
   'autoplan-core':  ['autoplan/**', 'plan/**', 'frame/**', 'plan-ceo-review/**', 'plan-eng-review/**', 'plan-design-review/**', 'bin/nexus.ts', 'lib/nexus/**'],
@@ -372,11 +372,11 @@ export const E2E_TIERS: Record<string, 'gate' | 'periodic'> = {
  * LLM-judge test touchfiles — keyed by test description string.
  */
 export const LLM_JUDGE_TOUCHFILES: Record<string, string[]> = {
-  'command reference table':          ['SKILL.md', 'SKILL.md.tmpl', 'browse/src/commands.ts'],
-  'snapshot flags reference':         ['SKILL.md', 'SKILL.md.tmpl', 'browse/src/snapshot.ts'],
-  'browse/SKILL.md reference':        ['browse/SKILL.md', 'browse/SKILL.md.tmpl', 'browse/src/**'],
+  'command reference table':          ['SKILL.md', 'SKILL.md.tmpl', 'runtimes/browse/src/commands.ts'],
+  'snapshot flags reference':         ['SKILL.md', 'SKILL.md.tmpl', 'runtimes/browse/src/snapshot.ts'],
+  'browse/SKILL.md reference':        ['browse/SKILL.md', 'browse/SKILL.md.tmpl', 'runtimes/browse/src/**'],
   'setup block':                      ['SKILL.md', 'SKILL.md.tmpl'],
-  'regression vs baseline':           ['SKILL.md', 'SKILL.md.tmpl', 'browse/src/commands.ts', 'test/fixtures/eval-baselines.json'],
+  'regression vs baseline':           ['SKILL.md', 'SKILL.md.tmpl', 'runtimes/browse/src/commands.ts', 'test/fixtures/eval-baselines.json'],
   'qa/SKILL.md workflow':             ['qa/SKILL.md', 'qa/SKILL.md.tmpl'],
   'qa/SKILL.md health rubric':        ['qa/SKILL.md', 'qa/SKILL.md.tmpl'],
   'qa/SKILL.md anti-refusal':         ['qa/SKILL.md', 'qa/SKILL.md.tmpl', 'qa-only/SKILL.md', 'qa-only/SKILL.md.tmpl'],

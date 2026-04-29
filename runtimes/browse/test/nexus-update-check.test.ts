@@ -3,7 +3,8 @@ import { mkdtempSync, writeFileSync, rmSync, readFileSync, mkdirSync, symlinkSyn
 import { dirname, join } from 'path';
 import { tmpdir } from 'os';
 
-const SCRIPT = join(import.meta.dir, '..', '..', 'bin', 'nexus-update-check');
+const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
+const SCRIPT = join(REPO_ROOT, 'bin', 'nexus-update-check');
 
 let nexusDir: string;
 let stateDir: string;
@@ -93,17 +94,17 @@ beforeEach(() => {
   const libDir = join(nexusDir, 'lib', 'nexus');
   mkdirSync(binDir);
   mkdirSync(libDir, { recursive: true });
-  symlinkSync(join(import.meta.dir, '..', '..', 'bin', 'nexus-config'), join(binDir, 'nexus-config'));
-  symlinkSync(join(import.meta.dir, '..', '..', 'bin', 'nexus-telemetry-log'), join(binDir, 'nexus-telemetry-log'));
+  symlinkSync(join(REPO_ROOT, 'bin', 'nexus-config'), join(binDir, 'nexus-config'));
+  symlinkSync(join(REPO_ROOT, 'bin', 'nexus-telemetry-log'), join(binDir, 'nexus-telemetry-log'));
   symlinkSync(
-    join(import.meta.dir, '..', '..', 'lib', 'nexus', 'release-contract.ts'),
+    join(REPO_ROOT, 'lib', 'nexus', 'release-contract.ts'),
     join(libDir, 'release-contract.ts'),
   );
   symlinkSync(
-    join(import.meta.dir, '..', '..', 'lib', 'nexus', 'install-metadata.ts'),
+    join(REPO_ROOT, 'lib', 'nexus', 'install-metadata.ts'),
     join(libDir, 'install-metadata.ts'),
   );
-  symlinkSync(join(import.meta.dir, '..', '..', 'lib', 'nexus', 'update-state.ts'), join(libDir, 'update-state.ts'));
+  symlinkSync(join(REPO_ROOT, 'lib', 'nexus', 'update-state.ts'), join(libDir, 'update-state.ts'));
 });
 
 afterEach(() => {

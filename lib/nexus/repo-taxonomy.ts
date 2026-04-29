@@ -140,11 +140,11 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'browse',
     category: 'runtimes',
-    current_path: 'browse',
+    current_path: 'runtimes/browse',
     target_path: 'runtimes/browse',
-    move_policy: 'future_move',
+    move_policy: 'keep_in_place',
     risk_level: 'high',
-    rationale: 'Browse is compiled, installed, referenced by setup, and used by many tests; moving it requires compatibility symlinks and generator updates.',
+    rationale: 'The browse runtime has moved under runtimes/browse while installed hosts keep $NEXUS_ROOT/browse/dist and $NEXUS_ROOT/browse/bin as compatibility paths.',
     runtime_compat_paths: ['$NEXUS_ROOT/browse/dist', '$NEXUS_ROOT/browse/bin'],
   },
   {
@@ -438,15 +438,15 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     facade_path: 'runtimes/README.md',
     category: 'runtimes',
     kind: 'navigation_only',
-    active_source_paths: ['browse', 'runtimes/browse/extension', 'runtimes/design', 'design-html', 'careful', 'freeze'],
+    active_source_paths: ['runtimes/browse', 'runtimes/design', 'design-html', 'careful', 'freeze'],
     note: 'Runtime facade root. Existing runtime roots remain executable source of truth.',
   },
   {
     facade_path: 'runtimes/browse.md',
     category: 'runtimes',
     kind: 'navigation_only',
-    active_source_paths: ['browse', 'runtimes/browse/extension'],
-    note: 'Browse runtime facade. The extension source has moved under runtimes/browse/extension while compiled browse sources remain at browse/.',
+    active_source_paths: ['runtimes/browse'],
+    note: 'Browse runtime facade. The compiled browse CLI, server, tests, bin shims, and Chrome side panel extension now live under runtimes/browse.',
   },
   {
     facade_path: 'runtimes/design.md',

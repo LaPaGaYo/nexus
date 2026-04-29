@@ -7,9 +7,9 @@
 
 set -e
 
-GSTACK_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-SRC_DIR="$GSTACK_DIR/browse/src"
-DIST_DIR="$GSTACK_DIR/browse/dist"
+NEXUS_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+SRC_DIR="$NEXUS_DIR/runtimes/browse/src"
+DIST_DIR="$NEXUS_DIR/runtimes/browse/dist"
 
 echo "Building Node-compatible server bundle..."
 

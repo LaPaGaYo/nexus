@@ -137,7 +137,7 @@ export function getRemoteSlug(): string {
 }
 
 /**
- * Read the binary version (git SHA) from browse/dist/.version.
+ * Read the binary version (git SHA) from runtimes/browse/dist/.version.
  * Returns null if the file doesn't exist or can't be read.
  */
 export function readVersionHash(execPath: string = process.execPath): string | null {

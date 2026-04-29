@@ -10,8 +10,8 @@
  *   - scripts/dev-skill.ts (watch mode)
  */
 
-import { ALL_COMMANDS } from '../../browse/src/commands';
-import { parseSnapshotArgs } from '../../browse/src/snapshot';
+import { ALL_COMMANDS } from '../../runtimes/browse/src/commands';
+import { parseSnapshotArgs } from '../../runtimes/browse/src/snapshot';
 import * as fs from 'fs';
 import * as path from 'path';
 
