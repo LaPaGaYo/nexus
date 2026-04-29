@@ -12,7 +12,7 @@ import * as path from 'path';
 describe('Adversarial security', () => {
   test('sidepanel escapes entry.command in activity feed', () => {
     const source = fs.readFileSync(
-      path.join(import.meta.dir, '../../extension/sidepanel.js'),
+      path.join(import.meta.dir, '../../runtimes/browse/extension/sidepanel.js'),
       'utf-8',
     );
     // entry.command must be wrapped in escapeHtml() to prevent XSS injection

@@ -936,9 +936,9 @@ link_codex_skill_dirs() {
   fi
 }
 
-# ─── Helper: reference compatibility assets ─────────────────────
-# Source references may eventually move under references/, but installed
-# skills must keep resolving the historical $NEXUS_ROOT/review|qa|design paths.
+# ─── Helper: runtime/reference compatibility assets ─────────────────────
+# Source assets may move under taxonomy roots, but installed skills must keep
+# resolving historical $NEXUS_ROOT/... paths.
 link_compat_asset() {
   local repo_root="$1"
   local runtime_root="$2"
@@ -977,15 +977,22 @@ link_reference_compat_assets() {
   link_compat_asset "$repo_root" "$runtime_root" "cso/ACKNOWLEDGEMENTS.md" "references/cso/ACKNOWLEDGEMENTS.md" "cso/ACKNOWLEDGEMENTS.md"
 }
 
+link_runtime_compat_assets() {
+  local repo_root="$1"
+  local runtime_root="$2"
+
+  link_compat_asset "$repo_root" "$runtime_root" "extension" "runtimes/browse/extension" "extension"
+}
+
 # ─── Helper: create .agents/skills/nexus/ sidecar symlinks ──────────
 # Codex/Gemini/Cursor read skills from .agents/skills/. We link runtime
-# assets (bin/, browse/dist/, review/, qa/, etc.) so skill templates can
+# assets (bin/, browse/dist/, extension/, review/, qa/, etc.) so skill templates can
 # resolve paths like $SKILL_ROOT/review/design-checklist.md.
 create_agents_sidecar() {
   local repo_root="$1"
   local agents_nexus="$repo_root/.agents/skills/nexus"
 
-  for legacy_parent in browse design review qa cso; do
+  for legacy_parent in browse design extension review qa cso; do
     if [ -L "$agents_nexus/$legacy_parent" ]; then
       rm -f "$agents_nexus/$legacy_parent"
     fi
@@ -1006,6 +1013,7 @@ create_agents_sidecar() {
   if [ -d "$repo_root/design/dist" ]; then
     ln -snf "$repo_root/design/dist" "$agents_nexus/design/dist"
   fi
+  link_runtime_compat_assets "$repo_root" "$agents_nexus"
   link_reference_compat_assets "$repo_root" "$agents_nexus"
 
   # Sidecar files that skills reference at runtime
@@ -1057,6 +1065,7 @@ create_codex_runtime_root() {
   if [ -f "$agents_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$agents_dir/nexus-upgrade/SKILL.md" "$codex_nexus/nexus-upgrade/SKILL.md"
   fi
+  link_runtime_compat_assets "$nexus_dir" "$codex_nexus"
   link_reference_compat_assets "$nexus_dir" "$codex_nexus"
   # ETHOS.md — referenced by "Search Before Building" in all skill preambles
   if [ -f "$nexus_dir/ETHOS.md" ]; then
@@ -1095,6 +1104,7 @@ create_factory_runtime_root() {
   if [ -f "$factory_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$factory_dir/nexus-upgrade/SKILL.md" "$factory_nexus/nexus-upgrade/SKILL.md"
   fi
+  link_runtime_compat_assets "$nexus_dir" "$factory_nexus"
   link_reference_compat_assets "$nexus_dir" "$factory_nexus"
   if [ -f "$nexus_dir/ETHOS.md" ]; then
     ln -snf "$nexus_dir/ETHOS.md" "$factory_nexus/ETHOS.md"
@@ -1164,6 +1174,7 @@ create_gemini_runtime_root() {
   if [ -f "$gemini_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$gemini_dir/nexus-upgrade/SKILL.md" "$gemini_nexus/nexus-upgrade/SKILL.md"
   fi
+  link_runtime_compat_assets "$nexus_dir" "$gemini_nexus"
   link_reference_compat_assets "$nexus_dir" "$gemini_nexus"
   if [ -f "$nexus_dir/ETHOS.md" ]; then
     ln -snf "$nexus_dir/ETHOS.md" "$gemini_nexus/ETHOS.md"
@@ -1312,6 +1323,7 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   if [ -f "$AGENTS_DIR/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$AGENTS_DIR/nexus-upgrade/SKILL.md" "$KIRO_NEXUS/nexus-upgrade/SKILL.md"
   fi
+  link_runtime_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"
   link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"
 
   # Rewrite root SKILL.md paths for Kiro

@@ -2611,8 +2611,9 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('qa');
     expect(fnBody).toContain('browse/dist');
     expect(fnBody).toContain('design/dist');
+    expect(fnBody).toContain('link_runtime_compat_assets "$repo_root" "$agents_nexus"');
     expect(fnBody).toContain('link_reference_compat_assets "$repo_root" "$agents_nexus"');
-    expect(fnBody).toContain('for legacy_parent in browse design review qa cso; do');
+    expect(fnBody).toContain('for legacy_parent in browse design extension review qa cso; do');
     expect(fnBody).not.toContain('for asset in bin browse design review qa');
   });
 
@@ -2624,6 +2625,11 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "cso/ACKNOWLEDGEMENTS.md" "references/cso/ACKNOWLEDGEMENTS.md" "cso/ACKNOWLEDGEMENTS.md"');
   });
 
+  test('setup has runtime compatibility mapping for moved runtime roots', () => {
+    expect(setupContent).toContain('link_runtime_compat_assets()');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "extension" "runtimes/browse/extension" "extension"');
+  });
+
   test('create_codex_runtime_root exposes only runtime assets', () => {
     const fnStart = setupContent.indexOf('create_codex_runtime_root()');
     const fnEnd = setupContent.indexOf('\ncreate_factory_runtime_root()', fnStart);
@@ -2633,13 +2639,17 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('browse/bin');
     expect(fnBody).toContain('design/dist');
     expect(fnBody).toContain('nexus-upgrade/SKILL.md');
+    expect(fnBody).toContain('link_runtime_compat_assets "$nexus_dir" "$codex_nexus"');
     expect(fnBody).toContain('link_reference_compat_assets "$nexus_dir" "$codex_nexus"');
     expect(fnBody).not.toContain('ln -snf "$nexus_dir/design/references"');
     expect(fnBody).not.toContain('for f in checklist.md');
     expect(fnBody).not.toContain('ln -snf "$gstack_dir" "$codex_gstack"');
   });
 
-  test('factory and kiro runtime roots use reference compatibility mapping', () => {
+  test('factory and kiro runtime roots use runtime and reference compatibility mapping', () => {
+    expect(setupContent).toContain('link_runtime_compat_assets "$nexus_dir" "$factory_nexus"');
+    expect(setupContent).toContain('link_runtime_compat_assets "$nexus_dir" "$gemini_nexus"');
+    expect(setupContent).toContain('link_runtime_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$factory_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$gemini_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');

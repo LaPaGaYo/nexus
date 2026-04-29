@@ -94,7 +94,9 @@ Also find the extension path so you can help the user if they need to load it ma
 _EXT_PATH=""
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 [ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/nexus/extension/manifest.json" ] && _EXT_PATH="$_ROOT/.claude/skills/nexus/extension"
+[ -z "$_EXT_PATH" ] && [ -n "$_ROOT" ] && [ -f "$_ROOT/.claude/skills/nexus/runtimes/browse/extension/manifest.json" ] && _EXT_PATH="$_ROOT/.claude/skills/nexus/runtimes/browse/extension"
 [ -z "$_EXT_PATH" ] && [ -f "$HOME/.claude/skills/nexus/extension/manifest.json" ] && _EXT_PATH="$HOME/.claude/skills/nexus/extension"
+[ -z "$_EXT_PATH" ] && [ -f "$HOME/.claude/skills/nexus/runtimes/browse/extension/manifest.json" ] && _EXT_PATH="$HOME/.claude/skills/nexus/runtimes/browse/extension"
 echo "EXTENSION_PATH: ${_EXT_PATH:-NOT FOUND}"
 ```
 

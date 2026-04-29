@@ -123,22 +123,33 @@ export class BrowserManager {
 
   /**
    * Find the Nexus Chrome extension directory.
-   * Checks: repo root /extension, global install, dev install.
+   * Checks migrated source path first, then installed compatibility paths.
    */
   private findExtensionPath(): string | null {
     const fs = require('fs');
     const path = require('path');
     const candidates = [
-      // Relative to this source file (dev mode: browse/src/ -> ../../extension)
+      // Relative to this source file (dev mode: browse/src/ -> ../../runtimes/browse/extension)
+      path.resolve(__dirname, '..', '..', 'runtimes', 'browse', 'extension'),
+      // Legacy source checkout path retained for older installs and branches.
       path.resolve(__dirname, '..', '..', 'extension'),
       // Global Nexus install
       path.join(process.env.HOME || '', '.claude', 'skills', 'nexus', 'extension'),
+      path.join(process.env.HOME || '', '.claude', 'skills', 'nexus', 'runtimes', 'browse', 'extension'),
       // Git repo root (detected via BROWSE_STATE_FILE location)
       (() => {
         const stateFile = process.env.BROWSE_STATE_FILE || '';
         if (stateFile) {
           const repoRoot = path.resolve(path.dirname(stateFile), '..');
           return path.join(repoRoot, '.claude', 'skills', 'nexus', 'extension');
+        }
+        return '';
+      })(),
+      (() => {
+        const stateFile = process.env.BROWSE_STATE_FILE || '';
+        if (stateFile) {
+          const repoRoot = path.resolve(path.dirname(stateFile), '..');
+          return path.join(repoRoot, '.claude', 'skills', 'nexus', 'runtimes', 'browse', 'extension');
         }
         return '';
       })(),

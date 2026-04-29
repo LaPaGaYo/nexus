@@ -98,9 +98,10 @@ describe('nexus repo taxonomy v2', () => {
     });
 
     expect(findRepoTaxonomyEntry('browse-extension')).toMatchObject({
-      current_path: 'extension',
+      current_path: 'runtimes/browse/extension',
       target_path: 'runtimes/browse/extension',
-      move_policy: 'compat_required',
+      move_policy: 'keep_in_place',
+      risk_level: 'medium',
     });
 
     expect(findRepoTaxonomyEntry('codex-openai-metadata')).toMatchObject({
@@ -119,6 +120,9 @@ describe('nexus repo taxonomy v2', () => {
 
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/dist');
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/bin');
+    expect(findRepoTaxonomyEntry('browse-extension')?.runtime_compat_paths).toContain(
+      '$NEXUS_ROOT/extension/manifest.json'
+    );
     expect(review?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/specialists/testing.md');
     expect(reviewSidecars?.runtime_compat_paths).toContain('$NEXUS_ROOT/review/checklist.md');
     expect(qa?.runtime_compat_paths).toContain('$NEXUS_ROOT/qa/templates/qa-report-template.md');
@@ -234,6 +238,11 @@ describe('nexus repo taxonomy v2', () => {
     });
     expect(findRepoTaxonomyFacade('references/cso/README.md')).not.toHaveProperty('guarded_future_paths');
 
+    expect(findRepoTaxonomyFacade('runtimes/browse.md')).toMatchObject({
+      active_source_paths: ['browse', 'runtimes/browse/extension'],
+    });
+    expect(findRepoTaxonomyFacade('runtimes/browse.md')).not.toHaveProperty('guarded_future_paths');
+
     const facadePaths = new Set(plannedFacadePaths());
     for (const mapping of REFERENCE_COMPAT_MAPPINGS) {
       expect(facadePaths.has(mapping.future_source_path)).toBe(false);
@@ -317,7 +326,6 @@ describe('nexus repo taxonomy v2', () => {
       'freeze',
       'upstream',
       'upstream-notes',
-      'extension',
       '.agents',
       '.factory',
     ];
@@ -331,10 +339,10 @@ describe('nexus repo taxonomy v2', () => {
   });
 
   test('classifies representative repo files into exact future taxonomy paths', () => {
-    expect(classifyRepoPath('extension/sidepanel.js')).toMatchObject({
+    expect(classifyRepoPath('runtimes/browse/extension/sidepanel.js')).toMatchObject({
       category: 'runtimes',
       target_path: 'runtimes/browse/extension/sidepanel.js',
-      move_policy: 'compat_required',
+      move_policy: 'keep_in_place',
     });
 
     expect(classifyRepoPath('agents/openai.yaml')).toMatchObject({

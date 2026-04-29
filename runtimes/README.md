@@ -5,12 +5,13 @@ This directory is a navigation facade for repo taxonomy v2.
 Active runtime source paths remain:
 
 - `browse/`
+- `runtimes/browse/extension/`
 - `design/`
 - `design-html/`
 - `careful/`
 - `freeze/`
 
-Do not execute or import runtime code from `runtimes/` until the taxonomy
-contract marks a path as migrated. Installed compatibility paths under
-`$NEXUS_ROOT/...` remain authoritative.
-
+Do not execute or import runtime code from `runtimes/` unless the taxonomy
+contract marks that path as migrated. `runtimes/browse/extension/` is migrated;
+the rest of the browse runtime still lives at `browse/`. Installed compatibility
+paths under `$NEXUS_ROOT/...` remain authoritative.

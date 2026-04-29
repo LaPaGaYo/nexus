@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const ROOT = path.resolve(__dirname, '..');
+const EXTENSION_ROOT = path.join(ROOT, '..', 'runtimes', 'browse', 'extension');
 
 // ─── System prompt tests (server.ts spawnClaude) ─────────────────
 
@@ -90,7 +91,7 @@ describe('/sidebar-chat agentStatus', () => {
 // ─── Sidebar HTML tests ──────────────────────────────────────────
 
 describe('sidebar HTML (sidepanel.html)', () => {
-  const html = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.html'), 'utf-8');
+  const html = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.html'), 'utf-8');
 
   test('banner says "Browser co-pilot" not "Standalone mode"', () => {
     expect(html).toContain('Browser co-pilot');
@@ -118,7 +119,7 @@ describe('sidebar HTML (sidepanel.html)', () => {
 // ─── Sidebar JS tests ───────────────────────────────────────────
 
 describe('sidebar JS (sidepanel.js)', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
 
   test('stopAgent function exists', () => {
     expect(js).toContain('async function stopAgent()');
@@ -245,7 +246,7 @@ describe('system prompt size', () => {
 // ─── TTFO latency chain invariants ──────────────────────────────
 
 describe('TTFO latency chain', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
   const agentSrc = fs.readFileSync(path.join(ROOT, 'src', 'sidebar-agent.ts'), 'utf-8');
 
   test('optimistic render happens BEFORE chrome.runtime.sendMessage', () => {
@@ -326,7 +327,7 @@ describe('browser tab bar (server.ts)', () => {
 });
 
 describe('browser tab bar (sidepanel.js)', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
 
   test('pollTabs function exists and calls /sidebar-tabs', () => {
     expect(js).toContain('async function pollTabs()');
@@ -367,7 +368,7 @@ describe('browser tab bar (sidepanel.js)', () => {
 });
 
 describe('browser tab bar (sidepanel.html)', () => {
-  const html = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.html'), 'utf-8');
+  const html = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.html'), 'utf-8');
 
   test('browser-tabs container exists', () => {
     expect(html).toContain('id="browser-tabs"');
@@ -396,7 +397,7 @@ describe('sidebar→browser tab switch', () => {
 describe('browser→sidebar tab sync', () => {
   const bmSrc = fs.readFileSync(path.join(ROOT, 'src', 'browser-manager.ts'), 'utf-8');
   const serverSrc = fs.readFileSync(path.join(ROOT, 'src', 'server.ts'), 'utf-8');
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
 
   test('syncActiveTabByUrl method exists on BrowserManager', () => {
     expect(bmSrc).toContain('syncActiveTabByUrl(activeUrl: string)');
@@ -457,7 +458,7 @@ describe('browser→sidebar tab sync', () => {
   });
 
   test('background.js listens for chrome.tabs.onActivated', () => {
-    const bgSrc = fs.readFileSync(path.join(ROOT, '..', 'extension', 'background.js'), 'utf-8');
+    const bgSrc = fs.readFileSync(path.join(EXTENSION_ROOT, 'background.js'), 'utf-8');
     expect(bgSrc).toContain('chrome.tabs.onActivated.addListener');
     expect(bgSrc).toContain('browserTabActivated');
   });
@@ -479,7 +480,7 @@ describe('browser→sidebar tab sync', () => {
 });
 
 describe('browser tab bar (sidepanel.css)', () => {
-  const css = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.css'), 'utf-8');
+  const css = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.css'), 'utf-8');
 
   test('browser-tabs styles exist', () => {
     expect(css).toContain('.browser-tabs');
@@ -599,7 +600,7 @@ describe('per-tab chat context (server.ts)', () => {
 });
 
 describe('per-tab chat context (sidepanel.js)', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
 
   test('tracks activeTabId for chat context', () => {
     expect(js).toContain('activeTabId');
@@ -640,7 +641,7 @@ describe('per-tab chat context (sidepanel.js)', () => {
 // ─── Sidebar CSS tests ──────────────────────────────────────────
 
 describe('sidebar CSS (sidepanel.css)', () => {
-  const css = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.css'), 'utf-8');
+  const css = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.css'), 'utf-8');
 
   test('stop button style exists', () => {
     expect(css).toContain('.stop-btn');
@@ -677,7 +678,7 @@ describe('sidebar CSS (sidepanel.css)', () => {
 // ─── Inspector message allowlist fix ────────────────────────────
 
 describe('inspector message allowlist fix', () => {
-  const bgSrc = fs.readFileSync(path.join(ROOT, '..', 'extension', 'background.js'), 'utf-8');
+  const bgSrc = fs.readFileSync(path.join(EXTENSION_ROOT, 'background.js'), 'utf-8');
 
   test('ALLOWED_TYPES includes inspector message types', () => {
     const allowListSection = bgSrc.slice(
@@ -696,8 +697,8 @@ describe('inspector message allowlist fix', () => {
 // ─── CSP fallback basic picker ──────────────────────────────────
 
 describe('CSP fallback basic picker', () => {
-  const contentSrc = fs.readFileSync(path.join(ROOT, '..', 'extension', 'content.js'), 'utf-8');
-  const bgSrc = fs.readFileSync(path.join(ROOT, '..', 'extension', 'background.js'), 'utf-8');
+  const contentSrc = fs.readFileSync(path.join(EXTENSION_ROOT, 'content.js'), 'utf-8');
+  const bgSrc = fs.readFileSync(path.join(EXTENSION_ROOT, 'background.js'), 'utf-8');
 
   test('content.js contains startBasicPicker message handler', () => {
     expect(contentSrc).toContain("msg.type === 'startBasicPicker'");
@@ -754,9 +755,9 @@ describe('CSP fallback basic picker', () => {
 // ─── Cleanup and screenshot buttons ─────────────────────────────
 
 describe('cleanup and screenshot buttons', () => {
-  const html = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.html'), 'utf-8');
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
-  const css = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.css'), 'utf-8');
+  const html = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.html'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
+  const css = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.css'), 'utf-8');
 
   test('sidepanel.html contains cleanup and screenshot buttons in inspector', () => {
     expect(html).toContain('inspector-cleanup-btn');
@@ -910,8 +911,8 @@ describe('cleanup heuristics (write-commands.ts)', () => {
 });
 
 describe('chat toolbar buttons disabled state', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
-  const css = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.css'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
+  const css = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.css'), 'utf-8');
 
   test('setActionButtonsEnabled function exists', () => {
     expect(js).toContain('function setActionButtonsEnabled(enabled)');
@@ -942,7 +943,7 @@ describe('chat toolbar buttons disabled state', () => {
 // ─── Chat message dedup ─────────────────────────────────────────
 
 describe('chat message dedup (prevents repeat rendering)', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
 
   test('renderedEntryIds Set exists for dedup tracking', () => {
     expect(js).toContain('const renderedEntryIds = new Set()');
@@ -1018,7 +1019,7 @@ describe('sidebar agent conciseness + no focus stealing', () => {
 // ─── LLM-based cleanup architecture ─────────────────────────────
 
 describe('LLM-based cleanup (smart agent cleanup)', () => {
-  const js = fs.readFileSync(path.join(ROOT, '..', 'extension', 'sidepanel.js'), 'utf-8');
+  const js = fs.readFileSync(path.join(EXTENSION_ROOT, 'sidepanel.js'), 'utf-8');
   const wcSrc = fs.readFileSync(path.join(ROOT, 'src', 'write-commands.ts'), 'utf-8');
 
   test('cleanup button uses /sidebar-command not /command', () => {

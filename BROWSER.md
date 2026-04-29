@@ -192,7 +192,7 @@ Or do it manually:
 3. **Click "Load unpacked"** — a file picker opens
 4. **Navigate to the extension folder:** Press **Cmd+Shift+G** in the file picker to open "Go to folder", then paste one of these paths:
    - Global install: `~/.claude/skills/nexus/extension`
-   - Dev/source: `<nexus-repo>/extension`
+   - Dev/source: `<nexus-repo>/runtimes/browse/extension`
 
    Press Enter, then click **Select**.
 

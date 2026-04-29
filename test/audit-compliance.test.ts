@@ -116,7 +116,7 @@ describe('Audit compliance', () => {
 
   // Round 2 Fix 3: Extension sender validation + message type allowlist
   test('extension background.js validates message sender', () => {
-    const bg = readFileSync(join(ROOT, 'extension/background.js'), 'utf-8');
+    const bg = readFileSync(join(ROOT, 'runtimes/browse/extension/background.js'), 'utf-8');
     expect(bg).toContain('sender.id !== chrome.runtime.id');
     expect(bg).toContain('ALLOWED_TYPES');
   });
