@@ -639,6 +639,9 @@ If the codebase is empty and purpose is unclear, say: *"I don't have a clear pic
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 B=""
 [ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/nexus/browse/dist/browse" ] && B="$_ROOT/.claude/skills/nexus/browse/dist/browse"
+[ -n "$_ROOT" ] && [ -z "$B" ] && [ -x "$_ROOT/.claude/skills/nexus/runtimes/browse/dist/browse" ] && B="$_ROOT/.claude/skills/nexus/runtimes/browse/dist/browse"
+_SOURCE_BROWSE=~/.claude/skills/nexus/runtimes/browse/dist/browse
+[ -z "$B" ] && [ -x "$_SOURCE_BROWSE" ] && B="$_SOURCE_BROWSE"
 [ -z "$B" ] && B=~/.claude/skills/nexus/browse/dist/browse
 if [ -x "$B" ]; then
   echo "READY: $B"
@@ -679,6 +682,9 @@ If browse is not available, that's fine — visual research is optional. The ski
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 D=""
 [ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/nexus/design/dist/design" ] && D="$_ROOT/.claude/skills/nexus/design/dist/design"
+[ -n "$_ROOT" ] && [ -z "$D" ] && [ -x "$_ROOT/.claude/skills/nexus/runtimes/design/dist/design" ] && D="$_ROOT/.claude/skills/nexus/runtimes/design/dist/design"
+_SOURCE_DESIGN=~/.claude/skills/nexus/runtimes/design/dist/design
+[ -z "$D" ] && [ -x "$_SOURCE_DESIGN" ] && D="$_SOURCE_DESIGN"
 [ -z "$D" ] && D=~/.claude/skills/nexus/design/dist/design
 if [ -x "$D" ]; then
   echo "DESIGN_READY: $D"
@@ -687,6 +693,9 @@ else
 fi
 B=""
 [ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/nexus/browse/dist/browse" ] && B="$_ROOT/.claude/skills/nexus/browse/dist/browse"
+[ -n "$_ROOT" ] && [ -z "$B" ] && [ -x "$_ROOT/.claude/skills/nexus/runtimes/browse/dist/browse" ] && B="$_ROOT/.claude/skills/nexus/runtimes/browse/dist/browse"
+_SOURCE_BROWSE=~/.claude/skills/nexus/runtimes/browse/dist/browse
+[ -z "$B" ] && [ -x "$_SOURCE_BROWSE" ] && B="$_SOURCE_BROWSE"
 [ -z "$B" ] && B=~/.claude/skills/nexus/browse/dist/browse
 if [ -x "$B" ]; then
   echo "BROWSE_READY: $B"

@@ -3,7 +3,7 @@
  * Sends 3 design briefs to GPT Image API via Responses API.
  * Validates: text rendering quality, layout accuracy, visual coherence.
  *
- * Run: OPENAI_API_KEY=$(cat ~/.nexus/openai.json | python3 -c "import sys,json;print(json.load(sys.stdin)['api_key'])") bun run design/prototype.ts
+ * Run: OPENAI_API_KEY=$(cat ~/.nexus/openai.json | python3 -c "import sys,json;print(json.load(sys.stdin)['api_key'])") bun run runtimes/design/prototype.ts
  */
 
 import fs from "fs";

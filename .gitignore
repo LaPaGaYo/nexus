@@ -1,7 +1,9 @@
 .env
 node_modules/
 browse/dist/
+runtimes/browse/dist/
 design/dist/
+runtimes/design/dist/
 bin/gstack-global-discover
 .gstack/
 .claude/skills/

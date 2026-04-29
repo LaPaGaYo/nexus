@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'bun:test';
 import { validateSkill, extractRemoteSlugPatterns, extractWeightsFromTable } from './helpers/skill-parser';
 import { readSkill, skillArtifactPath } from './helpers/skill-paths';
-import { ALL_COMMANDS, COMMAND_DESCRIPTIONS, READ_COMMANDS, WRITE_COMMANDS, META_COMMANDS } from '../browse/src/commands';
-import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { ALL_COMMANDS, COMMAND_DESCRIPTIONS, READ_COMMANDS, WRITE_COMMANDS, META_COMMANDS } from '../runtimes/browse/src/commands';
+import { SNAPSHOT_FLAGS } from '../runtimes/browse/src/snapshot';
 import { discoverTemplates } from '../scripts/discover-skills';
 import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
 import * as fs from 'fs';
@@ -228,9 +228,9 @@ describe('Usage string consistency', () => {
   // Cross-check Usage: patterns in implementation against COMMAND_DESCRIPTIONS
   test('implementation Usage: structural format matches COMMAND_DESCRIPTIONS', () => {
     const implFiles = [
-      path.join(ROOT, 'browse', 'src', 'write-commands.ts'),
-      path.join(ROOT, 'browse', 'src', 'read-commands.ts'),
-      path.join(ROOT, 'browse', 'src', 'meta-commands.ts'),
+      path.join(ROOT, 'runtimes', 'browse', 'src', 'write-commands.ts'),
+      path.join(ROOT, 'runtimes', 'browse', 'src', 'read-commands.ts'),
+      path.join(ROOT, 'runtimes', 'browse', 'src', 'meta-commands.ts'),
     ];
 
     // Extract "Usage: browse <pattern>" from throw new Error(...) calls
@@ -1051,7 +1051,7 @@ describe('Planted-bug fixture validation', () => {
   });
 
   test('qa-eval.html contains the planted bugs', () => {
-    const html = fs.readFileSync(path.join(ROOT, 'browse', 'test', 'fixtures', 'qa-eval.html'), 'utf-8');
+    const html = fs.readFileSync(path.join(ROOT, 'runtimes', 'browse', 'test', 'fixtures', 'qa-eval.html'), 'utf-8');
     // BUG 1: broken link
     expect(html).toContain('/nonexistent-404-page');
     // BUG 2: disabled submit
@@ -1787,7 +1787,7 @@ describeLegacyShip('Test failure triage in ship skill', () => {
 describe('sidebar agent (#584)', () => {
   // #584 — Sidebar Write: sidebar-agent.ts allowedTools includes Write
   test('sidebar-agent.ts allowedTools includes Write', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'src', 'sidebar-agent.ts'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'runtimes', 'browse', 'src', 'sidebar-agent.ts'), 'utf-8');
     // Find the allowedTools line in the askClaude function
     const match = content.match(/--allowedTools['"]\s*,\s*['"]([^'"]+)['"]/);
     expect(match).not.toBeNull();
@@ -1796,7 +1796,7 @@ describe('sidebar agent (#584)', () => {
 
   // #584 — Server Write: server.ts allowedTools includes Write (DRY parity)
   test('server.ts allowedTools includes Write for real queued sidebar agents', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'src', 'server.ts'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'runtimes', 'browse', 'src', 'server.ts'), 'utf-8');
     // Find the sidebar allowedTools in the headed-mode path
     const match = content.match(/--allowedTools['"]\s*,\s*['"]([^'"]+)['"]/);
     expect(match).not.toBeNull();
@@ -1806,7 +1806,7 @@ describe('sidebar agent (#584)', () => {
 
   // #584 — Sidebar stderr: stderr handler is not empty
   test('sidebar-agent.ts stderr handler is not empty', () => {
-    const content = fs.readFileSync(path.join(ROOT, 'browse', 'src', 'sidebar-agent.ts'), 'utf-8');
+    const content = fs.readFileSync(path.join(ROOT, 'runtimes', 'browse', 'src', 'sidebar-agent.ts'), 'utf-8');
     // The stderr handler should NOT be an empty arrow function
     expect(content).not.toContain("proc.stderr.on('data', () => {})");
   });

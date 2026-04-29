@@ -24,13 +24,13 @@ const ROOT = path.resolve(import.meta.dir, '..');
 
 describe('matchGlob', () => {
   test('** matches any depth of path segments', () => {
-    expect(matchGlob('browse/src/commands.ts', 'browse/src/**')).toBe(true);
-    expect(matchGlob('browse/src/deep/nested/file.ts', 'browse/src/**')).toBe(true);
-    expect(matchGlob('browse/src/cli.ts', 'browse/src/**')).toBe(true);
+    expect(matchGlob('runtimes/browse/src/commands.ts', 'runtimes/browse/src/**')).toBe(true);
+    expect(matchGlob('runtimes/browse/src/deep/nested/file.ts', 'runtimes/browse/src/**')).toBe(true);
+    expect(matchGlob('runtimes/browse/src/cli.ts', 'runtimes/browse/src/**')).toBe(true);
   });
 
   test('** does not match unrelated paths', () => {
-    expect(matchGlob('browse/src/commands.ts', 'qa/**')).toBe(false);
+    expect(matchGlob('runtimes/browse/src/commands.ts', 'qa/**')).toBe(false);
     expect(matchGlob('review/SKILL.md', 'qa/**')).toBe(false);
   });
 
@@ -61,8 +61,8 @@ describe('matchGlob', () => {
 // --- selectTests ---
 
 describe('selectTests', () => {
-  test('browse/src change selects browse and qa tests', () => {
-    const result = selectTests(['browse/src/commands.ts'], E2E_TOUCHFILES);
+  test('runtimes/browse/src change selects browse and qa tests', () => {
+    const result = selectTests(['runtimes/browse/src/commands.ts'], E2E_TOUCHFILES);
     expect(result.selected).toContain('browse-basic');
     expect(result.selected).toContain('browse-snapshot');
     expect(result.selected).toContain('qa-quick');

@@ -26,7 +26,7 @@ export function resolveServerScript(
     return env.BROWSE_SERVER_SCRIPT;
   }
 
-  // Dev mode: cli.ts runs directly from browse/src
+  // Dev mode: cli.ts runs directly from runtimes/browse/src
   // On macOS/Linux, import.meta.dir starts with /
   // On Windows, it starts with a drive letter (e.g., C:\...)
   if (!metaDir.includes('$bunfs')) {
@@ -36,11 +36,15 @@ export function resolveServerScript(
     }
   }
 
-  // Compiled binary: derive the source tree from browse/dist/browse
+  // Compiled binary: derive the source tree from runtimes/browse/dist/browse
   if (execPath) {
     const adjacent = path.resolve(path.dirname(execPath), '..', 'src', 'server.ts');
     if (fs.existsSync(adjacent)) {
       return adjacent;
+    }
+    const runtimeAdjacent = path.resolve(path.dirname(execPath), '..', '..', 'runtimes', 'browse', 'src', 'server.ts');
+    if (fs.existsSync(runtimeAdjacent)) {
+      return runtimeAdjacent;
     }
   }
 
@@ -65,7 +69,7 @@ export function resolveNodeServerScript(
     if (fs.existsSync(distScript)) return distScript;
   }
 
-  // Compiled binary: browse/dist/browse → browse/dist/server-node.mjs
+  // Compiled binary: runtimes/browse/dist/browse -> runtimes/browse/dist/server-node.mjs
   if (execPath) {
     const adjacent = path.resolve(path.dirname(execPath), 'server-node.mjs');
     if (fs.existsSync(adjacent)) return adjacent;

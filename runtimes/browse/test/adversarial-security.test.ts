@@ -12,7 +12,7 @@ import * as path from 'path';
 describe('Adversarial security', () => {
   test('sidepanel escapes entry.command in activity feed', () => {
     const source = fs.readFileSync(
-      path.join(import.meta.dir, '../../extension/sidepanel.js'),
+      path.join(import.meta.dir, '../extension/sidepanel.js'),
       'utf-8',
     );
     // entry.command must be wrapped in escapeHtml() to prevent XSS injection
@@ -22,7 +22,7 @@ describe('Adversarial security', () => {
 
   test('freeze hook uses trailing slash in boundary check', () => {
     const source = fs.readFileSync(
-      path.join(import.meta.dir, '../../freeze/bin/check-freeze.sh'),
+      path.join(import.meta.dir, '../../../freeze/bin/check-freeze.sh'),
       'utf-8',
     );
     // The boundary check must use "${FREEZE_DIR}/" with a trailing slash

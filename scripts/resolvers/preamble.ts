@@ -16,7 +16,9 @@ NEXUS_ROOT="$HOME/${hostConfigDir[ctx.host]}/skills/nexus"
 [ -n "$_ROOT" ] && [ -d "$_ROOT/${ctx.paths.localSkillRoot}" ] && NEXUS_ROOT="$_ROOT/${ctx.paths.localSkillRoot}"
 NEXUS_BIN="$NEXUS_ROOT/bin"
 NEXUS_BROWSE="$NEXUS_ROOT/browse/dist"
+[ ! -x "$NEXUS_BROWSE/browse" ] && [ -x "$NEXUS_ROOT/runtimes/browse/dist/browse" ] && NEXUS_BROWSE="$NEXUS_ROOT/runtimes/browse/dist"
 NEXUS_DESIGN="$NEXUS_ROOT/design/dist"
+[ ! -x "$NEXUS_DESIGN/design" ] && [ -x "$NEXUS_ROOT/runtimes/design/dist/design" ] && NEXUS_DESIGN="$NEXUS_ROOT/runtimes/design/dist"
 `
     : '';
 

@@ -493,7 +493,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state. |
 | `/codex` | Independent second-opinion review through Codex. |
 
-The absorbed Nexus design runtime under `design/` now supports five deliverable
+The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable
 classes: `ui-mockup`, `prototype`, `slides`, `motion`, and `infographic`.
 It also ships internal export and verification pipelines for HTML, PDF,
 editable PPTX, MP4, GIF, and Playwright-based HTML verification without

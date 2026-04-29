@@ -176,7 +176,7 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('| `/design-consultation` | Create integrated design context and deliverable direction for UI, prototypes, decks, motion, and infographics. |');
     expect(readme).toContain('| `/design-shotgun` | Generate and compare multiple design directions for UI screens, prototypes, decks, motion boards, and infographics. |');
     expect(readme).toContain('| `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |');
-    expect(readme).toContain('The absorbed Nexus design runtime under `design/` now supports five deliverable');
+    expect(readme).toContain('The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable');
     expect(readme).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
     expect(readme).toContain('Enter `/nexus` once at session start');
     expect(readme).toContain('Bare `/nexus` is the workflow-harness entrypoint, not the browser tool.');
@@ -208,7 +208,7 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |');
     expect(skills).toContain('| `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |');
     expect(skills).toContain('| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
-    expect(skills).toContain('The absorbed Nexus design runtime under `design/` now supports five deliverable');
+    expect(skills).toContain('The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable');
     expect(skills).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
     expect(skills).toContain('## `/nexus` entrypoint');
     expect(skills).toContain('Bare `/nexus` should send the user toward `/discover`, not `/browse`.');

@@ -12,8 +12,16 @@ for MARKER in .codex .agents .claude; do
     echo "$ROOT/$MARKER/skills/nexus/browse/dist/browse"
     exit 0
   fi
+  if [ -n "$ROOT" ] && test -x "$ROOT/$MARKER/skills/nexus/runtimes/browse/dist/browse"; then
+    echo "$ROOT/$MARKER/skills/nexus/runtimes/browse/dist/browse"
+    exit 0
+  fi
   if test -x "$HOME/$MARKER/skills/nexus/browse/dist/browse"; then
     echo "$HOME/$MARKER/skills/nexus/browse/dist/browse"
+    exit 0
+  fi
+  if test -x "$HOME/$MARKER/skills/nexus/runtimes/browse/dist/browse"; then
+    echo "$HOME/$MARKER/skills/nexus/runtimes/browse/dist/browse"
     exit 0
   fi
 done

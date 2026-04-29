@@ -1,14 +1,12 @@
 # Design Runtime Facade
 
-Active source: `design/`
+Active source: `runtimes/design/`
 
 Installed compatibility paths:
 
 - `$NEXUS_ROOT/design/dist`
 - `$NEXUS_ROOT/design/references`
 
-Planned target: `runtimes/design`
-
-This file is documentation only. The compiled design runtime and design
-reference sidecars must move together when compatibility links are ready.
-
+Installed compatibility paths remain authoritative for generated skills. Setup
+maps `$NEXUS_ROOT/design/dist` to the migrated runtime and
+`$NEXUS_ROOT/design/references` to `references/design/`.

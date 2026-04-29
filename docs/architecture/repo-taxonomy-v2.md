@@ -1,6 +1,7 @@
 # Nexus Repo Taxonomy v2
 
-The root `/nexus` source template has moved into the skill taxonomy. Other
+The root `/nexus` source template has moved into the skill taxonomy. The Chrome
+extension source and design runtime have moved under the runtime taxonomy. Other
 runtime, reference, vendor, and host source paths remain in their compatibility
 locations until a migration explicitly updates setup, generated host surfaces,
 runtime path rewrites, and tests.
@@ -57,17 +58,20 @@ nexus/
 
 Most current paths remain the active source of truth until a migration
 explicitly updates setup, generated host surfaces, runtime path rewrites, and
-tests. The root `/nexus` source template is the first physical move and now
-lives under `skills/root/nexus/`; root `SKILL.md` remains a generated
-compatibility mirror.
+tests. The root `/nexus` source template now lives under
+`skills/root/nexus/`; root `SKILL.md` remains a generated compatibility mirror.
+The Chrome extension source now lives under `runtimes/browse/extension/`, and
+the design runtime now lives under `runtimes/design/`, while installed hosts keep
+historical `$NEXUS_ROOT/extension` and `$NEXUS_ROOT/design/...` compatibility
+paths.
 
 Representative current-to-target mappings:
 
 - `skills/root/nexus/SKILL.md.tmpl` -> `skills/root/nexus/SKILL.md.tmpl`
 - `SKILL.md` -> `skills/root/nexus/SKILL.md` (generated compatibility mirror)
 - `browse` -> `runtimes/browse`
-- `extension` -> `runtimes/browse/extension`
-- `design` -> `runtimes/design`
+- `runtimes/browse/extension` -> `runtimes/browse/extension`
+- `runtimes/design` -> `runtimes/design`
 - `design/references` -> `references/design`
 - `review` -> `references/review`
 - `qa` -> `references/qa`
@@ -128,12 +132,37 @@ Generated review skills may still reference
 `$NEXUS_ROOT/review/specialists/...`; setup maps that installed compatibility
 path to the moved `references/review/specialists/` source directory.
 
+## Phase 7 Browse Extension Runtime Move
+
+The Chrome side panel extension source has moved under the browse runtime
+taxonomy:
+
+- `extension/` -> `runtimes/browse/extension/`
+
+Generated and installed skills still use `$NEXUS_ROOT/extension/...` for Chrome
+auto-load and manual install flows. Setup maps that installed compatibility
+path to `runtimes/browse/extension/`, while runtime resolvers still accept the
+legacy source path for older installed branches.
+
+## Phase 8 Design Runtime Move
+
+The design runtime source, scripts, assets, tests, and compiled binary output
+have moved under the runtime taxonomy:
+
+- `design/` -> `runtimes/design/`
+
+Generated skills still use `$NEXUS_ROOT/design/dist` for the design binary and
+`$NEXUS_ROOT/design/references` for design methodology sidecars. Setup maps
+those installed compatibility paths to `runtimes/design/dist` and
+`references/design`.
+
 ## Remaining Conservative Facades
 
 The remaining facade slice is intentionally conservative:
 
-- `runtimes/*.md` points to active runtime roots without creating future runtime
-  directories such as `runtimes/browse/`.
+- `runtimes/*.md` points to active runtime roots. `runtimes/browse/extension/`
+  and `runtimes/design/` are migrated source paths; the compiled browse runtime
+  still lives at `browse/`.
 - `references/review/README.md`, `references/qa/README.md`,
   `references/design/README.md`, and `references/cso/README.md` document active
   reference roots and the runtime compatibility paths that still point at
@@ -145,9 +174,8 @@ The remaining facade slice is intentionally conservative:
   until setup/install switches deliberately.
 
 Guarded future paths must stay absent until their migration batch moves assets
-and updates compatibility logic. Current examples are currently runtime-focused,
-such as `runtimes/browse`, `runtimes/design`, and
-`runtimes/safety/careful`.
+and updates compatibility logic. Remaining examples are runtime-focused, such
+as `runtimes/safety/careful`.
 
 ## First-Class Host Targets
 

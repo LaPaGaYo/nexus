@@ -6,7 +6,7 @@
  * cannot posix_spawn external executables. The server writes to the queue
  * file, this process reads it and spawns claude.
  *
- * Usage: BROWSE_BIN=/path/to/browse bun run browse/src/sidebar-agent.ts
+ * Usage: BROWSE_BIN=/path/to/browse bun run runtimes/browse/src/sidebar-agent.ts
  */
 
 import { spawn } from 'child_process';
@@ -17,7 +17,12 @@ const QUEUE = process.env.SIDEBAR_QUEUE_PATH || path.join(process.env.HOME || '/
 const SERVER_PORT = parseInt(process.env.BROWSE_SERVER_PORT || '34567', 10);
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`;
 const POLL_MS = 200;  // 200ms poll — keeps time-to-first-token low
-const B = process.env.BROWSE_BIN || path.resolve(__dirname, '../../.claude/skills/nexus/browse/dist/browse');
+const BROWSE_CANDIDATES = [
+  process.env.BROWSE_BIN,
+  path.resolve(__dirname, '../../../.claude/skills/nexus/browse/dist/browse'),
+  path.resolve(__dirname, '../../../.claude/skills/nexus/runtimes/browse/dist/browse'),
+].filter(Boolean) as string[];
+const B = BROWSE_CANDIDATES.find((candidate) => fs.existsSync(candidate)) || 'browse';
 
 let lastLine = 0;
 let authToken: string | null = null;

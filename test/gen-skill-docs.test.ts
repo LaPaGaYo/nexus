@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test';
-import { COMMAND_DESCRIPTIONS } from '../browse/src/commands';
-import { SNAPSHOT_FLAGS } from '../browse/src/snapshot';
+import { COMMAND_DESCRIPTIONS } from '../runtimes/browse/src/commands';
+import { SNAPSHOT_FLAGS } from '../runtimes/browse/src/snapshot';
 import { CANONICAL_MANIFEST, LEGACY_ALIASES } from '../lib/nexus/command-manifest';
 import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
 import { discoverTemplates } from '../scripts/discover-skills';
@@ -184,6 +184,33 @@ describe('gen-skill-docs', () => {
     expect(shotgun).toContain('iterate across UI screens, prototypes, slide');
     expect(shotgun).toContain('--brief-file {_DESIGN_DIR}/brief-{letter}.json');
     expect(consultation).toContain('"deliverableType": "[ui-mockup|prototype|slides|motion|infographic]"');
+  });
+
+  test('design skills can resolve the migrated design runtime source path', () => {
+    for (const content of [
+      readSkill('design-consultation'),
+      readSkill('design-shotgun'),
+      readSkill('design-review'),
+      readSkill('design-html'),
+      readSkill('plan-design-review'),
+    ]) {
+      expect(content).toContain('runtimes/design/dist/design');
+      expect(content).toContain('design/dist/design');
+    }
+  });
+
+  test('browse skills can resolve the migrated browse runtime source path', () => {
+    for (const content of [
+      readSkill('browse'),
+      readSkill('connect-chrome'),
+      readSkill('setup-browser-cookies'),
+      readSkill('qa-only'),
+      readSkill('canary'),
+      readSkill('benchmark'),
+    ]) {
+      expect(content).toContain('runtimes/browse/dist/browse');
+      expect(content).toContain('browse/dist/browse');
+    }
   });
 
   test('design heavy guidance is lazy-loaded from sidecar references', () => {
@@ -2609,10 +2636,9 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('design');
     expect(fnBody).toContain('review');
     expect(fnBody).toContain('qa');
-    expect(fnBody).toContain('browse/dist');
-    expect(fnBody).toContain('design/dist');
+    expect(fnBody).toContain('link_runtime_compat_assets "$repo_root" "$agents_nexus"');
     expect(fnBody).toContain('link_reference_compat_assets "$repo_root" "$agents_nexus"');
-    expect(fnBody).toContain('for legacy_parent in browse design review qa cso; do');
+    expect(fnBody).toContain('for legacy_parent in browse design extension review qa cso; do');
     expect(fnBody).not.toContain('for asset in bin browse design review qa');
   });
 
@@ -2624,22 +2650,31 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "cso/ACKNOWLEDGEMENTS.md" "references/cso/ACKNOWLEDGEMENTS.md" "cso/ACKNOWLEDGEMENTS.md"');
   });
 
+  test('setup has runtime compatibility mapping for moved runtime roots', () => {
+    expect(setupContent).toContain('link_runtime_compat_assets()');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "extension" "runtimes/browse/extension" "extension"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "browse/dist" "runtimes/browse/dist" "browse/dist"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "browse/bin" "runtimes/browse/bin" "browse/bin"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "design/dist" "runtimes/design/dist" "design/dist"');
+  });
+
   test('create_codex_runtime_root exposes only runtime assets', () => {
     const fnStart = setupContent.indexOf('create_codex_runtime_root()');
     const fnEnd = setupContent.indexOf('\ncreate_factory_runtime_root()', fnStart);
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('nexus/SKILL.md');
-    expect(fnBody).toContain('browse/dist');
-    expect(fnBody).toContain('browse/bin');
-    expect(fnBody).toContain('design/dist');
     expect(fnBody).toContain('nexus-upgrade/SKILL.md');
+    expect(fnBody).toContain('link_runtime_compat_assets "$nexus_dir" "$codex_nexus"');
     expect(fnBody).toContain('link_reference_compat_assets "$nexus_dir" "$codex_nexus"');
     expect(fnBody).not.toContain('ln -snf "$nexus_dir/design/references"');
     expect(fnBody).not.toContain('for f in checklist.md');
     expect(fnBody).not.toContain('ln -snf "$gstack_dir" "$codex_gstack"');
   });
 
-  test('factory and kiro runtime roots use reference compatibility mapping', () => {
+  test('factory and kiro runtime roots use runtime and reference compatibility mapping', () => {
+    expect(setupContent).toContain('link_runtime_compat_assets "$nexus_dir" "$factory_nexus"');
+    expect(setupContent).toContain('link_runtime_compat_assets "$nexus_dir" "$gemini_nexus"');
+    expect(setupContent).toContain('link_runtime_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$factory_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$gemini_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');

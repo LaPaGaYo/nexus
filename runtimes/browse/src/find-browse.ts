@@ -1,7 +1,7 @@
 /**
  * find-browse — locate the nexus browse binary.
  *
- * Compiled to browse/dist/find-browse (standalone binary, no bun runtime needed).
+ * Compiled to runtimes/browse/dist/find-browse (standalone binary, no bun runtime needed).
  * Outputs the absolute path to the browse binary on stdout, or exits 1 if not found.
  */
 
@@ -32,15 +32,19 @@ export function locateBinary(): string | null {
   // Workspace-local takes priority (for development)
   if (root) {
     for (const m of markers) {
-      const local = join(root, m, 'skills', 'nexus', 'browse', 'dist', 'browse');
-      if (existsSync(local)) return local;
+      const localCompat = join(root, m, 'skills', 'nexus', 'browse', 'dist', 'browse');
+      if (existsSync(localCompat)) return localCompat;
+      const localRuntime = join(root, m, 'skills', 'nexus', 'runtimes', 'browse', 'dist', 'browse');
+      if (existsSync(localRuntime)) return localRuntime;
     }
   }
 
   // Global fallback
   for (const m of markers) {
-    const global = join(home, m, 'skills', 'nexus', 'browse', 'dist', 'browse');
-    if (existsSync(global)) return global;
+    const globalCompat = join(home, m, 'skills', 'nexus', 'browse', 'dist', 'browse');
+    if (existsSync(globalCompat)) return globalCompat;
+    const globalRuntime = join(home, m, 'skills', 'nexus', 'runtimes', 'browse', 'dist', 'browse');
+    if (existsSync(globalRuntime)) return globalRuntime;
   }
 
   return null;

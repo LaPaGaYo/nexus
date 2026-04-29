@@ -10,15 +10,19 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 EXT_DIR=""
-if [ -f "$REPO_ROOT/extension/manifest.json" ]; then
+if [ -f "$REPO_ROOT/runtimes/browse/extension/manifest.json" ]; then
+  EXT_DIR="$REPO_ROOT/runtimes/browse/extension"
+elif [ -f "$REPO_ROOT/extension/manifest.json" ]; then
   EXT_DIR="$REPO_ROOT/extension"
 elif [ -f "$HOME/.claude/skills/nexus/extension/manifest.json" ]; then
   EXT_DIR="$HOME/.claude/skills/nexus/extension"
+elif [ -f "$HOME/.claude/skills/nexus/runtimes/browse/extension/manifest.json" ]; then
+  EXT_DIR="$HOME/.claude/skills/nexus/runtimes/browse/extension"
 fi
 
 if [ -z "$EXT_DIR" ]; then
   echo "Error: extension/ directory not found."
-  echo "Expected at: $REPO_ROOT/extension/ or ~/.claude/skills/nexus/extension/"
+  echo "Expected at: $REPO_ROOT/runtimes/browse/extension/, $REPO_ROOT/extension/, ~/.claude/skills/nexus/extension/, or ~/.claude/skills/nexus/runtimes/browse/extension/"
   exit 1
 fi
 
