@@ -984,18 +984,28 @@ link_reference_compat_assets() {
 create_agents_sidecar() {
   local repo_root="$1"
   local agents_nexus="$repo_root/.agents/skills/nexus"
-  mkdir -p "$agents_nexus"
 
-  # Sidecar directories that skills reference at runtime
-  for asset in bin browse design review qa; do
-    local src="$SOURCE_NEXUS_DIR/$asset"
-    local dst="$agents_nexus/$asset"
-    if [ -d "$src" ] || [ -f "$src" ]; then
-      if [ -L "$dst" ] || [ ! -e "$dst" ]; then
-        ln -snf "$src" "$dst"
-      fi
+  for legacy_parent in browse design review qa cso; do
+    if [ -L "$agents_nexus/$legacy_parent" ]; then
+      rm -f "$agents_nexus/$legacy_parent"
     fi
   done
+
+  mkdir -p "$agents_nexus" "$agents_nexus/browse" "$agents_nexus/design"
+
+  # Sidecar directories that skills reference at runtime
+  if [ -d "$repo_root/bin" ]; then
+    ln -snf "$repo_root/bin" "$agents_nexus/bin"
+  fi
+  if [ -d "$repo_root/browse/dist" ]; then
+    ln -snf "$repo_root/browse/dist" "$agents_nexus/browse/dist"
+  fi
+  if [ -d "$repo_root/browse/bin" ]; then
+    ln -snf "$repo_root/browse/bin" "$agents_nexus/browse/bin"
+  fi
+  if [ -d "$repo_root/design/dist" ]; then
+    ln -snf "$repo_root/design/dist" "$agents_nexus/design/dist"
+  fi
   link_reference_compat_assets "$repo_root" "$agents_nexus"
 
   # Sidecar files that skills reference at runtime
@@ -1044,19 +1054,10 @@ create_codex_runtime_root() {
   if [ -d "$nexus_dir/design/dist" ]; then
     ln -snf "$nexus_dir/design/dist" "$codex_nexus/design/dist"
   fi
-  if [ -d "$nexus_dir/design/references" ]; then
-    ln -snf "$nexus_dir/design/references" "$codex_nexus/design/references"
-  fi
   if [ -f "$agents_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$agents_dir/nexus-upgrade/SKILL.md" "$codex_nexus/nexus-upgrade/SKILL.md"
   fi
   link_reference_compat_assets "$nexus_dir" "$codex_nexus"
-  # Review runtime assets (individual files, NOT the whole review/ dir which has SKILL.md)
-  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
-    if [ -f "$nexus_dir/review/$f" ]; then
-      ln -snf "$nexus_dir/review/$f" "$codex_nexus/review/$f"
-    fi
-  done
   # ETHOS.md — referenced by "Search Before Building" in all skill preambles
   if [ -f "$nexus_dir/ETHOS.md" ]; then
     ln -snf "$nexus_dir/ETHOS.md" "$codex_nexus/ETHOS.md"
@@ -1091,18 +1092,10 @@ create_factory_runtime_root() {
   if [ -d "$nexus_dir/design/dist" ]; then
     ln -snf "$nexus_dir/design/dist" "$factory_nexus/design/dist"
   fi
-  if [ -d "$nexus_dir/design/references" ]; then
-    ln -snf "$nexus_dir/design/references" "$factory_nexus/design/references"
-  fi
   if [ -f "$factory_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$factory_dir/nexus-upgrade/SKILL.md" "$factory_nexus/nexus-upgrade/SKILL.md"
   fi
   link_reference_compat_assets "$nexus_dir" "$factory_nexus"
-  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
-    if [ -f "$nexus_dir/review/$f" ]; then
-      ln -snf "$nexus_dir/review/$f" "$factory_nexus/review/$f"
-    fi
-  done
   if [ -f "$nexus_dir/ETHOS.md" ]; then
     ln -snf "$nexus_dir/ETHOS.md" "$factory_nexus/ETHOS.md"
   fi
@@ -1168,18 +1161,10 @@ create_gemini_runtime_root() {
   if [ -d "$nexus_dir/design/dist" ]; then
     ln -snf "$nexus_dir/design/dist" "$gemini_nexus/design/dist"
   fi
-  if [ -d "$nexus_dir/design/references" ]; then
-    ln -snf "$nexus_dir/design/references" "$gemini_nexus/design/references"
-  fi
   if [ -f "$gemini_dir/nexus-upgrade/SKILL.md" ]; then
     ln -snf "$gemini_dir/nexus-upgrade/SKILL.md" "$gemini_nexus/nexus-upgrade/SKILL.md"
   fi
   link_reference_compat_assets "$nexus_dir" "$gemini_nexus"
-  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
-    if [ -f "$nexus_dir/review/$f" ]; then
-      ln -snf "$nexus_dir/review/$f" "$gemini_nexus/review/$f"
-    fi
-  done
   if [ -f "$nexus_dir/ETHOS.md" ]; then
     ln -snf "$nexus_dir/ETHOS.md" "$gemini_nexus/ETHOS.md"
   fi
@@ -1319,7 +1304,6 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
   ln -snf "$SOURCE_NEXUS_DIR/browse/dist" "$KIRO_NEXUS/browse/dist"
   ln -snf "$SOURCE_NEXUS_DIR/browse/bin" "$KIRO_NEXUS/browse/bin"
   [ -d "$SOURCE_NEXUS_DIR/design/dist" ] && ln -snf "$SOURCE_NEXUS_DIR/design/dist" "$KIRO_NEXUS/design/dist"
-  [ -d "$SOURCE_NEXUS_DIR/design/references" ] && ln -snf "$SOURCE_NEXUS_DIR/design/references" "$KIRO_NEXUS/design/references"
   # ETHOS.md — referenced by "Search Before Building" in all skill preambles
   if [ -f "$SOURCE_NEXUS_DIR/ETHOS.md" ]; then
     ln -snf "$SOURCE_NEXUS_DIR/ETHOS.md" "$KIRO_NEXUS/ETHOS.md"
@@ -1329,12 +1313,6 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
     ln -snf "$AGENTS_DIR/nexus-upgrade/SKILL.md" "$KIRO_NEXUS/nexus-upgrade/SKILL.md"
   fi
   link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"
-  # Review runtime assets (individual files, not whole dir)
-  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
-    if [ -f "$SOURCE_NEXUS_DIR/review/$f" ]; then
-      ln -snf "$SOURCE_NEXUS_DIR/review/$f" "$KIRO_NEXUS/review/$f"
-    fi
-  done
 
   # Rewrite root SKILL.md paths for Kiro
   sed -e "s|~/.claude/skills/nexus|~/.kiro/skills/nexus|g" \

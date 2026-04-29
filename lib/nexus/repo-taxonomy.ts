@@ -1,3 +1,6 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
+
 export type RepoTaxonomyCategory =
   | 'skills'
   | 'runtimes'
@@ -664,9 +667,22 @@ export function findRepoTaxonomyFacade(facadePath: string): RepoTaxonomyFacade |
 }
 
 export function referenceCompatSourceCandidates(compatPath: string): string[] {
-  const mapping = REFERENCE_COMPAT_MAPPINGS.find((entry) => entry.compat_path === compatPath);
+  const normalized = normalizeRepoPath(compatPath);
+  const mapping = REFERENCE_COMPAT_MAPPINGS.find((entry) => entry.compat_path === normalized);
   if (!mapping) {
     throw new Error(`Unknown reference compatibility path: ${compatPath}`);
   }
   return [mapping.future_source_path, mapping.current_source_path];
+}
+
+export function resolveReferenceCompatSource(
+  compatPath: string,
+  repoRoot: string = process.cwd()
+): string | null {
+  for (const candidate of referenceCompatSourceCandidates(compatPath)) {
+    if (existsSync(join(repoRoot, candidate))) {
+      return candidate;
+    }
+  }
+  return null;
 }

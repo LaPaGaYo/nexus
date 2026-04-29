@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import {
   REFERENCE_COMPAT_MAPPINGS,
@@ -12,6 +13,7 @@ import {
   plannedFacadePaths,
   plannedTopLevelRoots,
   referenceCompatSourceCandidates,
+  resolveReferenceCompatSource,
 } from '../../lib/nexus/repo-taxonomy';
 
 const ROOT = join(import.meta.dir, '..', '..');
@@ -124,6 +126,35 @@ describe('nexus repo taxonomy v2', () => {
       'references/review/specialists',
       'review/specialists',
     ]);
+  });
+
+  test('resolves reference compatibility sources by preferring future paths and falling back to current paths', () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'nexus-reference-compat-'));
+
+    try {
+      mkdirSync(join(fixtureRoot, 'review'), { recursive: true });
+      writeFileSync(join(fixtureRoot, 'review', 'checklist.md'), 'current');
+      expect(resolveReferenceCompatSource('review/checklist.md', fixtureRoot)).toBe('review/checklist.md');
+
+      mkdirSync(join(fixtureRoot, 'references', 'review'), { recursive: true });
+      writeFileSync(join(fixtureRoot, 'references', 'review', 'checklist.md'), 'future');
+      expect(resolveReferenceCompatSource('review/checklist.md', fixtureRoot)).toBe(
+        'references/review/checklist.md'
+      );
+
+      mkdirSync(join(fixtureRoot, 'qa', 'templates'), { recursive: true });
+      expect(resolveReferenceCompatSource('qa/templates', fixtureRoot)).toBe('qa/templates');
+
+      mkdirSync(join(fixtureRoot, 'references', 'qa', 'templates'), { recursive: true });
+      expect(resolveReferenceCompatSource('qa/templates', fixtureRoot)).toBe('references/qa/templates');
+
+      expect(resolveReferenceCompatSource('cso/ACKNOWLEDGEMENTS.md', fixtureRoot)).toBeNull();
+      expect(() => resolveReferenceCompatSource('unknown/reference.md', fixtureRoot)).toThrow(
+        'Unknown reference compatibility path'
+      );
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 
   test('creates only safe navigation facades for physical taxonomy roots', () => {
