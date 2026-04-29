@@ -3,7 +3,7 @@ import { runSkillTest } from './helpers/session-runner';
 import {
   ROOT, browseBin, runId, evalsEnabled, selectedTests,
   describeIfSelected, testConcurrentIfSelected,
-  copyDirSync, setupBrowseShims, logCost, recordE2E,
+  setupBrowseShims, logCost, recordE2E, reviewReferencePath,
   createEvalCollector, finalizeEvalCollector,
 } from './helpers/e2e-helpers';
 import { spawnSync } from 'child_process';
@@ -51,8 +51,8 @@ describeIfSelected('Review skill E2E', ['review-sql-injection'], () => {
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(reviewDir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(reviewDir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(reviewDir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(reviewDir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(reviewDir, 'review-greptile-triage.md'));
   });
 
   afterAll(() => {
@@ -125,8 +125,8 @@ describeIfSelected('Review enum completeness E2E', ['review-enum-completeness'],
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(enumDir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(enumDir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(enumDir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(enumDir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(enumDir, 'review-greptile-triage.md'));
   });
 
   afterAll(() => {
@@ -199,9 +199,9 @@ describeIfSelected('Review design lite E2E', ['review-design-lite'], () => {
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(designDir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(designDir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'design-checklist.md'), path.join(designDir, 'review-design-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(designDir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(designDir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('design-checklist.md'), path.join(designDir, 'review-design-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(designDir, 'review-greptile-triage.md'));
   });
 
   afterAll(() => {
@@ -296,8 +296,8 @@ describeIfSelected('Base branch detection', ['review-base-branch', 'ship-base-br
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(dir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(dir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(dir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
 
     const result = await runSkillTest({
       prompt: `You are in a git repo on a feature branch with changes.

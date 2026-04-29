@@ -1,3 +1,6 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
+
 export type RepoTaxonomyCategory =
   | 'skills'
   | 'runtimes'
@@ -157,11 +160,11 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'design-references',
     category: 'references',
-    current_path: 'design/references',
+    current_path: 'references/design',
     target_path: 'references/design',
-    move_policy: 'compat_required',
-    risk_level: 'high',
-    rationale: 'Design methodology sidecars are reference material, but installed design skills still load them from $NEXUS_ROOT/design/references.',
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rationale: 'Design methodology sidecars have moved under references/ while installed design skills still load them from $NEXUS_ROOT/design/references.',
     runtime_compat_paths: ['$NEXUS_ROOT/design/references'],
   },
   {
@@ -220,13 +223,28 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
     ],
   },
   {
+    name: 'review-reference-sidecars',
+    category: 'references',
+    current_path: 'references/review',
+    target_path: 'references/review',
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rationale: 'Single-file review checklists have moved under references/ while installed $NEXUS_ROOT/review paths remain compatibility links.',
+    runtime_compat_paths: [
+      '$NEXUS_ROOT/review/checklist.md',
+      '$NEXUS_ROOT/review/design-checklist.md',
+      '$NEXUS_ROOT/review/greptile-triage.md',
+      '$NEXUS_ROOT/review/TODOS-format.md',
+    ],
+  },
+  {
     name: 'qa',
     category: 'references',
-    current_path: 'qa',
+    current_path: 'references/qa',
     target_path: 'references/qa',
-    move_policy: 'compat_required',
-    risk_level: 'high',
-    rationale: 'QA templates and issue taxonomy are referenced by QA and QA-only flows.',
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rationale: 'QA templates and issue taxonomy have moved under references/ while installed paths remain compatible.',
     runtime_compat_paths: [
       '$NEXUS_ROOT/qa/templates/qa-report-template.md',
       '$NEXUS_ROOT/qa/references/issue-taxonomy.md',
@@ -235,11 +253,11 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'cso',
     category: 'references',
-    current_path: 'cso',
+    current_path: 'references/cso',
     target_path: 'references/cso',
-    move_policy: 'compat_required',
-    risk_level: 'medium',
-    rationale: 'CSO acknowledgement/reference assets should move with reference material, while installed paths remain compatible.',
+    move_policy: 'keep_in_place',
+    risk_level: 'low',
+    rationale: 'CSO acknowledgement/reference assets have moved under references/ while installed paths remain compatible.',
     runtime_compat_paths: ['$NEXUS_ROOT/cso/ACKNOWLEDGEMENTS.md'],
   },
   {
@@ -462,46 +480,37 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     facade_path: 'references/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['review', 'qa', 'design/references', 'cso'],
-    note: 'Reference facade root. Do not place real installable assets here until setup compatibility is migrated.',
+    active_source_paths: ['review', 'references/review', 'references/qa', 'references/design', 'references/cso'],
+    note: 'Reference facade root. Migrated references now live here; installed runtime paths stay stable through setup compatibility links.',
   },
   {
     facade_path: 'references/review/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['review'],
-    guarded_future_paths: [
-      'references/review/checklist.md',
-      'references/review/design-checklist.md',
-      'references/review/greptile-triage.md',
-      'references/review/TODOS-format.md',
-      'references/review/specialists',
-    ],
-    note: 'Review reference facade. Concrete checklists and specialists stay in review/ for installed compatibility.',
+    active_source_paths: ['review', 'references/review'],
+    guarded_future_paths: ['references/review/specialists'],
+    note: 'Review single-file references have moved under references/review; specialists stay in review/specialists until their larger migration.',
   },
   {
     facade_path: 'references/qa/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['qa'],
-    guarded_future_paths: ['references/qa/templates', 'references/qa/references'],
-    note: 'QA reference facade. Templates and issue taxonomy stay in qa/ until setup switches deliberately.',
+    active_source_paths: ['references/qa'],
+    note: 'QA reference templates and taxonomy now live under references/qa while installed $NEXUS_ROOT/qa paths remain compatibility links.',
   },
   {
-    facade_path: 'references/design.md',
+    facade_path: 'references/design/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['design/references'],
-    guarded_future_paths: ['references/design'],
-    note: 'Design reference facade. It is intentionally a file, not references/design/, because setup treats that directory as a real future source.',
+    active_source_paths: ['references/design'],
+    note: 'Design methodology sidecars now live under references/design while installed $NEXUS_ROOT/design/references paths remain compatibility links.',
   },
   {
     facade_path: 'references/cso/README.md',
     category: 'references',
     kind: 'navigation_only',
-    active_source_paths: ['cso'],
-    guarded_future_paths: ['references/cso/ACKNOWLEDGEMENTS.md'],
-    note: 'CSO reference facade. Acknowledgement assets stay in cso/ until compatibility links are migrated.',
+    active_source_paths: ['references/cso'],
+    note: 'CSO acknowledgement assets now live under references/cso while installed $NEXUS_ROOT/cso paths remain compatibility links.',
   },
   {
     facade_path: 'hosts/README.md',
@@ -664,9 +673,22 @@ export function findRepoTaxonomyFacade(facadePath: string): RepoTaxonomyFacade |
 }
 
 export function referenceCompatSourceCandidates(compatPath: string): string[] {
-  const mapping = REFERENCE_COMPAT_MAPPINGS.find((entry) => entry.compat_path === compatPath);
+  const normalized = normalizeRepoPath(compatPath);
+  const mapping = REFERENCE_COMPAT_MAPPINGS.find((entry) => entry.compat_path === normalized);
   if (!mapping) {
     throw new Error(`Unknown reference compatibility path: ${compatPath}`);
   }
   return [mapping.future_source_path, mapping.current_source_path];
+}
+
+export function resolveReferenceCompatSource(
+  compatPath: string,
+  repoRoot: string = process.cwd()
+): string | null {
+  for (const candidate of referenceCompatSourceCandidates(compatPath)) {
+    if (existsSync(join(repoRoot, candidate))) {
+      return candidate;
+    }
+  }
+  return null;
 }

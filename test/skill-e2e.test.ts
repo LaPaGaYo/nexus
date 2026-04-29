@@ -128,6 +128,28 @@ function copyDirSync(src: string, dest: string) {
   }
 }
 
+function reviewReferencePath(fileName: string): string {
+  return path.join(ROOT, 'references', 'review', fileName);
+}
+
+function qaReferencePath(...segments: string[]): string {
+  return path.join(ROOT, 'references', 'qa', ...segments);
+}
+
+function copyQaRuntimeFiles(destRoot: string) {
+  copyDirSync(path.join(ROOT, 'references', 'qa'), path.join(destRoot, 'qa'));
+}
+
+function copyReviewRuntimeFiles(destRoot: string) {
+  fs.mkdirSync(path.join(destRoot, 'review'), { recursive: true });
+  copyDirSync(path.join(ROOT, 'references', 'review'), path.join(destRoot, 'review'));
+
+  const specialistsRoot = path.join(ROOT, 'review', 'specialists');
+  if (fs.existsSync(specialistsRoot)) {
+    copyDirSync(specialistsRoot, path.join(destRoot, 'review', 'specialists'));
+  }
+}
+
 /**
  * Set up browse shims (binary symlink, find-browse, remote-slug) in a tmpDir.
  */
@@ -482,8 +504,8 @@ describeIfSelected('QA skill E2E', ['qa-quick'], () => {
     qaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-qa-'));
     setupBrowseShims(qaDir);
 
-    // Copy qa skill files into tmpDir
-    copyDirSync(path.join(ROOT, 'qa'), path.join(qaDir, 'qa'));
+    // Copy installed QA compatibility files into tmpDir
+    copyQaRuntimeFiles(qaDir);
 
     // Create report directory
     fs.mkdirSync(path.join(qaDir, 'qa-reports'), { recursive: true });
@@ -558,8 +580,8 @@ describeIfSelected('Review skill E2E', ['review-sql-injection'], () => {
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(reviewDir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(reviewDir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(reviewDir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(reviewDir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(reviewDir, 'review-greptile-triage.md'));
   });
 
   afterAll(() => {
@@ -616,8 +638,8 @@ describeIfSelected('Review enum completeness E2E', ['review-enum-completeness'],
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(enumDir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(enumDir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(enumDir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(enumDir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(enumDir, 'review-greptile-triage.md'));
   });
 
   afterAll(() => {
@@ -690,9 +712,9 @@ describeE2E('Review design lite E2E', () => {
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(designDir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(designDir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'design-checklist.md'), path.join(designDir, 'review-design-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(designDir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(designDir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('design-checklist.md'), path.join(designDir, 'review-design-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(designDir, 'review-greptile-triage.md'));
   });
 
   afterAll(() => {
@@ -769,7 +791,7 @@ const anyOutcomeSelected = selectedTests === null || outcomeTestNames.some(t => 
     setupBrowseShims(outcomeDir);
 
     // Copy qa skill files
-    copyDirSync(path.join(ROOT, 'qa'), path.join(outcomeDir, 'qa'));
+    copyQaRuntimeFiles(outcomeDir);
   });
 
   afterAll(() => {
@@ -1286,7 +1308,7 @@ describeIfSelected('QA-Only skill E2E', ['qa-only-no-fix'], () => {
     // Copy qa templates (qa-only references qa/templates/qa-report-template.md)
     fs.mkdirSync(path.join(qaOnlyDir, 'qa', 'templates'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'qa', 'templates', 'qa-report-template.md'),
+      qaReferencePath('templates', 'qa-report-template.md'),
       path.join(qaOnlyDir, 'qa', 'templates', 'qa-report-template.md'),
     );
 
@@ -1368,7 +1390,7 @@ describeIfSelected('QA Fix Loop E2E', ['qa-fix-loop'], () => {
     setupBrowseShims(qaFixDir);
 
     // Copy qa skill files
-    copyDirSync(path.join(ROOT, 'qa'), path.join(qaFixDir, 'qa'));
+    copyQaRuntimeFiles(qaFixDir);
 
     // Create a simple HTML page with obvious fixable bugs
     fs.writeFileSync(path.join(qaFixDir, 'index.html'), `<!DOCTYPE html>
@@ -1634,8 +1656,8 @@ describeIfSelected('Base branch detection', ['review-base-branch', 'ship-base-br
 
     // Copy review skill files
     fs.copyFileSync(skillPath('review'), path.join(dir, 'review-SKILL.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(dir, 'review-checklist.md'));
-    fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
+    fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(dir, 'review-checklist.md'));
+    fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
 
     const result = await runSkillTest({
       prompt: `You are in a git repo on a feature branch with changes.
@@ -2684,7 +2706,7 @@ describeIfSelected('Test Bootstrap E2E', ['qa-bootstrap'], () => {
     setupBrowseShims(bootstrapDir);
 
     // Copy qa skill files
-    copyDirSync(path.join(ROOT, 'qa'), path.join(bootstrapDir, 'qa'));
+    copyQaRuntimeFiles(bootstrapDir);
 
     // Create a minimal Node.js project with NO test framework
     fs.writeFileSync(path.join(bootstrapDir, 'package.json'), JSON.stringify({
@@ -2820,7 +2842,7 @@ describeIfSelected('Test Coverage Audit E2E', ['ship-coverage-audit'], () => {
 
     // Copy ship skill files
     copyDirSync(path.join(ROOT, 'ship'), path.join(coverageDir, 'ship'));
-    copyDirSync(path.join(ROOT, 'review'), path.join(coverageDir, 'review'));
+    copyReviewRuntimeFiles(coverageDir);
 
     // Use shared fixture for billing project with coverage gaps
     const { createCoverageAuditFixture } = require('./fixtures/coverage-audit-fixture');
@@ -2892,7 +2914,7 @@ describeIfSelected('Review Coverage Audit E2E', ['review-coverage-audit'], () =>
     reviewCoverageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-review-coverage-'));
 
     // Copy review skill files
-    copyDirSync(path.join(ROOT, 'review'), path.join(reviewCoverageDir, 'review'));
+    copyReviewRuntimeFiles(reviewCoverageDir);
 
     // Use shared fixture for billing project with coverage gaps
     const { createCoverageAuditFixture } = require('./fixtures/coverage-audit-fixture');

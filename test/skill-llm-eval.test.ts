@@ -408,7 +408,7 @@ describeIfSelected('Cross-skill consistency evals', ['cross-skill greptile consi
     const t0 = Date.now();
     const reviewContent = readSkill(ROOT, 'review');
     const shipContent = readSkill(ROOT, 'ship');
-    const triageContent = fs.readFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), 'utf-8');
+    const triageContent = fs.readFileSync(path.join(ROOT, 'references', 'review', 'greptile-triage.md'), 'utf-8');
     const retroContent = readSkill(ROOT, 'retro');
 
     const extractGrepLines = (content: string, filename: string) => {
@@ -421,7 +421,7 @@ describeIfSelected('Cross-skill consistency evals', ['cross-skill greptile consi
     const collected = [
       extractGrepLines(reviewContent, 'review/SKILL.md'),
       extractGrepLines(shipContent, 'ship/SKILL.md'),
-      extractGrepLines(triageContent, 'review/greptile-triage.md'),
+      extractGrepLines(triageContent, 'references/review/greptile-triage.md'),
       extractGrepLines(retroContent, 'retro/SKILL.md'),
     ].join('\n\n');
 

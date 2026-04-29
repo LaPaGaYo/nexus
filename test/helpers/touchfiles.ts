@@ -92,28 +92,28 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'session-awareness':        ['SKILL.md', 'SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],
 
   // QA (+ test-server dependency)
-  'qa-quick':       ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts'],
-  'qa-b6-static':   ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval.html', 'test/fixtures/qa-eval-ground-truth.json'],
-  'qa-b7-spa':      ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-spa.html', 'test/fixtures/qa-eval-spa-ground-truth.json'],
-  'qa-b8-checkout': ['qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-checkout.html', 'test/fixtures/qa-eval-checkout-ground-truth.json'],
-  'qa-only-no-fix': ['qa-only/**', 'qa/templates/**'],
-  'qa-fix-loop':    ['qa/**', 'browse/src/**', 'browse/test/test-server.ts'],
-  'qa-bootstrap':   ['qa/**', 'ship/**'],
+  'qa-quick':       ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts'],
+  'qa-b6-static':   ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval.html', 'test/fixtures/qa-eval-ground-truth.json'],
+  'qa-b7-spa':      ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-spa.html', 'test/fixtures/qa-eval-spa-ground-truth.json'],
+  'qa-b8-checkout': ['qa/**', 'references/qa/**', 'bin/nexus.ts', 'lib/nexus/**', 'browse/src/**', 'browse/test/test-server.ts', 'test/helpers/llm-judge.ts', 'browse/test/fixtures/qa-eval-checkout.html', 'test/fixtures/qa-eval-checkout-ground-truth.json'],
+  'qa-only-no-fix': ['qa-only/**', 'references/qa/templates/**'],
+  'qa-fix-loop':    ['qa/**', 'references/qa/**', 'browse/src/**', 'browse/test/test-server.ts'],
+  'qa-bootstrap':   ['qa/**', 'references/qa/**', 'ship/**'],
 
   // Review
-  'review-sql-injection':     ['review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-vuln.rb'],
-  'review-enum-completeness': ['review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-enum*.rb'],
-  'review-base-branch':       ['review/**', 'bin/nexus.ts', 'lib/nexus/**'],
-  'review-design-lite':       ['review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-design-slop.*'],
+  'review-sql-injection':     ['review/**', 'references/review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-vuln.rb'],
+  'review-enum-completeness': ['review/**', 'references/review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-enum*.rb'],
+  'review-base-branch':       ['review/**', 'references/review/**', 'bin/nexus.ts', 'lib/nexus/**'],
+  'review-design-lite':       ['review/**', 'references/review/**', 'bin/nexus.ts', 'lib/nexus/**', 'test/fixtures/review-eval-design-slop.*'],
 
   // Review Army (specialist dispatch)
-  'review-army-migration-safety': ['review/**', 'scripts/resolvers/review-army.ts', 'bin/nexus-diff-scope'],
-  'review-army-perf-n-plus-one':  ['review/**', 'scripts/resolvers/review-army.ts', 'bin/nexus-diff-scope'],
-  'review-army-delivery-audit':   ['review/**', 'scripts/resolvers/review.ts', 'scripts/resolvers/review-army.ts'],
-  'review-army-quality-score':    ['review/**', 'scripts/resolvers/review-army.ts'],
-  'review-army-json-findings':    ['review/**', 'scripts/resolvers/review-army.ts'],
-  'review-army-red-team':         ['review/**', 'scripts/resolvers/review-army.ts'],
-  'review-army-consensus':        ['review/**', 'scripts/resolvers/review-army.ts'],
+  'review-army-migration-safety': ['review/**', 'references/review/**', 'scripts/resolvers/review-army.ts', 'bin/nexus-diff-scope'],
+  'review-army-perf-n-plus-one':  ['review/**', 'references/review/**', 'scripts/resolvers/review-army.ts', 'bin/nexus-diff-scope'],
+  'review-army-delivery-audit':   ['review/**', 'references/review/**', 'scripts/resolvers/review.ts', 'scripts/resolvers/review-army.ts'],
+  'review-army-quality-score':    ['review/**', 'references/review/**', 'scripts/resolvers/review-army.ts'],
+  'review-army-json-findings':    ['review/**', 'references/review/**', 'scripts/resolvers/review-army.ts'],
+  'review-army-red-team':         ['review/**', 'references/review/**', 'scripts/resolvers/review-army.ts'],
+  'review-army-consensus':        ['review/**', 'references/review/**', 'scripts/resolvers/review-army.ts'],
 
   // Office Hours
   'office-hours-spec-review':  ['office-hours/**', 'discover/**', 'bin/nexus.ts', 'lib/nexus/**', 'scripts/gen-skill-docs.ts'],
@@ -147,9 +147,9 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'global-discover':   ['bin/nexus-global-discover.ts', 'test/global-discover.test.ts'],
 
   // CSO
-  'cso-full-audit':   ['cso/**'],
-  'cso-diff-mode':    ['cso/**'],
-  'cso-infra-scope':  ['cso/**'],
+  'cso-full-audit':   ['cso/**', 'references/cso/**'],
+  'cso-diff-mode':    ['cso/**', 'references/cso/**'],
+  'cso-infra-scope':  ['cso/**', 'references/cso/**'],
 
   // Learnings
   'learnings-show': ['learn/**', 'bin/nexus-learnings-search', 'bin/nexus-learnings-log', 'scripts/resolvers/learnings.ts'],
@@ -162,16 +162,16 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
 
   // Codex E2E (tests skills via Codex CLI + worktree)
   'codex-discover-skill':  ['codex/**', '.agents/skills/**', 'test/helpers/codex-session-runner.ts', 'lib/worktree.ts'],
-  'codex-review-findings': ['review/**', '.agents/skills/nexus-review/**', 'codex/**', 'test/helpers/codex-session-runner.ts', 'lib/worktree.ts'],
+  'codex-review-findings': ['review/**', 'references/review/**', '.agents/skills/nexus-review/**', 'codex/**', 'test/helpers/codex-session-runner.ts', 'lib/worktree.ts'],
 
   // Gemini E2E (tests skills via Gemini CLI + worktree)
   'gemini-discover-skill':  ['.agents/skills/**', 'test/helpers/gemini-session-runner.ts', 'lib/worktree.ts'],
-  'gemini-review-findings': ['review/**', '.agents/skills/nexus-review/**', 'test/helpers/gemini-session-runner.ts', 'lib/worktree.ts'],
+  'gemini-review-findings': ['review/**', 'references/review/**', '.agents/skills/nexus-review/**', 'test/helpers/gemini-session-runner.ts', 'lib/worktree.ts'],
 
 
   // Coverage audit (shared fixture) + triage + gates
   'ship-coverage-audit': ['ship/**', 'test/fixtures/coverage-audit-fixture.ts', 'bin/nexus-repo-mode'],
-  'review-coverage-audit': ['review/**', 'test/fixtures/coverage-audit-fixture.ts'],
+  'review-coverage-audit': ['review/**', 'references/review/**', 'test/fixtures/coverage-audit-fixture.ts'],
   'plan-eng-coverage-audit': ['plan-eng-review/**', 'test/fixtures/coverage-audit-fixture.ts'],
   'ship-triage': ['ship/**', 'bin/nexus-repo-mode'],
 
@@ -179,21 +179,21 @@ export const E2E_TOUCHFILES: Record<string, string[]> = {
   'ship-plan-completion': ['ship/**', 'scripts/gen-skill-docs.ts'],
   'ship-plan-verification': ['ship/**', 'qa-only/**', 'scripts/gen-skill-docs.ts'],
   'ship-idempotency':       ['ship/**', 'scripts/resolvers/utility.ts'],
-  'review-plan-completion': ['review/**', 'scripts/gen-skill-docs.ts'],
+  'review-plan-completion': ['review/**', 'references/review/**', 'scripts/gen-skill-docs.ts'],
 
   // Design
-  'design-consultation-core':       ['design-consultation/**', 'scripts/gen-skill-docs.ts', 'test/helpers/llm-judge.ts'],
-  'design-consultation-existing':   ['design-consultation/**', 'scripts/gen-skill-docs.ts'],
-  'design-consultation-research':   ['design-consultation/**', 'scripts/gen-skill-docs.ts'],
-  'design-consultation-preview':    ['design-consultation/**', 'scripts/gen-skill-docs.ts'],
-  'plan-design-review-plan-mode':   ['plan-design-review/**', 'scripts/gen-skill-docs.ts'],
-  'plan-design-review-no-ui-scope': ['plan-design-review/**', 'scripts/gen-skill-docs.ts'],
-  'design-review-fix':              ['design-review/**', 'browse/src/**', 'scripts/gen-skill-docs.ts'],
+  'design-consultation-core':       ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts', 'test/helpers/llm-judge.ts'],
+  'design-consultation-existing':   ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'design-consultation-research':   ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'design-consultation-preview':    ['design-consultation/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'plan-design-review-plan-mode':   ['plan-design-review/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'plan-design-review-no-ui-scope': ['plan-design-review/**', 'references/design/**', 'scripts/gen-skill-docs.ts'],
+  'design-review-fix':              ['design-review/**', 'references/design/**', 'browse/src/**', 'scripts/gen-skill-docs.ts'],
 
   // Design Shotgun
-  'design-shotgun-path':            ['design-shotgun/**', 'design/src/**', 'scripts/resolvers/design.ts'],
-  'design-shotgun-session':         ['design-shotgun/**', 'scripts/resolvers/design.ts'],
-  'design-shotgun-full':            ['design-shotgun/**', 'design/src/**', 'browse/src/**'],
+  'design-shotgun-path':            ['design-shotgun/**', 'design/src/**', 'references/design/**', 'scripts/resolvers/design.ts'],
+  'design-shotgun-session':         ['design-shotgun/**', 'references/design/**', 'scripts/resolvers/design.ts'],
+  'design-shotgun-full':            ['design-shotgun/**', 'design/src/**', 'references/design/**', 'browse/src/**'],
 
   // nexus-upgrade
   'nexus-upgrade-happy-path': ['nexus-upgrade/**', 'nexus-upgrade/**'],
@@ -380,7 +380,7 @@ export const LLM_JUDGE_TOUCHFILES: Record<string, string[]> = {
   'qa/SKILL.md workflow':             ['qa/SKILL.md', 'qa/SKILL.md.tmpl'],
   'qa/SKILL.md health rubric':        ['qa/SKILL.md', 'qa/SKILL.md.tmpl'],
   'qa/SKILL.md anti-refusal':         ['qa/SKILL.md', 'qa/SKILL.md.tmpl', 'qa-only/SKILL.md', 'qa-only/SKILL.md.tmpl'],
-  'cross-skill greptile consistency': ['review/SKILL.md', 'review/SKILL.md.tmpl', 'ship/SKILL.md', 'ship/SKILL.md.tmpl', 'review/greptile-triage.md', 'retro/SKILL.md', 'retro/SKILL.md.tmpl'],
+  'cross-skill greptile consistency': ['review/SKILL.md', 'review/SKILL.md.tmpl', 'ship/SKILL.md', 'ship/SKILL.md.tmpl', 'references/review/greptile-triage.md', 'retro/SKILL.md', 'retro/SKILL.md.tmpl'],
   'baseline score pinning':           ['SKILL.md', 'SKILL.md.tmpl', 'test/fixtures/eval-baselines.json'],
 
   // Ship & Release
@@ -393,8 +393,8 @@ export const LLM_JUDGE_TOUCHFILES: Record<string, string[]> = {
   'plan-design-review/SKILL.md passes':   ['plan-design-review/SKILL.md', 'plan-design-review/SKILL.md.tmpl'],
 
   // Design skills
-  'design-review/SKILL.md fix loop':      ['design-review/SKILL.md', 'design-review/SKILL.md.tmpl'],
-  'design-consultation/SKILL.md research': ['design-consultation/SKILL.md', 'design-consultation/SKILL.md.tmpl'],
+  'design-review/SKILL.md fix loop':      ['design-review/SKILL.md', 'design-review/SKILL.md.tmpl', 'references/design/**'],
+  'design-consultation/SKILL.md research': ['design-consultation/SKILL.md', 'design-consultation/SKILL.md.tmpl', 'references/design/**'],
 
   // Office Hours
   'office-hours/SKILL.md spec review':    ['office-hours/SKILL.md', 'office-hours/SKILL.md.tmpl', 'scripts/gen-skill-docs.ts'],

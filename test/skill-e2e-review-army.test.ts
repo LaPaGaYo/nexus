@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { runSkillTest } from './helpers/session-runner';
 import {
   ROOT, runId, describeIfSelected, testConcurrentIfSelected,
-  logCost, recordE2E, createEvalCollector, finalizeEvalCollector,
+  logCost, recordE2E, createEvalCollector, finalizeEvalCollector, reviewReferencePath,
 } from './helpers/e2e-helpers';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
@@ -35,8 +35,8 @@ function setupRepo(prefix: string): { dir: string; run: (cmd: string, args: stri
 // Helper: copy review skill files to test dir
 function copyReviewFiles(dir: string) {
   fs.copyFileSync(skillPath('review'), path.join(dir, 'review-SKILL.md'));
-  fs.copyFileSync(path.join(ROOT, 'review', 'checklist.md'), path.join(dir, 'review-checklist.md'));
-  fs.copyFileSync(path.join(ROOT, 'review', 'greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
+  fs.copyFileSync(reviewReferencePath('checklist.md'), path.join(dir, 'review-checklist.md'));
+  fs.copyFileSync(reviewReferencePath('greptile-triage.md'), path.join(dir, 'review-greptile-triage.md'));
   // Copy specialist checklists
   const specDir = path.join(dir, 'review-specialists');
   fs.mkdirSync(specDir, { recursive: true });

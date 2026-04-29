@@ -5,11 +5,11 @@ This directory is a navigation facade for repo taxonomy v2.
 Active reference source paths remain:
 
 - `review/`
-- `qa/`
-- `design/references/`
-- `cso/`
+- `references/review/`
+- `references/qa/`
+- `references/design/`
+- `references/cso/`
 
-Do not place real installable reference assets here until setup compatibility
-is intentionally migrated. Some setup paths already prefer future sources when
-they exist, so placeholder paths must not collide with future asset paths.
-
+Installed runtime paths remain stable through setup compatibility links, so
+generated skills may still read historical `$NEXUS_ROOT/...` paths while source
+assets live here.

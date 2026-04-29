@@ -3,7 +3,7 @@ import { runSkillTest } from './helpers/session-runner';
 import {
   ROOT, browseBin, runId, evalsEnabled,
   describeIfSelected, testConcurrentIfSelected,
-  copyDirSync, setupBrowseShims, logCost, recordE2E,
+  copyDirSync, copyQaRuntimeFiles, qaReferencePath, setupBrowseShims, logCost, recordE2E,
   createEvalCollector, finalizeEvalCollector,
 } from './helpers/e2e-helpers';
 import { startTestServer } from '../browse/test/test-server';
@@ -25,8 +25,8 @@ describeIfSelected('QA skill E2E', ['qa-quick'], () => {
     qaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-qa-'));
     setupBrowseShims(qaDir);
 
-    // Copy qa skill files into tmpDir
-    copyDirSync(path.join(ROOT, 'qa'), path.join(qaDir, 'qa'));
+    // Copy installed QA compatibility files into tmpDir
+    copyQaRuntimeFiles(qaDir);
 
     // Create report directory
     fs.mkdirSync(path.join(qaDir, 'qa-reports'), { recursive: true });
@@ -88,7 +88,7 @@ describeIfSelected('QA-Only skill E2E', ['qa-only-no-fix'], () => {
     // Copy qa templates (qa-only references qa/templates/qa-report-template.md)
     fs.mkdirSync(path.join(qaOnlyDir, 'qa', 'templates'), { recursive: true });
     fs.copyFileSync(
-      path.join(ROOT, 'qa', 'templates', 'qa-report-template.md'),
+      qaReferencePath('templates', 'qa-report-template.md'),
       path.join(qaOnlyDir, 'qa', 'templates', 'qa-report-template.md'),
     );
 
@@ -169,7 +169,7 @@ describeIfSelected('QA Fix Loop E2E', ['qa-fix-loop'], () => {
     setupBrowseShims(qaFixDir);
 
     // Copy qa skill files
-    copyDirSync(path.join(ROOT, 'qa'), path.join(qaFixDir, 'qa'));
+    copyQaRuntimeFiles(qaFixDir);
 
     // Create a simple HTML page with obvious fixable bugs
     fs.writeFileSync(path.join(qaFixDir, 'index.html'), `<!DOCTYPE html>
@@ -283,7 +283,7 @@ describeIfSelected('Test Bootstrap E2E', ['qa-bootstrap'], () => {
     setupBrowseShims(bootstrapDir);
 
     // Copy qa skill files
-    copyDirSync(path.join(ROOT, 'qa'), path.join(bootstrapDir, 'qa'));
+    copyQaRuntimeFiles(bootstrapDir);
 
     // Create a minimal Node.js project with NO test framework
     fs.writeFileSync(path.join(bootstrapDir, 'package.json'), JSON.stringify({

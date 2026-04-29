@@ -100,6 +100,35 @@ export function copyDirSync(src: string, dest: string) {
   }
 }
 
+export function reviewReferencePath(fileName: string): string {
+  return path.join(ROOT, 'references', 'review', fileName);
+}
+
+export function qaReferencePath(...segments: string[]): string {
+  return path.join(ROOT, 'references', 'qa', ...segments);
+}
+
+/**
+ * Materialize installed QA compatibility paths from the references source root.
+ */
+export function copyQaRuntimeFiles(destRoot: string) {
+  copyDirSync(path.join(ROOT, 'references', 'qa'), path.join(destRoot, 'qa'));
+}
+
+/**
+ * Materialize installed review compatibility paths from the references source root
+ * plus the still-unmigrated review specialist prompts.
+ */
+export function copyReviewRuntimeFiles(destRoot: string) {
+  fs.mkdirSync(path.join(destRoot, 'review'), { recursive: true });
+  copyDirSync(path.join(ROOT, 'references', 'review'), path.join(destRoot, 'review'));
+
+  const specialistsRoot = path.join(ROOT, 'review', 'specialists');
+  if (fs.existsSync(specialistsRoot)) {
+    copyDirSync(specialistsRoot, path.join(destRoot, 'review', 'specialists'));
+  }
+}
+
 /**
  * Set up browse shims (binary symlink, find-browse, remote-slug) in a tmpDir.
  */

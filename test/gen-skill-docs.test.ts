@@ -192,13 +192,13 @@ describe('gen-skill-docs', () => {
     const consultation = readSkill('design-consultation');
 
     for (const ref of [
-      'design/references/governance.md',
-      'design/references/design-review-methodology.md',
-      'design/references/hard-rules.md',
-      'design/references/outside-voices.md',
-      'design/references/plan-design-principles.md',
-      'design/references/design-consultation-cheatsheet.md',
-      'design/references/shotgun-loop.md',
+      'references/design/governance.md',
+      'references/design/design-review-methodology.md',
+      'references/design/hard-rules.md',
+      'references/design/outside-voices.md',
+      'references/design/plan-design-principles.md',
+      'references/design/design-consultation-cheatsheet.md',
+      'references/design/shotgun-loop.md',
     ]) {
       expect(fs.existsSync(path.join(ROOT, ref))).toBe(true);
     }
@@ -2609,6 +2609,11 @@ describe('setup script validation', () => {
     expect(fnBody).toContain('design');
     expect(fnBody).toContain('review');
     expect(fnBody).toContain('qa');
+    expect(fnBody).toContain('browse/dist');
+    expect(fnBody).toContain('design/dist');
+    expect(fnBody).toContain('link_reference_compat_assets "$repo_root" "$agents_nexus"');
+    expect(fnBody).toContain('for legacy_parent in browse design review qa cso; do');
+    expect(fnBody).not.toContain('for asset in bin browse design review qa');
   });
 
   test('setup has reference compatibility mapping for future references roots', () => {
@@ -2621,20 +2626,16 @@ describe('setup script validation', () => {
 
   test('create_codex_runtime_root exposes only runtime assets', () => {
     const fnStart = setupContent.indexOf('create_codex_runtime_root()');
-    const fnEnd = setupContent.indexOf('}', setupContent.indexOf('done', setupContent.indexOf('review/', fnStart)));
+    const fnEnd = setupContent.indexOf('\ncreate_factory_runtime_root()', fnStart);
     const fnBody = setupContent.slice(fnStart, fnEnd);
     expect(fnBody).toContain('nexus/SKILL.md');
     expect(fnBody).toContain('browse/dist');
     expect(fnBody).toContain('browse/bin');
     expect(fnBody).toContain('design/dist');
-    expect(fnBody).toContain('design/references');
     expect(fnBody).toContain('nexus-upgrade/SKILL.md');
     expect(fnBody).toContain('link_reference_compat_assets "$nexus_dir" "$codex_nexus"');
-    // Review runtime assets (individual files, not the whole dir)
-    expect(fnBody).toContain('checklist.md');
-    expect(fnBody).toContain('design-checklist.md');
-    expect(fnBody).toContain('greptile-triage.md');
-    expect(fnBody).toContain('TODOS-format.md');
+    expect(fnBody).not.toContain('ln -snf "$nexus_dir/design/references"');
+    expect(fnBody).not.toContain('for f in checklist.md');
     expect(fnBody).not.toContain('ln -snf "$gstack_dir" "$codex_gstack"');
   });
 
@@ -2642,6 +2643,27 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$factory_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$nexus_dir" "$gemini_nexus"');
     expect(setupContent).toContain('link_reference_compat_assets "$SOURCE_NEXUS_DIR" "$KIRO_NEXUS"');
+  });
+
+  test('host runtime roots do not bypass reference compatibility mapping with direct design reference links', () => {
+    expect(setupContent).not.toContain(
+      'ln -snf "$nexus_dir/design/references" "$codex_nexus/design/references"'
+    );
+    expect(setupContent).not.toContain(
+      'ln -snf "$nexus_dir/design/references" "$factory_nexus/design/references"'
+    );
+    expect(setupContent).not.toContain(
+      'ln -snf "$nexus_dir/design/references" "$gemini_nexus/design/references"'
+    );
+    expect(setupContent).not.toContain(
+      'ln -snf "$SOURCE_NEXUS_DIR/design/references" "$KIRO_NEXUS/design/references"'
+    );
+    expect(setupContent).not.toContain('ln -snf "$nexus_dir/review/$f" "$codex_nexus/review/$f"');
+    expect(setupContent).not.toContain('ln -snf "$nexus_dir/review/$f" "$factory_nexus/review/$f"');
+    expect(setupContent).not.toContain('ln -snf "$nexus_dir/review/$f" "$gemini_nexus/review/$f"');
+    expect(setupContent).not.toContain(
+      'ln -snf "$SOURCE_NEXUS_DIR/review/$f" "$KIRO_NEXUS/review/$f"'
+    );
   });
 
   test('setup supports Gemini CLI host install surface', () => {
