@@ -1091,8 +1091,8 @@ describeLegacyShip('TEST_COVERAGE_AUDIT placeholders', () => {
     expect(reviewSkill).not.toContain('ship-test-plan');
   });
 
-  test('review/specialists/ directory has all expected checklist files', () => {
-    const specDir = path.join(ROOT, 'review', 'specialists');
+  test('references/review/specialists/ directory has all expected checklist files', () => {
+    const specDir = path.join(ROOT, 'references', 'review', 'specialists');
     const expected = [
       'testing.md',
       'maintainability.md',
@@ -1108,7 +1108,7 @@ describeLegacyShip('TEST_COVERAGE_AUDIT placeholders', () => {
   });
 
   test('each specialist file has standard header with scope and output format', () => {
-    const specDir = path.join(ROOT, 'review', 'specialists');
+    const specDir = path.join(ROOT, 'references', 'review', 'specialists');
     const files = fs.readdirSync(specDir).filter(f => f.endsWith('.md'));
     for (const f of files) {
       const content = fs.readFileSync(path.join(specDir, f), 'utf-8');

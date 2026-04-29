@@ -48,19 +48,19 @@ describe('nexus verification matrix', () => {
       ]);
       expect(matrix.checklists.testing).toMatchObject({
         applies: true,
-        source_path: 'review/specialists/testing.md',
+        source_path: 'references/review/specialists/testing.md',
       });
       expect(matrix.checklists.security).toMatchObject({
         applies: true,
-        source_path: 'review/specialists/security.md',
+        source_path: 'references/review/specialists/security.md',
       });
       expect(matrix.checklists.performance).toMatchObject({
         applies: true,
-        source_path: 'review/specialists/performance.md',
+        source_path: 'references/review/specialists/performance.md',
       });
       expect(matrix.checklists.maintainability).toMatchObject({
         applies: true,
-        source_path: 'review/specialists/maintainability.md',
+        source_path: 'references/review/specialists/maintainability.md',
       });
       expect(matrix.checklists.accessibility).toMatchObject({
         applies: true,
@@ -76,20 +76,20 @@ describe('nexus verification matrix', () => {
         expect.objectContaining({ category: 'accessibility', source_path: 'review/design-checklist.md' }),
       ]));
       expect(matrix.support_skill_signals.browse.checklist_rationale).toEqual(expect.arrayContaining([
-        expect.objectContaining({ category: 'testing', source_path: 'review/specialists/testing.md' }),
+        expect.objectContaining({ category: 'testing', source_path: 'references/review/specialists/testing.md' }),
         expect.objectContaining({ category: 'accessibility', source_path: 'review/design-checklist.md' }),
       ]));
       expect(matrix.support_skill_signals.benchmark.checklist_rationale).toEqual([
-        expect.objectContaining({ category: 'performance', source_path: 'review/specialists/performance.md' }),
+        expect.objectContaining({ category: 'performance', source_path: 'references/review/specialists/performance.md' }),
       ]);
       expect(matrix.support_skill_signals.simplify.checklist_rationale).toEqual([
-        expect.objectContaining({ category: 'maintainability', source_path: 'review/specialists/maintainability.md' }),
+        expect.objectContaining({ category: 'maintainability', source_path: 'references/review/specialists/maintainability.md' }),
       ]);
       expect(matrix.support_skill_signals.cso.checklist_rationale).toEqual([
-        expect.objectContaining({ category: 'security', source_path: 'review/specialists/security.md' }),
+        expect.objectContaining({ category: 'security', source_path: 'references/review/specialists/security.md' }),
       ]);
       expect(matrix.support_skill_signals.setup_browser_cookies.checklist_rationale).toEqual(expect.arrayContaining([
-        expect.objectContaining({ category: 'security', source_path: 'review/specialists/security.md' }),
+        expect.objectContaining({ category: 'security', source_path: 'references/review/specialists/security.md' }),
         expect.objectContaining({ category: 'accessibility', source_path: 'review/design-checklist.md' }),
       ]));
     });
@@ -126,19 +126,19 @@ describe('nexus verification matrix', () => {
 
       expect(matrix.support_skill_signals.browse).toMatchObject({
         suggested: true,
-        reason: expect.stringContaining('Checklist-backed rationale: testing review/specialists/testing.md'),
+        reason: expect.stringContaining('Checklist-backed rationale: testing references/review/specialists/testing.md'),
       });
       expect(matrix.support_skill_signals.connect_chrome).toMatchObject({
         suggested: true,
-        reason: expect.stringContaining('Checklist-backed rationale: testing review/specialists/testing.md'),
+        reason: expect.stringContaining('Checklist-backed rationale: testing references/review/specialists/testing.md'),
       });
       expect(matrix.support_skill_signals.setup_browser_cookies).toMatchObject({
         suggested: true,
-        reason: expect.stringContaining('Checklist-backed rationale: security review/specialists/security.md'),
+        reason: expect.stringContaining('Checklist-backed rationale: security references/review/specialists/security.md'),
       });
       expect(matrix.support_skill_signals.cso).toMatchObject({
         suggested: true,
-        reason: expect.stringContaining('Checklist-backed rationale: security review/specialists/security.md'),
+        reason: expect.stringContaining('Checklist-backed rationale: security references/review/specialists/security.md'),
       });
     });
   });
@@ -204,7 +204,7 @@ describe('nexus verification matrix', () => {
           checklists: {
             security: {
               category: 'security',
-              source_path: 'review/specialists/security.md',
+              source_path: 'references/review/specialists/security.md',
               applies: false,
               rationale: 'Explicitly out of scope for this run.',
               triggers: [],

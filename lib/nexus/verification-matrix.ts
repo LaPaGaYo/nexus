@@ -325,22 +325,22 @@ const CHECKLIST_DEFINITIONS: Record<VerificationChecklistCategory, {
   support_surfaces: string[];
 }> = {
   testing: {
-    source_path: 'review/specialists/testing.md',
+    source_path: 'references/review/specialists/testing.md',
     rationale: 'Testing checklist is always-on for negative paths, edge cases, isolation, and regression coverage.',
     support_surfaces: ['/browse', '/connect-chrome'],
   },
   security: {
-    source_path: 'review/specialists/security.md',
+    source_path: 'references/review/specialists/security.md',
     rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
     support_surfaces: ['/cso', '/setup-browser-cookies'],
   },
   maintainability: {
-    source_path: 'review/specialists/maintainability.md',
+    source_path: 'references/review/specialists/maintainability.md',
     rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
     support_surfaces: ['/simplify'],
   },
   performance: {
-    source_path: 'review/specialists/performance.md',
+    source_path: 'references/review/specialists/performance.md',
     rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
     support_surfaces: ['/benchmark'],
   },

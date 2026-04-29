@@ -101,7 +101,7 @@ What ships:
 - Enhanced Delivery Integrity via PLAN_COMPLETION_AUDIT — investigation depth,
   commit message fallback, plan-file learnings logging
 - Checklist refactored: CRITICAL categories stay in main pass, specialist
-  categories extracted to focused checklists in review/specialists/
+  categories extracted to focused checklists in references/review/specialists/
 
 ### Release 2.5: "Review Army Expansions" (v0.15.x)
 

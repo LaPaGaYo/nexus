@@ -917,7 +917,7 @@ describe('nexus types', () => {
       checklists: {
         testing: {
           category: 'testing',
-          source_path: 'review/specialists/testing.md',
+          source_path: 'references/review/specialists/testing.md',
           applies: true,
           rationale: 'Testing checklist is always-on for negative paths, edge cases, isolation, and regression coverage.',
           triggers: ['always_on'],
@@ -925,7 +925,7 @@ describe('nexus types', () => {
         },
         security: {
           category: 'security',
-          source_path: 'review/specialists/security.md',
+          source_path: 'references/review/specialists/security.md',
           applies: true,
           rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
           triggers: ['auth_surface', 'security_sensitive_surface'],
@@ -933,7 +933,7 @@ describe('nexus types', () => {
         },
         maintainability: {
           category: 'maintainability',
-          source_path: 'review/specialists/maintainability.md',
+          source_path: 'references/review/specialists/maintainability.md',
           applies: true,
           rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
           triggers: ['always_on'],
@@ -941,7 +941,7 @@ describe('nexus types', () => {
         },
         performance: {
           category: 'performance',
-          source_path: 'review/specialists/performance.md',
+          source_path: 'references/review/specialists/performance.md',
           applies: true,
           rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
           triggers: ['browser_facing'],
@@ -982,7 +982,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'testing',
-              source_path: 'review/specialists/testing.md',
+              source_path: 'references/review/specialists/testing.md',
               rationale: 'Testing checklist is always-on for negative paths, edge cases, isolation, and regression coverage.',
             },
           ],
@@ -993,7 +993,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'performance',
-              source_path: 'review/specialists/performance.md',
+              source_path: 'references/review/specialists/performance.md',
               rationale: 'Performance checklist applies to frontend or backend execution paths where rendering, query, bundle, or latency regressions are plausible.',
             },
           ],
@@ -1004,7 +1004,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'maintainability',
-              source_path: 'review/specialists/maintainability.md',
+              source_path: 'references/review/specialists/maintainability.md',
               rationale: 'Maintainability checklist is always-on for complexity, readability, and behavior-preserving cleanup.',
             },
           ],
@@ -1015,7 +1015,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'security',
-              source_path: 'review/specialists/security.md',
+              source_path: 'references/review/specialists/security.md',
               rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
             },
           ],
@@ -1037,7 +1037,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'security',
-              source_path: 'review/specialists/security.md',
+              source_path: 'references/review/specialists/security.md',
               rationale: 'Security checklist applies to auth, authorization, backend, webhook, secret, and trust-boundary changes.',
             },
             {

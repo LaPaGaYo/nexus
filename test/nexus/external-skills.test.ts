@@ -38,7 +38,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
     checklists: {
       testing: {
         category: 'testing',
-        source_path: 'review/specialists/testing.md',
+        source_path: 'references/review/specialists/testing.md',
         applies: true,
         rationale: 'Testing checklist is always-on.',
         triggers: ['always_on'],
@@ -46,7 +46,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
       },
       security: {
         category: 'security',
-        source_path: 'review/specialists/security.md',
+        source_path: 'references/review/specialists/security.md',
         applies: false,
         rationale: 'Security checklist applies to auth and backend surfaces.',
         triggers: [],
@@ -54,7 +54,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
       },
       maintainability: {
         category: 'maintainability',
-        source_path: 'review/specialists/maintainability.md',
+        source_path: 'references/review/specialists/maintainability.md',
         applies: true,
         rationale: 'Maintainability checklist applies to complexity and simplification opportunities.',
         triggers: ['always_on'],
@@ -62,7 +62,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
       },
       performance: {
         category: 'performance',
-        source_path: 'review/specialists/performance.md',
+        source_path: 'references/review/specialists/performance.md',
         applies: false,
         rationale: 'Performance checklist applies to frontend and backend surfaces.',
         triggers: [],
@@ -100,7 +100,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
       simplify: {
         suggested: true,
         reason: 'Maintainability review supports simplification follow-up.',
-        checklist_rationale: [{ category: 'maintainability', source_path: 'review/specialists/maintainability.md', rationale: 'Maintainability checklist applies to complexity and simplification opportunities.' }],
+        checklist_rationale: [{ category: 'maintainability', source_path: 'references/review/specialists/maintainability.md', rationale: 'Maintainability checklist applies to complexity and simplification opportunities.' }],
       },
       cso: { suggested: false, reason: null, checklist_rationale: [] },
       connect_chrome: { suggested: false, reason: null, checklist_rationale: [] },
