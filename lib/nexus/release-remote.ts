@@ -1,4 +1,5 @@
 import { assertReleaseManifest } from './release-contract';
+import { assertString, assertStringArray, isRecord } from './validation-helpers';
 
 export const REMOTE_RELEASE_SMOKE_STATUSES = ['ready', 'blocked'] as const;
 export type RemoteReleaseSmokeStatus = (typeof REMOTE_RELEASE_SMOKE_STATUSES)[number];
@@ -9,22 +10,6 @@ export interface RemoteReleaseSmokeReport {
   tag: string;
   version: string;
   issues: string[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function assertString(value: unknown, label: string): asserts value is string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-}
-
-function assertStringArray(value: unknown, label: string): asserts value is string[] {
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
-    throw new Error(`${label} must be an array of strings`);
-  }
 }
 
 function assertRemoteReleaseSmokeStatus(value: unknown): asserts value is RemoteReleaseSmokeStatus {

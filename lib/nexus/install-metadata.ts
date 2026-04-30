@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { assertSupportedReleaseChannel, type SupportedReleaseChannel } from './release-contract';
+import { assertNullableString, assertString, isRecord } from './validation-helpers';
 
 export const INSTALL_METADATA_FILE = '.nexus-install.json' as const;
 
@@ -51,22 +52,6 @@ const KNOWN_USER_INSTALL_SUFFIXES = [
 const REPO_LOCAL_VENDORED_SUFFIXES = [
   '.claude/skills/nexus',
 ] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function assertString(value: unknown, label: string): asserts value is string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-}
-
-function assertNullableString(value: unknown, label: string): asserts value is string | null {
-  if (value !== null) {
-    assertString(value, label);
-  }
-}
 
 function assertInstallKind(value: unknown): asserts value is InstallKind {
   if (!INSTALL_KINDS.includes(value as InstallKind)) {

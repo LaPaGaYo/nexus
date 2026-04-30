@@ -10,10 +10,7 @@ import {
   type StageStatus,
   type VerificationChecklistCategory,
 } from './types';
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
+import { isRecord } from './validation-helpers';
 
 function normalizeAdvisory(advisory: string): string {
   return advisory.replace(/\s+/g, ' ').trim();
@@ -188,7 +185,7 @@ export function readReviewAdvisoryDisposition(
   }
 
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  if (!isObject(parsed)) {
+  if (!isRecord(parsed)) {
     return null;
   }
 
@@ -219,7 +216,7 @@ export function readReviewAdvisories(cwd: string): ReviewAdvisoriesRecord | null
   }
 
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  if (!isObject(parsed) || !Array.isArray(parsed.advisories)) {
+  if (!isRecord(parsed) || !Array.isArray(parsed.advisories)) {
     return null;
   }
 

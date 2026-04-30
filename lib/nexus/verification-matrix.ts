@@ -22,6 +22,7 @@ import {
   type VerificationMatrixRecord,
   type VerificationMatrixSupportSkillSignalRecord,
 } from './types';
+import { isRecord } from './validation-helpers';
 
 function defaultDesignIntent(): DesignIntentRecord {
   return {
@@ -31,10 +32,6 @@ function defaultDesignIntent(): DesignIntentRecord {
     contract_required: false,
     verification_required: false,
   };
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -292,7 +289,7 @@ function collectRepoDependencyNames(cwd: string): Set<string> {
       const parsed = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
       for (const field of ['dependencies', 'devDependencies', 'peerDependencies'] as const) {
         const record = parsed[field];
-        if (!isObject(record)) {
+        if (!isRecord(record)) {
           continue;
         }
         for (const name of Object.keys(record)) {
@@ -588,7 +585,7 @@ function readFrameDesignIntent(cwd: string): DesignIntentRecord {
   }
 
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as Partial<DesignIntentRecord>;
-  if (!isObject(parsed)) {
+  if (!isRecord(parsed)) {
     return defaultDesignIntent();
   }
 
@@ -609,25 +606,25 @@ function readFrameDesignIntent(cwd: string): DesignIntentRecord {
 }
 
 function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): VerificationMatrixRecord {
-  if (!isObject(raw)) {
+  if (!isRecord(raw)) {
     return fallback;
   }
 
-  const obligations = isObject(raw.obligations) ? raw.obligations : {};
-  const build = isObject(obligations.build) ? obligations.build : {};
-  const review = isObject(obligations.review) ? obligations.review : {};
-  const qa = isObject(obligations.qa) ? obligations.qa : {};
-  const ship = isObject(obligations.ship) ? obligations.ship : {};
-  const attachedEvidence = isObject(raw.attached_evidence) ? raw.attached_evidence : {};
-  const checklists = isObject(raw.checklists) ? raw.checklists : {};
-  const supportSkillSignals = isObject(raw.support_skill_signals) ? raw.support_skill_signals : {};
+  const obligations = isRecord(raw.obligations) ? raw.obligations : {};
+  const build = isRecord(obligations.build) ? obligations.build : {};
+  const review = isRecord(obligations.review) ? obligations.review : {};
+  const qa = isRecord(obligations.qa) ? obligations.qa : {};
+  const ship = isRecord(obligations.ship) ? obligations.ship : {};
+  const attachedEvidence = isRecord(raw.attached_evidence) ? raw.attached_evidence : {};
+  const checklists = isRecord(raw.checklists) ? raw.checklists : {};
+  const supportSkillSignals = isRecord(raw.support_skill_signals) ? raw.support_skill_signals : {};
 
   function normalizeChecklist(
     category: VerificationChecklistCategory,
     value: unknown,
     fallbackChecklist: VerificationMatrixChecklistRecord,
   ): VerificationMatrixChecklistRecord {
-    const checklist = isObject(value) ? value : {};
+    const checklist = isRecord(value) ? value : {};
     return {
       category,
       source_path: typeof checklist.source_path === 'string' ? checklist.source_path : fallbackChecklist.source_path,
@@ -655,7 +652,7 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
 
     const normalized: VerificationMatrixChecklistRationaleRecord[] = [];
     for (const entry of value) {
-      if (!isObject(entry) || !VERIFICATION_CHECKLIST_CATEGORIES.includes(entry.category as VerificationChecklistCategory)) {
+      if (!isRecord(entry) || !VERIFICATION_CHECKLIST_CATEGORIES.includes(entry.category as VerificationChecklistCategory)) {
         continue;
       }
       normalized.push({
@@ -676,7 +673,7 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
     value: unknown,
     fallbackSignal: VerificationMatrixRecord['support_skill_signals'][keyof VerificationMatrixRecord['support_skill_signals']],
   ) {
-    const signal = isObject(value) ? value : {};
+    const signal = isRecord(value) ? value : {};
     const suggested = normalizeBoolean(signal.suggested, fallbackSignal.suggested);
     return {
       suggested,
@@ -731,31 +728,31 @@ function normalizeMatrix(raw: unknown, fallback: VerificationMatrixRecord): Veri
     attached_evidence: {
       benchmark: {
         supported: normalizeBoolean(
-          isObject(attachedEvidence.benchmark) ? attachedEvidence.benchmark.supported : undefined,
+          isRecord(attachedEvidence.benchmark) ? attachedEvidence.benchmark.supported : undefined,
           fallback.attached_evidence.benchmark.supported,
         ),
         required: normalizeBoolean(
-          isObject(attachedEvidence.benchmark) ? attachedEvidence.benchmark.required : undefined,
+          isRecord(attachedEvidence.benchmark) ? attachedEvidence.benchmark.required : undefined,
           fallback.attached_evidence.benchmark.required,
         ),
       },
       canary: {
         supported: normalizeBoolean(
-          isObject(attachedEvidence.canary) ? attachedEvidence.canary.supported : undefined,
+          isRecord(attachedEvidence.canary) ? attachedEvidence.canary.supported : undefined,
           fallback.attached_evidence.canary.supported,
         ),
         required: normalizeBoolean(
-          isObject(attachedEvidence.canary) ? attachedEvidence.canary.required : undefined,
+          isRecord(attachedEvidence.canary) ? attachedEvidence.canary.required : undefined,
           fallback.attached_evidence.canary.required,
         ),
       },
       qa_only: {
         supported: normalizeBoolean(
-          isObject(attachedEvidence.qa_only) ? attachedEvidence.qa_only.supported : undefined,
+          isRecord(attachedEvidence.qa_only) ? attachedEvidence.qa_only.supported : undefined,
           fallback.attached_evidence.qa_only.supported,
         ),
         required: normalizeBoolean(
-          isObject(attachedEvidence.qa_only) ? attachedEvidence.qa_only.required : undefined,
+          isRecord(attachedEvidence.qa_only) ? attachedEvidence.qa_only.required : undefined,
           fallback.attached_evidence.qa_only.required,
         ),
       },
