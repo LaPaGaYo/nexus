@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { stageCompletionAdvisorPath, stageStatusPath } from './artifacts';
 import { readLedger } from './ledger';
@@ -9,6 +8,7 @@ import type {
   CompletionAdvisorRecord,
   StageStatus,
 } from './types';
+import { readJsonFile } from './validation-helpers';
 
 export interface CliCompletionContext {
   stage: CanonicalCommandId | null;
@@ -28,12 +28,10 @@ export interface CliErrorEnvelope {
 }
 
 function readCompletionAdvisor(cwd: string, stage: CanonicalCommandId): CompletionAdvisorRecord | null {
-  const path = join(cwd, stageCompletionAdvisorPath(stage));
-  if (!existsSync(path)) {
-    return null;
-  }
-
-  return JSON.parse(readFileSync(path, 'utf8')) as CompletionAdvisorRecord;
+  return readJsonFile(
+    join(cwd, stageCompletionAdvisorPath(stage)),
+    (value) => value as CompletionAdvisorRecord,
+  );
 }
 
 function preferredStage(cwd: string, fallbackStage: CanonicalCommandId): CanonicalCommandId {

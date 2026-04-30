@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { assertSupportedReleaseChannel, type SupportedReleaseChannel } from './release-contract';
-import { assertNullableString, assertString, isRecord } from './validation-helpers';
+import { assertNullableString, assertString, isRecord, readJsonFile } from './validation-helpers';
 
 export const INSTALL_METADATA_FILE = '.nexus-install.json' as const;
 
@@ -207,12 +207,7 @@ export function getManagedInstallTarget(installRoot: string, homeDir = process.e
 }
 
 export function readInstallMetadata(installRoot = process.cwd()): InstallMetadata | null {
-  const path = getInstallMetadataPath(installRoot);
-  if (!existsSync(path)) {
-    return null;
-  }
-
-  return validateInstallMetadata(JSON.parse(readFileSync(path, 'utf8')));
+  return readJsonFile(getInstallMetadataPath(installRoot), validateInstallMetadata);
 }
 
 export function writeInstallMetadata(metadata: InstallMetadata, installRoot = process.cwd()): void {
