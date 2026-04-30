@@ -15,8 +15,28 @@ import {
   referenceCompatSourceCandidates,
   resolveReferenceCompatSource,
 } from '../../lib/nexus/repo-taxonomy';
+import {
+  UPSTREAM_COMPAT_ROOT,
+  UPSTREAM_NOTES_COMPAT_ROOT,
+  UPSTREAM_NOTES_SOURCE_ROOT,
+  UPSTREAM_SOURCE_ROOT,
+} from '../../lib/nexus/repo-paths';
+import { resolveCompatAlias } from '../../lib/nexus/upstream-compat';
 
 const ROOT = join(import.meta.dir, '..', '..');
+
+function expectUsableCompatAlias(aliasPath: string, expectedTargetPath: string) {
+  const resolution = resolveCompatAlias(ROOT, aliasPath, expectedTargetPath);
+
+  expect(['directory', 'symlink', 'git_symlink_file']).toContain(resolution.kind);
+  if (resolution.kind !== 'directory') {
+    expect(resolution.target_path).toBe(expectedTargetPath);
+  }
+}
+
+function findRepoTaxonomyEntryByName(name: string) {
+  return REPO_TAXONOMY_ENTRIES.find((entry) => entry.name === name);
+}
 
 describe('nexus repo taxonomy v2', () => {
   test('defines the intended top-level maintenance categories', () => {
@@ -380,23 +400,46 @@ describe('nexus repo taxonomy v2', () => {
     }
   });
 
-  test('documents all high-risk visible root directories that should not be moved ad hoc', () => {
+  test('documents all high-risk source roots that should not be moved ad hoc', () => {
     const documented = new Set(REPO_TAXONOMY_ENTRIES.map((entry) => entry.current_path));
     const highRiskRoots = [
-      'upstream',
-      'upstream-notes',
-      'vendor/upstream',
-      'vendor/upstream-notes',
-      '.agents',
-      '.factory',
+      UPSTREAM_SOURCE_ROOT,
+      UPSTREAM_NOTES_SOURCE_ROOT,
     ];
+    const optionalGeneratedCompatRoots = ['.agents', '.factory'];
 
     expect(highRiskRoots.filter((root) => !documented.has(root))).toEqual([]);
+    expect(optionalGeneratedCompatRoots.filter((root) => !documented.has(root))).toEqual([]);
 
     for (const root of highRiskRoots) {
       expect(existsSync(join(ROOT, root))).toBe(true);
       expect(findRepoTaxonomyEntry(root)?.move_policy).toBeDefined();
     }
+
+    for (const root of optionalGeneratedCompatRoots) {
+      if (existsSync(join(ROOT, root))) {
+        expect(findRepoTaxonomyEntry(root)?.move_policy).toBeDefined();
+      }
+    }
+  });
+
+  test('validates optional upstream compatibility aliases across checkout modes', () => {
+    expect(existsSync(join(ROOT, UPSTREAM_SOURCE_ROOT, 'README.md'))).toBe(true);
+    expect(existsSync(join(ROOT, UPSTREAM_NOTES_SOURCE_ROOT, 'upstream-lock.json'))).toBe(true);
+
+    expect(findRepoTaxonomyEntryByName('upstream-compat')).toMatchObject({
+      current_path: UPSTREAM_COMPAT_ROOT,
+      target_path: UPSTREAM_SOURCE_ROOT,
+      move_policy: 'compat_required',
+    });
+    expect(findRepoTaxonomyEntryByName('upstream-notes-compat')).toMatchObject({
+      current_path: UPSTREAM_NOTES_COMPAT_ROOT,
+      target_path: UPSTREAM_NOTES_SOURCE_ROOT,
+      move_policy: 'compat_required',
+    });
+
+    expectUsableCompatAlias(UPSTREAM_COMPAT_ROOT, UPSTREAM_SOURCE_ROOT);
+    expectUsableCompatAlias(UPSTREAM_NOTES_COMPAT_ROOT, UPSTREAM_NOTES_SOURCE_ROOT);
   });
 
   test('classifies representative repo files into exact future taxonomy paths', () => {

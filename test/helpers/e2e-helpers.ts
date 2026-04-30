@@ -16,6 +16,7 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { BROWSE_RUNTIME_BIN_PATH } from '../../lib/nexus/repo-paths';
 
 export const ROOT = path.resolve(import.meta.dir, '..', '..');
 
@@ -79,7 +80,7 @@ export function describeIfSelected(name: string, testNames: string[], fn: () => 
 // Unique run ID for this E2E session — used for heartbeat + per-run log directory
 export const runId = new Date().toISOString().replace(/[:.]/g, '').replace('T', '-').slice(0, 15);
 
-export const browseBin = path.resolve(ROOT, 'runtimes', 'browse', 'dist', 'browse');
+export const browseBin = path.resolve(ROOT, ...BROWSE_RUNTIME_BIN_PATH.split('/'));
 
 // Check if Anthropic API key is available (needed for outcome evals)
 export const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
