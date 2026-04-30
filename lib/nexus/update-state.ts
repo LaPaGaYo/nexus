@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { assertKnownReleaseChannel, type ReleaseChannel } from './release-contract';
+import { assertString, isRecord, readJsonFile } from './validation-helpers';
 
 export const UPDATE_STATE_DIRNAME = 'update-state' as const;
 export const LAST_CHECK_FILE = 'last-check.json' as const;
@@ -67,28 +68,10 @@ export interface LegacySnoozeMarker {
   snoozed_epoch: number;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function assertString(value: unknown, label: string): asserts value is string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-}
-
 export function assertUpdateStateStatus(value: unknown): asserts value is UpdateStateStatus {
   if (!UPDATE_STATE_STATUSES.includes(value as UpdateStateStatus)) {
     throw new Error(`update-state status must be one of: ${UPDATE_STATE_STATUSES.join(', ')}`);
   }
-}
-
-function readJsonFile<T>(path: string, validate: (value: unknown) => T): T | null {
-  if (!existsSync(path)) {
-    return null;
-  }
-
-  return validate(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 function writeJsonFile(path: string, value: unknown): void {
