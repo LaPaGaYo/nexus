@@ -8,6 +8,7 @@ import {
   discoverBootstrapMarkdownPath,
 } from './artifacts';
 import type { ArtifactPointer, ContinuationMode, RunLedger, StageStatus, WorkspaceRecord } from './types';
+import { readJsonPartial } from './validation-helpers';
 
 export interface NextRunBootstrapRecord {
   schema_version: 1;
@@ -218,41 +219,23 @@ export function seedDiscoverBootstrapFromArchivedRun(cwd: string, previousRunId:
 }
 
 export function resolveContinuationModeFromBootstrap(cwd: string): ContinuationMode {
-  const bootstrapPath = join(cwd, discoverBootstrapJsonPath());
-  if (!existsSync(bootstrapPath)) {
-    return 'project_reset';
-  }
-
-  try {
-    const parsed = JSON.parse(readFileSync(bootstrapPath, 'utf8')) as Partial<NextRunBootstrapRecord>;
-    return parsed.recommended_continuation_mode === 'task' || parsed.recommended_continuation_mode === 'phase'
-      ? parsed.recommended_continuation_mode
-      : 'project_reset';
-  } catch {
-    return 'project_reset';
-  }
+  const parsed = readJsonPartial<NextRunBootstrapRecord>(join(cwd, discoverBootstrapJsonPath()));
+  return parsed?.recommended_continuation_mode === 'task' || parsed?.recommended_continuation_mode === 'phase'
+    ? parsed.recommended_continuation_mode
+    : 'project_reset';
 }
 
 export function discoverBootstrapSupportingContextArtifacts(cwd: string): string[] {
-  const bootstrapPath = join(cwd, discoverBootstrapJsonPath());
-  if (!existsSync(bootstrapPath)) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(readFileSync(bootstrapPath, 'utf8')) as Partial<NextRunBootstrapRecord>;
-    return (parsed.carry_forward_artifacts ?? [])
-      .map((artifact) => artifact.path)
-      .filter((artifactPath): artifactPath is string => (
-        typeof artifactPath === 'string'
-        && (
-          artifactPath.endsWith('/FOLLOW-ON-SUMMARY.md')
-          || artifactPath.endsWith('/follow-on-summary.json')
-        )
-      ));
-  } catch {
-    return [];
-  }
+  const parsed = readJsonPartial<NextRunBootstrapRecord>(join(cwd, discoverBootstrapJsonPath()));
+  return (parsed?.carry_forward_artifacts ?? [])
+    .map((artifact) => artifact.path)
+    .filter((artifactPath): artifactPath is string => (
+      typeof artifactPath === 'string'
+      && (
+        artifactPath.endsWith('/FOLLOW-ON-SUMMARY.md')
+        || artifactPath.endsWith('/follow-on-summary.json')
+      )
+    ));
 }
 
 export function mirrorBootstrapIntoWorkspace(

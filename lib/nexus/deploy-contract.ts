@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { deployContractJsonPath } from './artifacts';
+import { readJsonPartial } from './validation-helpers';
 import {
   DEPLOY_CONFIG_SOURCES,
   DEPLOY_PLATFORMS,
@@ -192,13 +193,12 @@ function normalizeSecondarySurfaces(contract: Partial<DeployContractRecord>): De
 }
 
 export function readCanonicalDeployContract(cwd: string): DeployContractRecord | null {
-  const path = join(cwd, deployContractJsonPath());
-  if (!existsSync(path)) {
-    return null;
-  }
-
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as Partial<DeployContractRecord>;
-  if (!parsed || typeof parsed !== 'object') {
+  // Note: previously bare `JSON.parse(readFileSync(...))` — would crash on
+  // malformed JSON. `readJsonPartial` collapses missing-file and parse-error
+  // into the same null path, matching the existing "no canonical contract"
+  // semantic and removing the latent crash.
+  const parsed = readJsonPartial<DeployContractRecord>(join(cwd, deployContractJsonPath()));
+  if (parsed === null) {
     return null;
   }
 

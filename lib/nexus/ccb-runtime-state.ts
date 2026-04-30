@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { ccbDispatchStatePath, ccbProviderStatePath } from './artifacts';
+import { readJsonPartial, readJsonPartialOr } from './validation-helpers';
 
 export type CcbRuntimeProvider = 'codex' | 'gemini';
 export type CcbRuntimeStage = 'handoff' | 'build' | 'review' | 'qa';
@@ -144,14 +145,10 @@ function writeJson(absolutePath: string, value: unknown): void {
 }
 
 function readProviderState(repoRoot: string, now: string): CcbProviderStateFile {
-  const absolutePath = providerStateAbsolutePath(repoRoot);
-  if (!existsSync(absolutePath)) {
-    return defaultProviderStateFile(now);
-  }
-
-  try {
-    const parsed = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<CcbProviderStateFile>;
-    return {
+  return readJsonPartialOr<CcbProviderStateFile>(
+    providerStateAbsolutePath(repoRoot),
+    () => defaultProviderStateFile(now),
+    (parsed) => ({
       schema_version: 2,
       updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : now,
       providers: {
@@ -166,10 +163,8 @@ function readProviderState(repoRoot: string, now: string): CcbProviderStateFile 
           provider: 'gemini',
         },
       },
-    };
-  } catch {
-    return defaultProviderStateFile(now);
-  }
+    }),
+  );
 }
 
 function writeProviderState(repoRoot: string, state: CcbProviderStateFile): void {
@@ -181,89 +176,83 @@ export function readCcbProviderState(repoRoot: string, now: string): CcbProvider
 }
 
 export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbDispatchStateRecord | null {
-  const absolutePath = dispatchStateAbsolutePath(repoRoot, dispatchId);
-  if (!existsSync(absolutePath)) {
+  const parsed = readJsonPartial<CcbDispatchStateRecord>(dispatchStateAbsolutePath(repoRoot, dispatchId));
+  if (parsed === null) {
+    return null;
+  }
+  if (
+    (parsed.schema_version !== 2 && parsed.schema_version !== 3) ||
+    typeof parsed.dispatch_id !== 'string' ||
+    typeof parsed.provider !== 'string' ||
+    typeof parsed.stage !== 'string' ||
+    typeof parsed.status !== 'string'
+  ) {
     return null;
   }
 
-  try {
-    const parsed = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<CcbDispatchStateRecord>;
-    if (
-      (parsed.schema_version !== 2 && parsed.schema_version !== 3) ||
-      typeof parsed.dispatch_id !== 'string' ||
-      typeof parsed.provider !== 'string' ||
-      typeof parsed.stage !== 'string' ||
-      typeof parsed.status !== 'string'
-    ) {
-      return null;
-    }
-
-    return {
-      schema_version: 3,
-      dispatch_id: parsed.dispatch_id,
-      request_id: typeof parsed.request_id === 'string' ? parsed.request_id : null,
-      provider: parsed.provider as CcbRuntimeProvider,
-      stage: parsed.stage as CcbDispatchStage,
-      status: parsed.status as CcbDispatchStatus,
-      payload_source: parsed.payload_source === 'ask'
-        || parsed.payload_source === 'pend'
-        || parsed.payload_source === 'receipt'
-        ? parsed.payload_source
-        : null,
-      session_root: typeof parsed.session_root === 'string' ? parsed.session_root : '',
-      session_file: typeof parsed.session_file === 'string' ? parsed.session_file : null,
-      execution_workspace: typeof parsed.execution_workspace === 'string' ? parsed.execution_workspace : '',
-      dispatch_command: typeof parsed.dispatch_command === 'string' ? parsed.dispatch_command : '',
-      dispatched_at: typeof parsed.dispatched_at === 'string' ? parsed.dispatched_at : '',
-      updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : '',
-      ask_exit_code: typeof parsed.ask_exit_code === 'number' ? parsed.ask_exit_code : null,
-      stdout: typeof parsed.stdout === 'string' ? parsed.stdout : '',
-      stderr: typeof parsed.stderr === 'string' ? parsed.stderr : '',
-      retry_provenance: parsed.retry_provenance && typeof parsed.retry_provenance === 'object'
-        ? {
-            reason: parsed.retry_provenance.reason === 'foreground_false_start'
-              ? 'foreground_false_start'
-              : 'foreground_false_start',
-            retry_count: typeof parsed.retry_provenance.retry_count === 'number'
-              ? parsed.retry_provenance.retry_count
-              : 0,
-            initial_exit_code: typeof parsed.retry_provenance.initial_exit_code === 'number'
-              ? parsed.retry_provenance.initial_exit_code
-              : null,
-            initial_request_id: typeof parsed.retry_provenance.initial_request_id === 'string'
-              ? parsed.retry_provenance.initial_request_id
-              : null,
-            initial_stdout_excerpt: typeof parsed.retry_provenance.initial_stdout_excerpt === 'string'
-              ? parsed.retry_provenance.initial_stdout_excerpt
-              : null,
-            initial_stderr_excerpt: typeof parsed.retry_provenance.initial_stderr_excerpt === 'string'
-              ? parsed.retry_provenance.initial_stderr_excerpt
-              : null,
-          }
-        : null,
-      latency_summary: parsed.latency_summary && typeof parsed.latency_summary === 'object'
-        ? {
-            path: parsed.latency_summary.path as CcbDispatchLatencyPath,
-            likely_cause: parsed.latency_summary.likely_cause as CcbDispatchLikelyCause,
-            foreground_exit: parsed.latency_summary.foreground_exit as CcbDispatchForegroundExit,
-            foreground_retry_count: typeof parsed.latency_summary.foreground_retry_count === 'number'
-              ? parsed.latency_summary.foreground_retry_count
-              : 0,
-            finalize_nudge_issued: parsed.latency_summary.finalize_nudge_issued === true,
-            pend_attempts: typeof parsed.latency_summary.pend_attempts === 'number'
-              ? parsed.latency_summary.pend_attempts
-              : 0,
-            recovered_via: parsed.latency_summary.recovered_via === 'ask'
-              || parsed.latency_summary.recovered_via === 'pend'
-              || parsed.latency_summary.recovered_via === 'receipt'
-              ? parsed.latency_summary.recovered_via
-              : null,
-          }
-        : null,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    schema_version: 3,
+    dispatch_id: parsed.dispatch_id,
+    request_id: typeof parsed.request_id === 'string' ? parsed.request_id : null,
+    provider: parsed.provider as CcbRuntimeProvider,
+    stage: parsed.stage as CcbDispatchStage,
+    status: parsed.status as CcbDispatchStatus,
+    payload_source: parsed.payload_source === 'ask'
+      || parsed.payload_source === 'pend'
+      || parsed.payload_source === 'receipt'
+      ? parsed.payload_source
+      : null,
+    session_root: typeof parsed.session_root === 'string' ? parsed.session_root : '',
+    session_file: typeof parsed.session_file === 'string' ? parsed.session_file : null,
+    execution_workspace: typeof parsed.execution_workspace === 'string' ? parsed.execution_workspace : '',
+    dispatch_command: typeof parsed.dispatch_command === 'string' ? parsed.dispatch_command : '',
+    dispatched_at: typeof parsed.dispatched_at === 'string' ? parsed.dispatched_at : '',
+    updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : '',
+    ask_exit_code: typeof parsed.ask_exit_code === 'number' ? parsed.ask_exit_code : null,
+    stdout: typeof parsed.stdout === 'string' ? parsed.stdout : '',
+    stderr: typeof parsed.stderr === 'string' ? parsed.stderr : '',
+    retry_provenance: parsed.retry_provenance && typeof parsed.retry_provenance === 'object'
+      ? {
+          reason: parsed.retry_provenance.reason === 'foreground_false_start'
+            ? 'foreground_false_start'
+            : 'foreground_false_start',
+          retry_count: typeof parsed.retry_provenance.retry_count === 'number'
+            ? parsed.retry_provenance.retry_count
+            : 0,
+          initial_exit_code: typeof parsed.retry_provenance.initial_exit_code === 'number'
+            ? parsed.retry_provenance.initial_exit_code
+            : null,
+          initial_request_id: typeof parsed.retry_provenance.initial_request_id === 'string'
+            ? parsed.retry_provenance.initial_request_id
+            : null,
+          initial_stdout_excerpt: typeof parsed.retry_provenance.initial_stdout_excerpt === 'string'
+            ? parsed.retry_provenance.initial_stdout_excerpt
+            : null,
+          initial_stderr_excerpt: typeof parsed.retry_provenance.initial_stderr_excerpt === 'string'
+            ? parsed.retry_provenance.initial_stderr_excerpt
+            : null,
+        }
+      : null,
+    latency_summary: parsed.latency_summary && typeof parsed.latency_summary === 'object'
+      ? {
+          path: parsed.latency_summary.path as CcbDispatchLatencyPath,
+          likely_cause: parsed.latency_summary.likely_cause as CcbDispatchLikelyCause,
+          foreground_exit: parsed.latency_summary.foreground_exit as CcbDispatchForegroundExit,
+          foreground_retry_count: typeof parsed.latency_summary.foreground_retry_count === 'number'
+            ? parsed.latency_summary.foreground_retry_count
+            : 0,
+          finalize_nudge_issued: parsed.latency_summary.finalize_nudge_issued === true,
+          pend_attempts: typeof parsed.latency_summary.pend_attempts === 'number'
+            ? parsed.latency_summary.pend_attempts
+            : 0,
+          recovered_via: parsed.latency_summary.recovered_via === 'ask'
+            || parsed.latency_summary.recovered_via === 'pend'
+            || parsed.latency_summary.recovered_via === 'receipt'
+            ? parsed.latency_summary.recovered_via
+            : null,
+        }
+      : null,
+  };
 }
 
 export function readActiveCcbDispatchState(
