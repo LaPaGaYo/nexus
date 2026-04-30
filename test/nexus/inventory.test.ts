@@ -84,7 +84,8 @@ function parseCsvField(value: string): string[] {
 }
 
 function parseUpstreamReadme(markdown: string): Array<{ name: string; repo_url: string; pinned_commit: string }> {
-  const matches = [...markdown.matchAll(/- `([^`]+)`\n\s+- repo: `([^`]+)`\n\s+- pinned_commit: `([^`]+)`/g)];
+  const normalizedMarkdown = markdown.replace(/\r\n?/g, '\n');
+  const matches = [...normalizedMarkdown.matchAll(/- `([^`]+)`\n\s+- repo: `([^`]+)`\n\s+- pinned_commit: `([^`]+)`/g)];
 
   return matches.map((match) => ({
     name: match[1],

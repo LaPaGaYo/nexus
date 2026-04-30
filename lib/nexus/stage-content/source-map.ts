@@ -17,6 +17,15 @@ const REVIEW_SOURCE_REFS: AbsorbedSourceRef[] = [
     absorbed_capability: 'superpowers-review-discipline',
   },
   {
+    system: 'superpowers',
+    imported_path: 'vendor/upstream/superpowers',
+    upstream_repo_url: 'https://github.com/obra/superpowers.git',
+    pinned_commit: '917e5f53b16b115b70a3a355ed5f4993b9f8b73d',
+    upstream_file: 'vendor/upstream/superpowers/skills/receiving-code-review/SKILL.md',
+    canonical_stage: 'review',
+    absorbed_capability: 'superpowers-review-feedback-triage',
+  },
+  {
     system: 'gsd',
     imported_path: 'vendor/upstream/gsd',
     upstream_repo_url: 'https://github.com/gsd-build/get-shit-done.git',

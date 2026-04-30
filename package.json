@@ -8,7 +8,7 @@
     "browse": "./runtimes/browse/dist/browse"
   },
   "scripts": {
-    "build": "bun run gen:skill-docs --host all; bun build --compile runtimes/browse/src/cli.ts --outfile runtimes/browse/dist/browse && bun build --compile runtimes/browse/src/find-browse.ts --outfile runtimes/browse/dist/find-browse && bun build --compile runtimes/design/src/cli.ts --outfile runtimes/design/dist/design && bun build --compile bin/nexus-global-discover.ts --outfile bin/nexus-global-discover && bash runtimes/browse/scripts/build-node-server.sh && git rev-parse HEAD > runtimes/browse/dist/.version && git rev-parse HEAD > runtimes/design/dist/.version && chmod +x runtimes/browse/dist/browse runtimes/browse/dist/find-browse runtimes/design/dist/design bin/nexus-global-discover bin/nexus-global-discover && rm -f .*.bun-build || true",
+    "build": "bun run gen:skill-docs --host all && bun build --compile runtimes/browse/src/cli.ts --outfile runtimes/browse/dist/browse && bun build --compile runtimes/browse/src/find-browse.ts --outfile runtimes/browse/dist/find-browse && bun build --compile runtimes/design/src/cli.ts --outfile runtimes/design/dist/design && bun build --compile bin/nexus-global-discover.ts --outfile bin/nexus-global-discover && bash runtimes/browse/scripts/build-node-server.sh && git rev-parse HEAD > runtimes/browse/dist/.version && git rev-parse HEAD > runtimes/design/dist/.version && chmod +x runtimes/browse/dist/browse runtimes/browse/dist/find-browse runtimes/design/dist/design bin/nexus-global-discover bin/nexus-global-discover && rm -f .*.bun-build",
   "dev:design": "bun run runtimes/design/src/cli.ts",
   "gen:skill-docs": "bun run scripts/gen-skill-docs.ts",
   "nexus": "bun run bin/nexus.ts",

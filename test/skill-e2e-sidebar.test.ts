@@ -230,7 +230,7 @@ describeIfSelected('Sidebar CSS interaction E2E', ['sidebar-css-interaction'], (
 
     // Start sidebar-agent with the real browse binary
     const agentScript = path.resolve(ROOT, 'browse', 'src', 'sidebar-agent.ts');
-    const browseBin = path.resolve(ROOT, 'browse', 'dist', 'browse');
+    const browseBin = path.resolve(ROOT, 'runtimes', 'browse', 'dist', 'browse');
     agentLogFile = path.join(tmpDir, 'agent.log');
     agentErrFile = path.join(tmpDir, 'agent.err');
     // Use 'pipe' stdio — closing file descriptors kills the child on macOS/bun

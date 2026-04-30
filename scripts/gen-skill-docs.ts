@@ -166,7 +166,7 @@ policy:
 function transformFrontmatter(content: string, host: Host, nameOverride?: string): string {
   if (host === 'claude') {
     // Strip sensitive: field from Claude output (only Factory uses it)
-    return content.replace(/^sensitive:\s*true\n/m, '');
+    return content.replace(/^sensitive:\s*true\r?\n/m, '');
   }
 
   const fmStart = content.indexOf('---\n');
