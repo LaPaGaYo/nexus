@@ -22,6 +22,7 @@ import type {
   StageStatus,
   WorkspaceRecord,
 } from './types';
+import { readJsonFile } from './validation-helpers';
 
 const LEDGER_PATH = '.planning/nexus/current-run.json';
 
@@ -30,12 +31,7 @@ export function ledgerPath(cwd = process.cwd()): string {
 }
 
 export function readLedger(cwd = process.cwd()): RunLedger | null {
-  const path = ledgerPath(cwd);
-  if (!existsSync(path)) {
-    return null;
-  }
-
-  return JSON.parse(readFileSync(path, 'utf8')) as RunLedger;
+  return readJsonFile(ledgerPath(cwd), (value) => value as RunLedger);
 }
 
 export function writeLedger(ledger: RunLedger, cwd = process.cwd()): void {

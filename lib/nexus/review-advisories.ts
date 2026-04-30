@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { reviewAdvisoriesPath, reviewAdvisoryDispositionPath } from './artifacts';
 import { extractAdvisoriesSection } from './review-scope';
@@ -10,7 +10,7 @@ import {
   type StageStatus,
   type VerificationChecklistCategory,
 } from './types';
-import { isRecord } from './validation-helpers';
+import { isRecord, readJsonFile } from './validation-helpers';
 
 function normalizeAdvisory(advisory: string): string {
   return advisory.replace(/\s+/g, ' ').trim();
@@ -179,59 +179,51 @@ export function buildReviewAdvisoryDispositionRecord(
 export function readReviewAdvisoryDisposition(
   cwd: string,
 ): ReviewAdvisoryDispositionRecord | null {
-  const path = join(cwd, reviewAdvisoryDispositionPath());
-  if (!existsSync(path)) {
-    return null;
-  }
+  return readJsonFile(join(cwd, reviewAdvisoryDispositionPath()), (parsed) => {
+    if (!isRecord(parsed)) {
+      return null;
+    }
 
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  if (!isRecord(parsed)) {
-    return null;
-  }
+    const selected = typeof parsed.selected === 'string'
+      && (REVIEW_ADVISORY_DISPOSITIONS as readonly string[]).includes(parsed.selected)
+      ? parsed.selected as ReviewAdvisoryDisposition
+      : parsed.selected === null
+        ? null
+        : null;
+    const advisoryCount = typeof parsed.advisory_count === 'number' && Number.isFinite(parsed.advisory_count)
+      ? parsed.advisory_count
+      : 0;
 
-  const selected = typeof parsed.selected === 'string'
-    && (REVIEW_ADVISORY_DISPOSITIONS as readonly string[]).includes(parsed.selected)
-    ? parsed.selected as ReviewAdvisoryDisposition
-    : parsed.selected === null
-      ? null
-      : null;
-  const advisoryCount = typeof parsed.advisory_count === 'number' && Number.isFinite(parsed.advisory_count)
-    ? parsed.advisory_count
-    : 0;
-
-  return {
-    schema_version: 1,
-    run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
-    advisory_count: advisoryCount,
-    selected,
-    selected_at: typeof parsed.selected_at === 'string' ? parsed.selected_at : null,
-    available_options: [...REVIEW_ADVISORY_DISPOSITIONS],
-  };
+    return {
+      schema_version: 1,
+      run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
+      advisory_count: advisoryCount,
+      selected,
+      selected_at: typeof parsed.selected_at === 'string' ? parsed.selected_at : null,
+      available_options: [...REVIEW_ADVISORY_DISPOSITIONS],
+    };
+  });
 }
 
 export function readReviewAdvisories(cwd: string): ReviewAdvisoriesRecord | null {
-  const path = join(cwd, reviewAdvisoriesPath());
-  if (!existsSync(path)) {
-    return null;
-  }
+  return readJsonFile(join(cwd, reviewAdvisoriesPath()), (parsed) => {
+    if (!isRecord(parsed) || !Array.isArray(parsed.advisories)) {
+      return null;
+    }
 
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  if (!isRecord(parsed) || !Array.isArray(parsed.advisories)) {
-    return null;
-  }
-
-  return {
-    schema_version: 1,
-    run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
-    generated_at: typeof parsed.generated_at === 'string' ? parsed.generated_at : '',
-    advisories: dedupeAdvisories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
-    categories: Array.isArray(parsed.categories)
-      ? parsed.categories.filter((value): value is VerificationChecklistCategory =>
-        typeof value === 'string'
-        && ['testing', 'security', 'maintainability', 'performance', 'accessibility', 'design'].includes(value)
-      )
-      : classifyReviewAdvisoryCategories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
-  };
+    return {
+      schema_version: 1,
+      run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
+      generated_at: typeof parsed.generated_at === 'string' ? parsed.generated_at : '',
+      advisories: dedupeAdvisories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
+      categories: Array.isArray(parsed.categories)
+        ? parsed.categories.filter((value): value is VerificationChecklistCategory =>
+          typeof value === 'string'
+          && ['testing', 'security', 'maintainability', 'performance', 'accessibility', 'design'].includes(value)
+        )
+        : classifyReviewAdvisoryCategories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
+    };
+  });
 }
 
 export function reviewHasAdvisories(reviewStatus: StageStatus | null | undefined): boolean {
