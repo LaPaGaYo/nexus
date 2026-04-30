@@ -247,6 +247,37 @@ if (fs.existsSync(FACTORY_DIR)) {
   console.log('\n  Factory Skills: .factory/skills/ not found (run: bun run gen:skill-docs --host factory)');
 }
 
+// ─── Gemini CLI Skills ──────────────────────────────────────
+
+const GEMINI_DIR = path.join(ROOT, '.gemini', 'skills');
+if (fs.existsSync(GEMINI_DIR)) {
+  console.log('\n  Gemini CLI Skills (.gemini/skills/):');
+  const geminiDirs = fs.readdirSync(GEMINI_DIR).sort();
+  let geminiCount = 0;
+  let geminiMissing = 0;
+  for (const dir of geminiDirs) {
+    const skillMd = path.join(GEMINI_DIR, dir, 'SKILL.md');
+    if (fs.existsSync(skillMd)) {
+      geminiCount++;
+      const content = fs.readFileSync(skillMd, 'utf-8');
+      const hasClaude = content.includes('.claude/skills');
+      if (hasClaude) {
+        hasErrors = true;
+        console.log(`  ❌ ${dir.padEnd(30)} — contains .claude/skills reference`);
+      } else {
+        console.log(`  ✅ ${dir.padEnd(30)} — OK`);
+      }
+    } else {
+      geminiMissing++;
+      hasErrors = true;
+      console.log(`  ❌ ${dir.padEnd(30)} — SKILL.md missing`);
+    }
+  }
+  console.log(`  Total: ${geminiCount} skills, ${geminiMissing} missing`);
+} else {
+  console.log('\n  Gemini CLI Skills: .gemini/skills/ not found (run: bun run gen:skill-docs --host gemini-cli)');
+}
+
 // ─── Freshness ──────────────────────────────────────────────
 
 console.log('\n  Freshness (Claude):');
@@ -289,6 +320,20 @@ try {
     console.log(`      ${line}`);
   }
   console.log('      Run: bun run gen:skill-docs --host factory');
+}
+
+console.log('\n  Freshness (Gemini CLI):');
+try {
+  execSync('bun run scripts/gen-skill-docs.ts --host gemini-cli --dry-run', { cwd: ROOT, stdio: 'pipe' });
+  console.log('  \u2705 All Gemini CLI generated files are fresh');
+} catch (err: any) {
+  hasErrors = true;
+  const output = err.stdout?.toString() || '';
+  console.log('  \u274c Gemini CLI generated files are stale:');
+  for (const line of output.split('\n').filter((l: string) => l.startsWith('STALE'))) {
+    console.log(`      ${line}`);
+  }
+  console.log('      Run: bun run gen:skill-docs --host gemini-cli');
 }
 
 console.log('');
