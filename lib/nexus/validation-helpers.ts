@@ -59,3 +59,57 @@ export function readJsonFile<T>(
   }
   return validate(JSON.parse(readFileSync(path, 'utf8')));
 }
+
+/**
+ * Lenient JSON read primitive: never throws. Returns a discriminated result
+ * carrying the failure reason and (for parse errors) the underlying Error so
+ * callers can log, distinguish missing-vs-malformed, or self-heal.
+ *
+ * For callsites that don't care about the reason, prefer `readJsonPartial`
+ * or `readJsonPartialOr` — both are thin wrappers around this function.
+ */
+export type JsonReadResult<T> =
+  | { ok: true; value: Partial<T> }
+  | { ok: false; reason: 'missing' }
+  | { ok: false; reason: 'parse_error'; error: Error };
+
+export function readJsonResult<T>(path: string): JsonReadResult<T> {
+  if (!existsSync(path)) {
+    return { ok: false, reason: 'missing' };
+  }
+  try {
+    const value = JSON.parse(readFileSync(path, 'utf8')) as Partial<T>;
+    return { ok: true, value };
+  } catch (error) {
+    return { ok: false, reason: 'parse_error', error: error as Error };
+  }
+}
+
+/**
+ * Lenient JSON read: missing file or parse error → null. Callers that defensively
+ * normalize fields downstream can treat both failure modes as "use the default".
+ *
+ * If you need to distinguish missing from malformed (for telemetry, self-healing,
+ * or user-facing errors), use `readJsonResult` instead.
+ */
+export function readJsonPartial<T>(path: string): Partial<T> | null {
+  const result = readJsonResult<T>(path);
+  return result.ok ? result.value : null;
+}
+
+/**
+ * Lenient JSON read with typed fallback: always returns T, never throws.
+ * Missing file or parse error → `fallback()` is invoked. Otherwise the parsed
+ * `Partial<T>` is passed to `normalize` so the caller can fill in missing
+ * fields from defaults.
+ *
+ * If you need access to the raw failure reason, use `readJsonResult` instead.
+ */
+export function readJsonPartialOr<T>(
+  path: string,
+  fallback: () => T,
+  normalize: (raw: Partial<T>) => T,
+): T {
+  const partial = readJsonPartial<T>(path);
+  return partial === null ? fallback() : normalize(partial);
+}

@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type {
   CanaryEvidenceStatus,
@@ -6,19 +5,7 @@ import type {
   DeployResultRecord,
   FollowOnEvidenceSummaryRecord,
 } from './types';
-
-function readJsonRecord<T>(cwd: string, relativePath: string): Partial<T> | null {
-  const absolutePath = join(cwd, relativePath);
-  if (!existsSync(absolutePath)) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<T>;
-  } catch {
-    return null;
-  }
-}
+import { readJsonPartial } from './validation-helpers';
 
 function readCanaryEvidence(
   cwd: string,
@@ -28,7 +15,7 @@ function readCanaryEvidence(
     return { path: null, status: null };
   }
 
-  const record = readJsonRecord<CanaryStatusRecord>(cwd, canaryEvidencePath);
+  const record = readJsonPartial<CanaryStatusRecord>(join(cwd, canaryEvidencePath));
   const status = record?.status;
 
   return {
@@ -67,7 +54,7 @@ function readDeployEvidence(
     };
   }
 
-  const record = readJsonRecord<DeployResultRecord>(cwd, deployResultPath);
+  const record = readJsonPartial<DeployResultRecord>(join(cwd, deployResultPath));
   const mergeStatus = record?.merge_status;
   const deployStatus = record?.deploy_status;
   const verificationStatus = record?.verification_status;
