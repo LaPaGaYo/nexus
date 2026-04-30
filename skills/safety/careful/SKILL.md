@@ -17,7 +17,6 @@ hooks:
         - type: command
           command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/careful/bin/check-careful.sh"
           statusMessage: "Checking for destructive commands..."
-sensitive: true
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->

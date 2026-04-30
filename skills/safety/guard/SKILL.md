@@ -28,7 +28,6 @@ hooks:
         - type: command
           command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
           statusMessage: "Checking freeze boundary..."
-sensitive: true
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
