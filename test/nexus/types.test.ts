@@ -949,7 +949,7 @@ describe('nexus types', () => {
         },
         accessibility: {
           category: 'accessibility',
-          source_path: 'review/design-checklist.md',
+          source_path: 'references/review/design-checklist.md',
           applies: true,
           rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
           triggers: ['browser_facing', 'design_impact'],
@@ -957,7 +957,7 @@ describe('nexus types', () => {
         },
         design: {
           category: 'design',
-          source_path: 'review/design-checklist.md',
+          source_path: 'references/review/design-checklist.md',
           applies: true,
           rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
           triggers: ['design_impact'],
@@ -971,7 +971,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'design',
-              source_path: 'review/design-checklist.md',
+              source_path: 'references/review/design-checklist.md',
               rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
             },
           ],
@@ -1026,7 +1026,7 @@ describe('nexus types', () => {
           checklist_rationale: [
             {
               category: 'accessibility',
-              source_path: 'review/design-checklist.md',
+              source_path: 'references/review/design-checklist.md',
               rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
             },
           ],
@@ -1042,7 +1042,7 @@ describe('nexus types', () => {
             },
             {
               category: 'accessibility',
-              source_path: 'review/design-checklist.md',
+              source_path: 'references/review/design-checklist.md',
               rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
             },
           ],
@@ -1053,7 +1053,7 @@ describe('nexus types', () => {
     expect(matrix.obligations.review.mode).toBe('full_acceptance');
     expect(matrix.obligations.qa.design_verification_required).toBe(true);
     expect(matrix.attached_evidence.qa_only.required).toBe(false);
-    expect(matrix.checklists.design.source_path).toBe('review/design-checklist.md');
+    expect(matrix.checklists.design.source_path).toBe('references/review/design-checklist.md');
     expect(matrix.support_skill_signals.benchmark.checklist_rationale[0]?.category).toBe('performance');
     expect(matrix.support_skill_signals.cso.suggested).toBe(true);
 

@@ -342,12 +342,12 @@ const CHECKLIST_DEFINITIONS: Record<VerificationChecklistCategory, {
     support_surfaces: ['/benchmark'],
   },
   accessibility: {
-    source_path: 'review/design-checklist.md',
+    source_path: 'references/review/design-checklist.md',
     rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
     support_surfaces: ['/browse', '/connect-chrome', '/setup-browser-cookies', '/design-review'],
   },
   design: {
-    source_path: 'review/design-checklist.md',
+    source_path: 'references/review/design-checklist.md',
     rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
     support_surfaces: ['/design-review', '/plan-design-review'],
   },

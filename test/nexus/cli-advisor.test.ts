@@ -78,7 +78,7 @@ describe('nexus cli advisor rendering', () => {
           evidence_signal: {
             kind: 'verification_matrix',
             summary: 'Design checklist applies to material UI work.',
-            source_paths: ['review/design-checklist.md'],
+            source_paths: ['references/review/design-checklist.md'],
             checklist_categories: ['design'],
           },
         },
@@ -95,7 +95,7 @@ describe('nexus cli advisor rendering', () => {
     expect(rendered).toContain('Run `/plan-design-review`');
     expect(rendered).toContain('Why this skill: Use this because the run has material UI work.');
     expect(rendered).toContain('Evidence: verification_matrix');
-    expect(rendered).toContain('review/design-checklist.md');
+    expect(rendered).toContain('references/review/design-checklist.md');
     expect(rendered).toContain('Project/setup gaps:');
     expect(rendered).toContain('Design contract is still missing.');
   });
@@ -116,7 +116,7 @@ describe('nexus cli advisor rendering', () => {
           evidence_signal: {
             kind: 'verification_matrix',
             summary: 'Design checklist applies to material UI work.',
-            source_paths: ['review/design-checklist.md'],
+            source_paths: ['references/review/design-checklist.md'],
             checklist_categories: ['design'],
           },
         },

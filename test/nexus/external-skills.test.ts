@@ -71,7 +71,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
       },
       accessibility: {
         category: 'accessibility',
-        source_path: 'review/design-checklist.md',
+        source_path: 'references/review/design-checklist.md',
         applies: true,
         rationale: 'Accessibility checklist applies to browser-facing UI.',
         triggers: ['browser_facing'],
@@ -79,7 +79,7 @@ function matrixWithSignals(): VerificationMatrixRecord {
       },
       design: {
         category: 'design',
-        source_path: 'review/design-checklist.md',
+        source_path: 'references/review/design-checklist.md',
         applies: true,
         rationale: 'Design checklist applies to design-bearing UI work.',
         triggers: ['design_impact'],
@@ -90,12 +90,12 @@ function matrixWithSignals(): VerificationMatrixRecord {
       design_review: {
         suggested: true,
         reason: 'Design-bearing work.',
-        checklist_rationale: [{ category: 'design', source_path: 'review/design-checklist.md', rationale: 'Design checklist applies to design-bearing UI work.' }],
+        checklist_rationale: [{ category: 'design', source_path: 'references/review/design-checklist.md', rationale: 'Design checklist applies to design-bearing UI work.' }],
       },
       browse: {
         suggested: true,
         reason: 'Browser-facing surface.',
-        checklist_rationale: [{ category: 'accessibility', source_path: 'review/design-checklist.md', rationale: 'Accessibility checklist applies to browser-facing UI.' }],
+        checklist_rationale: [{ category: 'accessibility', source_path: 'references/review/design-checklist.md', rationale: 'Accessibility checklist applies to browser-facing UI.' }],
       },
       benchmark: { suggested: false, reason: null, checklist_rationale: [] },
       simplify: {

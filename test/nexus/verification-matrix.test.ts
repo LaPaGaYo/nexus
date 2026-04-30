@@ -64,20 +64,20 @@ describe('nexus verification matrix', () => {
       });
       expect(matrix.checklists.accessibility).toMatchObject({
         applies: true,
-        source_path: 'review/design-checklist.md',
+        source_path: 'references/review/design-checklist.md',
       });
       expect(matrix.checklists.design).toMatchObject({
         applies: true,
-        source_path: 'review/design-checklist.md',
+        source_path: 'references/review/design-checklist.md',
       });
 
       expect(matrix.support_skill_signals.design_review.checklist_rationale).toEqual(expect.arrayContaining([
-        expect.objectContaining({ category: 'design', source_path: 'review/design-checklist.md' }),
-        expect.objectContaining({ category: 'accessibility', source_path: 'review/design-checklist.md' }),
+        expect.objectContaining({ category: 'design', source_path: 'references/review/design-checklist.md' }),
+        expect.objectContaining({ category: 'accessibility', source_path: 'references/review/design-checklist.md' }),
       ]));
       expect(matrix.support_skill_signals.browse.checklist_rationale).toEqual(expect.arrayContaining([
         expect.objectContaining({ category: 'testing', source_path: 'references/review/specialists/testing.md' }),
-        expect.objectContaining({ category: 'accessibility', source_path: 'review/design-checklist.md' }),
+        expect.objectContaining({ category: 'accessibility', source_path: 'references/review/design-checklist.md' }),
       ]));
       expect(matrix.support_skill_signals.benchmark.checklist_rationale).toEqual([
         expect.objectContaining({ category: 'performance', source_path: 'references/review/specialists/performance.md' }),
@@ -90,7 +90,7 @@ describe('nexus verification matrix', () => {
       ]);
       expect(matrix.support_skill_signals.setup_browser_cookies.checklist_rationale).toEqual(expect.arrayContaining([
         expect.objectContaining({ category: 'security', source_path: 'references/review/specialists/security.md' }),
-        expect.objectContaining({ category: 'accessibility', source_path: 'review/design-checklist.md' }),
+        expect.objectContaining({ category: 'accessibility', source_path: 'references/review/design-checklist.md' }),
       ]));
     });
   });

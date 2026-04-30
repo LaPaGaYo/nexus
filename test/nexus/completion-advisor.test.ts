@@ -85,7 +85,7 @@ const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixCheckl
   },
   accessibility: {
     category: 'accessibility',
-    source_path: 'review/design-checklist.md',
+    source_path: 'references/review/design-checklist.md',
     applies: true,
     rationale: 'Accessibility checklist applies to browser-facing UI and interaction states.',
     triggers: ['browser_facing'],
@@ -93,7 +93,7 @@ const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixCheckl
   },
   design: {
     category: 'design',
-    source_path: 'review/design-checklist.md',
+    source_path: 'references/review/design-checklist.md',
     applies: true,
     rationale: 'Design checklist applies to design-bearing UI work and visual system changes.',
     triggers: ['design_impact'],
@@ -354,7 +354,7 @@ describe('nexus completion advisor', () => {
       expect.objectContaining({ surface: '/browse' }),
     ]));
     expect(advisor.recommended_side_skills.find((action) => action.surface === '/design-review')?.visibility_reason)
-      .toContain('Checklist-backed rationale: design review/design-checklist.md');
+      .toContain('Checklist-backed rationale: design references/review/design-checklist.md');
     expect(advisor.recommended_side_skills.find((action) => action.surface === '/browse')?.visibility_reason)
       .toContain('Checklist-backed rationale: testing references/review/specialists/testing.md');
   });
@@ -389,7 +389,7 @@ describe('nexus completion advisor', () => {
       why_this_skill: 'Use this because the verification matrix ties this run to the design and accessibility checklists.',
       evidence_signal: {
         kind: 'verification_matrix',
-        source_paths: ['review/design-checklist.md'],
+        source_paths: ['references/review/design-checklist.md'],
         checklist_categories: ['design', 'accessibility'],
         summary: expect.stringContaining('design'),
       },
@@ -398,7 +398,7 @@ describe('nexus completion advisor', () => {
       why_this_skill: 'Use this because the verification matrix ties this run to the testing and accessibility checklists.',
       evidence_signal: {
         kind: 'verification_matrix',
-        source_paths: ['references/review/specialists/testing.md', 'review/design-checklist.md'],
+        source_paths: ['references/review/specialists/testing.md', 'references/review/design-checklist.md'],
         checklist_categories: ['testing', 'accessibility'],
         summary: expect.stringContaining('testing'),
       },
@@ -550,7 +550,7 @@ describe('nexus completion advisor', () => {
     expect(advisor.recommended_side_skills).toEqual(expect.arrayContaining([
       expect.objectContaining({
         surface: '/design-review',
-        visibility_reason: expect.stringContaining('Checklist-backed rationale: design review/design-checklist.md'),
+        visibility_reason: expect.stringContaining('Checklist-backed rationale: design references/review/design-checklist.md'),
       }),
       expect.objectContaining({
         surface: '/browse',
