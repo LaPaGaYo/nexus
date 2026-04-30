@@ -36,10 +36,10 @@ with file:line references so they can be picked up cold.
 |---|---|---|---|---|
 | S1 | High | `lib/nexus/ship-pull-request.ts:64` | `git push -u ${remote} HEAD` interpolates a git remote name into a displayed shell command. Git ref names can technically contain shell metacharacters (`;`, `&`, `|`, `$`, `` ` ``). Copy-pasting a malicious value runs arbitrary code. | Addressed in **PR #15** |
 | S2 | High | `lib/nexus/completion-advisor.ts:1162` | Same pattern — `git push -u origin ${pullRequest.head_branch}` fallback. | Addressed in **PR #15** |
-| S3 | Medium | `runtimes/browse/src/sidebar-agent.ts:328,338` | `stderrBuffer.trim().slice(-500)` surfaced in user-facing error messages — subprocess stderr can leak tokens or API keys. | Open |
-| S4 | Low | `runtimes/browse/src/sidebar-agent.ts:334` | `parseInt(process.env.SIDEBAR_AGENT_TIMEOUT || '300000', 10)` has no upper bound; bad env values cause logic errors. | Open |
-| S5 | Low | `runtimes/browse/src/server.ts:39` | `AUTH_TOKEN = crypto.randomUUID()` regenerated per process; restart breaks existing clients. | Open |
-| S6 | Low | `lib/nexus/workspace-substrate.ts:131-132` | `RUN_WORKSPACE_SYNC_PATHS` allowlist exists but the `.join()` doesn't re-assert membership at call site. | Open |
+| S3 | Medium | `runtimes/browse/src/sidebar-agent.ts:328,338` | `stderrBuffer.trim().slice(-500)` surfaced in user-facing error messages — subprocess stderr can leak tokens or API keys. | Open → **Phase 3** |
+| S4 | Low | `runtimes/browse/src/sidebar-agent.ts:334` | `parseInt(process.env.SIDEBAR_AGENT_TIMEOUT || '300000', 10)` has no upper bound; bad env values cause logic errors. | Open → **Phase 3** |
+| S5 | Low | `runtimes/browse/src/server.ts:39` | `AUTH_TOKEN = crypto.randomUUID()` regenerated per process; restart breaks existing clients. | Open → **Phase 3** (design choice — may be "won't fix") |
+| S6 | Low | `lib/nexus/workspace-substrate.ts:131-132` | `RUN_WORKSPACE_SYNC_PATHS` allowlist exists but the `.join()` doesn't re-assert membership at call site. | Open → **Phase 3** |
 
 No `eval` / `new Function` / unsafe deserialization. JSON parsing wrapped in
 try/catch where it matters. Network surfaces (browse server, MCP) reviewed —
@@ -162,8 +162,8 @@ table:
 - `scripts/resolvers/design.ts:2`
 - `skills/support/document-release/SKILL.md` (review/TODOS-format.md)
 
-**Status**: Open. PR #13 partially addressed this in `verification-matrix.ts`
-and tests; resolvers and skill prose still pending.
+**Status**: Open → **Phase 2.4**. PR #13 partially addressed this in
+`verification-matrix.ts` and tests; resolvers and skill prose still pending.
 
 #### 4.2 Generated host mirrors
 
@@ -174,7 +174,8 @@ entries but their mirrors are not consistently checked:
 - `scripts/skill-check.ts:221-248` checks `.factory/skills/`
 - **No `.gemini/skills/` check** — silent monitoring gap
 
-**Status**: Open. Add `.gemini/skills/` check to `scripts/skill-check.ts`.
+**Status**: Open → **Phase 1.5** (small one-off fix). Add `.gemini/skills/`
+check to `scripts/skill-check.ts`.
 
 #### 4.3 Cross-platform build undocumented
 
@@ -183,8 +184,8 @@ entries but their mirrors are not consistently checked:
 on Windows, but there's no README/CONTRIBUTING note that Windows requires
 WSL2.
 
-**Status**: Open. Either document the Windows stance or replace
-bash/chmod calls with cross-platform equivalents.
+**Status**: Open → **Phase 4** (decide stance, then either docs note or
+build-script rewrite).
 
 ### 5. Project structure
 
@@ -237,6 +238,15 @@ Small, targeted patches that unblock everything else.
 
 **Done in**: PR #15 (this session) + PR #13 (parallel work).
 
+### Phase 1.5 — Small monitoring patches
+
+One-off fixes that fit naturally with Phase 1's "stop the bleeding" theme but
+weren't on the original Phase 1 scope.
+
+- 🔲 Add `.gemini/skills/` existence check to `scripts/skill-check.ts`
+  (parallel to the existing `.agents/` and `.factory/` checks). Closes
+  finding §4.2. ~5 lines.
+
 ### Phase 2 — Consolidate duplicates
 
 Mechanical refactor. Low risk, compounding readability win.
@@ -255,6 +265,14 @@ Mechanical refactor. Low risk, compounding readability win.
   - `follow-on-evidence.ts:17`
   Estimated ~7 files, requires designing a shared error/fallback shape first
   (likely a `Result<T, E>`-style helper or a typed `safeParseJsonFile`).
+  Closes finding §2.2 (Patterns C/D and E).
+
+- 🔲 Phase 2.4: finish the legacy `review/` → `references/review/` migration in
+  active code. Targets:
+  - `scripts/resolvers/review-army.ts:2,22-30`
+  - `scripts/resolvers/design.ts:2`
+  - `skills/support/document-release/SKILL.md`
+  Closes finding §4.1.
 
 ### Phase 3 — Tests + invariants
 
@@ -274,10 +292,15 @@ Priority order (by risk × user-visibility):
 
 Smaller follow-ups in this phase (good first issues for contributors):
 
-- Push `process.cwd()` defaults to CLI entry points (#2.3)
-- Pick one return convention (throw vs null) per module family (#2.4)
-- Replace `as Type` casts on subprocess output with type-guard validators (#2.5)
-- Discriminating error codes in `governance.ts` (#2.6)
+- Push `process.cwd()` defaults to CLI entry points (§2.3)
+- Pick one return convention (throw vs null) per module family (§2.4)
+- Replace `as Type` casts on subprocess output with type-guard validators (§2.5)
+- Discriminating error codes in `governance.ts` (§2.6)
+- Redact subprocess stderr before surfacing in error messages (§S3)
+- Bound the SIDEBAR_AGENT_TIMEOUT env-var parse (§S4)
+- Either persist or document the AUTH_TOKEN regenerate-per-process behavior (§S5)
+- Re-assert `RUN_WORKSPACE_SYNC_PATHS` membership at the workspace `.join()`
+  call site (§S6)
 
 ### Phase 4 — Structure + documentation
 
@@ -288,12 +311,21 @@ Order matters here — restructuring imports without test coverage is fragile.
 1. Subdir `lib/nexus/` by concern (ST1)
 2. Mirror in `test/nexus/` (ST9)
 3. Move `CHANGELOG.md` / `TODOS.md` out of repo root (ST3)
-4. Decide on `agents/openai.yaml` (ST7) and `skills/root/` (ST8)
-5. Rename `runtimes/safety/` → `runtimes/hooks/` (ST5) — coordinated migration
-   like PR #13 attempted, due to install-path implications
-6. Standardize `hosts/*` naming (ST6)
-7. Rewrite drifted READMEs (D1, D2, D3) and write missing ones (D6, D7)
-8. Optional: rename `docs/superpowers/` (D8), group `scripts/` (ST10)
+4. Decide on `agents/openai.yaml` (ST7), `skills/root/` (ST8), and the
+   single-child `lib/` directory (ST2). All three are "directory of one"
+   shape — pick one resolution per directory (drop, fold, or document).
+5. Split `bin/` source from built artifacts (ST4) — move the `.ts` entry
+   files into `lib/nexus/cli/` or `runtimes/cli/` and have `bin/` contain
+   only built/shipped binaries.
+6. Rename `runtimes/safety/` → `runtimes/hooks/` (ST5) — coordinated migration
+   like PR #13 attempted, due to install-path implications.
+7. Standardize `hosts/*` naming (ST6).
+8. Rewrite drifted READMEs (D1, D2, D3, D4, D5) and write missing ones
+   (D6 for `references/review/`, D7 for `lib/nexus/`).
+9. Decide cross-platform build stance (§4.3) — either add a "Windows
+   requires WSL2" note to README/CONTRIBUTING, or replace the `bash`/`chmod`
+   calls in `package.json` with cross-platform Node/Bun equivalents.
+10. Optional: rename `docs/superpowers/` (D8), group `scripts/` (ST10).
 
 ---
 
@@ -350,3 +382,33 @@ are pre-existing `git`/worktree issues (`fatal: invalid reference: main`,
 `git commit` exit 128, etc.) unrelated to any cleanup work. Compare the
 failing-test set with `comm -23 <new> <baseline>` after stripping `[123ms]`
 timings to confirm no regressions.
+
+---
+
+## Finding → Phase coverage
+
+Every finding in this document maps to exactly one phase. Use this table to
+sanity-check that nothing is orphaned.
+
+| Finding | Phase |
+|---|---|
+| S1, S2 (git push injection) | Phase 1 ✅ |
+| S3 (stderr leakage) | Phase 3 |
+| S4 (timeout bound) | Phase 3 |
+| S5 (auth token regen) | Phase 3 (may be "won't fix") |
+| S6 (workspace allowlist) | Phase 3 |
+| §2.1 (duplicate validators) | Phase 2.1 ✅ |
+| §2.2 Patterns A/B (JSON read) | Phase 2.2 ✅ |
+| §2.2 Patterns C/D/E | Phase 2.3 |
+| §2.3 (process.cwd defaults) | Phase 3 follow-up |
+| §2.4 (throw vs null) | Phase 3 follow-up |
+| §2.5 (subprocess casts) | Phase 3 follow-up |
+| §2.6 (governance error codes) | Phase 3 follow-up |
+| §3.1 (untested modules) | Phase 3 priority list |
+| §3.2 (filesystem-bound tests) | Phase 3 step 6 |
+| §4.1 (legacy `review/` paths) | Phase 2.4 |
+| §4.2 (`.gemini/skills/` check) | Phase 1.5 |
+| §4.3 (cross-platform build) | Phase 4 step 9 |
+| ST1, ST2, ST3, ST4, ST5, ST6, ST7, ST8, ST9, ST10 | Phase 4 (steps 1–10) |
+| D1, D2, D3, D4, D5, D6, D7 | Phase 4 step 8 |
+| D8 | Phase 4 step 10 (optional) |
