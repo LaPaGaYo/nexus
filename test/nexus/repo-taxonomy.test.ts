@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import {
   REFERENCE_COMPAT_MAPPINGS,
   REPO_TAXONOMY_CATEGORIES,
@@ -15,8 +15,23 @@ import {
   referenceCompatSourceCandidates,
   resolveReferenceCompatSource,
 } from '../../lib/nexus/repo-taxonomy';
+import {
+  UPSTREAM_COMPAT_ROOT,
+  UPSTREAM_NOTES_SOURCE_MARKER_PATH,
+  UPSTREAM_NOTES_COMPAT_ROOT,
+  UPSTREAM_NOTES_SOURCE_ROOT,
+  UPSTREAM_SOURCE_MARKER_PATH,
+  UPSTREAM_SOURCE_ROOT,
+} from '../../lib/nexus/repo-paths';
+import { resolveCompatAlias } from '../../lib/nexus/upstream-compat';
 
 const ROOT = join(import.meta.dir, '..', '..');
+
+function writeFixtureFile(fixtureRoot: string, repoPath: string, contents: string) {
+  const filePath = join(fixtureRoot, ...repoPath.split('/'));
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, contents);
+}
 
 describe('nexus repo taxonomy v2', () => {
   test('defines the intended top-level maintenance categories', () => {
@@ -380,22 +395,134 @@ describe('nexus repo taxonomy v2', () => {
     }
   });
 
-  test('documents all high-risk visible root directories that should not be moved ad hoc', () => {
+  test('documents all high-risk source roots that should not be moved ad hoc', () => {
     const documented = new Set(REPO_TAXONOMY_ENTRIES.map((entry) => entry.current_path));
     const highRiskRoots = [
-      'upstream',
-      'upstream-notes',
-      'vendor/upstream',
-      'vendor/upstream-notes',
-      '.agents',
-      '.factory',
+      UPSTREAM_SOURCE_ROOT,
+      UPSTREAM_NOTES_SOURCE_ROOT,
     ];
+    const optionalGeneratedCompatRoots = ['.agents', '.factory'];
 
     expect(highRiskRoots.filter((root) => !documented.has(root))).toEqual([]);
+    expect(optionalGeneratedCompatRoots.filter((root) => !documented.has(root))).toEqual([]);
 
     for (const root of highRiskRoots) {
       expect(existsSync(join(ROOT, root))).toBe(true);
       expect(findRepoTaxonomyEntry(root)?.move_policy).toBeDefined();
+    }
+
+    for (const root of optionalGeneratedCompatRoots) {
+      if (existsSync(join(ROOT, root))) {
+        expect(findRepoTaxonomyEntry(root)?.move_policy).toBeDefined();
+      }
+    }
+  });
+
+  test('validates optional upstream compatibility aliases across checkout modes', () => {
+    expect(findRepoTaxonomyEntry('upstream-compat')).toMatchObject({
+      current_path: UPSTREAM_COMPAT_ROOT,
+      target_path: UPSTREAM_SOURCE_ROOT,
+      move_policy: 'compat_required',
+    });
+    expect(findRepoTaxonomyEntry('upstream-notes-compat')).toMatchObject({
+      current_path: UPSTREAM_NOTES_COMPAT_ROOT,
+      target_path: UPSTREAM_NOTES_SOURCE_ROOT,
+      move_policy: 'compat_required',
+    });
+
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'nexus-upstream-compat-'));
+
+    try {
+      writeFixtureFile(
+        fixtureRoot,
+        `${UPSTREAM_SOURCE_ROOT}/${UPSTREAM_SOURCE_MARKER_PATH}`,
+        'upstream source marker'
+      );
+      writeFixtureFile(
+        fixtureRoot,
+        `${UPSTREAM_NOTES_SOURCE_ROOT}/${UPSTREAM_NOTES_SOURCE_MARKER_PATH}`,
+        '{}'
+      );
+
+      writeFileSync(join(fixtureRoot, UPSTREAM_COMPAT_ROOT), `./${UPSTREAM_SOURCE_ROOT}`);
+      expect(
+        resolveCompatAlias(fixtureRoot, UPSTREAM_COMPAT_ROOT, UPSTREAM_SOURCE_ROOT, {
+          markerPath: UPSTREAM_SOURCE_MARKER_PATH,
+        })
+      ).toMatchObject({
+        kind: 'git_symlink_file',
+        target_path: UPSTREAM_SOURCE_ROOT,
+      });
+
+      writeFileSync(
+        join(fixtureRoot, UPSTREAM_NOTES_COMPAT_ROOT),
+        'vendor\\placeholder\\..\\upstream-notes'
+      );
+      expect(
+        resolveCompatAlias(fixtureRoot, UPSTREAM_NOTES_COMPAT_ROOT, UPSTREAM_NOTES_SOURCE_ROOT, {
+          markerPath: UPSTREAM_NOTES_SOURCE_MARKER_PATH,
+        })
+      ).toMatchObject({
+        kind: 'git_symlink_file',
+        target_path: UPSTREAM_NOTES_SOURCE_ROOT,
+      });
+
+      const directoryAlias = 'upstream-dir';
+      writeFixtureFile(
+        fixtureRoot,
+        `${directoryAlias}/${UPSTREAM_SOURCE_MARKER_PATH}`,
+        'copied source marker'
+      );
+      expect(
+        resolveCompatAlias(fixtureRoot, directoryAlias, UPSTREAM_SOURCE_ROOT, {
+          markerPath: UPSTREAM_SOURCE_MARKER_PATH,
+        })
+      ).toMatchObject({
+        kind: 'directory',
+        target_path: UPSTREAM_SOURCE_ROOT,
+      });
+
+      mkdirSync(join(fixtureRoot, 'empty-upstream'), { recursive: true });
+      expect(
+        resolveCompatAlias(fixtureRoot, 'empty-upstream', UPSTREAM_SOURCE_ROOT, {
+          markerPath: UPSTREAM_SOURCE_MARKER_PATH,
+        })
+      ).toMatchObject({
+        kind: 'invalid',
+        target_path: null,
+      });
+
+      writeFileSync(join(fixtureRoot, 'multiline-upstream'), `${UPSTREAM_SOURCE_ROOT}\n`);
+      expect(
+        resolveCompatAlias(fixtureRoot, 'multiline-upstream', UPSTREAM_SOURCE_ROOT)
+      ).toMatchObject({
+        kind: 'invalid',
+        target_path: null,
+      });
+
+      writeFileSync(join(fixtureRoot, 'oversized-upstream'), 'x'.repeat(4097));
+      expect(
+        resolveCompatAlias(fixtureRoot, 'oversized-upstream', UPSTREAM_SOURCE_ROOT)
+      ).toMatchObject({
+        kind: 'invalid',
+        target_path: null,
+      });
+
+      try {
+        symlinkSync(`./${UPSTREAM_SOURCE_ROOT}`, join(fixtureRoot, 'upstream-link'), 'dir');
+        expect(
+          resolveCompatAlias(fixtureRoot, 'upstream-link', UPSTREAM_SOURCE_ROOT, {
+            markerPath: UPSTREAM_SOURCE_MARKER_PATH,
+          })
+        ).toMatchObject({
+          kind: 'symlink',
+          target_path: UPSTREAM_SOURCE_ROOT,
+        });
+      } catch {
+        // Some Windows developer checkouts cannot create directory symlinks.
+      }
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
     }
   });
 

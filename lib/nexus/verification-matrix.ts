@@ -11,6 +11,7 @@ import {
   shipReleaseGateRecordPath,
   stageStatusPath,
 } from './artifacts';
+import { REVIEW_DESIGN_CHECKLIST_SOURCE_PATH } from './repo-paths';
 import {
   VERIFICATION_CHECKLIST_CATEGORIES,
   type DesignImpact,
@@ -342,12 +343,12 @@ const CHECKLIST_DEFINITIONS: Record<VerificationChecklistCategory, {
     support_surfaces: ['/benchmark'],
   },
   accessibility: {
-    source_path: 'references/review/design-checklist.md',
+    source_path: REVIEW_DESIGN_CHECKLIST_SOURCE_PATH,
     rationale: 'Accessibility checklist applies to browser-facing UI, keyboard focus, interaction states, and touch targets.',
     support_surfaces: ['/browse', '/connect-chrome', '/setup-browser-cookies', '/design-review'],
   },
   design: {
-    source_path: 'references/review/design-checklist.md',
+    source_path: REVIEW_DESIGN_CHECKLIST_SOURCE_PATH,
     rationale: 'Design checklist applies to design-bearing UI work and visual-system consistency.',
     support_surfaces: ['/design-review', '/plan-design-review'],
   },
