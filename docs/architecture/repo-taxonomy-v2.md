@@ -1,10 +1,10 @@
 # Nexus Repo Taxonomy v2
 
 The root `/nexus` source template has moved into the skill taxonomy. The Chrome
-extension source and design runtime have moved under the runtime taxonomy. Other
-runtime, reference, vendor, and host source paths remain in their compatibility
-locations until a migration explicitly updates setup, generated host surfaces,
-runtime path rewrites, and tests.
+extension source, design runtime, runtime sidecars, and tracked host source
+sidecars have moved under their taxonomy roots. Remaining generated host output
+and vendor paths stay in compatibility locations until a migration explicitly
+updates setup, generated host surfaces, runtime path rewrites, and tests.
 
 Phase 3 adds documentation-only facades under `runtimes/`, `references/`, and
 `hosts/`. These facades improve repo navigation, but they are not executable
@@ -39,7 +39,9 @@ nexus/
 
   hosts/
     claude/
+      rules/
     codex/
+      openai.yaml
     gemini-cli/
     factory/
     kiro/
@@ -61,9 +63,10 @@ explicitly updates setup, generated host surfaces, runtime path rewrites, and
 tests. The root `/nexus` source template now lives under
 `skills/root/nexus/`; root `SKILL.md` remains a generated compatibility mirror.
 The Chrome extension source now lives under `runtimes/browse/extension/`, the
-design runtime now lives under `runtimes/design/`, and runtime sidecars now live
-under `runtimes/design-html/` and `runtimes/safety/`, while installed hosts keep
-historical `$NEXUS_ROOT/...` compatibility paths.
+design runtime now lives under `runtimes/design/`, runtime sidecars now live
+under `runtimes/design-html/` and `runtimes/safety/`, and tracked host sidecars
+now live under `hosts/`, while installed hosts keep historical compatibility
+paths.
 
 Representative current-to-target mappings:
 
@@ -78,6 +81,7 @@ Representative current-to-target mappings:
 - `design/references` -> `references/design`
 - `review` -> `references/review`
 - `qa` -> `references/qa`
+- `.claude/rules` -> `hosts/claude/rules`
 - `upstream` -> `vendor/upstream`
 - `.agents` -> `hosts/codex`
 - `agents/openai.yaml` -> `hosts/codex/openai.yaml`
@@ -97,6 +101,8 @@ installed runtime paths such as:
 - `$NEXUS_ROOT/review/checklist.md`
 - `$NEXUS_ROOT/review/specialists/testing.md`
 - `$NEXUS_ROOT/qa/templates/qa-report-template.md`
+- `.claude/rules/*`
+- `agents/openai.yaml`
 
 ## Phase 4 First Reference Move
 
@@ -176,6 +182,18 @@ runtime sidecars. Setup maps `$NEXUS_ROOT/design-html/vendor` to
 `runtimes/safety/careful/bin`, and `$NEXUS_ROOT/freeze/bin` to
 `runtimes/safety/freeze/bin`.
 
+## Phase 10 Host Source Move
+
+Tracked host source sidecars have moved under the host taxonomy:
+
+- `.claude/rules/` -> `hosts/claude/rules/`
+- `agents/openai.yaml` -> `hosts/codex/openai.yaml`
+
+Compatibility paths remain present as symlinks because the hosts still discover
+those locations directly. Generated host output remains in `.agents/`,
+`.gemini/`, and `.factory/`; those directories are install-time output, not
+tracked source-of-truth.
+
 ## Remaining Conservative Facades
 
 The remaining facade slice is intentionally conservative:
@@ -187,15 +205,15 @@ The remaining facade slice is intentionally conservative:
   `references/design/README.md`, and `references/cso/README.md` document active
   reference roots and the runtime compatibility paths that still point at
   historical install locations.
-- `hosts/*/README.md` records intended host categories while `.claude/`,
-  `.agents/`, `.gemini/`, and `.factory/` remain active host surfaces.
-- `hosts/codex/openai.yaml` is a compatibility mirror for future Codex host
-  metadata. The active legacy compatibility path remains `agents/openai.yaml`
-  until setup/install switches deliberately.
+- `hosts/*/README.md` records intended host categories. Tracked Claude rules and
+  Codex root metadata now live under `hosts/`; `.claude/rules/` and
+  `agents/openai.yaml` remain compatibility symlinks.
+- `.agents/`, `.gemini/`, and `.factory/` remain generated host output roots and
+  should not be treated as tracked source-of-truth.
 
 Guarded future paths must stay absent until their migration batch moves assets
 and updates compatibility logic. Remaining examples are host/vendor-focused,
-such as `hosts/codex` and `vendor/upstream`.
+such as generated host output roots and `vendor/upstream`.
 
 ## First-Class Host Targets
 

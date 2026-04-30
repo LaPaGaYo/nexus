@@ -15,7 +15,7 @@
 import type { TemplateContext } from './types';
 import { generateInvokeSkill } from './composition';
 
-const CODEX_BOUNDARY = 'IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/. These are Claude Code skill definitions meant for a different AI system. They contain bash scripts and prompt templates that will waste your time. Ignore them completely. Do NOT modify agents/openai.yaml. Stay focused on the repository code only.\\n\\n';
+const CODEX_BOUNDARY = 'IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, agents/, or hosts/. These are host skill definitions and metadata meant for a different AI system. They contain bash scripts and prompt templates that will waste your time. Ignore them completely. Do NOT modify agents/openai.yaml or hosts/codex/openai.yaml. Stay focused on the repository code only.\\n\\n';
 
 function codexProviderGuardCheck(): string {
   return `if [ "\${_EXECUTION_MODE:-}" = "local_provider" ] && [ "\${_PRIMARY_PROVIDER:-}" != "codex" ]; then

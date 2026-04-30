@@ -112,9 +112,27 @@ describe('nexus repo taxonomy v2', () => {
     });
 
     expect(findRepoTaxonomyEntry('codex-openai-metadata')).toMatchObject({
+      current_path: 'hosts/codex/openai.yaml',
+      target_path: 'hosts/codex/openai.yaml',
+      move_policy: 'keep_in_place',
+    });
+
+    expect(findRepoTaxonomyEntry('codex-openai-metadata-compat')).toMatchObject({
       current_path: 'agents/openai.yaml',
       target_path: 'hosts/codex/openai.yaml',
-      move_policy: 'future_move',
+      move_policy: 'compat_required',
+    });
+
+    expect(findRepoTaxonomyEntry('claude-host')).toMatchObject({
+      current_path: 'hosts/claude/rules',
+      target_path: 'hosts/claude/rules',
+      move_policy: 'keep_in_place',
+    });
+
+    expect(findRepoTaxonomyEntry('claude-host-compat-rules')).toMatchObject({
+      current_path: '.claude/rules',
+      target_path: 'hosts/claude/rules',
+      move_policy: 'compat_required',
     });
   });
 
@@ -127,6 +145,8 @@ describe('nexus repo taxonomy v2', () => {
     const designHtml = findRepoTaxonomyEntry('design-html');
     const careful = findRepoTaxonomyEntry('careful');
     const freeze = findRepoTaxonomyEntry('freeze');
+    const claudeHost = findRepoTaxonomyEntry('claude-host');
+    const codexMetadata = findRepoTaxonomyEntry('codex-openai-metadata');
 
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/dist');
     expect(browse?.runtime_compat_paths).toContain('$NEXUS_ROOT/browse/bin');
@@ -140,6 +160,8 @@ describe('nexus repo taxonomy v2', () => {
     expect(designHtml?.runtime_compat_paths).toContain('$NEXUS_ROOT/design-html/vendor');
     expect(careful?.runtime_compat_paths).toContain('$NEXUS_ROOT/careful/bin/check-careful.sh');
     expect(freeze?.runtime_compat_paths).toContain('$NEXUS_ROOT/freeze/bin/check-freeze.sh');
+    expect(claudeHost?.runtime_compat_paths).toContain('.claude/rules/maintainer-surface.md');
+    expect(codexMetadata?.runtime_compat_paths).toContain('agents/openai.yaml');
   });
 
   test('defines future references source candidates while preserving installed compatibility paths', () => {
@@ -331,6 +353,8 @@ describe('nexus repo taxonomy v2', () => {
     expect(guardedFuturePaths).not.toContain('runtimes/design-html');
     expect(guardedFuturePaths).not.toContain('runtimes/safety/careful');
     expect(guardedFuturePaths).not.toContain('runtimes/safety/freeze');
+    expect(guardedFuturePaths).not.toContain('hosts/claude/rules');
+    expect(guardedFuturePaths).not.toContain('hosts/codex/openai.yaml');
 
     for (const guardedPath of guardedFuturePaths) {
       expect(existsSync(join(ROOT, guardedPath))).toBe(false);
@@ -371,7 +395,29 @@ describe('nexus repo taxonomy v2', () => {
     expect(classifyRepoPath('agents/openai.yaml')).toMatchObject({
       category: 'hosts',
       target_path: 'hosts/codex/openai.yaml',
-      move_policy: 'future_move',
+      move_policy: 'compat_required',
+      rule: 'codex-openai-metadata-compat',
+    });
+
+    expect(classifyRepoPath('hosts/codex/openai.yaml')).toMatchObject({
+      category: 'hosts',
+      target_path: 'hosts/codex/openai.yaml',
+      move_policy: 'keep_in_place',
+      rule: 'codex-openai-metadata',
+    });
+
+    expect(classifyRepoPath('hosts/claude/rules/skill-authoring.md')).toMatchObject({
+      category: 'hosts',
+      target_path: 'hosts/claude/rules/skill-authoring.md',
+      move_policy: 'keep_in_place',
+      rule: 'claude-host',
+    });
+
+    expect(classifyRepoPath('.claude/rules/skill-authoring.md')).toMatchObject({
+      category: 'hosts',
+      target_path: 'hosts/claude/rules/skill-authoring.md',
+      move_policy: 'compat_required',
+      rule: 'claude-host-compat-rules',
     });
 
     expect(classifyRepoPath('references/design/hard-rules.md')).toMatchObject({
@@ -465,7 +511,9 @@ describe('nexus repo taxonomy v2', () => {
     expect(doc).toContain('runtimes/browse/extension');
     expect(doc).toContain('references/review');
     expect(doc).toContain('references/design/README.md');
+    expect(doc).toContain('hosts/claude/rules');
     expect(doc).toContain('hosts/codex/openai.yaml');
+    expect(doc).toContain('agents/openai.yaml');
     expect(doc).toContain('$NEXUS_ROOT/review/checklist.md');
     expect(doc).toContain('docs/architecture/repo-path-inventory.md');
   });

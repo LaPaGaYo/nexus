@@ -2007,15 +2007,16 @@ describe('Codex generation (--host codex)', () => {
 
   test('root nexus bundle has OpenAI metadata for Codex skill browsing', () => {
     const rootMetadata = path.join(ROOT, 'agents', 'openai.yaml');
-    const futureRootMetadata = path.join(ROOT, 'hosts', 'codex', 'openai.yaml');
+    const hostRootMetadata = path.join(ROOT, 'hosts', 'codex', 'openai.yaml');
     expect(fs.existsSync(rootMetadata)).toBe(true);
-    expect(fs.existsSync(futureRootMetadata)).toBe(true);
+    expect(fs.existsSync(hostRootMetadata)).toBe(true);
+    expect(fs.lstatSync(rootMetadata).isSymbolicLink()).toBe(true);
     const content = fs.readFileSync(rootMetadata, 'utf-8');
-    const futureContent = fs.readFileSync(futureRootMetadata, 'utf-8');
+    const hostContent = fs.readFileSync(hostRootMetadata, 'utf-8');
     expect(content).toContain('display_name: "nexus"');
     expect(content).toContain('Use $nexus to locate the bundled Nexus skills.');
     expect(content).toContain('allow_implicit_invocation: true');
-    expect(futureContent).toBe(content);
+    expect(hostContent).toBe(content);
   });
 
   test('externalSkillName mapping: root is nexus, others are nexus-{dir}', () => {
