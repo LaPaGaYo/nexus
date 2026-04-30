@@ -1,10 +1,11 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import {
   discoverRetroContinuityJsonPath,
   discoverRetroContinuityMarkdownPath,
   retroArchiveRootPath,
 } from './artifacts';
+import { readJsonPartial } from './validation-helpers';
 import type {
   ArtifactPointer,
   DiscoverRetroContinuityRecord,
@@ -111,18 +112,12 @@ function parseLegacyRetroArchiveRecord(path: string, parsed: Record<string, unkn
 }
 
 function readParsedRetroArchive(cwd: string, path: string): ParsedRetroArchive | null {
-  const absolutePath = join(cwd, path);
-  if (!existsSync(absolutePath)) {
+  const parsed = readJsonPartial<RepoRetroArchiveRecord>(join(cwd, path));
+  if (parsed === null) {
     return null;
   }
-
-  try {
-    const parsed = JSON.parse(readFileSync(absolutePath, 'utf8')) as Record<string, unknown>;
-    return parseCanonicalRetroArchiveRecord(path, parsed as Partial<RepoRetroArchiveRecord>)
-      ?? parseLegacyRetroArchiveRecord(path, parsed);
-  } catch {
-    return null;
-  }
+  return parseCanonicalRetroArchiveRecord(path, parsed)
+    ?? parseLegacyRetroArchiveRecord(path, parsed as Record<string, unknown>);
 }
 
 function uniqueStrings(values: string[]): string[] {

@@ -16,6 +16,7 @@ import { readLedger, writeLedger } from './ledger';
 import { buildNextRunBootstrap, renderNextRunBootstrapMarkdown } from './run-bootstrap';
 import { readStageStatus } from './status';
 import type { ArtifactPointer, FollowOnEvidenceSummaryRecord, RunLedger } from './types';
+import { readJsonPartial } from './validation-helpers';
 
 const CLOSEOUT_RECORD_PATH = '.planning/current/closeout/CLOSEOUT-RECORD.md';
 
@@ -65,32 +66,22 @@ export function readLandingReentryGuidance(
     return null;
   }
 
-  try {
-    const record = JSON.parse(readFileSync(absolutePath, 'utf8')) as Record<string, unknown>;
-    return {
-      deploy_result_path: deployResultPath,
-      merge_status: readString(record, 'merge_status'),
-      deploy_status: readString(record, 'deploy_status'),
-      verification_status: readString(record, 'verification_status'),
-      failure_kind: readString(record, 'failure_kind'),
-      next_action: readString(record, 'next_action'),
-      ship_handoff_current: readBoolean(record, 'ship_handoff_current'),
-      ship_handoff_head_sha: readString(record, 'ship_handoff_head_sha'),
-      pull_request_head_sha: readString(record, 'pull_request_head_sha'),
-    };
-  } catch {
-    return {
-      deploy_result_path: deployResultPath,
-      merge_status: null,
-      deploy_status: null,
-      verification_status: null,
-      failure_kind: null,
-      next_action: null,
-      ship_handoff_current: null,
-      ship_handoff_head_sha: null,
-      pull_request_head_sha: null,
-    };
-  }
+  // For parse errors, callers want a populated shell (not null) so the deploy
+  // path stays visible — matches the previous `try/catch → all-null shell`
+  // shape. The shell shares structure with the success branch, just with each
+  // best-effort field nulled out.
+  const record = readJsonPartial<Record<string, unknown>>(absolutePath);
+  return {
+    deploy_result_path: deployResultPath,
+    merge_status: readString(record, 'merge_status'),
+    deploy_status: readString(record, 'deploy_status'),
+    verification_status: readString(record, 'verification_status'),
+    failure_kind: readString(record, 'failure_kind'),
+    next_action: readString(record, 'next_action'),
+    ship_handoff_current: readBoolean(record, 'ship_handoff_current'),
+    ship_handoff_head_sha: readString(record, 'ship_handoff_head_sha'),
+    pull_request_head_sha: readString(record, 'pull_request_head_sha'),
+  };
 }
 
 export function renderLandingReentryMarkdown(guidance: LandingReentryGuidance | null): string {
