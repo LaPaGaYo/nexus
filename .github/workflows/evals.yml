@@ -27,8 +27,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fork PRs cannot push to ghcr.io/lapagayo/* (the GITHUB_TOKEN lacks
+      # packages:write on the upstream org). Fall back to the most recent
+      # main-built image instead of trying to build+push a hash-pinned tag.
       - id: meta
-        run: echo "tag=${{ env.IMAGE }}:${{ hashFiles('.github/docker/Dockerfile.ci', 'package.json') }}" >> "$GITHUB_OUTPUT"
+        env:
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "$PR_HEAD_REPO" != "$REPO" ]; then
+            echo "tag=${{ env.IMAGE }}:latest" >> "$GITHUB_OUTPUT"
+            echo "fork=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ env.IMAGE }}:${{ hashFiles('.github/docker/Dockerfile.ci', 'package.json') }}" >> "$GITHUB_OUTPUT"
+            echo "fork=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: docker/login-action@v3
         with:
@@ -45,10 +58,10 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - if: steps.check.outputs.exists == 'false'
+      - if: steps.check.outputs.exists == 'false' && steps.meta.outputs.fork == 'false'
         run: cp package.json .github/docker/
 
-      - if: steps.check.outputs.exists == 'false'
+      - if: steps.check.outputs.exists == 'false' && steps.meta.outputs.fork == 'false'
         uses: docker/build-push-action@v6
         with:
           context: .github/docker
@@ -57,6 +70,14 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.tag }}
             ${{ env.IMAGE }}:latest
+
+      # If a fork PR lands and :latest has never been built, surface a clear
+      # message instead of failing in the downstream evals job.
+      - if: steps.check.outputs.exists == 'false' && steps.meta.outputs.fork == 'true'
+        run: |
+          echo "::warning::Fork PR cannot build the CI image and ${{ env.IMAGE }}:latest is missing."
+          echo "::warning::Run the ci-image workflow on main (or merge a same-repo PR) to seed the latest image, then rerun this PR's evals."
+          exit 1
 
   evals:
     runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || matrix.suite.runner || 'ubicloud-standard-2' }}
