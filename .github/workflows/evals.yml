@@ -182,7 +182,11 @@ jobs:
   report:
     runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     needs: evals
-    if: always() && github.event_name == 'pull_request'
+    # Skip on fork PRs: GITHUB_TOKEN from a fork only has read access to the
+    # upstream repo's pull-requests scope (regardless of `permissions:` below),
+    # so `gh pr comment` / `gh api PATCH` from the post step always fails.
+    # Same-repo PRs still run normally.
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 5
     permissions:
       contents: read
