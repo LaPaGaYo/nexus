@@ -9,6 +9,9 @@ import {
   assertStringArray,
   isRecord,
   readJsonFile,
+  readJsonPartial,
+  readJsonPartialOr,
+  readJsonResult,
 } from '../../lib/nexus/validation-helpers';
 
 describe('isRecord', () => {
@@ -131,6 +134,106 @@ describe('readJsonFile', () => {
   });
 
   // Cleanup is registered as a no-op test so it always runs even if earlier tests fail.
+  test('cleanup', () => {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  });
+});
+
+describe('readJsonResult (lenient primitive)', () => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'nexus-read-json-result-'));
+
+  test('returns ok with parsed value when the file exists and parses', () => {
+    const path = join(fixtureRoot, 'present.json');
+    writeFileSync(path, JSON.stringify({ name: 'nexus', count: 1 }));
+
+    const result = readJsonResult<{ name: string; count: number }>(path);
+
+    expect(result).toEqual({ ok: true, value: { name: 'nexus', count: 1 } });
+  });
+
+  test('returns reason=missing when the file does not exist', () => {
+    const result = readJsonResult<{ name: string }>(join(fixtureRoot, 'missing.json'));
+
+    expect(result).toEqual({ ok: false, reason: 'missing' });
+  });
+
+  test('returns reason=parse_error and the underlying Error on malformed JSON', () => {
+    const path = join(fixtureRoot, 'malformed.json');
+    writeFileSync(path, '{not-json');
+
+    const result = readJsonResult<{ name: string }>(path);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected failure');
+    expect(result.reason).toBe('parse_error');
+    if (result.reason !== 'parse_error') throw new Error('expected parse_error');
+    expect(result.error).toBeInstanceOf(Error);
+    expect(result.error.message).toContain('JSON');
+  });
+
+  test('cleanup', () => {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  });
+});
+
+describe('readJsonPartial (lenient convenience)', () => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'nexus-read-json-partial-'));
+
+  test('returns Partial<T> on success', () => {
+    const path = join(fixtureRoot, 'present.json');
+    writeFileSync(path, JSON.stringify({ name: 'nexus' }));
+
+    expect(readJsonPartial<{ name: string }>(path)).toEqual({ name: 'nexus' });
+  });
+
+  test('returns null when the file is missing', () => {
+    expect(readJsonPartial(join(fixtureRoot, 'missing.json'))).toBeNull();
+  });
+
+  test('returns null on malformed JSON instead of throwing', () => {
+    const path = join(fixtureRoot, 'malformed.json');
+    writeFileSync(path, 'definitely-not-json');
+
+    expect(readJsonPartial(path)).toBeNull();
+  });
+
+  test('cleanup', () => {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  });
+});
+
+describe('readJsonPartialOr (lenient convenience with fallback)', () => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'nexus-read-json-partial-or-'));
+
+  type Config = { name: string; verbose: boolean };
+  const fallback = (): Config => ({ name: 'default', verbose: false });
+  const normalize = (raw: Partial<Config>): Config => ({
+    name: typeof raw.name === 'string' ? raw.name : 'default',
+    verbose: typeof raw.verbose === 'boolean' ? raw.verbose : false,
+  });
+
+  test('passes parsed Partial through normalize on success', () => {
+    const path = join(fixtureRoot, 'present.json');
+    writeFileSync(path, JSON.stringify({ name: 'override' }));
+
+    expect(readJsonPartialOr(path, fallback, normalize)).toEqual({ name: 'override', verbose: false });
+  });
+
+  test('invokes fallback when the file is missing', () => {
+    const result = readJsonPartialOr(join(fixtureRoot, 'missing.json'), fallback, normalize);
+
+    expect(result).toEqual({ name: 'default', verbose: false });
+  });
+
+  test('invokes fallback on malformed JSON', () => {
+    const path = join(fixtureRoot, 'malformed.json');
+    writeFileSync(path, '{this is, not, json');
+
+    const result = readJsonPartialOr(path, fallback, normalize);
+
+    expect(result).toEqual({ name: 'default', verbose: false });
+  });
+
   test('cleanup', () => {
     rmSync(fixtureRoot, { recursive: true, force: true });
   });

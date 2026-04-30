@@ -22,7 +22,7 @@ import {
   type VerificationMatrixRecord,
   type VerificationMatrixSupportSkillSignalRecord,
 } from './types';
-import { isRecord } from './validation-helpers';
+import { isRecord, readJsonPartial, readJsonPartialOr } from './validation-helpers';
 
 function defaultDesignIntent(): DesignIntentRecord {
   return {
@@ -787,13 +787,13 @@ export function buildVerificationMatrix(
 
 export function readVerificationMatrix(cwd: string): VerificationMatrixRecord | null {
   const path = join(cwd, planVerificationMatrixPath());
-  if (!existsSync(path)) {
+  const partial = readJsonPartial<VerificationMatrixRecord>(path);
+  if (partial === null) {
     return null;
   }
 
   const fallback = buildDefaultVerificationMatrix(cwd, 'unknown', new Date(0).toISOString(), readFrameDesignIntent(cwd), 'full_acceptance');
-  const parsed = JSON.parse(readFileSync(path, 'utf8'));
-  return normalizeMatrix(parsed, fallback);
+  return normalizeMatrix(partial, fallback);
 }
 
 export function resolveVerificationMatrix(
@@ -804,10 +804,9 @@ export function resolveVerificationMatrix(
 ): VerificationMatrixRecord {
   const fallback = buildDefaultVerificationMatrix(cwd, runId, generatedAt, readFrameDesignIntent(cwd), reviewMode);
   const path = join(cwd, planVerificationMatrixPath());
-  if (!existsSync(path)) {
-    return fallback;
-  }
-
-  const parsed = JSON.parse(readFileSync(path, 'utf8'));
-  return normalizeMatrix(parsed, fallback);
+  return readJsonPartialOr(
+    path,
+    () => fallback,
+    (raw) => normalizeMatrix(raw, fallback),
+  );
 }
