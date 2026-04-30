@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   classifyInstalledSkill,
+  defaultExternalSkillRoots,
   discoverExternalInstalledSkills,
   rankExternalInstalledSkillsForAdvisor,
 } from '../../lib/nexus/external-skills';
@@ -200,5 +201,24 @@ describe('external installed skill discovery and ranking', () => {
     });
 
     expect(ranked.map((skill) => skill.surface)).toEqual(['/brand-audit']);
+  });
+
+  test('defaultExternalSkillRoots covers all four supported hosts at project and home scope', () => {
+    const cwd = '/tmp/nexus-fixture-cwd';
+    const home = '/tmp/nexus-fixture-home';
+    const roots = defaultExternalSkillRoots(cwd, home);
+
+    expect(roots).toEqual(expect.arrayContaining([
+      path.join(cwd, '.claude', 'skills'),
+      path.join(cwd, '.agents', 'skills'),
+      path.join(cwd, '.gemini', 'skills'),
+      path.join(cwd, '.factory', 'skills'),
+      path.join(home, '.claude', 'skills'),
+      path.join(home, '.codex', 'skills'),
+      path.join(home, '.agents', 'skills'),
+      path.join(home, '.gemini', 'skills'),
+      path.join(home, '.factory', 'skills'),
+    ]));
+    expect(new Set(roots).size).toBe(roots.length);
   });
 });

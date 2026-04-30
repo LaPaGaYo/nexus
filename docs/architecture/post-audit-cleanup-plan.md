@@ -177,6 +177,22 @@ entries but their mirrors are not consistently checked:
 **Status**: Open → **Phase 1.5** (small one-off fix). Add `.gemini/skills/`
 check to `scripts/skill-check.ts`.
 
+#### 4.4 Host coverage gap in `defaultExternalSkillRoots`
+
+`lib/nexus/external-skills.ts:206-214` lists default scan roots for runtime
+discovery of user-installed skills. The list covers Claude (project + home)
+and Codex (project + home, plus the legacy `~/.codex/skills/` path) but is
+**missing Gemini CLI and Factory**. Symmetric to §4.2: 4 hosts in the
+taxonomy, only 2 (Claude and Codex) get scanned.
+
+Result: when a user has installed Nexus skills under `~/.gemini/skills/` or
+`~/.factory/skills/`, the completion advisor doesn't see them and can't
+recommend them as cooperative options for the current stage.
+
+**Status**: Open → **Phase 1.6**. Add `<cwd>/.gemini/skills/`,
+`<cwd>/.factory/skills/`, `~/.gemini/skills/`, `~/.factory/skills/` to
+`defaultExternalSkillRoots`.
+
 #### 4.3 Cross-platform build undocumented
 
 `package.json` `build:server` requires `bash`, `build:chmod` requires
@@ -246,6 +262,14 @@ weren't on the original Phase 1 scope.
 - 🔲 Add `.gemini/skills/` existence check to `scripts/skill-check.ts`
   (parallel to the existing `.agents/` and `.factory/` checks). Closes
   finding §4.2. ~5 lines.
+
+### Phase 1.6 — External-skill scan host coverage
+
+Same shape as Phase 1.5 — closing a 4-host symmetry gap.
+
+- 🔲 Add `.gemini/skills/` and `.factory/skills/` (project + home scope) to
+  `defaultExternalSkillRoots` in `lib/nexus/external-skills.ts`. Closes
+  finding §4.4. ~5 lines plus a coverage test.
 
 ### Phase 2 — Consolidate duplicates
 
@@ -408,7 +432,40 @@ sanity-check that nothing is orphaned.
 | §3.2 (filesystem-bound tests) | Phase 3 step 6 |
 | §4.1 (legacy `review/` paths) | Phase 2.4 |
 | §4.2 (`.gemini/skills/` check) | Phase 1.5 |
+| §4.4 (host coverage gap in `defaultExternalSkillRoots`) | Phase 1.6 |
 | §4.3 (cross-platform build) | Phase 4 step 9 |
 | ST1, ST2, ST3, ST4, ST5, ST6, ST7, ST8, ST9, ST10 | Phase 4 (steps 1–10) |
 | D1, D2, D3, D4, D5, D6, D7 | Phase 4 step 8 |
 | D8 | Phase 4 step 10 (optional) |
+
+---
+
+## Future work (out of cleanup scope)
+
+These are deliberate non-cleanup items — they are net-new product capabilities,
+not debt repayment. They are tracked here so a future contributor can pick them
+up without rediscovering the context, but they should be re-scoped through
+`/discover` before any work begins.
+
+### Deep external-skill cooperation
+
+Today `lib/nexus/external-skills.ts` discovers user-installed skills across
+hosts and `completion-advisor` surfaces them as `recommended_external_skills`
+suggestions. That is a one-way "here are skills you might want to invoke"
+relationship.
+
+A deeper cooperation model could include:
+
+- **Pipeline composition** — Nexus stage commands (e.g., `/build`) fan out to
+  user-installed support skills automatically, with results written back to
+  `.planning/current/<stage>/` so subsequent stages see them.
+- **Adapter routing** — Nexus detects a user-installed `/codex-eng-review` (or
+  similar) and routes the canonical `/review` stage through it as the audit
+  provider, instead of (or alongside) the built-in CCB path.
+- **Shared state** — external skills can read Nexus run-ledger / stage-status
+  artifacts and write their own evidence under a stable contract, not via
+  recommendation only.
+
+This is a product-level decision (touches the contract surface, lifecycle, and
+host ergonomics), not a refactor. Open `/discover` first to clarify target
+users, value vs. cost, and the contract shape before any code work.

@@ -207,9 +207,13 @@ export function defaultExternalSkillRoots(cwd = process.cwd(), home = homedir())
   return unique([
     join(cwd, '.claude', 'skills'),
     join(cwd, '.agents', 'skills'),
+    join(cwd, '.gemini', 'skills'),
+    join(cwd, '.factory', 'skills'),
     join(home, '.claude', 'skills'),
     join(home, '.codex', 'skills'),
     join(home, '.agents', 'skills'),
+    join(home, '.gemini', 'skills'),
+    join(home, '.factory', 'skills'),
   ]);
 }
 
