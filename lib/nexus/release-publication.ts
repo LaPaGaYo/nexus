@@ -1,4 +1,5 @@
 import { buildReleasePreflightReport } from './release-publish';
+import { upstreamNotesPath } from './upstream-maintenance';
 
 export interface ReleasePublicationCommandSpec {
   argv: string[];
@@ -31,8 +32,8 @@ export interface ExecutePreparedReleasePublicationOptions {
 
 const DEFAULT_RELEASE_REPO = 'LaPaGaYo/nexus' as const;
 const MAINTAINER_STATUS_PATHS = [
-  'upstream-notes/maintainer-status.json',
-  'upstream-notes/maintainer-status.md',
+  upstreamNotesPath('maintainer-status.json'),
+  upstreamNotesPath('maintainer-status.md'),
 ] as const;
 
 function blockedPublication(version: string, tag: string, issues: string[]): ReleasePublicationReport {

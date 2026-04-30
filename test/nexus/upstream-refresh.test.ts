@@ -22,11 +22,11 @@ import { getUpstreamPinnedCommit } from '../../lib/nexus/upstream-maintenance';
 
 const REPO_ROOT = resolve(import.meta.dir, '..', '..');
 const SCRIPT_PATH = join(REPO_ROOT, 'scripts/upstream-refresh.ts');
-const REPO_README_PATH = join(REPO_ROOT, 'upstream/README.md');
-const REPO_LOCK_PATH = join(REPO_ROOT, 'upstream-notes/upstream-lock.json');
-const REPO_UPDATE_STATUS_PATH = join(REPO_ROOT, 'upstream-notes/update-status.md');
-const REPO_PM_INVENTORY_PATH = join(REPO_ROOT, 'upstream-notes/pm-skills-inventory.md');
-const REPO_PM_SKILLS_PATH = join(REPO_ROOT, 'upstream/pm-skills');
+const REPO_README_PATH = join(REPO_ROOT, 'vendor/upstream/README.md');
+const REPO_LOCK_PATH = join(REPO_ROOT, 'vendor/upstream-notes/upstream-lock.json');
+const REPO_UPDATE_STATUS_PATH = join(REPO_ROOT, 'vendor/upstream-notes/update-status.md');
+const REPO_PM_INVENTORY_PATH = join(REPO_ROOT, 'vendor/upstream-notes/pm-skills-inventory.md');
+const REPO_PM_SKILLS_PATH = join(REPO_ROOT, 'vendor/upstream/pm-skills');
 const REPO_UPSTREAM_MAINTENANCE_PATH = join(REPO_ROOT, 'lib/nexus/upstream-maintenance.ts');
 const REPO_PM_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/absorption/pm/source-map.ts');
 const STAGE_CONTENT_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/stage-content/source-map.ts');
@@ -80,12 +80,12 @@ function fileMode(path: string): number {
 function prepareWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'nexus-upstream-refresh-root-'));
 
-  copyTree(REPO_PM_SKILLS_PATH, join(root, 'upstream/pm-skills'));
-  copyTree(REPO_README_PATH, join(root, 'upstream/README.md'));
-  copyTree(REPO_LOCK_PATH, join(root, 'upstream-notes/upstream-lock.json'));
-  copyTree(REPO_UPDATE_STATUS_PATH, join(root, 'upstream-notes/update-status.md'));
-  copyTree(REPO_PM_INVENTORY_PATH, join(root, 'upstream-notes/pm-skills-inventory.md'));
-  copyTree(join(REPO_ROOT, 'upstream-notes/refresh-candidates/.gitkeep'), join(root, 'upstream-notes/refresh-candidates/.gitkeep'));
+  copyTree(REPO_PM_SKILLS_PATH, join(root, 'vendor/upstream/pm-skills'));
+  copyTree(REPO_README_PATH, join(root, 'vendor/upstream/README.md'));
+  copyTree(REPO_LOCK_PATH, join(root, 'vendor/upstream-notes/upstream-lock.json'));
+  copyTree(REPO_UPDATE_STATUS_PATH, join(root, 'vendor/upstream-notes/update-status.md'));
+  copyTree(REPO_PM_INVENTORY_PATH, join(root, 'vendor/upstream-notes/pm-skills-inventory.md'));
+  copyTree(join(REPO_ROOT, 'vendor/upstream-notes/refresh-candidates/.gitkeep'), join(root, 'vendor/upstream-notes/refresh-candidates/.gitkeep'));
   copyTree(REPO_UPSTREAM_MAINTENANCE_PATH, join(root, 'lib/nexus/upstream-maintenance.ts'));
   copyTree(REPO_PM_SOURCE_MAP_PATH, join(root, 'lib/nexus/absorption/pm/source-map.ts'));
   copyTree(STAGE_CONTENT_SOURCE_MAP_PATH, join(root, 'lib/nexus/stage-content/source-map.ts'));
@@ -130,7 +130,7 @@ function updateLockRecord(
   upstreamName: string,
   updates: { last_checked_commit?: string; last_absorption_decision?: string | null },
 ): void {
-  const lockPath = join(root, 'upstream-notes/upstream-lock.json');
+  const lockPath = join(root, 'vendor/upstream-notes/upstream-lock.json');
   const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as {
     upstreams: Array<
       Record<string, unknown> & {
@@ -156,7 +156,7 @@ function updateLockRecord(
   }
 
   writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
-  git(['-c', 'user.email=codex@example.com', '-c', 'user.name=Codex', 'add', 'upstream-notes/upstream-lock.json'], root);
+  git(['-c', 'user.email=codex@example.com', '-c', 'user.name=Codex', 'add', 'vendor/upstream-notes/upstream-lock.json'], root);
   git(['-c', 'user.email=codex@example.com', '-c', 'user.name=Codex', 'commit', '--quiet', '-m', `update ${upstreamName} lock`], root);
 }
 
@@ -173,7 +173,7 @@ function runRefresh(root: string, upstreamName: string) {
 }
 
 function readLock(root: string) {
-  return JSON.parse(readFileSync(join(root, 'upstream-notes/upstream-lock.json'), 'utf8')) as {
+  return JSON.parse(readFileSync(join(root, 'vendor/upstream-notes/upstream-lock.json'), 'utf8')) as {
     upstreams: Array<{
       name: string;
       repo_url: string;
@@ -216,10 +216,10 @@ describe('nexus upstream refresh', () => {
     const pm = lock.upstreams.find((row) => row.name === 'pm-skills');
     if (!pm) throw new Error('pm-skills row missing from lock');
 
-    const candidate = readFileSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
-    const readme = readFileSync(join(root, 'upstream/README.md'), 'utf8');
-    const updateStatus = readFileSync(join(root, 'upstream-notes/update-status.md'), 'utf8');
-    const inventory = readFileSync(join(root, 'upstream-notes/pm-skills-inventory.md'), 'utf8');
+    const candidate = readFileSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
+    const readme = readFileSync(join(root, 'vendor/upstream/README.md'), 'utf8');
+    const updateStatus = readFileSync(join(root, 'vendor/upstream-notes/update-status.md'), 'utf8');
+    const inventory = readFileSync(join(root, 'vendor/upstream-notes/pm-skills-inventory.md'), 'utf8');
     const maintenanceContract = readFileSync(join(root, 'lib/nexus/upstream-maintenance.ts'), 'utf8');
     const pmSourceMap = readFileSync(join(root, 'lib/nexus/absorption/pm/source-map.ts'), 'utf8');
 
@@ -236,7 +236,7 @@ describe('nexus upstream refresh', () => {
     expect(readme).toContain(`\`${fixture.commit}\``);
     expect(updateStatus).toContain(`| pm-skills | \`${fixture.commit}\` | \`${fixture.commit}\` | 0 |`);
     expect(updateStatus).toContain('## Pending Refresh Candidates');
-    expect(inventory).toContain(`| pm-discover-idea-brief | pm-skills | upstream/pm-skills | https://github.com/deanpeters/Product-Manager-Skills.git | ${fixture.commit} |`);
+    expect(inventory).toContain(`| pm-discover-idea-brief | pm-skills | vendor/upstream/pm-skills | https://github.com/deanpeters/Product-Manager-Skills.git | ${fixture.commit} |`);
     expect(maintenanceContract).toContain(`pinned_commit: '${fixture.commit}'`);
     expect(pmSourceMap).toContain(`pinned_commit: '${fixture.commit}'`);
     expect(hashFile(join(root, 'lib/nexus/stage-content/source-map.ts'))).toBe(stageContentBefore);
@@ -248,8 +248,8 @@ describe('nexus upstream refresh', () => {
     const fixture = createGitFixture(REPO_PM_SKILLS_PATH);
     updateLockRecord(root, 'pm-skills', { last_checked_commit: fixture.commit });
 
-    const trackedPath = join(root, 'upstream/pm-skills/commands/discover.md');
-    const untrackedPath = join(root, 'upstream/pm-skills/.local-refresh-note');
+    const trackedPath = join(root, 'vendor/upstream/pm-skills/commands/discover.md');
+    const untrackedPath = join(root, 'vendor/upstream/pm-skills/.local-refresh-note');
     writeFileSync(trackedPath, `${readFileSync(trackedPath, 'utf8')}\nLOCAL EDIT\n`);
     writeFileSync(untrackedPath, 'untracked change\n');
 
@@ -265,10 +265,10 @@ describe('nexus upstream refresh', () => {
     });
 
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain('Cannot refresh upstream/pm-skills because it has local tracked or untracked changes');
+    expect(result.stderr).toContain('Cannot refresh vendor/upstream/pm-skills because it has local tracked or untracked changes');
     expect(readFileSync(trackedPath, 'utf8')).toContain('LOCAL EDIT');
     expect(existsSync(untrackedPath)).toBe(true);
-    expect(existsSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'))).toBe(false);
+    expect(existsSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'))).toBe(false);
   });
 
   test('CLI refresh refuses dirty metadata targets before mutating the imported tree', () => {
@@ -276,12 +276,12 @@ describe('nexus upstream refresh', () => {
     const fixture = createGitFixture(REPO_PM_SKILLS_PATH);
     updateLockRecord(root, 'pm-skills', { last_checked_commit: fixture.commit });
 
-    const readmePath = join(root, 'upstream/README.md');
-    const candidatePath = join(root, 'upstream-notes/refresh-candidates/pm-skills.md');
+    const readmePath = join(root, 'vendor/upstream/README.md');
+    const candidatePath = join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md');
     writeFileSync(readmePath, `${readFileSync(readmePath, 'utf8')}\nLOCAL README EDIT\n`);
     writeFileSync(candidatePath, 'local candidate note\n');
 
-    const beforeImported = hashFile(join(root, 'upstream/pm-skills/commands/discover.md'));
+    const beforeImported = hashFile(join(root, 'vendor/upstream/pm-skills/commands/discover.md'));
     const result = spawnSync('bun', ['run', SCRIPT_PATH, 'pm-skills'], {
       cwd: root,
       encoding: 'utf8',
@@ -297,7 +297,7 @@ describe('nexus upstream refresh', () => {
     expect(result.stderr).toContain('refresh metadata targets');
     expect(readFileSync(readmePath, 'utf8')).toContain('LOCAL README EDIT');
     expect(readFileSync(candidatePath, 'utf8')).toBe('local candidate note\n');
-    expect(hashFile(join(root, 'upstream/pm-skills/commands/discover.md'))).toBe(beforeImported);
+    expect(hashFile(join(root, 'vendor/upstream/pm-skills/commands/discover.md'))).toBe(beforeImported);
   });
 
   test('CLI refresh copies the checkout produced from repo_url + commit and stages a candidate note on disk', () => {
@@ -324,10 +324,10 @@ describe('nexus upstream refresh', () => {
     });
     expect(result.status).toBe(0);
 
-    const candidate = readFileSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
-    const readme = readFileSync(join(root, 'upstream/README.md'), 'utf8');
-    const updateStatus = readFileSync(join(root, 'upstream-notes/update-status.md'), 'utf8');
-    const inventory = readFileSync(join(root, 'upstream-notes/pm-skills-inventory.md'), 'utf8');
+    const candidate = readFileSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
+    const readme = readFileSync(join(root, 'vendor/upstream/README.md'), 'utf8');
+    const updateStatus = readFileSync(join(root, 'vendor/upstream-notes/update-status.md'), 'utf8');
+    const inventory = readFileSync(join(root, 'vendor/upstream-notes/pm-skills-inventory.md'), 'utf8');
     const maintenanceContract = readFileSync(join(root, 'lib/nexus/upstream-maintenance.ts'), 'utf8');
     const pmSourceMap = readFileSync(join(root, 'lib/nexus/absorption/pm/source-map.ts'), 'utf8');
     const lock = readLock(root);
@@ -335,7 +335,7 @@ describe('nexus upstream refresh', () => {
     if (!pm) throw new Error('pm-skills row missing from lock');
 
     expect(candidate).toContain('## Changed upstream paths');
-    expect(candidate).toContain('`upstream/pm-skills/commands/discover.md`');
+    expect(candidate).toContain('`vendor/upstream/pm-skills/commands/discover.md`');
     expect(candidate).toContain('lib/nexus/absorption/pm/source-map.ts');
     expect(candidate).toContain('nexus-discover-content');
     expect(candidate).toContain('nexus-discover-pack');
@@ -407,8 +407,8 @@ describe('nexus upstream refresh', () => {
 
     expect(result.status).toBe(0);
 
-    const targetPath = join(root, 'upstream/pm-skills/scripts/add-a-skill.sh');
-    const candidate = readFileSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
+    const targetPath = join(root, 'vendor/upstream/pm-skills/scripts/add-a-skill.sh');
+    const candidate = readFileSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
     const lock = readLock(root);
     const pm = lock.upstreams.find((row) => row.name === 'pm-skills');
     if (!pm) throw new Error('pm-skills row missing from lock');
@@ -416,7 +416,7 @@ describe('nexus upstream refresh', () => {
     expect(sourceMode).toBe(0o644);
     expect(fileMode(targetPath)).toBe(sourceMode);
     expect(candidate).toContain('## Changed upstream paths');
-    expect(candidate).toContain('`upstream/pm-skills/scripts/add-a-skill.sh`');
+    expect(candidate).toContain('`vendor/upstream/pm-skills/scripts/add-a-skill.sh`');
     expect(candidate).not.toContain('## Changed upstream paths\n\n- none');
     expect(pm.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(pm.refresh_status).toBe('refresh_candidate');
@@ -446,16 +446,16 @@ describe('nexus upstream refresh', () => {
 
     expect(result.status).toBe(0);
 
-    const targetPath = join(root, 'upstream/pm-skills/AGENTS.md');
-    const candidate = readFileSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
+    const targetPath = join(root, 'vendor/upstream/pm-skills/AGENTS.md');
+    const candidate = readFileSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'), 'utf8');
     expect(lstatSync(targetPath).isSymbolicLink()).toBe(true);
     expect(readlinkSync(targetPath)).toBe('commands/discover.md');
-    expect(candidate).toContain('`upstream/pm-skills/AGENTS.md`');
+    expect(candidate).toContain('`vendor/upstream/pm-skills/AGENTS.md`');
   });
 
   test('CLI refresh rolls back the imported upstream tree if a later write step fails', () => {
     const { root } = prepareWorkspace();
-    chmodSync(join(root, 'upstream-notes/refresh-candidates'), 0o555);
+    chmodSync(join(root, 'vendor/upstream-notes/refresh-candidates'), 0o555);
     const fixture = createGitFixture(REPO_PM_SKILLS_PATH, {
       mutate: (repoRoot) => {
         writeFileSync(
@@ -466,7 +466,7 @@ describe('nexus upstream refresh', () => {
     });
     updateLockRecord(root, 'pm-skills', { last_checked_commit: fixture.commit });
 
-    const beforeContent = readFileSync(join(root, 'upstream/pm-skills/commands/discover.md'), 'utf8');
+    const beforeContent = readFileSync(join(root, 'vendor/upstream/pm-skills/commands/discover.md'), 'utf8');
     const result = spawnSync('bun', ['run', SCRIPT_PATH, 'pm-skills'], {
       cwd: root,
       encoding: 'utf8',
@@ -480,8 +480,8 @@ describe('nexus upstream refresh', () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('EACCES');
-    expect(readFileSync(join(root, 'upstream/pm-skills/commands/discover.md'), 'utf8')).toBe(beforeContent);
-    expect(existsSync(join(root, 'upstream-notes/refresh-candidates/pm-skills.md'))).toBe(false);
+    expect(readFileSync(join(root, 'vendor/upstream/pm-skills/commands/discover.md'), 'utf8')).toBe(beforeContent);
+    expect(existsSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'))).toBe(false);
   });
 
   test('invalid upstream names are rejected through the CLI entrypoint', () => {

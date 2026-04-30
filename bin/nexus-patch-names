@@ -43,7 +43,7 @@ done < <(
        -path "$SKILLS_DIR/.gemini" -o \
        -path "$SKILLS_DIR/node_modules" -o \
        -path "$SKILLS_DIR/dist" -o \
-       -path "$SKILLS_DIR/upstream" \) -prune -o \
+       -path "$SKILLS_DIR/vendor/upstream" \) -prune -o \
     -type f -name SKILL.md -print
 )
 if [ "$PATCHED" -gt 0 ]; then

@@ -384,8 +384,8 @@ describe('nexus product surface contract', () => {
     const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'maintainer-loop.yml'), 'utf8');
 
     expect(upstreamRunbook).toContain('bun run maintainer:check');
-    expect(upstreamRunbook).toContain('upstream-notes/maintainer-status.json');
-    expect(upstreamRunbook).toContain('upstream-notes/maintainer-status.md');
+    expect(upstreamRunbook).toContain('vendor/upstream-notes/maintainer-status.json');
+    expect(upstreamRunbook).toContain('vendor/upstream-notes/maintainer-status.md');
 
     expect(releaseRunbook).toContain('bun run maintainer:check');
     expect(releaseRunbook).toContain('./bin/nexus-release-publish');

@@ -90,7 +90,7 @@ Use the unified maintainer report before and after publication:
 
 - `bun run maintainer:check`
 - `bun run maintainer:check:report` for a no-write local preview
-- machine-readable report: `upstream-notes/maintainer-status.json`
-- human-readable report: `upstream-notes/maintainer-status.md`
+- machine-readable report: `vendor/upstream-notes/maintainer-status.json`
+- human-readable report: `vendor/upstream-notes/maintainer-status.md`
 
 After publication, verify that the released `release.json` matches the tag and that the release notes are reachable from the GitHub Release page. If any mismatch appears, treat it as a maintainer publishing error, not a runtime upgrade issue.

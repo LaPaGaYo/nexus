@@ -28,6 +28,9 @@ import {
   parseUpstreamMaintenanceLock,
   renderUpstreamCheckStatus,
   serializeUpstreamMaintenanceLock,
+  upstreamNotesPath,
+  upstreamRefreshCandidatePath,
+  UPSTREAM_VENDOR_ROOT,
   type UpstreamMaintenanceDefinition,
   type UpstreamMaintenanceLock,
   type UpstreamName,
@@ -40,9 +43,9 @@ const DEFAULT_ROOT = resolve(import.meta.dir, '..');
 const CLI_ROOT = process.env.UPSTREAM_REFRESH_ROOT ? resolve(process.env.UPSTREAM_REFRESH_ROOT) : DEFAULT_ROOT;
 const REPO_URL_OVERRIDE = process.env.UPSTREAM_REFRESH_REPO_URL_OVERRIDE?.trim() || null;
 
-const LOCK_TARGET = 'upstream-notes/upstream-lock.json';
-const README_TARGET = 'upstream/README.md';
-const STATUS_TARGET = 'upstream-notes/update-status.md';
+const LOCK_TARGET = upstreamNotesPath('upstream-lock.json');
+const README_TARGET = `${UPSTREAM_VENDOR_ROOT}/README.md`;
+const STATUS_TARGET = upstreamNotesPath('update-status.md');
 
 interface UpstreamRefreshAnalysis {
   changed_upstream_paths: string[];
@@ -90,47 +93,47 @@ const CONTRACT_PIN_TARGETS: Record<UpstreamName, string[]> = {
   'pm-skills': [
     'lib/nexus/upstream-maintenance.ts',
     'lib/nexus/absorption/pm/source-map.ts',
-    'upstream-notes/pm-skills-inventory.md',
+    upstreamNotesPath('pm-skills-inventory.md'),
   ],
   gsd: [
     'lib/nexus/upstream-maintenance.ts',
     'lib/nexus/absorption/gsd/source-map.ts',
     'lib/nexus/stage-content/source-map.ts',
-    'upstream-notes/gsd-inventory.md',
+    upstreamNotesPath('gsd-inventory.md'),
   ],
   superpowers: [
     'lib/nexus/upstream-maintenance.ts',
     'lib/nexus/absorption/superpowers/source-map.ts',
     'lib/nexus/stage-content/source-map.ts',
-    'upstream-notes/superpowers-inventory.md',
+    upstreamNotesPath('superpowers-inventory.md'),
   ],
   'claude-code-bridge': [
     'lib/nexus/upstream-maintenance.ts',
     'lib/nexus/absorption/ccb/source-map.ts',
     'lib/nexus/stage-content/source-map.ts',
-    'upstream-notes/ccb-inventory.md',
+    upstreamNotesPath('ccb-inventory.md'),
   ],
 };
 
 const SOURCE_MAP_INDEX: SourceMapIndexEntry[] = [
   {
     source_map_path: 'lib/nexus/absorption/pm/source-map.ts',
-    imported_path: 'upstream/pm-skills',
+    imported_path: `${UPSTREAM_VENDOR_ROOT}/pm-skills`,
     source_refs: PM_SOURCE_MAP,
   },
   {
     source_map_path: 'lib/nexus/absorption/gsd/source-map.ts',
-    imported_path: 'upstream/gsd',
+    imported_path: `${UPSTREAM_VENDOR_ROOT}/gsd`,
     source_refs: GSD_SOURCE_MAP,
   },
   {
     source_map_path: 'lib/nexus/absorption/superpowers/source-map.ts',
-    imported_path: 'upstream/superpowers',
+    imported_path: `${UPSTREAM_VENDOR_ROOT}/superpowers`,
     source_refs: SUPERPOWERS_SOURCE_MAP,
   },
   {
     source_map_path: 'lib/nexus/absorption/ccb/source-map.ts',
-    imported_path: 'upstream/claude-code-bridge',
+    imported_path: `${UPSTREAM_VENDOR_ROOT}/claude-code-bridge`,
     source_refs: CCB_SOURCE_MAP,
   },
 ];
@@ -431,7 +434,7 @@ function collectUpstreamAnalysis(upstreamName: UpstreamName, changedUpstreamPath
 
   for (const changedPath of changedUpstreamPaths) {
     for (const entry of SOURCE_MAP_INDEX) {
-      if (entry.imported_path !== `upstream/${upstreamName}`) {
+      if (entry.imported_path !== `${UPSTREAM_VENDOR_ROOT}/${upstreamName}`) {
         continue;
       }
 
@@ -522,7 +525,7 @@ function renderUpstreamRefreshCandidateNote(
   lines.push('');
   lines.push('- Refresh stages imported source material and maintenance metadata only.');
   lines.push('- Refresh does not edit absorption review logic, stage-content, stage-packs, release docs, or `VERSION`.');
-  lines.push('- Refresh uses the checked commit recorded in `upstream-notes/upstream-lock.json` as its target.');
+  lines.push(`- Refresh uses the checked commit recorded in \`${upstreamNotesPath('upstream-lock.json')}\` as its target.`);
 
   return `${lines.join('\n')}\n`;
 }
@@ -579,8 +582,8 @@ export function runUpstreamRefresh(options: {
   const refreshedAt = options.refreshedAt ?? new Date().toISOString();
   const upstreamName = options.upstreamName as UpstreamName;
 
-  if (!SOURCE_MAP_INDEX.some((entry) => entry.imported_path === `upstream/${upstreamName}`)) {
-    throw new Error(`Unknown upstream: ${options.upstreamName}. Supported upstreams: ${SOURCE_MAP_INDEX.map((entry) => entry.imported_path.replace('upstream/', '')).join(', ')}`);
+  if (!SOURCE_MAP_INDEX.some((entry) => entry.imported_path === `${UPSTREAM_VENDOR_ROOT}/${upstreamName}`)) {
+    throw new Error(`Unknown upstream: ${options.upstreamName}. Supported upstreams: ${SOURCE_MAP_INDEX.map((entry) => entry.imported_path.replace(`${UPSTREAM_VENDOR_ROOT}/`, '')).join(', ')}`);
   }
 
   const lockPath = join(root, LOCK_TARGET);
@@ -595,19 +598,19 @@ export function runUpstreamRefresh(options: {
   }
 
   if (record.last_checked_commit === null) {
-    throw new Error(`Cannot refresh ${upstream.name} because last_checked_commit is missing in upstream-notes/upstream-lock.json`);
+    throw new Error(`Cannot refresh ${upstream.name} because last_checked_commit is missing in ${upstreamNotesPath('upstream-lock.json')}`);
   }
 
   const targetSnapshotPath = join(root, upstream.imported_path);
   const beforeSnapshot = readSnapshot(targetSnapshotPath);
   ensureImportedTreeIsClean(root, upstream.imported_path);
-  const candidateNotePath = join(root, 'upstream-notes/refresh-candidates', `${upstream.name}.md`);
+  const candidateNotePath = join(root, upstreamRefreshCandidatePath(upstream.name));
   const contractTargets = CONTRACT_PIN_TARGETS[upstream.name];
   const metadataTargetPaths = [
     LOCK_TARGET,
     README_TARGET,
     STATUS_TARGET,
-    `upstream-notes/refresh-candidates/${upstream.name}.md`,
+    upstreamRefreshCandidatePath(upstream.name),
     ...contractTargets,
   ];
   ensureWriteTargetsAreClean(root, metadataTargetPaths);
@@ -691,7 +694,7 @@ export function runUpstreamRefresh(options: {
         LOCK_TARGET,
         README_TARGET,
         STATUS_TARGET,
-        `upstream-notes/refresh-candidates/${upstream.name}.md`,
+        upstreamRefreshCandidatePath(upstream.name),
         ...contractTargets,
         ...analysis.changed_upstream_paths.map((path) => `${upstream.imported_path}/${path}`),
       ],

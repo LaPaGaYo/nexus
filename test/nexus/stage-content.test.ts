@@ -44,7 +44,7 @@ describe('nexus stage content', () => {
       expect(binding.content_root.startsWith('lib/nexus/stage-content/')).toBe(true);
 
       for (const entry of binding.source_refs) {
-        expect(entry.imported_path.startsWith('upstream/')).toBe(true);
+        expect(entry.imported_path.startsWith('vendor/upstream/')).toBe(true);
         expect(entry.upstream_file.startsWith(entry.imported_path)).toBe(true);
         expect(existsSync(entry.upstream_file)).toBe(true);
       }

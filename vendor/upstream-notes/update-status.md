@@ -2,8 +2,8 @@
 
 Last checked: `2026-04-10T02:44:33.178Z`
 
-- Maintenance truth: `upstream-notes/upstream-lock.json`
-- Human-readable freshness summary: `upstream-notes/update-status.md`
+- Maintenance truth: `vendor/upstream-notes/upstream-lock.json`
+- Human-readable freshness summary: `vendor/upstream-notes/update-status.md`
 - Imported upstreams remain source material only
 
 | upstream | pinned_commit | latest_checked_commit | behind_count | active_absorbed_capabilities | triage_recommendation |

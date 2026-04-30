@@ -16,7 +16,7 @@ describe('nexus-maintainer-check', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-maintainer-check-'));
 
     try {
-      mkdirSync(join(root, 'upstream-notes'), { recursive: true });
+      mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
       mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
       writeFileSync(join(root, 'VERSION'), '1.0.1\n');
       writeJson(join(root, 'package.json'), { version: '1.0.1' });
@@ -39,7 +39,7 @@ describe('nexus-maintainer-check', () => {
       });
       writeFileSync(join(root, 'docs', 'releases', '2026-04-10-nexus-v1.0.1.md'), '# Nexus v1.0.1\n');
       writeFileSync(
-        join(root, 'upstream-notes', 'upstream-lock.json'),
+        join(root, 'vendor/upstream-notes', 'upstream-lock.json'),
         serializeUpstreamMaintenanceLock(createInitialUpstreamLock('2026-04-10T12:00:00.000Z')),
       );
 
@@ -60,13 +60,13 @@ describe('nexus-maintainer-check', () => {
       expect(result.stdout.toString().trim()).toBe('READY none');
       expect(result.stderr.toString().trim()).toBe('');
 
-      const report = JSON.parse(readFileSync(join(root, 'upstream-notes', 'maintainer-status.json'), 'utf8')) as {
+      const report = JSON.parse(readFileSync(join(root, 'vendor/upstream-notes', 'maintainer-status.json'), 'utf8')) as {
         schema_version: number;
         status: string;
       };
       expect(report.schema_version).toBe(1);
       expect(report.status).toBe('ready');
-      expect(readFileSync(join(root, 'upstream-notes', 'maintainer-status.md'), 'utf8')).toContain(
+      expect(readFileSync(join(root, 'vendor/upstream-notes', 'maintainer-status.md'), 'utf8')).toContain(
         '# Nexus Maintainer Status',
       );
     } finally {
@@ -78,7 +78,7 @@ describe('nexus-maintainer-check', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-maintainer-check-'));
 
     try {
-      mkdirSync(join(root, 'upstream-notes'), { recursive: true });
+      mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
       mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
       writeFileSync(join(root, 'VERSION'), '1.0.2\n');
       writeJson(join(root, 'package.json'), { version: '1.0.2' });
@@ -101,7 +101,7 @@ describe('nexus-maintainer-check', () => {
       });
       writeFileSync(join(root, 'docs', 'releases', '2026-04-10-nexus-v1.0.2.md'), '# Nexus v1.0.2\n');
       writeFileSync(
-        join(root, 'upstream-notes', 'upstream-lock.json'),
+        join(root, 'vendor/upstream-notes', 'upstream-lock.json'),
         serializeUpstreamMaintenanceLock(createInitialUpstreamLock('2026-04-10T12:00:00.000Z')),
       );
 
@@ -131,7 +131,7 @@ describe('nexus-maintainer-check', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-maintainer-check-'));
 
     try {
-      mkdirSync(join(root, 'upstream-notes'), { recursive: true });
+      mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
       mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
       writeFileSync(join(root, 'VERSION'), '1.0.2\n');
       writeJson(join(root, 'package.json'), { version: '1.0.2' });
@@ -154,7 +154,7 @@ describe('nexus-maintainer-check', () => {
       });
       writeFileSync(join(root, 'docs', 'releases', '2026-04-10-nexus-v1.0.2.md'), '# Nexus v1.0.2\n');
       writeFileSync(
-        join(root, 'upstream-notes', 'upstream-lock.json'),
+        join(root, 'vendor/upstream-notes', 'upstream-lock.json'),
         serializeUpstreamMaintenanceLock(createInitialUpstreamLock('2026-04-10T12:00:00.000Z')),
       );
 
@@ -183,7 +183,7 @@ describe('nexus-maintainer-check', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-maintainer-check-'));
 
     try {
-      mkdirSync(join(root, 'upstream-notes'), { recursive: true });
+      mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
       mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
       writeFileSync(join(root, 'VERSION'), '1.0.1\n');
       writeJson(join(root, 'package.json'), { version: '1.0.1' });
@@ -206,7 +206,7 @@ describe('nexus-maintainer-check', () => {
       });
       writeFileSync(join(root, 'docs', 'releases', '2026-04-10-nexus-v1.0.1.md'), '# Nexus v1.0.1\n');
       writeFileSync(
-        join(root, 'upstream-notes', 'upstream-lock.json'),
+        join(root, 'vendor/upstream-notes', 'upstream-lock.json'),
         serializeUpstreamMaintenanceLock(createInitialUpstreamLock('2026-04-10T12:00:00.000Z')),
       );
 
@@ -223,8 +223,8 @@ describe('nexus-maintainer-check', () => {
           remote_smoke_status: 'unknown',
         },
       });
-      const reportPath = join(root, 'upstream-notes', 'maintainer-status.json');
-      const markdownPath = join(root, 'upstream-notes', 'maintainer-status.md');
+      const reportPath = join(root, 'vendor/upstream-notes', 'maintainer-status.json');
+      const markdownPath = join(root, 'vendor/upstream-notes', 'maintainer-status.md');
       writeJson(reportPath, previousReport);
       writeFileSync(markdownPath, renderMaintainerLoopMarkdown(previousReport));
       const reportBefore = readFileSync(reportPath, 'utf8');
@@ -256,7 +256,7 @@ describe('nexus-maintainer-check', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-maintainer-check-'));
 
     try {
-      mkdirSync(join(root, 'upstream-notes'), { recursive: true });
+      mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
       mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
       writeFileSync(join(root, 'VERSION'), '1.0.2\n');
       writeJson(join(root, 'package.json'), { version: '1.0.2' });
@@ -279,12 +279,12 @@ describe('nexus-maintainer-check', () => {
       });
       writeFileSync(join(root, 'docs', 'releases', '2026-04-10-nexus-v1.0.2.md'), '# Nexus v1.0.2\n');
       writeFileSync(
-        join(root, 'upstream-notes', 'upstream-lock.json'),
+        join(root, 'vendor/upstream-notes', 'upstream-lock.json'),
         serializeUpstreamMaintenanceLock(createInitialUpstreamLock('2026-04-10T12:00:00.000Z')),
       );
 
-      const reportPath = join(root, 'upstream-notes', 'maintainer-status.json');
-      const markdownPath = join(root, 'upstream-notes', 'maintainer-status.md');
+      const reportPath = join(root, 'vendor/upstream-notes', 'maintainer-status.json');
+      const markdownPath = join(root, 'vendor/upstream-notes', 'maintainer-status.md');
       writeFileSync(reportPath, 'existing-json\n');
       writeFileSync(markdownPath, 'existing-markdown\n');
 
@@ -315,7 +315,7 @@ describe('nexus-maintainer-check', () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-maintainer-check-'));
 
     try {
-      mkdirSync(join(root, 'upstream-notes'), { recursive: true });
+      mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
       mkdirSync(join(root, 'docs', 'releases'), { recursive: true });
       writeFileSync(join(root, 'VERSION'), '1.0.2\n');
       writeJson(join(root, 'package.json'), { version: '1.0.2' });
@@ -338,12 +338,12 @@ describe('nexus-maintainer-check', () => {
       });
       writeFileSync(join(root, 'docs', 'releases', '2026-04-10-nexus-v1.0.2.md'), '# Nexus v1.0.2\n');
       writeFileSync(
-        join(root, 'upstream-notes', 'upstream-lock.json'),
+        join(root, 'vendor/upstream-notes', 'upstream-lock.json'),
         serializeUpstreamMaintenanceLock(createInitialUpstreamLock('2026-04-10T12:00:00.000Z')),
       );
 
-      const reportPath = join(root, 'upstream-notes', 'maintainer-status.json');
-      const markdownPath = join(root, 'upstream-notes', 'maintainer-status.md');
+      const reportPath = join(root, 'vendor/upstream-notes', 'maintainer-status.json');
+      const markdownPath = join(root, 'vendor/upstream-notes', 'maintainer-status.md');
       const result = Bun.spawnSync([SCRIPT, '--no-write'], {
         cwd: root,
         stdout: 'pipe',
