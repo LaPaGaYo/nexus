@@ -3,10 +3,11 @@
 Active sources:
 
 - `CLAUDE.md`
-- `.claude/`
+- `hosts/claude/rules/`
+
+Compatibility surface:
+
+- `.claude/rules/` symlinks to the rule sources above so Claude discovery stays
+  compatible.
 
 Planned target: `hosts/claude`
-
-This file is documentation only. Claude host discovery remains on the current
-root-level and `.claude/` surfaces.
-

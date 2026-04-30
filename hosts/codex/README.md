@@ -1,9 +1,13 @@
 # Codex Host Facade
 
-Active source: `.agents/`
+Active sources:
+
+- `hosts/codex/openai.yaml`
+
+Compatibility and generated output:
+
+- `agents/openai.yaml` symlinks to the source above for Codex root metadata
+  compatibility.
+- `.agents/` remains generated Codex skill output.
 
 Planned target: `hosts/codex`
-
-This file is documentation only. Codex host skill output remains generated
-under `.agents/` for compatibility with existing installs.
-

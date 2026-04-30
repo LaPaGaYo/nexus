@@ -244,7 +244,7 @@ If you want Claude to do the install for you, open Claude Code and paste this:
 >
 > - Claude is the only interactive front door.
 > - When a repository exposes canonical Nexus commands, route lifecycle work through **`/discover`**, **`/frame`**, **`/plan`**, **`/handoff`**, **`/build`**, **`/review`**, **`/qa`**, **`/ship`**, and **`/closeout`**.
-> - Keep global **`CLAUDE.md`** limited to cross-project defaults. Keep project-specific workflow and architecture in the repository **`CLAUDE.md`**, **`.claude/rules/`**, or skills.
+> - Keep global **`CLAUDE.md`** limited to cross-project defaults. Keep project-specific workflow and architecture in the repository **`CLAUDE.md`**, **`hosts/claude/rules/`**, or skills. **`.claude/rules/`** remains the Claude discovery compatibility surface.
 > - Use **`/browse`** from Nexus for all web browsing.
 > - Never use **`mcp__claude-in-chrome__*`** tools unless the user explicitly asks for them.
 > - Legacy aliases **`/office-hours`**, **`/plan-ceo-review`**, **`/plan-eng-review`**, and **`/autoplan`** are compatibility-only.
@@ -312,7 +312,7 @@ cd .claude/skills/nexus && ./setup
 
 This must be a real repo copy, not a submodule and not just a symlink.
 
-Then update the project `CLAUDE.md` so it stays Nexus-first, and use `.claude/rules/` for heavier or path-scoped project guidance. Canonical lifecycle commands come first, `/browse` stays the web tool, `mcp__claude-in-chrome__*` stays disallowed unless explicitly requested, and legacy aliases are documented only as compatibility entries.
+Then update the project `CLAUDE.md` so it stays Nexus-first, and use `hosts/claude/rules/` for heavier or path-scoped project guidance. `.claude/rules/` remains a compatibility surface for Claude discovery. Canonical lifecycle commands come first, `/browse` stays the web tool, `mcp__claude-in-chrome__*` stays disallowed unless explicitly requested, and legacy aliases are documented only as compatibility entries.
 
 ### Other hosts
 

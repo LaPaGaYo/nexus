@@ -7,7 +7,6 @@ import { classifyRepoPath, type RepoPathClassification } from '../lib/nexus/repo
 const ROOT = join(import.meta.dir, '..');
 const OUTPUT_PATH = 'docs/architecture/repo-path-inventory.md';
 const SELF_PATH = 'scripts/repo-path-inventory.ts';
-const GENERATED_FUTURE_PATHS = ['hosts/codex/openai.yaml'];
 
 function gitLsFiles(): string[] {
   const result = Bun.spawnSync(['git', 'ls-files'], { cwd: ROOT });
@@ -20,8 +19,7 @@ function gitLsFiles(): string[] {
 
 function allInventoryPaths(): string[] {
   const tracked = gitLsFiles();
-  const generatedAndNew = [SELF_PATH, OUTPUT_PATH, ...GENERATED_FUTURE_PATHS]
-    .filter((file) => file === SELF_PATH || file === OUTPUT_PATH || existsSync(join(ROOT, file)));
+  const generatedAndNew = [SELF_PATH, OUTPUT_PATH];
   return Array.from(new Set([...tracked, ...generatedAndNew])).sort();
 }
 

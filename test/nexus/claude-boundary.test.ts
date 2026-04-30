@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, lstatSync, readFileSync, readlinkSync } from 'fs';
 import { join } from 'path';
 import { readSkill } from '../helpers/skill-paths';
 
@@ -39,6 +39,16 @@ describe('nexus claude boundary', () => {
   test('Claude-facing maintenance guidance is split into topic rules', () => {
     expect(existsSync(join(ROOT, '.claude', 'rules', 'maintainer-surface.md'))).toBe(true);
     expect(existsSync(join(ROOT, '.claude', 'rules', 'skill-authoring.md'))).toBe(true);
+    expect(existsSync(join(ROOT, 'hosts', 'claude', 'rules', 'maintainer-surface.md'))).toBe(true);
+    expect(existsSync(join(ROOT, 'hosts', 'claude', 'rules', 'skill-authoring.md'))).toBe(true);
+    expect(lstatSync(join(ROOT, '.claude', 'rules', 'maintainer-surface.md')).isSymbolicLink()).toBe(true);
+    expect(lstatSync(join(ROOT, '.claude', 'rules', 'skill-authoring.md')).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(ROOT, '.claude', 'rules', 'maintainer-surface.md'))).toBe(
+      '../../hosts/claude/rules/maintainer-surface.md'
+    );
+    expect(readlinkSync(join(ROOT, '.claude', 'rules', 'skill-authoring.md'))).toBe(
+      '../../hosts/claude/rules/skill-authoring.md'
+    );
 
     const maintainerRule = readFileSync(join(ROOT, '.claude', 'rules', 'maintainer-surface.md'), 'utf8');
     const skillRule = readFileSync(join(ROOT, '.claude', 'rules', 'skill-authoring.md'), 'utf8');

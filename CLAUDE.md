@@ -2,8 +2,9 @@
 
 Claude-facing project instructions for this repository.
 Keep this file concise and always-on. Put topic-specific or path-sensitive guidance in
-`.claude/rules/`. Use skills for task-specific workflows. `AGENTS.md` exists for
-other hosts and should not replace this file as Claude's source of truth.
+`hosts/claude/rules/`; `.claude/rules/` is the Claude discovery compatibility
+surface. Use skills for task-specific workflows. `AGENTS.md` exists for other
+hosts and should not replace this file as Claude's source of truth.
 
 ## Nexus Skill Routing
 
@@ -30,7 +31,7 @@ Key routing rules:
 - Nexus is the only active command, lifecycle, artifact, and governance surface.
 - Repo-visible instructions, contracts, and artifacts are the source of truth.
 - If tool state conflicts with repo-visible Nexus state, surface the conflict instead of silently reconciling it.
-- Keep project behavior here or in `.claude/rules/`. Keep user-level preferences in `~/.claude/CLAUDE.md`.
+- Keep project behavior here or in `hosts/claude/rules/`. Keep user-level preferences in `~/.claude/CLAUDE.md`.
 
 ## Working Commands
 
@@ -46,5 +47,5 @@ bun run skill:check
 
 - `SKILL.md` files are generated outputs. Edit `.tmpl` sources or generators, then regenerate.
 - Prefer `/browse` or `$B` for browser automation. Do not use `mcp__claude-in-chrome__*` unless explicitly requested.
-- Keep Claude-facing instructions short and specific. Move heavy or path-sensitive detail into `.claude/rules/`.
+- Keep Claude-facing instructions short and specific. Move heavy or path-sensitive detail into `hosts/claude/rules/`; keep `.claude/rules/` as compatibility links only.
 - Preserve multi-model boundaries: Claude is the front door; Codex and Gemini remain backend collaborators through Nexus and CCB, not parallel contract owners.
