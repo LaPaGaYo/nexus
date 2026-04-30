@@ -1,5 +1,6 @@
 import type { PullRequestRecord } from './types';
 import { runNexusCommand, type NexusCommandRunner } from './command-runner';
+import { shellQuotePosix } from './shell-quote';
 
 interface GithubPullRequestPayload {
   number?: number;
@@ -61,7 +62,7 @@ function pushRequiredPullRequest(
     head_sha: headSha,
     base_branch: baseBranch,
     reason,
-    push_command: `git push -u ${remote} HEAD`,
+    push_command: `git push -u ${shellQuotePosix(remote)} HEAD`,
   };
 }
 

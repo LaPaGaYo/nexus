@@ -14,6 +14,7 @@ import type {
 } from './types';
 import { discoverExternalInstalledSkills, rankExternalInstalledSkillsForAdvisor } from './external-skills';
 import { readVerificationMatrix } from './verification-matrix';
+import { shellQuotePosix } from './shell-quote';
 
 const HIDDEN_COMPAT_ALIASES = ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'] as const;
 const HIDDEN_UTILITY_SKILLS = ['/careful', '/freeze', '/guard', '/unfreeze', '/nexus-upgrade'] as const;
@@ -1159,7 +1160,7 @@ export function buildShipCompletionAdvisor(
 
   if (!status.ready || status.state === 'blocked' || status.state === 'refused') {
     if (pullRequest?.status === 'push_required') {
-      const pushCommand = pullRequest.push_command ?? `git push -u origin ${pullRequest.head_branch ?? 'HEAD'}`;
+      const pushCommand = pullRequest.push_command ?? `git push -u origin ${shellQuotePosix(pullRequest.head_branch ?? 'HEAD')}`;
       const pushAction = action(
         'push_branch',
         'manual_command',
