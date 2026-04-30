@@ -110,7 +110,7 @@ function assertNoForbiddenGitUpgradeCommands(result: SkillTestResult) {
 
 let testServer: ReturnType<typeof startTestServer>;
 let tmpDir: string;
-const browseBin = path.resolve(ROOT, 'browse', 'dist', 'browse');
+const browseBin = path.resolve(ROOT, 'runtimes', 'browse', 'dist', 'browse');
 
 /**
  * Copy a directory tree recursively (files only, follows structure).

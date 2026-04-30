@@ -176,6 +176,9 @@ export type CanaryEvidenceStatus = (typeof CANARY_EVIDENCE_STATUSES)[number];
 export const VERIFICATION_EVIDENCE_STATUSES = ['passed', 'failed', 'blocked', 'not_run'] as const;
 export type VerificationEvidenceStatus = (typeof VERIFICATION_EVIDENCE_STATUSES)[number];
 
+export const VERIFICATION_EVIDENCE_SOURCES = ['nexus_stage', 'superpowers_absorption'] as const;
+export type VerificationEvidenceSource = (typeof VERIFICATION_EVIDENCE_SOURCES)[number];
+
 export const TDD_EVIDENCE_MODES = [
   'not_applicable',
   'red_green_refactor',
@@ -192,6 +195,12 @@ export const REVIEW_FEEDBACK_DISPOSITIONS = [
   'out_of_scope',
 ] as const;
 export type ReviewFeedbackDisposition = (typeof REVIEW_FEEDBACK_DISPOSITIONS)[number];
+
+export const REVIEW_FEEDBACK_PRIORITIES = ['P0', 'P1', 'P2', 'P3'] as const;
+export type ReviewFeedbackPriority = (typeof REVIEW_FEEDBACK_PRIORITIES)[number];
+
+export const REVIEW_FEEDBACK_SOURCES = ['github_review', 'provider_audit', 'human', 'external'] as const;
+export type ReviewFeedbackSource = (typeof REVIEW_FEEDBACK_SOURCES)[number];
 
 export const DEPLOY_RESULT_PHASES = ['pre_merge', 'merge_queue', 'post_merge'] as const;
 export type DeployResultPhase = (typeof DEPLOY_RESULT_PHASES)[number];
@@ -344,7 +353,7 @@ export interface VerificationMatrixRecord {
 }
 
 export interface VerificationEvidenceCommandRecord {
-  command: string;
+  argv: string[];
   exit_code: number | null;
   status: VerificationEvidenceStatus;
   started_at: string | null;
@@ -354,7 +363,7 @@ export interface VerificationEvidenceCommandRecord {
 
 export interface StageVerificationEvidenceRecord {
   schema_version: 1;
-  source: 'nexus_stage' | 'superpowers_absorption';
+  source: VerificationEvidenceSource;
   required_for_completion: boolean;
   fresh: boolean;
   status: VerificationEvidenceStatus;
@@ -366,9 +375,9 @@ export interface StageVerificationEvidenceRecord {
 export interface BuildTddEvidenceRecord {
   schema_version: 1;
   mode: TddEvidenceMode;
-  red_command: string | null;
+  red_argv: string[] | null;
   red_observed: boolean;
-  green_command: string | null;
+  green_argv: string[] | null;
   green_observed: boolean;
   regression_scope: string[];
   exception_reason: string | null;
@@ -377,9 +386,9 @@ export interface BuildTddEvidenceRecord {
 
 export interface ReviewFeedbackTriageItemRecord {
   id: string;
-  source: 'github_review' | 'provider_audit' | 'human' | 'external';
+  source: ReviewFeedbackSource;
   source_url: string | null;
-  priority: 'P0' | 'P1' | 'P2' | 'P3' | null;
+  priority: ReviewFeedbackPriority | null;
   disposition: ReviewFeedbackDisposition;
   summary: string;
   response: string;
@@ -975,8 +984,8 @@ export interface StageStatus {
   local_persona_review?: LocalPersonaReviewStatusRecord | null;
   local_persona_ship?: LocalPersonaShipStatusRecord | null;
   pull_request?: PullRequestRecord | null;
-  verification_evidence?: StageVerificationEvidenceRecord | null;
-  tdd_evidence?: BuildTddEvidenceRecord | null;
+  verification_evidence_path?: string | null;
+  tdd_evidence_path?: string | null;
   review_feedback_triage_path?: string | null;
 }
 

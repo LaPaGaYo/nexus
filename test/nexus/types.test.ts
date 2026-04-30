@@ -6,7 +6,10 @@ import {
   CONTINUATION_ADVICE_OPTIONS,
   CANARY_EVIDENCE_STATUSES,
   REVIEW_FEEDBACK_DISPOSITIONS,
+  REVIEW_FEEDBACK_PRIORITIES,
+  REVIEW_FEEDBACK_SOURCES,
   TDD_EVIDENCE_MODES,
+  VERIFICATION_EVIDENCE_SOURCES,
   VERIFICATION_EVIDENCE_STATUSES,
   COMPLETION_ADVISOR_INTERACTION_MODES,
   COMPLETION_ADVISOR_ACTION_KINDS,
@@ -94,6 +97,11 @@ import {
 } from '../../lib/nexus/artifacts';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { executionFieldsFromLedger, withExecutionSessionRoot } from '../../lib/nexus/execution-topology';
+
+function expectOptionalOutputs(actual: string[] | undefined, expected: string[]) {
+  expect(actual).toEqual(expect.arrayContaining(expected));
+  expect(actual).toHaveLength(expected.length);
+}
 
 describe('nexus types', () => {
   test('freezes placeholder outcome model', () => {
@@ -405,6 +413,7 @@ describe('nexus types', () => {
 
   test('freezes Superpowers-derived evidence and review triage records as Nexus-owned artifacts', () => {
     expect(VERIFICATION_EVIDENCE_STATUSES).toEqual(['passed', 'failed', 'blocked', 'not_run']);
+    expect(VERIFICATION_EVIDENCE_SOURCES).toEqual(['nexus_stage', 'superpowers_absorption']);
     expect(TDD_EVIDENCE_MODES).toEqual([
       'not_applicable',
       'red_green_refactor',
@@ -418,6 +427,8 @@ describe('nexus types', () => {
       'rejected',
       'out_of_scope',
     ]);
+    expect(REVIEW_FEEDBACK_PRIORITIES).toEqual(['P0', 'P1', 'P2', 'P3']);
+    expect(REVIEW_FEEDBACK_SOURCES).toEqual(['github_review', 'provider_audit', 'human', 'external']);
     expect(stageVerificationEvidencePath('build')).toBe(
       '.planning/current/build/verification-evidence.json',
     );
@@ -425,7 +436,7 @@ describe('nexus types', () => {
     expect(reviewFeedbackTriagePath()).toBe(
       '.planning/current/review/review-feedback-triage.json',
     );
-    expect(CANONICAL_MANIFEST.build.optional_outputs).toEqual([
+    expectOptionalOutputs(CANONICAL_MANIFEST.build.optional_outputs, [
       buildTddEvidencePath(),
       stageVerificationEvidencePath('build'),
       stageCompletionAdvisorPath('build'),
@@ -439,7 +450,7 @@ describe('nexus types', () => {
       status: 'passed',
       commands: [
         {
-          command: 'bun test test/nexus/types.test.ts',
+          argv: ['bun', 'test', 'test/nexus/types.test.ts'],
           exit_code: 0,
           status: 'passed',
           started_at: '2026-04-30T00:00:00.000Z',
@@ -455,9 +466,9 @@ describe('nexus types', () => {
     const tddEvidence: BuildTddEvidenceRecord = {
       schema_version: 1,
       mode: 'red_green_refactor',
-      red_command: 'bun test test/nexus/types.test.ts',
+      red_argv: ['bun', 'test', 'test/nexus/types.test.ts'],
       red_observed: true,
-      green_command: 'bun test test/nexus/types.test.ts',
+      green_argv: ['bun', 'test', 'test/nexus/types.test.ts'],
       green_observed: true,
       regression_scope: ['lib/nexus/types.ts'],
       exception_reason: null,
@@ -493,8 +504,8 @@ describe('nexus types', () => {
       started_at: '2026-04-30T00:00:00.000Z',
       completed_at: '2026-04-30T00:00:03.000Z',
       errors: [],
-      verification_evidence: verificationEvidence,
-      tdd_evidence: tddEvidence,
+      verification_evidence_path: stageVerificationEvidencePath('build'),
+      tdd_evidence_path: buildTddEvidencePath(),
     };
     const reviewStatus: StageStatus = {
       run_id: 'run-1',
@@ -510,8 +521,12 @@ describe('nexus types', () => {
       review_feedback_triage_path: reviewFeedbackTriagePath(),
     };
 
-    expect(buildStatus.verification_evidence?.fresh).toBe(true);
-    expect(buildStatus.tdd_evidence?.mode).toBe('red_green_refactor');
+    expect(verificationEvidence.fresh).toBe(true);
+    expect(tddEvidence.mode).toBe('red_green_refactor');
+    expect(buildStatus.verification_evidence_path).toBe(
+      '.planning/current/build/verification-evidence.json',
+    );
+    expect(buildStatus.tdd_evidence_path).toBe('.planning/current/build/tdd-evidence.json');
     expect(reviewStatus.review_feedback_triage_path).toBe(
       '.planning/current/review/review-feedback-triage.json',
     );
@@ -1277,7 +1292,7 @@ describe('nexus types', () => {
       '.planning/audits/current/meta.json',
       '.planning/current/review/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.review.optional_outputs).toEqual([
+    expectOptionalOutputs(CANONICAL_MANIFEST.review.optional_outputs, [
       reviewFeedbackTriagePath(),
       stageVerificationEvidencePath('review'),
       stageCompletionAdvisorPath('review'),
@@ -1286,7 +1301,7 @@ describe('nexus types', () => {
       '.planning/current/qa/qa-report.md',
       '.planning/current/qa/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.qa.optional_outputs).toEqual([
+    expectOptionalOutputs(CANONICAL_MANIFEST.qa.optional_outputs, [
       '.planning/current/qa/design-verification.md',
       stageVerificationEvidencePath('qa'),
       stageCompletionAdvisorPath('qa'),
@@ -1298,7 +1313,7 @@ describe('nexus types', () => {
       '.planning/current/ship/pull-request.json',
       '.planning/current/ship/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.ship.optional_outputs).toEqual([
+    expectOptionalOutputs(CANONICAL_MANIFEST.ship.optional_outputs, [
       stageVerificationEvidencePath('ship'),
       stageCompletionAdvisorPath('ship'),
     ]);
@@ -1310,7 +1325,7 @@ describe('nexus types', () => {
       '.planning/current/closeout/next-run-bootstrap.json',
       '.planning/current/closeout/status.json',
     ]);
-    expect(CANONICAL_MANIFEST.closeout.optional_outputs).toEqual([
+    expectOptionalOutputs(CANONICAL_MANIFEST.closeout.optional_outputs, [
       stageVerificationEvidencePath('closeout'),
       stageCompletionAdvisorPath('closeout'),
     ]);

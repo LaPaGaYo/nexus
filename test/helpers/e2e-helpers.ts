@@ -79,7 +79,7 @@ export function describeIfSelected(name: string, testNames: string[], fn: () => 
 // Unique run ID for this E2E session — used for heartbeat + per-run log directory
 export const runId = new Date().toISOString().replace(/[:.]/g, '').replace('T', '-').slice(0, 15);
 
-export const browseBin = path.resolve(ROOT, 'browse', 'dist', 'browse');
+export const browseBin = path.resolve(ROOT, 'runtimes', 'browse', 'dist', 'browse');
 
 // Check if Anthropic API key is available (needed for outcome evals)
 export const hasApiKey = !!process.env.ANTHROPIC_API_KEY;

@@ -60,7 +60,7 @@
         "superpowers-qa-verification",
         "superpowers-ship-discipline"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. Additional Nexus-owned evidence, review triage, and QA verification capabilities are absorbed from the pinned Superpowers snapshot."
+      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. Additional Nexus-owned evidence, review triage, and QA verification capabilities are absorbed from the pinned Superpowers snapshot. Deferred live-upstream delta: Codex plugin metadata, plugin icons, sync script, and codex-plugin sync test coverage."
     },
     {
       "name": "claude-code-bridge",

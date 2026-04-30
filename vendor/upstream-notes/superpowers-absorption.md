@@ -33,7 +33,15 @@ until the normal upstream refresh workflow imports a new snapshot.
 
 ## Current Upstream Delta
 
-The live upstream adds Codex plugin packaging files and a sync script after the
-Nexus vendored snapshot. That delta is useful for discoverability, but it should
-enter Nexus through release-channel-aware packaging work rather than by changing
-the governed lifecycle.
+The live upstream adds Codex plugin packaging files and sync coverage after the
+Nexus vendored snapshot:
+
+- `.codex-plugin/plugin.json`
+- `assets/app-icon.png`
+- `assets/superpowers-small.svg`
+- `scripts/sync-to-codex-plugin.sh`
+- `tests/codex-plugin-sync/test-sync-to-codex-plugin.sh`
+
+That delta is useful for discoverability, but it should enter Nexus through
+release-channel-aware packaging work rather than by changing the governed
+lifecycle.
