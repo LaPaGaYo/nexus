@@ -173,6 +173,26 @@ export type DeployConfigSource = (typeof DEPLOY_CONFIG_SOURCES)[number];
 export const CANARY_EVIDENCE_STATUSES = ['healthy', 'degraded', 'broken'] as const;
 export type CanaryEvidenceStatus = (typeof CANARY_EVIDENCE_STATUSES)[number];
 
+export const VERIFICATION_EVIDENCE_STATUSES = ['passed', 'failed', 'blocked', 'not_run'] as const;
+export type VerificationEvidenceStatus = (typeof VERIFICATION_EVIDENCE_STATUSES)[number];
+
+export const TDD_EVIDENCE_MODES = [
+  'not_applicable',
+  'red_green_refactor',
+  'retrofit_regression',
+  'manual_exception',
+] as const;
+export type TddEvidenceMode = (typeof TDD_EVIDENCE_MODES)[number];
+
+export const REVIEW_FEEDBACK_DISPOSITIONS = [
+  'accepted',
+  'fixed',
+  'needs_clarification',
+  'rejected',
+  'out_of_scope',
+] as const;
+export type ReviewFeedbackDisposition = (typeof REVIEW_FEEDBACK_DISPOSITIONS)[number];
+
 export const DEPLOY_RESULT_PHASES = ['pre_merge', 'merge_queue', 'post_merge'] as const;
 export type DeployResultPhase = (typeof DEPLOY_RESULT_PHASES)[number];
 
@@ -321,6 +341,58 @@ export interface VerificationMatrixRecord {
     connect_chrome: VerificationMatrixSupportSkillSignalRecord;
     setup_browser_cookies: VerificationMatrixSupportSkillSignalRecord;
   };
+}
+
+export interface VerificationEvidenceCommandRecord {
+  command: string;
+  exit_code: number | null;
+  status: VerificationEvidenceStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  output_summary: string;
+}
+
+export interface StageVerificationEvidenceRecord {
+  schema_version: 1;
+  source: 'nexus_stage' | 'superpowers_absorption';
+  required_for_completion: boolean;
+  fresh: boolean;
+  status: VerificationEvidenceStatus;
+  commands: VerificationEvidenceCommandRecord[];
+  source_paths: string[];
+  summary: string;
+}
+
+export interface BuildTddEvidenceRecord {
+  schema_version: 1;
+  mode: TddEvidenceMode;
+  red_command: string | null;
+  red_observed: boolean;
+  green_command: string | null;
+  green_observed: boolean;
+  regression_scope: string[];
+  exception_reason: string | null;
+  summary: string;
+}
+
+export interface ReviewFeedbackTriageItemRecord {
+  id: string;
+  source: 'github_review' | 'provider_audit' | 'human' | 'external';
+  source_url: string | null;
+  priority: 'P0' | 'P1' | 'P2' | 'P3' | null;
+  disposition: ReviewFeedbackDisposition;
+  summary: string;
+  response: string;
+  verification_evidence: StageVerificationEvidenceRecord | null;
+}
+
+export interface ReviewFeedbackTriageRecord {
+  schema_version: 1;
+  run_id: string;
+  generated_at: string;
+  source_paths: string[];
+  items: ReviewFeedbackTriageItemRecord[];
+  summary: string;
 }
 
 export interface CanaryStatusRecord {
@@ -903,6 +975,9 @@ export interface StageStatus {
   local_persona_review?: LocalPersonaReviewStatusRecord | null;
   local_persona_ship?: LocalPersonaShipStatusRecord | null;
   pull_request?: PullRequestRecord | null;
+  verification_evidence?: StageVerificationEvidenceRecord | null;
+  tdd_evidence?: BuildTddEvidenceRecord | null;
+  review_feedback_triage_path?: string | null;
 }
 
 export interface RunLedger {

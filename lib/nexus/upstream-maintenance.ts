@@ -186,7 +186,10 @@ const UPSTREAM_MAINTENANCE_METADATA: Record<
     active_absorbed_capabilities: [
       'superpowers-build-discipline',
       'superpowers-build-verification',
+      'superpowers-build-two-stage-review',
       'superpowers-review-discipline',
+      'superpowers-review-feedback-triage',
+      'superpowers-qa-verification',
       'superpowers-ship-discipline',
     ],
   },

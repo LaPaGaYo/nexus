@@ -54,10 +54,13 @@
       "active_absorbed_capabilities": [
         "superpowers-build-discipline",
         "superpowers-build-verification",
+        "superpowers-build-two-stage-review",
         "superpowers-review-discipline",
+        "superpowers-review-feedback-triage",
+        "superpowers-qa-verification",
         "superpowers-ship-discipline"
       ],
-      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. No maintainer absorption decision recorded yet."
+      "notes": "Checked snapshot; imported upstream source material remains non-authoritative until refreshed. Additional Nexus-owned evidence, review triage, and QA verification capabilities are absorbed from the pinned Superpowers snapshot."
     },
     {
       "name": "claude-code-bridge",

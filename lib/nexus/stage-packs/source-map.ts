@@ -33,7 +33,12 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
   'nexus-build-pack': {
     pack_id: 'nexus-build-pack',
     canonical_stage: 'build',
-    absorbed_capabilities: ['superpowers-build-discipline', 'superpowers-build-verification', 'ccb-execution'],
+    absorbed_capabilities: [
+      'superpowers-build-discipline',
+      'superpowers-build-verification',
+      'superpowers-build-two-stage-review',
+      'ccb-execution',
+    ],
     source_refs: [
       ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'build'),
       ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'build'),
@@ -42,7 +47,12 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
   'nexus-review-pack': {
     pack_id: 'nexus-review-pack',
     canonical_stage: 'review',
-    absorbed_capabilities: ['superpowers-review-discipline', 'ccb-review-codex', 'ccb-review-gemini'],
+    absorbed_capabilities: [
+      'superpowers-review-discipline',
+      'superpowers-review-feedback-triage',
+      'ccb-review-codex',
+      'ccb-review-gemini',
+    ],
     source_refs: [
       ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'review'),
       ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'review'),
@@ -51,8 +61,11 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
   'nexus-qa-pack': {
     pack_id: 'nexus-qa-pack',
     canonical_stage: 'qa',
-    absorbed_capabilities: ['ccb-qa'],
-    source_refs: CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'qa'),
+    absorbed_capabilities: ['superpowers-qa-verification', 'ccb-qa'],
+    source_refs: [
+      ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'qa'),
+      ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'qa'),
+    ],
   },
   'nexus-ship-pack': {
     pack_id: 'nexus-ship-pack',

@@ -35,6 +35,10 @@ export function stageCompletionAdvisorPath(stage: CanonicalCommandId): string {
   return `${CURRENT_ROOT}/${stage}/completion-advisor.json`;
 }
 
+export function stageVerificationEvidencePath(stage: CanonicalCommandId): string {
+  return `${CURRENT_ROOT}/${stage}/verification-evidence.json`;
+}
+
 export function frameDesignIntentPath(): string {
   return `${CURRENT_ROOT}/frame/design-intent.json`;
 }
@@ -59,8 +63,16 @@ export function qaReportPath(): string {
   return `${CURRENT_ROOT}/qa/qa-report.md`;
 }
 
+export function buildTddEvidencePath(): string {
+  return `${CURRENT_ROOT}/build/tdd-evidence.json`;
+}
+
 export function reviewLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/review/learning-candidates.json`;
+}
+
+export function reviewFeedbackTriagePath(): string {
+  return `${CURRENT_ROOT}/review/review-feedback-triage.json`;
 }
 
 export function reviewAdvisoriesPath(): string {
