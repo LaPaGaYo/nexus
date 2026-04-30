@@ -34,4 +34,4 @@ New pinned commit: `4aa4196c14873b84f5af7316e7f66328cb6dee4c`
 
 - Refresh stages imported source material and maintenance metadata only.
 - Refresh does not edit absorption review logic, stage-content, stage-packs, release docs, or `VERSION`.
-- Refresh uses the checked commit recorded in `upstream-notes/upstream-lock.json` as its target.
+- Refresh uses the checked commit recorded in `vendor/upstream-notes/upstream-lock.json` as its target.

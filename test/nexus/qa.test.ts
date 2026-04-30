@@ -32,7 +32,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
             },
           }),
         },
@@ -52,7 +52,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-plan-pack',
               absorbed_capability: 'gsd-plan',
-              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+              source_map: ['vendor/upstream/gsd/commands/gsd/plan-phase.md'],
             },
           }),
         },
@@ -84,7 +84,7 @@ describe('nexus qa', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-qa-pack',
                 absorbed_capability: 'ccb-qa',
-                source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+                source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
               },
             };
           },
@@ -143,7 +143,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['upstream/pm-skills/commands/write-prd.md'],
+              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
             },
           }),
         },
@@ -164,7 +164,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-plan-pack',
               absorbed_capability: 'gsd-plan',
-              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+              source_map: ['vendor/upstream/gsd/commands/gsd/plan-phase.md'],
             },
           }),
         },
@@ -194,7 +194,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -274,7 +274,7 @@ describe('nexus qa', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-qa-pack',
                 absorbed_capability: 'ccb-qa',
-                source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+                source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
               },
             };
           },
@@ -365,7 +365,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -433,7 +433,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -493,7 +493,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -541,7 +541,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -601,7 +601,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -659,7 +659,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -730,7 +730,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -822,7 +822,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -877,7 +877,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -1050,7 +1050,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },
@@ -1123,7 +1123,7 @@ describe('nexus qa', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
             },
           }),
         },

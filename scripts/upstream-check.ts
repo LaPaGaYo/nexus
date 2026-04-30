@@ -10,12 +10,15 @@ import {
   parseUpstreamMaintenanceLock,
   renderUpstreamCheckStatus,
   serializeUpstreamMaintenanceLock,
+  upstreamNotesPath,
 } from '../lib/nexus/upstream-maintenance';
 import { tmpdir } from 'os';
 
 const DEFAULT_ROOT = join(import.meta.dir, '..');
 const ROOT = process.env.UPSTREAM_CHECK_ROOT ? join(process.env.UPSTREAM_CHECK_ROOT) : DEFAULT_ROOT;
-const LOCK_PATH = join(ROOT, 'upstream-notes/upstream-lock.json');
+const LOCK_TARGET = upstreamNotesPath('upstream-lock.json');
+const STATUS_TARGET = upstreamNotesPath('update-status.md');
+const LOCK_PATH = join(ROOT, LOCK_TARGET);
 
 function git(args: string[], cwd: string): { ok: true; stdout: string } | { ok: false; error: string } {
   const result = spawnSync('git', args, {
@@ -119,7 +122,7 @@ function writeRepoFile(relativePath: string, content: string): void {
 
 function main(): void {
   const checkedAt = new Date().toISOString();
-  ensureWriteTargetsAreClean(ROOT, ['upstream-notes/upstream-lock.json', 'upstream-notes/update-status.md']);
+  ensureWriteTargetsAreClean(ROOT, [LOCK_TARGET, STATUS_TARGET]);
   const lock = parseUpstreamMaintenanceLock(readFileSync(LOCK_PATH, 'utf8'));
   const alignedEntries = alignUpstreamLockWithContract(lock);
   const results = alignedEntries.map(({ definition, record }) => {
@@ -152,8 +155,8 @@ function main(): void {
   });
 
   const updatedLock = applyUpstreamCheckResults(lock, results, checkedAt);
-  writeRepoFile('upstream-notes/upstream-lock.json', serializeUpstreamMaintenanceLock(updatedLock));
-  writeRepoFile('upstream-notes/update-status.md', renderUpstreamCheckStatus(updatedLock, results, checkedAt));
+  writeRepoFile(LOCK_TARGET, serializeUpstreamMaintenanceLock(updatedLock));
+  writeRepoFile(STATUS_TARGET, renderUpstreamCheckStatus(updatedLock, results, checkedAt));
 
   const summary = results
     .map((result) => {

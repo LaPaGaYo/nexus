@@ -67,7 +67,7 @@ const reportOnly = process.env.NEXUS_MAINTAINER_REPORT_ONLY === '1';
 const generatedAt = new Date().toISOString();
 
 const lock = upstreamMaintenance.parseUpstreamMaintenanceLock(
-  fs.readFileSync(join(root, 'upstream-notes', 'upstream-lock.json'), 'utf8'),
+  fs.readFileSync(join(root, upstreamMaintenance.upstreamNotesPath('upstream-lock.json')), 'utf8'),
 );
 upstreamMaintenance.alignUpstreamLockWithContract(lock);
 
@@ -258,8 +258,8 @@ const report = maintainerLoop.buildMaintainerLoopReport({
   published_release_missing: remoteState.publishedReleaseMissing,
 });
 
-const reportPath = join(root, 'upstream-notes', 'maintainer-status.json');
-const markdownPath = join(root, 'upstream-notes', 'maintainer-status.md');
+const reportPath = join(root, upstreamMaintenance.upstreamNotesPath('maintainer-status.json'));
+const markdownPath = join(root, upstreamMaintenance.upstreamNotesPath('maintainer-status.md'));
 const existingReport = readExistingReport(reportPath);
 const finalReport = existingReport !== null && maintainerLoop.reportsMatchExceptGeneratedAt(existingReport, report)
   ? maintainerLoop.validateMaintainerLoopReport({

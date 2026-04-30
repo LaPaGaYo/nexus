@@ -36,10 +36,10 @@ describe('nexus absorbed runtime', () => {
 
     expect(discover.traceability?.nexus_stage_pack).toBe('nexus-discover-pack');
     expect(discover.traceability?.absorbed_capability).toBe('pm-discover');
-    expect(discover.traceability?.source_map).toContain('upstream/pm-skills/commands/discover.md');
+    expect(discover.traceability?.source_map).toContain('vendor/upstream/pm-skills/commands/discover.md');
     expect(frame.traceability?.nexus_stage_pack).toBe('nexus-frame-pack');
     expect(frame.traceability?.absorbed_capability).toBe('pm-frame');
-    expect(frame.traceability?.source_map).toContain('upstream/pm-skills/commands/write-prd.md');
+    expect(frame.traceability?.source_map).toContain('vendor/upstream/pm-skills/commands/write-prd.md');
   });
 
   test('gsd adapter reports absorbed capability ids for plan and closeout', async () => {
@@ -69,10 +69,10 @@ describe('nexus absorbed runtime', () => {
 
     expect(plan.traceability?.nexus_stage_pack).toBe('nexus-plan-pack');
     expect(plan.traceability?.absorbed_capability).toBe('gsd-plan');
-    expect(plan.traceability?.source_map).toContain('upstream/gsd/commands/gsd/plan-phase.md');
+    expect(plan.traceability?.source_map).toContain('vendor/upstream/gsd/commands/gsd/plan-phase.md');
     expect(closeout.traceability?.nexus_stage_pack).toBe('nexus-closeout-pack');
     expect(closeout.traceability?.absorbed_capability).toBe('gsd-closeout');
-    expect(closeout.traceability?.source_map).toContain('upstream/gsd/commands/gsd/complete-milestone.md');
+    expect(closeout.traceability?.source_map).toContain('vendor/upstream/gsd/commands/gsd/complete-milestone.md');
   });
 
   test('superpowers and ccb adapters report absorbed capability ids while the governed tail seams stay active', async () => {
@@ -125,13 +125,13 @@ describe('nexus absorbed runtime', () => {
 
     expect(discipline.traceability?.nexus_stage_pack).toBe('nexus-build-pack');
     expect(discipline.traceability?.absorbed_capability).toBe('superpowers-build-discipline');
-    expect(discipline.traceability?.source_map).toContain('upstream/superpowers/skills/test-driven-development/SKILL.md');
+    expect(discipline.traceability?.source_map).toContain('vendor/upstream/superpowers/skills/test-driven-development/SKILL.md');
     expect(routing.traceability?.nexus_stage_pack).toBe('nexus-handoff-pack');
     expect(routing.traceability?.absorbed_capability).toBe('ccb-routing');
-    expect(routing.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/providers.py');
+    expect(routing.traceability?.source_map).toContain('vendor/upstream/claude-code-bridge/lib/providers.py');
     expect(execution.traceability?.nexus_stage_pack).toBe('nexus-build-pack');
     expect(execution.traceability?.absorbed_capability).toBe('ccb-execution');
-    expect(execution.traceability?.source_map).toContain('upstream/claude-code-bridge/lib/codex_comm.py');
+    expect(execution.traceability?.source_map).toContain('vendor/upstream/claude-code-bridge/lib/codex_comm.py');
     expect(registry.review.superpowers).toBe('active');
     expect(registry.review.ccb).toBe('active');
     expect(registry.qa.ccb).toBe('active');
@@ -148,15 +148,15 @@ describe('nexus absorbed runtime', () => {
     expect(review.disciplineTraceability().absorbed_capability).toBe('superpowers-review-discipline');
     expect(review.auditTraceability('codex').absorbed_capability).toBe('ccb-review-codex');
     expect(review.auditTraceability('gemini').absorbed_capability).toBe('ccb-review-gemini');
-    expect(review.auditTraceability('codex').source_map).toContain('upstream/claude-code-bridge/lib/codex_comm.py');
-    expect(review.disciplineTraceability().source_map).toContain('upstream/superpowers/skills/verification-before-completion/SKILL.md');
+    expect(review.auditTraceability('codex').source_map).toContain('vendor/upstream/claude-code-bridge/lib/codex_comm.py');
+    expect(review.disciplineTraceability().source_map).toContain('vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md');
 
     expect(qa.id).toBe('nexus-qa-pack');
     expect(qa.validationTraceability().absorbed_capability).toBe('ccb-qa');
-    expect(qa.validationTraceability().source_map).toContain('upstream/claude-code-bridge/lib/gemini_comm.py');
+    expect(qa.validationTraceability().source_map).toContain('vendor/upstream/claude-code-bridge/lib/gemini_comm.py');
 
     expect(ship.id).toBe('nexus-ship-pack');
     expect(ship.disciplineTraceability().absorbed_capability).toBe('superpowers-ship-discipline');
-    expect(ship.disciplineTraceability().source_map).toContain('upstream/superpowers/skills/finishing-a-development-branch/SKILL.md');
+    expect(ship.disciplineTraceability().source_map).toContain('vendor/upstream/superpowers/skills/finishing-a-development-branch/SKILL.md');
   });
 });

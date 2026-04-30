@@ -4,7 +4,7 @@ These directories are imported upstream source material for Nexus absorption wor
 
 They are not runtime front doors, and they do not own governed lifecycle truth.
 
-Maintenance truth lives in `upstream-notes/upstream-lock.json`, and the human-readable freshness summary lives in `upstream-notes/update-status.md`.
+Maintenance truth lives in `vendor/upstream-notes/upstream-lock.json`, and the human-readable freshness summary lives in `vendor/upstream-notes/update-status.md`.
 The initial lock is a bootstrap snapshot with unknown check state; imported upstreams remain source material only and never become runtime truth.
 
 Nexus-owned absorbed capability maps live under `lib/nexus/absorption/` and trace back to these imported sources.

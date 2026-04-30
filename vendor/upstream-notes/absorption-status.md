@@ -3,8 +3,8 @@
 This file tracks which imported upstream capability sources have been absorbed
 into Nexus-owned stage content and stage packs.
 
-Upstream freshness maintenance is frozen in `upstream-notes/upstream-lock.json`,
-with `upstream-notes/update-status.md` as the human-readable summary. Imported
+Upstream freshness maintenance is frozen in `vendor/upstream-notes/upstream-lock.json`,
+with `vendor/upstream-notes/update-status.md` as the human-readable summary. Imported
 upstreams remain source material only and never become runtime truth. The initial
 lock is a bootstrap snapshot with unknown check state.
 
@@ -20,7 +20,7 @@ These labels are maintainer-only review state and not governed lifecycle truth.
 | `absorb_full` | Absorb the upstream delta into Nexus-owned assets in full. | Release is required if Nexus-owned assets changed. |
 | `reject` | Do not absorb the candidate. | No Nexus release required. |
 
-Maintainer review records live in `upstream-notes/upstream-lock.json` and the
+Maintainer review records live in `vendor/upstream-notes/upstream-lock.json` and the
 refresh-candidate notes. They do not override governed lifecycle truth.
 
 If a candidate is still under review, `last_absorption_decision` stays unset
@@ -30,10 +30,10 @@ until a maintainer records an actual outcome.
 
 | Source | Imported path | Current role in Nexus |
 | --- | --- | --- |
-| PM Skills | `upstream/pm-skills` | Source material only for discovery and framing stage content and stage packs |
-| GSD | `upstream/gsd` | Source material only for planning and closeout stage content and stage packs |
-| Superpowers | `upstream/superpowers` | Source material only for build, review, and ship stage content and stage packs |
-| CCB | `upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA compatibility infrastructure under Nexus control; not a full-retirement target |
+| PM Skills | `vendor/upstream/pm-skills` | Source material only for discovery and framing stage content and stage packs |
+| GSD | `vendor/upstream/gsd` | Source material only for planning and closeout stage content and stage packs |
+| Superpowers | `vendor/upstream/superpowers` | Source material only for build, review, and ship stage content and stage packs |
+| CCB | `vendor/upstream/claude-code-bridge` | Source material only for handoff, build, review, and QA compatibility infrastructure under Nexus control; not a full-retirement target |
 
 ## Active Nexus-owned stage content
 

@@ -15,7 +15,7 @@ describe('nexus maintainer loop contract', () => {
       next_action: 'review_refresh_candidate',
       summary: '1 upstream refresh candidate needs maintainer review.',
       issues: ['pm-skills refresh candidate pending review'],
-      recommendations: ['Review upstream-notes/refresh-candidates/pm-skills.md'],
+      recommendations: ['Review vendor/upstream-notes/refresh-candidates/pm-skills.md'],
       upstreams: {
         pending_refresh_candidates: ['pm-skills'],
         behind_upstreams: ['gsd'],

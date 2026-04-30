@@ -1,6 +1,11 @@
 export const UPSTREAM_NAMES = ['pm-skills', 'gsd', 'superpowers', 'claude-code-bridge'] as const;
 export type UpstreamName = (typeof UPSTREAM_NAMES)[number];
 
+export const UPSTREAM_VENDOR_ROOT = 'vendor/upstream' as const;
+export const UPSTREAM_NOTES_VENDOR_ROOT = 'vendor/upstream-notes' as const;
+export const UPSTREAM_COMPAT_ROOT = 'upstream' as const;
+export const UPSTREAM_NOTES_COMPAT_ROOT = 'upstream-notes' as const;
+
 export const UPSTREAM_REFRESH_STATUSES = ['unchecked', 'up_to_date', 'behind', 'refresh_candidate'] as const;
 export type UpstreamRefreshStatus = (typeof UPSTREAM_REFRESH_STATUSES)[number];
 
@@ -126,6 +131,29 @@ export interface UpstreamMaintenanceAlignedEntry {
   record: UpstreamMaintenanceRecord;
 }
 
+const UPSTREAM_INVENTORY_FILES: Record<UpstreamName, string> = {
+  'pm-skills': 'pm-skills-inventory.md',
+  gsd: 'gsd-inventory.md',
+  superpowers: 'superpowers-inventory.md',
+  'claude-code-bridge': 'ccb-inventory.md',
+};
+
+export function upstreamImportedPath(name: UpstreamName): string {
+  return `${UPSTREAM_VENDOR_ROOT}/${name}`;
+}
+
+export function upstreamNotesPath(relativePath: string): string {
+  return `${UPSTREAM_NOTES_VENDOR_ROOT}/${relativePath.replace(/^\/+/, '')}`;
+}
+
+export function upstreamInventoryPath(name: UpstreamName): string {
+  return upstreamNotesPath(UPSTREAM_INVENTORY_FILES[name]);
+}
+
+export function upstreamRefreshCandidatePath(name: UpstreamName): string {
+  return upstreamNotesPath(`refresh-candidates/${name}.md`);
+}
+
 const UPSTREAM_MAINTENANCE_METADATA: Record<
   UpstreamName,
   {
@@ -138,22 +166,22 @@ const UPSTREAM_MAINTENANCE_METADATA: Record<
 > = {
   'pm-skills': {
     repo_url: 'https://github.com/deanpeters/Product-Manager-Skills.git',
-    imported_path: 'upstream/pm-skills',
-    inventory_path: 'upstream-notes/pm-skills-inventory.md',
+    imported_path: upstreamImportedPath('pm-skills'),
+    inventory_path: upstreamInventoryPath('pm-skills'),
     pinned_commit: '4aa4196c14873b84f5af7316e7f66328cb6dee4c',
     active_absorbed_capabilities: ['pm-discover', 'pm-frame'],
   },
   gsd: {
     repo_url: 'https://github.com/gsd-build/get-shit-done.git',
-    imported_path: 'upstream/gsd',
-    inventory_path: 'upstream-notes/gsd-inventory.md',
+    imported_path: upstreamImportedPath('gsd'),
+    inventory_path: upstreamInventoryPath('gsd'),
     pinned_commit: '295a5726dc6139f383acfc0dbef6b88d4ec94dfa',
     active_absorbed_capabilities: ['gsd-plan', 'gsd-closeout'],
   },
   superpowers: {
     repo_url: 'https://github.com/obra/superpowers.git',
-    imported_path: 'upstream/superpowers',
-    inventory_path: 'upstream-notes/superpowers-inventory.md',
+    imported_path: upstreamImportedPath('superpowers'),
+    inventory_path: upstreamInventoryPath('superpowers'),
     pinned_commit: '917e5f53b16b115b70a3a355ed5f4993b9f8b73d',
     active_absorbed_capabilities: [
       'superpowers-build-discipline',
@@ -164,8 +192,8 @@ const UPSTREAM_MAINTENANCE_METADATA: Record<
   },
   'claude-code-bridge': {
     repo_url: 'https://github.com/bfly123/claude_code_bridge.git',
-    imported_path: 'upstream/claude-code-bridge',
-    inventory_path: 'upstream-notes/ccb-inventory.md',
+    imported_path: upstreamImportedPath('claude-code-bridge'),
+    inventory_path: upstreamInventoryPath('claude-code-bridge'),
     pinned_commit: '2bb9a1b2f33ab258723de10412fd048690121bc2',
     active_absorbed_capabilities: [
       'ccb-routing',
@@ -191,10 +219,10 @@ function createDefinition(name: UpstreamName, inventory_path: string): UpstreamM
 }
 
 export const UPSTREAM_MAINTENANCE_UPSTREAMS = [
-  createDefinition('pm-skills', 'upstream-notes/pm-skills-inventory.md'),
-  createDefinition('gsd', 'upstream-notes/gsd-inventory.md'),
-  createDefinition('superpowers', 'upstream-notes/superpowers-inventory.md'),
-  createDefinition('claude-code-bridge', 'upstream-notes/ccb-inventory.md'),
+  createDefinition('pm-skills', upstreamInventoryPath('pm-skills')),
+  createDefinition('gsd', upstreamInventoryPath('gsd')),
+  createDefinition('superpowers', upstreamInventoryPath('superpowers')),
+  createDefinition('claude-code-bridge', upstreamInventoryPath('claude-code-bridge')),
 ] as const;
 
 const UPSTREAM_BY_NAME: Record<UpstreamName, UpstreamMaintenanceDefinition> = Object.fromEntries(
@@ -436,8 +464,8 @@ export function renderUpstreamCheckStatus(lock: UpstreamMaintenanceLock, results
   lines.push('');
   lines.push(`Last checked: \`${checkedAt}\``);
   lines.push('');
-  lines.push('- Maintenance truth: `upstream-notes/upstream-lock.json`');
-  lines.push('- Human-readable freshness summary: `upstream-notes/update-status.md`');
+  lines.push(`- Maintenance truth: \`${upstreamNotesPath('upstream-lock.json')}\``);
+  lines.push(`- Human-readable freshness summary: \`${upstreamNotesPath('update-status.md')}\``);
   lines.push('- Imported upstreams remain source material only');
   lines.push('');
   lines.push('| upstream | pinned_commit | latest_checked_commit | behind_count | active_absorbed_capabilities | triage_recommendation |');
@@ -465,7 +493,7 @@ export function renderUpstreamCheckStatus(lock: UpstreamMaintenanceLock, results
     lines.push('');
     for (const record of pendingCandidates) {
       lines.push(
-        `- \`${record.name}\` pending maintainer review since \`${record.last_refresh_candidate_at}\` via \`upstream-notes/refresh-candidates/${record.name}.md\``,
+        `- \`${record.name}\` pending maintainer review since \`${record.last_refresh_candidate_at}\` via \`${upstreamRefreshCandidatePath(record.name)}\``,
       );
     }
   }

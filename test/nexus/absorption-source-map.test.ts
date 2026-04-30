@@ -15,7 +15,7 @@ describe('nexus absorbed source maps', () => {
       ...SUPERPOWERS_SOURCE_MAP,
       ...CCB_SOURCE_MAP,
     ]) {
-      expect(entry.imported_path.startsWith('upstream/')).toBe(true);
+      expect(entry.imported_path.startsWith('vendor/upstream/')).toBe(true);
       expect(entry.upstream_file.startsWith(entry.imported_path)).toBe(true);
       expect(entry.canonical_stage.length).toBeGreaterThan(0);
       expect(existsSync(entry.upstream_file)).toBe(true);

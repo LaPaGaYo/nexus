@@ -60,7 +60,7 @@ describe('nexus plan -> handoff -> build', () => {
             traceability: {
               nexus_stage_pack: 'nexus-plan-pack',
               absorbed_capability: 'gsd-plan',
-              source_map: ['upstream/gsd/commands/gsd/plan-phase.md'],
+              source_map: ['vendor/upstream/gsd/commands/gsd/plan-phase.md'],
             },
           }),
         },

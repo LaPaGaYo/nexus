@@ -343,20 +343,40 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
   {
     name: 'upstream',
     category: 'vendor',
+    current_path: 'vendor/upstream',
+    target_path: 'vendor/upstream',
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rationale: 'Absorbed upstream snapshots now live under vendor/upstream; root upstream remains a compatibility symlink only.',
+    runtime_compat_paths: ['upstream'],
+  },
+  {
+    name: 'upstream-compat',
+    category: 'vendor',
     current_path: 'upstream',
     target_path: 'vendor/upstream',
-    move_policy: 'future_move',
+    move_policy: 'compat_required',
     risk_level: 'medium',
-    rationale: 'Absorbed upstream snapshots are vendor material, but upstream refresh tests and scripts still expect the current root.',
+    rationale: 'The root upstream symlink preserves old maintainer/manual paths while active scripts use vendor/upstream.',
   },
   {
     name: 'upstream-notes',
     category: 'vendor',
+    current_path: 'vendor/upstream-notes',
+    target_path: 'vendor/upstream-notes',
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rationale: 'Absorption metadata now lives under vendor/upstream-notes; root upstream-notes remains a compatibility symlink only.',
+    runtime_compat_paths: ['upstream-notes'],
+  },
+  {
+    name: 'upstream-notes-compat',
+    category: 'vendor',
     current_path: 'upstream-notes',
     target_path: 'vendor/upstream-notes',
-    move_policy: 'future_move',
+    move_policy: 'compat_required',
     risk_level: 'medium',
-    rationale: 'Absorption metadata belongs with vendor material, but maintainer checks still read the current root.',
+    rationale: 'The root upstream-notes symlink preserves old maintainer/manual paths while active scripts use vendor/upstream-notes.',
   },
   {
     name: 'bin',
@@ -559,6 +579,13 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     active_source_paths: ['.factory'],
     note: 'Factory host facade. .factory remains the active Factory host surface.',
   },
+  {
+    facade_path: 'vendor/README.md',
+    category: 'vendor',
+    kind: 'navigation_only',
+    active_source_paths: ['vendor/upstream', 'vendor/upstream-notes', 'upstream', 'upstream-notes'],
+    note: 'Vendor facade root. Upstream snapshots and notes now live under vendor/ while root symlinks preserve compatibility.',
+  },
 ];
 
 const ROOT_FILES = new Set([
@@ -627,8 +654,13 @@ export function classifyRepoPath(repoPath: string): RepoPathClassification {
     };
   }
 
-  if (normalized.startsWith('runtimes/') || normalized.startsWith('references/') || normalized.startsWith('hosts/')) {
-    const category = normalized.split('/')[0] as 'runtimes' | 'references' | 'hosts';
+  if (
+    normalized.startsWith('runtimes/') ||
+    normalized.startsWith('references/') ||
+    normalized.startsWith('hosts/') ||
+    normalized.startsWith('vendor/')
+  ) {
+    const category = normalized.split('/')[0] as 'runtimes' | 'references' | 'hosts' | 'vendor';
     return {
       current_path: normalized,
       category,

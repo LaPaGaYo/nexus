@@ -16,8 +16,8 @@ import {
 
 const REPO_ROOT = resolve(import.meta.dir, '..', '..');
 const SCRIPT_PATH = join(REPO_ROOT, 'scripts/upstream-check.ts');
-const LOCK_PATH = join(REPO_ROOT, 'upstream-notes/upstream-lock.json');
-const STATUS_PATH = join(REPO_ROOT, 'upstream-notes/update-status.md');
+const LOCK_PATH = join(REPO_ROOT, 'vendor/upstream-notes/upstream-lock.json');
+const STATUS_PATH = join(REPO_ROOT, 'vendor/upstream-notes/update-status.md');
 
 function git(args: string[], cwd: string): string {
   const result = spawnSync('git', args, {
@@ -38,9 +38,9 @@ function git(args: string[], cwd: string): string {
 
 function prepareCheckWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'nexus-upstream-check-root-'));
-  mkdirSync(join(root, 'upstream-notes'), { recursive: true });
-  copyFileSync(LOCK_PATH, join(root, 'upstream-notes/upstream-lock.json'));
-  copyFileSync(STATUS_PATH, join(root, 'upstream-notes/update-status.md'));
+  mkdirSync(join(root, 'vendor/upstream-notes'), { recursive: true });
+  copyFileSync(LOCK_PATH, join(root, 'vendor/upstream-notes/upstream-lock.json'));
+  copyFileSync(STATUS_PATH, join(root, 'vendor/upstream-notes/update-status.md'));
   git(['init', '--quiet'], root);
   git(['config', 'core.filemode', 'true'], root);
   git(['-c', 'user.email=codex@example.com', '-c', 'user.name=Codex', 'add', '-A'], root);
@@ -251,8 +251,8 @@ describe('nexus upstream freshness checks', () => {
 
   test('CLI check refuses dirty maintenance metadata targets before rewriting them', () => {
     const { root } = prepareCheckWorkspace();
-    const statusPath = join(root, 'upstream-notes/update-status.md');
-    const lockPath = join(root, 'upstream-notes/upstream-lock.json');
+    const statusPath = join(root, 'vendor/upstream-notes/update-status.md');
+    const lockPath = join(root, 'vendor/upstream-notes/upstream-lock.json');
     const lockBefore = readFileSync(lockPath, 'utf8');
     writeFileSync(statusPath, `${readFileSync(statusPath, 'utf8')}\nLOCAL EDIT\n`);
 

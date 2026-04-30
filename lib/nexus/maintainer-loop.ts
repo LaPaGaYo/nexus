@@ -1,4 +1,4 @@
-import type { UpstreamMaintenanceLock } from './upstream-maintenance';
+import { upstreamRefreshCandidatePath, type UpstreamMaintenanceLock } from './upstream-maintenance';
 
 export const MAINTAINER_LOOP_STATUSES = ['ready', 'action_required', 'blocked'] as const;
 export type MaintainerLoopStatus = (typeof MAINTAINER_LOOP_STATUSES)[number];
@@ -138,7 +138,7 @@ export function buildMaintainerLoopReport(input: {
       summary: `${input.upstreams.pending_refresh_candidates.length} upstream refresh candidate needs maintainer review.`,
       issues: input.upstreams.pending_refresh_candidates.map((name) => `${name} refresh candidate pending review`),
       recommendations: input.upstreams.pending_refresh_candidates.map(
-        (name) => `Review upstream-notes/refresh-candidates/${name}.md`,
+        (name) => `Review ${upstreamRefreshCandidatePath(name)}`,
       ),
       upstreams: input.upstreams,
       release: input.release,

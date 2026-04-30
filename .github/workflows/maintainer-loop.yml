@@ -21,8 +21,8 @@ jobs:
         with:
           name: maintainer-status
           path: |
-            upstream-notes/maintainer-status.json
-            upstream-notes/maintainer-status.md
+            vendor/upstream-notes/maintainer-status.json
+            vendor/upstream-notes/maintainer-status.md
       - name: Workflow boundary note
         if: always()
         run: |

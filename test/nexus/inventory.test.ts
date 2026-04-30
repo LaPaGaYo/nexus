@@ -11,23 +11,23 @@ import {
 import { NEXUS_STAGE_PACKS } from '../../lib/nexus/types';
 
 const INVENTORIES = [
-  'upstream-notes/pm-skills-inventory.md',
-  'upstream-notes/gsd-inventory.md',
-  'upstream-notes/superpowers-inventory.md',
-  'upstream-notes/ccb-inventory.md',
-  'upstream-notes/legacy-host-migration-history.md',
+  'vendor/upstream-notes/pm-skills-inventory.md',
+  'vendor/upstream-notes/gsd-inventory.md',
+  'vendor/upstream-notes/superpowers-inventory.md',
+  'vendor/upstream-notes/ccb-inventory.md',
+  'vendor/upstream-notes/legacy-host-migration-history.md',
 ] as const;
 
 const IMPORTED_SOURCE_INVENTORIES = [
-  'upstream-notes/pm-skills-inventory.md',
-  'upstream-notes/gsd-inventory.md',
-  'upstream-notes/superpowers-inventory.md',
-  'upstream-notes/ccb-inventory.md',
+  'vendor/upstream-notes/pm-skills-inventory.md',
+  'vendor/upstream-notes/gsd-inventory.md',
+  'vendor/upstream-notes/superpowers-inventory.md',
+  'vendor/upstream-notes/ccb-inventory.md',
 ] as const;
 
-const UPSTREAM_LOCK_PATH = 'upstream-notes/upstream-lock.json';
-const UPSTREAM_README_PATH = 'upstream/README.md';
-const UPDATE_STATUS_PATH = 'upstream-notes/update-status.md';
+const UPSTREAM_LOCK_PATH = 'vendor/upstream-notes/upstream-lock.json';
+const UPSTREAM_README_PATH = 'vendor/upstream/README.md';
+const UPDATE_STATUS_PATH = 'vendor/upstream-notes/update-status.md';
 
 const SURFACE_DOCS = ['README.md', 'docs/skills.md'] as const;
 
@@ -133,7 +133,7 @@ describe('nexus inventories', () => {
     for (const row of rows) {
       expect(row.upstream_repo_url).toMatch(/^https:\/\/github\.com\/.+\.git$/);
       expect(row.pinned_commit).toMatch(/^[0-9a-f]{40}$/);
-      expect(row.imported_path.startsWith('upstream/')).toBe(true);
+      expect(row.imported_path.startsWith('vendor/upstream/')).toBe(true);
       expect(existsSync(row.imported_path)).toBe(true);
     }
   });
@@ -161,7 +161,7 @@ describe('nexus inventories', () => {
   });
 
   test('legacy host migration history marks active removal complete and leaves legacy only as history', () => {
-    const markdown = readFileSync('upstream-notes/legacy-host-migration-history.md', 'utf8');
+    const markdown = readFileSync('vendor/upstream-notes/legacy-host-migration-history.md', 'utf8');
     const rows = parseInventory(markdown);
 
     expect(markdown).toContain('Milestone 11 final state');
@@ -191,7 +191,7 @@ describe('nexus inventories', () => {
 
 describe('nexus docs describe absorbed upstreams as source material', () => {
   test('absorption status locks Nexus-owned stage packs as the active units', () => {
-    const markdown = readFileSync('upstream-notes/absorption-status.md', 'utf8');
+    const markdown = readFileSync('vendor/upstream-notes/absorption-status.md', 'utf8');
 
     expect(markdown).toContain('Nexus-owned stage packs');
     expect(markdown).toContain('source material only');
@@ -227,8 +227,8 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     const readmeEntries = parseUpstreamReadme(readme);
     const updateStatus = readFileSync(UPDATE_STATUS_PATH, 'utf8');
 
-    expect(readme).toContain('upstream-notes/upstream-lock.json');
-    expect(readme).toContain('upstream-notes/update-status.md');
+    expect(readme).toContain('vendor/upstream-notes/upstream-lock.json');
+    expect(readme).toContain('vendor/upstream-notes/update-status.md');
     expect(readme).toContain('bootstrap snapshot');
     expect(readmeEntries).toHaveLength(lock.upstreams.length);
     expect(updateStatus).toContain('Last checked:');

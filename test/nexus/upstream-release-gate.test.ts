@@ -67,8 +67,8 @@ describe('nexus upstream release gate', () => {
   });
 
   test('documents CCB as compatibility infrastructure and not a full-retirement target', () => {
-    const ccbInventory = readFileSync('upstream-notes/ccb-inventory.md', 'utf8');
-    const absorptionStatus = readFileSync('upstream-notes/absorption-status.md', 'utf8');
+    const ccbInventory = readFileSync('vendor/upstream-notes/ccb-inventory.md', 'utf8');
+    const absorptionStatus = readFileSync('vendor/upstream-notes/absorption-status.md', 'utf8');
     const runbook = readFileSync('docs/superpowers/runbooks/upstream-refresh.md', 'utf8');
 
     expect(ccbInventory).toContain('compatibility infrastructure');
@@ -81,7 +81,7 @@ describe('nexus upstream release gate', () => {
 
   test('documents maintainer-only refresh decisions separately from governed truth', () => {
     const runbook = readFileSync('docs/superpowers/runbooks/upstream-refresh.md', 'utf8');
-    const absorptionStatus = readFileSync('upstream-notes/absorption-status.md', 'utf8');
+    const absorptionStatus = readFileSync('vendor/upstream-notes/absorption-status.md', 'utf8');
 
     for (const decision of ['ignore', 'defer', 'absorb_partial', 'absorb_full', 'reject'] as const) {
       expect(runbook).toContain(`\`${decision}\``);

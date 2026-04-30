@@ -8,10 +8,10 @@ Run `upstream:check` when you need a freshness snapshot for the imported upstrea
 
 - before reviewing a refresh candidate
 - after upstream repos move and you want to know what changed
-- when `upstream-notes/upstream-lock.json` looks stale
+- when `vendor/upstream-notes/upstream-lock.json` looks stale
 - before deciding whether an imported snapshot should be refreshed or ignored
 
-`upstream:check` updates the maintenance lock and `upstream-notes/update-status.md`. It does not change Nexus-owned runtime assets.
+`upstream:check` updates the maintenance lock and `vendor/upstream-notes/update-status.md`. It does not change Nexus-owned runtime assets.
 
 After `upstream:check`, run the unified maintainer report:
 
@@ -21,8 +21,8 @@ bun run maintainer:check
 
 Treat these as the maintainer report outputs:
 
-- machine-readable: `upstream-notes/maintainer-status.json`
-- human-readable: `upstream-notes/maintainer-status.md`
+- machine-readable: `vendor/upstream-notes/maintainer-status.json`
+- human-readable: `vendor/upstream-notes/maintainer-status.md`
 
 Those files are derived from repo-visible maintenance and release inputs. Console output, chat state, and GitHub workflow logs remain notification surfaces only.
 
@@ -42,8 +42,8 @@ Do not run it just because a check found a new upstream commit. A refresh candid
 
 Record the review in the maintenance files, not in runtime state:
 
-- update the candidate note under `upstream-notes/refresh-candidates/<name>.md`
-- set `last_absorption_decision` in `upstream-notes/upstream-lock.json`
+- update the candidate note under `vendor/upstream-notes/refresh-candidates/<name>.md`
+- set `last_absorption_decision` in `vendor/upstream-notes/upstream-lock.json`
 - keep `refresh_status` and candidate timestamps aligned with the candidate note
 - mirror the review outcome in the matching upstream inventory and absorption-status review summary
 
@@ -83,8 +83,8 @@ Provenance-only changes do not automatically trigger release:
 
 Do not release when the refresh only changes imported source material or maintainer notes:
 
-- upstream snapshots under `upstream/`
-- `upstream-notes/` lock, inventory, or candidate notes
+- upstream snapshots under `vendor/upstream/`
+- `vendor/upstream-notes/` lock, inventory, or candidate notes
 - maintainer absorption-review labels that do not alter Nexus-owned assets
 
 Do not release for `ignore` or `defer` decisions unless a separate Nexus-owned asset also changed.
@@ -97,7 +97,7 @@ bun run maintainer:check:report
 ```
 
 Use report-only first when you are still inspecting drift. Before publishing or recording
-maintainer truth, run `bun run maintainer:check` so `upstream-notes/maintainer-status.*`
+maintainer truth, run `bun run maintainer:check` so `vendor/upstream-notes/maintainer-status.*`
 matches the release decision.
 
 ## CCB Boundary

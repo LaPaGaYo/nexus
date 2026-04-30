@@ -20,7 +20,7 @@ describe('nexus superpowers build discipline', () => {
             traceability: {
               nexus_stage_pack: 'nexus-build-pack',
               absorbed_capability: 'superpowers-build-discipline',
-              source_map: ['upstream/superpowers/skills/test-driven-development/SKILL.md'],
+              source_map: ['vendor/upstream/superpowers/skills/test-driven-development/SKILL.md'],
             },
           }),
         },

@@ -63,7 +63,7 @@ describe('nexus upstream maintenance contract', () => {
   });
 
   test('the checked-in lock file mirrors the frozen contract and checked state', () => {
-    const lock = JSON.parse(readFileSync('upstream-notes/upstream-lock.json', 'utf8')) as ReturnType<
+    const lock = JSON.parse(readFileSync('vendor/upstream-notes/upstream-lock.json', 'utf8')) as ReturnType<
       typeof createInitialUpstreamLock
     >;
 
@@ -112,10 +112,10 @@ describe('nexus upstream maintenance contract', () => {
   });
 
   test('the checked-in lock and update-status file agree on checked state and live freshness values', () => {
-    const lock = JSON.parse(readFileSync('upstream-notes/upstream-lock.json', 'utf8')) as ReturnType<
+    const lock = JSON.parse(readFileSync('vendor/upstream-notes/upstream-lock.json', 'utf8')) as ReturnType<
       typeof createInitialUpstreamLock
     >;
-    const status = readFileSync('upstream-notes/update-status.md', 'utf8');
+    const status = readFileSync('vendor/upstream-notes/update-status.md', 'utf8');
 
     expect(status).toContain('Last checked:');
     expect(status).not.toContain('No upstream checks have run yet.');

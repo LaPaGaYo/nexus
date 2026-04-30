@@ -2,9 +2,10 @@
 
 The root `/nexus` source template has moved into the skill taxonomy. The Chrome
 extension source, design runtime, runtime sidecars, and tracked host source
-sidecars have moved under their taxonomy roots. Remaining generated host output
-and vendor paths stay in compatibility locations until a migration explicitly
-updates setup, generated host surfaces, runtime path rewrites, and tests.
+sidecars, vendor upstream snapshots, and vendor maintenance metadata have moved
+under their taxonomy roots. Remaining generated host output stays in
+compatibility locations until a migration explicitly updates setup, generated
+host surfaces, runtime path rewrites, and tests.
 
 Phase 3 adds documentation-only facades under `runtimes/`, `references/`, and
 `hosts/`. These facades improve repo navigation, but they are not executable
@@ -47,8 +48,8 @@ nexus/
     kiro/
 
   vendor/
-    upstream/
-    upstream-notes/
+    vendor/upstream/
+    vendor/upstream-notes/
 
   bin/
   scripts/
@@ -64,8 +65,9 @@ tests. The root `/nexus` source template now lives under
 `skills/root/nexus/`; root `SKILL.md` remains a generated compatibility mirror.
 The Chrome extension source now lives under `runtimes/browse/extension/`, the
 design runtime now lives under `runtimes/design/`, runtime sidecars now live
-under `runtimes/design-html/` and `runtimes/safety/`, and tracked host sidecars
-now live under `hosts/`, while installed hosts keep historical compatibility
+under `runtimes/design-html/` and `runtimes/safety/`, tracked host sidecars now
+live under `hosts/`, and upstream vendor material now lives under `vendor/`,
+while installed hosts and root upstream symlinks keep historical compatibility
 paths.
 
 Representative current-to-target mappings:
@@ -82,7 +84,10 @@ Representative current-to-target mappings:
 - `review` -> `references/review`
 - `qa` -> `references/qa`
 - `.claude/rules` -> `hosts/claude/rules`
-- `upstream` -> `vendor/upstream`
+- `vendor/upstream` -> `vendor/upstream`
+- `vendor/upstream-notes` -> `vendor/upstream-notes`
+- `upstream` -> `vendor/upstream` (compatibility symlink)
+- `upstream-notes` -> `vendor/upstream-notes` (compatibility symlink)
 - `.agents` -> `hosts/codex`
 - `agents/openai.yaml` -> `hosts/codex/openai.yaml`
 - `.factory` -> `hosts/factory`
@@ -103,6 +108,8 @@ installed runtime paths such as:
 - `$NEXUS_ROOT/qa/templates/qa-report-template.md`
 - `.claude/rules/*`
 - `agents/openai.yaml`
+- `upstream`
+- `upstream-notes`
 
 ## Phase 4 First Reference Move
 

@@ -93,9 +93,27 @@ describe('nexus repo taxonomy v2', () => {
     });
 
     expect(findRepoTaxonomyEntry('upstream')).toMatchObject({
+      current_path: 'vendor/upstream',
+      target_path: 'vendor/upstream',
+      move_policy: 'keep_in_place',
+    });
+
+    expect(findRepoTaxonomyEntry('upstream-compat')).toMatchObject({
       current_path: 'upstream',
       target_path: 'vendor/upstream',
-      move_policy: 'future_move',
+      move_policy: 'compat_required',
+    });
+
+    expect(findRepoTaxonomyEntry('upstream-notes')).toMatchObject({
+      current_path: 'vendor/upstream-notes',
+      target_path: 'vendor/upstream-notes',
+      move_policy: 'keep_in_place',
+    });
+
+    expect(findRepoTaxonomyEntry('upstream-notes-compat')).toMatchObject({
+      current_path: 'upstream-notes',
+      target_path: 'vendor/upstream-notes',
+      move_policy: 'compat_required',
     });
 
     expect(findRepoTaxonomyEntry('gemini-cli-host')).toMatchObject({
@@ -242,6 +260,7 @@ describe('nexus repo taxonomy v2', () => {
       'hosts/codex/README.md',
       'hosts/gemini-cli/README.md',
       'hosts/factory/README.md',
+      'vendor/README.md',
     ]);
 
     for (const facade of REPO_TAXONOMY_FACADES) {
@@ -366,6 +385,8 @@ describe('nexus repo taxonomy v2', () => {
     const highRiskRoots = [
       'upstream',
       'upstream-notes',
+      'vendor/upstream',
+      'vendor/upstream-notes',
       '.agents',
       '.factory',
     ];
@@ -374,7 +395,7 @@ describe('nexus repo taxonomy v2', () => {
 
     for (const root of highRiskRoots) {
       expect(existsSync(join(ROOT, root))).toBe(true);
-      expect(findRepoTaxonomyEntry(root)?.move_policy).not.toBe('moved');
+      expect(findRepoTaxonomyEntry(root)?.move_policy).toBeDefined();
     }
   });
 

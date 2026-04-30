@@ -90,7 +90,7 @@ describe('nexus release publication', () => {
     try {
       writeAlignedReleaseFixture(root);
 
-      const maintainerStatuses = ['', ' M upstream-notes/maintainer-status.json\n M upstream-notes/maintainer-status.md\n'];
+      const maintainerStatuses = ['', ' M vendor/upstream-notes/maintainer-status.json\n M vendor/upstream-notes/maintainer-status.md\n'];
       const result = await executePreparedReleasePublication({
         rootDir: root,
         releaseRepo: 'LaPaGaYo/nexus',
@@ -175,8 +175,8 @@ describe('nexus release publication', () => {
         'gh release create v1.0.31 --repo LaPaGaYo/nexus --title Nexus v1.0.31 --notes-file docs/releases/2026-04-16-nexus-v1.0.31.md',
         './bin/nexus-release-smoke',
         'bun run maintainer:check',
-        'git status --short -- upstream-notes/maintainer-status.json upstream-notes/maintainer-status.md',
-        'git add upstream-notes/maintainer-status.json upstream-notes/maintainer-status.md',
+        'git status --short -- vendor/upstream-notes/maintainer-status.json vendor/upstream-notes/maintainer-status.md',
+        'git add vendor/upstream-notes/maintainer-status.json vendor/upstream-notes/maintainer-status.md',
         'git commit -m chore: refresh maintainer status after v1.0.31',
         'git push origin main',
       ]);
