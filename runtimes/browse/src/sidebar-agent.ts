@@ -16,6 +16,10 @@ import * as path from 'path';
 const QUEUE = process.env.SIDEBAR_QUEUE_PATH || path.join(process.env.HOME || '/tmp', '.nexus', 'sidebar-agent-queue.jsonl');
 const SERVER_PORT = parseInt(process.env.BROWSE_SERVER_PORT || '34567', 10);
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`;
+const STDERR_TAIL_LIMIT = 500;
+const SIDEBAR_AGENT_DEFAULT_TIMEOUT_MS = 300_000;
+const SIDEBAR_AGENT_MIN_TIMEOUT_MS = 1_000;
+const SIDEBAR_AGENT_MAX_TIMEOUT_MS = 1_800_000;
 const POLL_MS = 200;  // 200ms poll — keeps time-to-first-token low
 const BROWSE_CANDIDATES = [
   process.env.BROWSE_BIN,
@@ -105,6 +109,43 @@ async function sendEvent(event: Record<string, any>, tabId?: number): Promise<vo
 }
 
 // ─── Claude subprocess ──────────────────────────────────────────
+
+function parseBoundedSidebarAgentTimeout(value = process.env.SIDEBAR_AGENT_TIMEOUT): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed)) {
+    return SIDEBAR_AGENT_DEFAULT_TIMEOUT_MS;
+  }
+
+  return Math.min(
+    SIDEBAR_AGENT_MAX_TIMEOUT_MS,
+    Math.max(SIDEBAR_AGENT_MIN_TIMEOUT_MS, parsed),
+  );
+}
+
+function redactSensitiveStderr(stderr: string): string {
+  return stderr
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
+    .replace(/\bgh[pousr]_[A-Za-z0-9_]+\b/g, '[REDACTED_GITHUB_TOKEN]')
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, '[REDACTED_API_KEY]')
+    .replace(
+      /\b(api[_-]?key|token|secret|password)\s*([:=])\s*[^\s]+/gi,
+      (_match, key: string, separator: string) => `${key}${separator}[REDACTED]`,
+    );
+}
+
+function stderrTail(stderrBuffer: string): string | null {
+  const trimmed = stderrBuffer.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return redactSensitiveStderr(trimmed).slice(-STDERR_TAIL_LIMIT);
+}
+
+function appendSafeStderr(message: string, stderrBuffer: string): string {
+  const stderr = stderrTail(stderrBuffer);
+  return stderr ? `${message}\nstderr: ${stderr}` : message;
+}
 
 function shorten(str: string): string {
   return str
@@ -309,10 +350,7 @@ async function askClaude(queueEntry: any): Promise<void> {
         try { relayEvent(JSON.parse(buffer)); } catch {}
       }
       if (code !== 0) {
-        const stderr = stderrBuffer.trim();
-        const error = stderr
-          ? `Claude exited with code ${code}\nstderr: ${stderr.slice(-500)}`
-          : `Claude exited with code ${code}`;
+        const error = appendSafeStderr(`Claude exited with code ${code}`, stderrBuffer);
         finish({ type: 'agent_error', error });
         return;
       }
@@ -324,19 +362,15 @@ async function askClaude(queueEntry: any): Promise<void> {
     });
 
     proc.on('error', (err) => {
-      const errorMsg = stderrBuffer.trim()
-        ? `${err.message}\nstderr: ${stderrBuffer.trim().slice(-500)}`
-        : err.message;
+      const errorMsg = appendSafeStderr(err.message, stderrBuffer);
       finish({ type: 'agent_error', error: errorMsg });
     });
 
     // Timeout (default 300s / 5 min — multi-page tasks need time)
-    const timeoutMs = parseInt(process.env.SIDEBAR_AGENT_TIMEOUT || '300000', 10);
+    const timeoutMs = parseBoundedSidebarAgentTimeout();
     timeout = setTimeout(() => {
       try { proc.kill(); } catch {}
-      const timeoutMsg = stderrBuffer.trim()
-        ? `Timed out after ${timeoutMs / 1000}s\nstderr: ${stderrBuffer.trim().slice(-500)}`
-        : `Timed out after ${timeoutMs / 1000}s`;
+      const timeoutMsg = appendSafeStderr(`Timed out after ${timeoutMs / 1000}s`, stderrBuffer);
       finish({ type: 'agent_error', error: timeoutMsg });
     }, timeoutMs);
   });

@@ -1,6 +1,7 @@
 import type { PullRequestRecord } from './types';
 import { runNexusCommand, type NexusCommandRunner } from './command-runner';
 import { shellQuotePosix } from './shell-quote';
+import { isRecord } from './validation-helpers';
 
 interface GithubPullRequestPayload {
   number?: number;
@@ -84,7 +85,37 @@ function fromGithubPayload(
 
 function parseGithubPullRequest(stdout: string): GithubPullRequestPayload | null {
   try {
-    return JSON.parse(stdout) as GithubPullRequestPayload;
+    const parsed = JSON.parse(stdout) as unknown;
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    const payload: GithubPullRequestPayload = {};
+    if (parsed.number !== undefined) {
+      if (typeof parsed.number !== 'number') return null;
+      payload.number = parsed.number;
+    }
+    if (parsed.url !== undefined) {
+      if (typeof parsed.url !== 'string') return null;
+      payload.url = parsed.url;
+    }
+    if (parsed.state !== undefined) {
+      if (typeof parsed.state !== 'string') return null;
+      payload.state = parsed.state;
+    }
+    if (parsed.headRefName !== undefined) {
+      if (typeof parsed.headRefName !== 'string') return null;
+      payload.headRefName = parsed.headRefName;
+    }
+    if (parsed.headRefOid !== undefined) {
+      if (typeof parsed.headRefOid !== 'string') return null;
+      payload.headRefOid = parsed.headRefOid;
+    }
+    if (parsed.baseRefName !== undefined) {
+      if (typeof parsed.baseRefName !== 'string') return null;
+      payload.baseRefName = parsed.baseRefName;
+    }
+    return payload;
   } catch {
     return null;
   }
@@ -274,6 +305,8 @@ export async function resolveShipPullRequest(
       }
       return fromGithubPayload(existingPr.pullRequest, 'reused');
     }
+  } else if (existingPr.error === 'gh pr view returned invalid JSON') {
+    return unavailablePullRequest(headBranch, existingPr.error, 'github', headSha);
   }
 
   const baseBranchResult = await runCommand({

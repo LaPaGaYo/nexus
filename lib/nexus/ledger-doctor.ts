@@ -28,6 +28,7 @@ import {
 } from './review-receipts';
 import { readStageStatus } from './status';
 import { readVerificationMatrix } from './verification-matrix';
+import { isRecord } from './validation-helpers';
 import type { StageStatus } from './types';
 
 export const LEDGER_DOCTOR_ISSUE_CODES = [
@@ -80,6 +81,34 @@ function parseSynthesisAuditVerdict(markdown: string, provider: 'Codex' | 'Gemin
   return verdict === 'pass' || verdict === 'fail' ? verdict : null;
 }
 
+type CurrentAuditMeta = {
+  review_attempt_id?: unknown;
+  audits?: {
+    codex?: { request_id?: unknown };
+    gemini?: { request_id?: unknown };
+  };
+};
+
+function parseAuditRequestMeta(value: unknown): { request_id?: unknown } | undefined {
+  return isRecord(value) ? { request_id: value.request_id } : undefined;
+}
+
+function readCurrentAuditMeta(path: string): CurrentAuditMeta | null {
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const audits = isRecord(parsed.audits) ? parsed.audits : {};
+  return {
+    review_attempt_id: parsed.review_attempt_id,
+    audits: {
+      codex: parseAuditRequestMeta(audits.codex),
+      gemini: parseAuditRequestMeta(audits.gemini),
+    },
+  };
+}
+
 function hasSplitBrainCurrentAudits(rootDir: string, reviewStatus: StageStatus): boolean {
   const requiredPaths = currentAuditArtifactPaths();
   if (!requiredPaths.every((path) => existsSync(join(rootDir, path)))) {
@@ -91,13 +120,10 @@ function hasSplitBrainCurrentAudits(rootDir: string, reviewStatus: StageStatus):
     const geminiMarkdown = readFileSync(join(rootDir, '.planning/audits/current/gemini.md'), 'utf8');
     const gateDecisionMarkdown = readFileSync(join(rootDir, '.planning/audits/current/gate-decision.md'), 'utf8');
     const synthesisMarkdown = readFileSync(join(rootDir, '.planning/audits/current/synthesis.md'), 'utf8');
-    const meta = JSON.parse(readFileSync(join(rootDir, '.planning/audits/current/meta.json'), 'utf8')) as {
-      review_attempt_id?: unknown;
-      audits?: {
-        codex?: { request_id?: unknown };
-        gemini?: { request_id?: unknown };
-      };
-    };
+    const meta = readCurrentAuditMeta(join(rootDir, '.planning/audits/current/meta.json'));
+    if (!meta) {
+      return true;
+    }
 
     const codexVerdict = parseAuditVerdict(codexMarkdown);
     const geminiVerdict = parseAuditVerdict(geminiMarkdown);

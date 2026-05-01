@@ -550,3 +550,22 @@ describe('BROWSE_TAB tab pinning (cross-tab isolation)', () => {
     expect(cliSrc).toContain('browseTab ? { tabId:');
   });
 });
+
+describe('sidebar-agent stderr and timeout safety', () => {
+  const agentSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'sidebar-agent.ts'), 'utf-8');
+
+  test('redacts stderr before relaying agent errors', () => {
+    expect(agentSrc).toContain('function redactSensitiveStderr');
+    expect(agentSrc).toContain('function stderrTail');
+    expect(agentSrc).toContain('appendSafeStderr');
+    expect(agentSrc).not.toContain('stderrBuffer.trim().slice(-500)');
+    expect(agentSrc).not.toContain('stderr.slice(-500)');
+  });
+
+  test('bounds SIDEBAR_AGENT_TIMEOUT instead of using raw parseInt output', () => {
+    expect(agentSrc).toContain('SIDEBAR_AGENT_MIN_TIMEOUT_MS');
+    expect(agentSrc).toContain('SIDEBAR_AGENT_MAX_TIMEOUT_MS');
+    expect(agentSrc).toContain('parseBoundedSidebarAgentTimeout');
+    expect(agentSrc).not.toContain("parseInt(process.env.SIDEBAR_AGENT_TIMEOUT || '300000', 10)");
+  });
+});

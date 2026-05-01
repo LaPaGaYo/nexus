@@ -11,6 +11,9 @@ const RUN_WORKSPACE_SYNC_PATHS = [
   '.planning/nexus/current-run.json',
   'docs/product',
 ] as const;
+type RunWorkspaceSyncPath = (typeof RUN_WORKSPACE_SYNC_PATHS)[number];
+
+const RUN_WORKSPACE_SYNC_PATH_SET = new Set<string>(RUN_WORKSPACE_SYNC_PATHS);
 
 type GitWorktreeEntry = {
   path: string;
@@ -123,11 +126,19 @@ function canonicalPath(path: string): string {
   }
 }
 
+export function assertRunWorkspaceSyncPath(relativePath: string): asserts relativePath is RunWorkspaceSyncPath {
+  if (!RUN_WORKSPACE_SYNC_PATH_SET.has(relativePath)) {
+    throw new Error(`Refusing to sync non-allowlisted run workspace path: ${relativePath}`);
+  }
+}
+
 function syncRepoPathIntoWorkspace(
   repoRoot: string,
   workspacePath: string,
   relativePath: string,
 ): void {
+  assertRunWorkspaceSyncPath(relativePath);
+
   const sourcePath = join(repoRoot, relativePath);
   const targetPath = join(workspacePath, relativePath);
 
