@@ -10,7 +10,16 @@ import {
   type StageStatus,
   type VerificationChecklistCategory,
 } from './types';
-import { isRecord, readJsonFile } from './validation-helpers';
+import { isRecord, readJsonResult } from './validation-helpers';
+
+const REVIEW_ADVISORY_CATEGORIES: readonly VerificationChecklistCategory[] = [
+  'testing',
+  'security',
+  'maintainability',
+  'performance',
+  'accessibility',
+  'design',
+] as const;
 
 function normalizeAdvisory(advisory: string): string {
   return advisory.replace(/\s+/g, ' ').trim();
@@ -32,6 +41,55 @@ function dedupeAdvisories(advisories: string[]): string[] {
   }
 
   return [...deduped.values()];
+}
+
+function readJsonObject(path: string): Record<string, unknown> | null {
+  const result = readJsonResult<Record<string, unknown>>(path);
+  if (result.ok) {
+    return isRecord(result.value) ? result.value : null;
+  }
+
+  if (result.reason === 'parse_error') {
+    console.warn(`[nexus] Ignoring malformed JSON at ${path}: ${result.error.message}`);
+  }
+
+  return null;
+}
+
+function readRequiredString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function readOptionalString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function readNonNegativeInteger(value: unknown): number | null {
+  return typeof value === 'number'
+    && Number.isInteger(value)
+    && value >= 0
+    ? value
+    : null;
+}
+
+function normalizeAdvisoryCategories(
+  categories: unknown,
+  advisories: string[],
+): VerificationChecklistCategory[] {
+  if (!Array.isArray(categories)) {
+    return classifyReviewAdvisoryCategories(advisories);
+  }
+
+  const normalized = new Set<VerificationChecklistCategory>();
+  for (const value of categories) {
+    if (
+      typeof value === 'string'
+      && (REVIEW_ADVISORY_CATEGORIES as readonly string[]).includes(value)
+    ) {
+      normalized.add(value as VerificationChecklistCategory);
+    }
+  }
+  return [...normalized].sort();
 }
 
 const ADVISORY_CATEGORY_PATTERNS: Array<{
@@ -179,51 +237,51 @@ export function buildReviewAdvisoryDispositionRecord(
 export function readReviewAdvisoryDisposition(
   cwd: string,
 ): ReviewAdvisoryDispositionRecord | null {
-  return readJsonFile(join(cwd, reviewAdvisoryDispositionPath()), (parsed) => {
-    if (!isRecord(parsed)) {
-      return null;
-    }
+  const parsed = readJsonObject(join(cwd, reviewAdvisoryDispositionPath()));
+  if (!parsed) {
+    return null;
+  }
 
-    const selected = typeof parsed.selected === 'string'
-      && (REVIEW_ADVISORY_DISPOSITIONS as readonly string[]).includes(parsed.selected)
-      ? parsed.selected as ReviewAdvisoryDisposition
-      : parsed.selected === null
-        ? null
-        : null;
-    const advisoryCount = typeof parsed.advisory_count === 'number' && Number.isFinite(parsed.advisory_count)
-      ? parsed.advisory_count
-      : 0;
+  const selected = typeof parsed.selected === 'string'
+    && (REVIEW_ADVISORY_DISPOSITIONS as readonly string[]).includes(parsed.selected)
+    ? parsed.selected as ReviewAdvisoryDisposition
+    : null;
+  const runId = readRequiredString(parsed.run_id);
+  const advisoryCount = readNonNegativeInteger(parsed.advisory_count);
+  if (runId === null || advisoryCount === null) {
+    return null;
+  }
 
-    return {
-      schema_version: 1,
-      run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
-      advisory_count: advisoryCount,
-      selected,
-      selected_at: typeof parsed.selected_at === 'string' ? parsed.selected_at : null,
-      available_options: [...REVIEW_ADVISORY_DISPOSITIONS],
-    };
-  });
+  return {
+    schema_version: 1,
+    run_id: runId,
+    advisory_count: advisoryCount,
+    selected,
+    selected_at: readOptionalString(parsed.selected_at),
+    available_options: [...REVIEW_ADVISORY_DISPOSITIONS],
+  };
 }
 
 export function readReviewAdvisories(cwd: string): ReviewAdvisoriesRecord | null {
-  return readJsonFile(join(cwd, reviewAdvisoriesPath()), (parsed) => {
-    if (!isRecord(parsed) || !Array.isArray(parsed.advisories)) {
-      return null;
-    }
+  const parsed = readJsonObject(join(cwd, reviewAdvisoriesPath()));
+  if (!parsed || !Array.isArray(parsed.advisories)) {
+    return null;
+  }
 
-    return {
-      schema_version: 1,
-      run_id: typeof parsed.run_id === 'string' ? parsed.run_id : '',
-      generated_at: typeof parsed.generated_at === 'string' ? parsed.generated_at : '',
-      advisories: dedupeAdvisories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
-      categories: Array.isArray(parsed.categories)
-        ? parsed.categories.filter((value): value is VerificationChecklistCategory =>
-          typeof value === 'string'
-          && ['testing', 'security', 'maintainability', 'performance', 'accessibility', 'design'].includes(value)
-        )
-        : classifyReviewAdvisoryCategories(parsed.advisories.filter((value): value is string => typeof value === 'string')),
-    };
-  });
+  const runId = readRequiredString(parsed.run_id);
+  const generatedAt = readRequiredString(parsed.generated_at);
+  if (runId === null || generatedAt === null) {
+    return null;
+  }
+
+  const advisories = dedupeAdvisories(parsed.advisories.filter((value): value is string => typeof value === 'string'));
+  return {
+    schema_version: 1,
+    run_id: runId,
+    generated_at: generatedAt,
+    advisories,
+    categories: normalizeAdvisoryCategories(parsed.categories, advisories),
+  };
 }
 
 export function reviewHasAdvisories(reviewStatus: StageStatus | null | undefined): boolean {
