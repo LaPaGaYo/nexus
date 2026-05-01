@@ -83,23 +83,19 @@ function fromGithubPayload(
   };
 }
 
-function hasOptionalString(value: Record<string, unknown>, key: keyof GithubPullRequestPayload): boolean {
-  return value[key] === undefined || typeof value[key] === 'string';
-}
-
 function isGithubPullRequestPayload(value: unknown): value is GithubPullRequestPayload {
   return isRecord(value)
-    && (value.number === undefined || typeof value.number === 'number')
-    && hasOptionalString(value, 'url')
-    && hasOptionalString(value, 'state')
-    && hasOptionalString(value, 'headRefName')
-    && hasOptionalString(value, 'headRefOid')
-    && hasOptionalString(value, 'baseRefName');
+    && typeof value.number === 'number'
+    && typeof value.url === 'string'
+    && typeof value.state === 'string'
+    && typeof value.headRefName === 'string'
+    && typeof value.headRefOid === 'string'
+    && typeof value.baseRefName === 'string';
 }
 
 function parseGithubPullRequest(stdout: string): GithubPullRequestPayload | null {
   try {
-    const parsed = JSON.parse(stdout);
+    const parsed = JSON.parse(stdout) as unknown;
     return isGithubPullRequestPayload(parsed) ? parsed : null;
   } catch {
     return null;
@@ -298,11 +294,20 @@ export async function resolveShipPullRequest(
   });
 
   if (baseBranchResult.exitCode !== 0) {
+    const existingBaseBranch = existingPr.ok && typeof existingPr.pullRequest.baseRefName === 'string'
+      ? existingPr.pullRequest.baseRefName
+      : null;
+    const reason = baseBranchResult.stderr.trim()
+      || baseBranchResult.stdout.trim()
+      || (!existingPr.ok ? existingPr.error : null)
+      || 'gh repo view failed';
+
     return unavailablePullRequest(
       headBranch,
-      baseBranchResult.stderr.trim() || baseBranchResult.stdout.trim() || existingPr.error,
+      reason,
       'github',
       headSha,
+      existingBaseBranch,
     );
   }
 
