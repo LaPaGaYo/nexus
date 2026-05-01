@@ -62,4 +62,13 @@ describe('Server auth security', () => {
     // Should not have wildcard CORS for the SSE stream
     expect(streamBlock).not.toContain("Access-Control-Allow-Origin': '*'");
   });
+
+  test('AUTH_TOKEN rotation is documented as per-process state', () => {
+    const authTokenIndex = SERVER_SRC.indexOf('const AUTH_TOKEN = crypto.randomUUID()');
+    expect(authTokenIndex).toBeGreaterThan(0);
+    const authBlock = SERVER_SRC.slice(Math.max(0, authTokenIndex - 260), authTokenIndex + 80);
+    expect(authBlock).toContain('Intentionally per-process');
+    expect(authBlock).toContain('state file');
+    expect(authBlock).toContain('crypto.randomUUID()');
+  });
 });

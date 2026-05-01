@@ -9,6 +9,7 @@ import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import type { ExecutionSelection } from '../../lib/nexus/execution-topology';
 import {
   allocateFreshRunWorkspace,
+  assertRunWorkspaceSyncPath,
   resolveExecutionWorkspace,
   resolveSessionRootRecord,
   syncRunWorkspaceArtifacts,
@@ -278,6 +279,12 @@ function governedAdapters(seen: SeenCall[]): NexusAdapters {
 }
 
 describe('nexus workspace substrate', () => {
+  test('rejects workspace sync paths outside the run artifact allowlist', () => {
+    expect(() => assertRunWorkspaceSyncPath('.planning/current')).not.toThrow();
+    expect(() => assertRunWorkspaceSyncPath('../secrets')).toThrow(/non-allowlisted/);
+    expect(() => assertRunWorkspaceSyncPath('.git/config')).toThrow(/non-allowlisted/);
+  });
+
   test('allocates a fresh run workspace under .nexus-worktrees instead of reusing a legacy implement worktree', async () => {
     await runInTempGitRepo(async ({ cwd }) => {
       const legacyWorktreePath = createLinkedWorktree(cwd, '.worktrees');
