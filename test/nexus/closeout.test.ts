@@ -398,11 +398,12 @@ describe('nexus closeout', () => {
       await run('closeout');
       const closeoutStatus = await run.readJson('.planning/current/closeout/status.json');
       const archivedRunId = closeoutStatus.run_id;
+      const closeoutRecord = await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md');
+      const followOnSummary = await run.readFile(closeoutFollowOnSummaryMarkdownPath());
 
-      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
-        '## Landing Re-entry',
-      );
-      expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain(
+      expect(closeoutRecord.match(/^## Landing Re-entry$/gm)).toHaveLength(1);
+      expect(followOnSummary.match(/^## Landing Re-entry$/gm)).toHaveLength(1);
+      expect(closeoutRecord).toContain(
         'Next action: rerun_build_review_qa_ship',
       );
       expect(await run.readJson('.planning/current/closeout/next-run-bootstrap.json')).toMatchObject({

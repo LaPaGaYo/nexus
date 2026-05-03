@@ -536,7 +536,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
           : []),
         {
           path: closeoutFollowOnSummaryMarkdownPath(),
-          content: `${renderFollowOnEvidenceMarkdown(followOnEvidence)}${renderLandingReentryMarkdown(landingReentry)}`,
+          content: renderFollowOnEvidenceMarkdown(followOnEvidence),
         },
         {
           path: closeoutFollowOnSummaryJsonPath(),
