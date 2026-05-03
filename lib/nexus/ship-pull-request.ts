@@ -1,6 +1,7 @@
 import type { PullRequestRecord } from './types';
 import { runNexusCommand, type NexusCommandRunner } from './command-runner';
 import { shellQuotePosix } from './shell-quote';
+import { isRecord } from './validation-helpers';
 
 interface GithubPullRequestPayload {
   number?: number;
@@ -82,9 +83,24 @@ function fromGithubPayload(
   };
 }
 
+function hasOptionalString(value: Record<string, unknown>, key: keyof GithubPullRequestPayload): boolean {
+  return value[key] === undefined || typeof value[key] === 'string';
+}
+
+function isGithubPullRequestPayload(value: unknown): value is GithubPullRequestPayload {
+  return isRecord(value)
+    && (value.number === undefined || typeof value.number === 'number')
+    && hasOptionalString(value, 'url')
+    && hasOptionalString(value, 'state')
+    && hasOptionalString(value, 'headRefName')
+    && hasOptionalString(value, 'headRefOid')
+    && hasOptionalString(value, 'baseRefName');
+}
+
 function parseGithubPullRequest(stdout: string): GithubPullRequestPayload | null {
   try {
-    return JSON.parse(stdout) as GithubPullRequestPayload;
+    const parsed = JSON.parse(stdout);
+    return isGithubPullRequestPayload(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -317,7 +333,7 @@ export async function resolveShipPullRequest(
 
   const createdPr = await readGithubPullRequest(cwd, runCommand);
   if (!createdPr.ok) {
-    return unavailablePullRequest(headBranch, createdPr.error);
+    return unavailablePullRequest(headBranch, createdPr.error, 'github', headSha, baseBranch);
   }
 
   return fromGithubPayload(createdPr.pullRequest, 'created');
