@@ -113,6 +113,7 @@ async function runInTempGitRepo(
       via: invocation.via,
       adapters,
       execution,
+      allow_stub_adapters: true,
     });
   };
 

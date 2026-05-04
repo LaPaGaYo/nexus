@@ -100,6 +100,7 @@ async function runInTempGitRepo(
       adapters,
       execution,
       continuation_mode_override: options.continuationModeOverride ?? null,
+      allow_stub_adapters: true,
     });
   };
 

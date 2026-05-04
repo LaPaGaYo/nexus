@@ -1342,6 +1342,7 @@ export function createDefaultLocalAdapter(): LocalAdapter {
   const reviewPack = createReviewStagePack();
 
   return {
+    kind: 'stub',
     resolve_route: async (ctx) => {
       const topology = activeLocalTopology(
         ctx.ledger.execution.primary_provider,
@@ -1614,6 +1615,7 @@ export function createRuntimeLocalAdapter(
   const executionWorkspacePath = (ctx: NexusAdapterContext): string => ctx.workspace?.path ?? ctx.cwd;
 
   return {
+    kind: 'runtime',
     resolve_route: async (ctx) => {
       const provider = ctx.ledger.execution.primary_provider;
       const topology = activeLocalTopology(provider, ctx.ledger.execution.provider_topology);

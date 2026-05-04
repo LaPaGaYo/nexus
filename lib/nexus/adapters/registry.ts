@@ -1,8 +1,8 @@
-import { createDefaultPmAdapter } from './pm';
-import { createDefaultGsdAdapter } from './gsd';
+import { createDefaultPmAdapter, createRuntimePmAdapter } from './pm';
+import { createDefaultGsdAdapter, createRuntimeGsdAdapter } from './gsd';
 import { createDefaultCcbAdapter, createRuntimeCcbAdapter } from './ccb';
 import { createDefaultLocalAdapter, createRuntimeLocalAdapter } from './local';
-import { createDefaultSuperpowersAdapter } from './superpowers';
+import { createDefaultSuperpowersAdapter, createRuntimeSuperpowersAdapter } from './superpowers';
 import type { AdapterRegistryShape, NexusAdapters } from './types';
 
 const DEFAULT_REGISTRY: AdapterRegistryShape = {
@@ -45,9 +45,9 @@ export function getDefaultNexusAdapters(): NexusAdapters {
 export function getRuntimeNexusAdapters(): NexusAdapters {
   return {
     registry: getDefaultAdapterRegistry(),
-    pm: createDefaultPmAdapter(),
-    gsd: createDefaultGsdAdapter(),
-    superpowers: createDefaultSuperpowersAdapter(),
+    pm: createRuntimePmAdapter(),
+    gsd: createRuntimeGsdAdapter(),
+    superpowers: createRuntimeSuperpowersAdapter(),
     ccb: createRuntimeCcbAdapter(),
     local: createRuntimeLocalAdapter(),
   };

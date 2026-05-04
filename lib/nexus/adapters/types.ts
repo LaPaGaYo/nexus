@@ -12,6 +12,11 @@ import type { CommandContract } from '../command-manifest';
 import type { StagePackTraceability } from '../stage-packs/types';
 
 export type AdapterActivationState = 'inactive' | 'reserved_future' | 'active';
+export type AdapterKind = 'stub' | 'runtime';
+
+interface NexusAdapterMarker {
+  readonly kind: AdapterKind;
+}
 
 export interface NexusAdapterContext {
   cwd: string;
@@ -42,23 +47,23 @@ export interface AdapterResult<TRaw> {
   traceability?: AdapterTraceability;
 }
 
-export interface PmAdapter {
+export interface PmAdapter extends NexusAdapterMarker {
   discover(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   frame(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
-export interface GsdAdapter {
+export interface GsdAdapter extends NexusAdapterMarker {
   plan(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   closeout(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
-export interface SuperpowersAdapter {
+export interface SuperpowersAdapter extends NexusAdapterMarker {
   build_discipline(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   review_discipline(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   ship_discipline(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
-export interface CcbAdapter {
+export interface CcbAdapter extends NexusAdapterMarker {
   resolve_route(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_generator(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_audit_a(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
@@ -66,7 +71,7 @@ export interface CcbAdapter {
   execute_qa(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
-export interface LocalAdapter {
+export interface LocalAdapter extends NexusAdapterMarker {
   resolve_route(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_generator(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   execute_audit_a(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;

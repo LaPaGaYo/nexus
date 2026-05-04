@@ -1,5 +1,5 @@
 import { createDiscoverStagePack, createFrameStagePack } from '../stage-packs';
-import type { AdapterResult, AdapterTraceability, PmAdapter } from './types';
+import type { AdapterKind, AdapterResult, AdapterTraceability, PmAdapter } from './types';
 import type { DesignIntentRecord } from '../types';
 
 export interface PmDiscoverRaw {
@@ -25,11 +25,12 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-export function createDefaultPmAdapter(): PmAdapter {
+function createPmAdapter(kind: AdapterKind): PmAdapter {
   const discoverPack = createDiscoverStagePack();
   const framePack = createFrameStagePack();
 
   return {
+    kind,
     discover: async (ctx) =>
       successResult<PmDiscoverRaw>({
         idea_brief_markdown: discoverPack.buildIdeaBrief(ctx),
@@ -47,4 +48,12 @@ export function createDefaultPmAdapter(): PmAdapter {
         },
       }, framePack.traceability()),
   };
+}
+
+export function createDefaultPmAdapter(): PmAdapter {
+  return createPmAdapter('stub');
+}
+
+export function createRuntimePmAdapter(): PmAdapter {
+  return createPmAdapter('runtime');
 }

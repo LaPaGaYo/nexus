@@ -518,6 +518,7 @@ describe('nexus ship', () => {
           provider_topology: 'multi_session',
           requested_execution_path: 'codex-via-ccb',
         },
+        allow_stub_adapters: true,
         run_command: async (spec) => {
           commands.push(spec.argv.join(' '));
 
@@ -694,6 +695,7 @@ describe('nexus ship', () => {
           provider_topology: 'multi_session',
           requested_execution_path: 'codex-via-ccb',
         },
+        allow_stub_adapters: true,
         run_command: async (spec) => {
           commands.push({ cwd: spec.cwd, argv: spec.argv });
 
@@ -829,6 +831,7 @@ describe('nexus ship', () => {
           provider_topology: 'multi_session',
           requested_execution_path: 'codex-via-ccb',
         },
+        allow_stub_adapters: true,
         run_command: async (spec) => {
           commands.push(spec.argv.join(' '));
 
@@ -925,6 +928,7 @@ describe('nexus ship', () => {
             provider_topology: 'multi_session',
             requested_execution_path: 'codex-via-ccb',
           },
+          allow_stub_adapters: true,
           run_command: async (spec) => {
             commands.push(spec.argv.join(' '));
 
@@ -1064,6 +1068,7 @@ describe('nexus ship', () => {
           provider_topology: 'multi_session',
           requested_execution_path: 'codex-via-ccb',
         },
+        allow_stub_adapters: true,
         run_command: async (spec) => {
           if (spec.argv[0] === 'git' && spec.argv[1] === 'branch') {
             return { exitCode: 0, stdout: 'feature/phase-2-auth\n', stderr: '' };
@@ -1152,6 +1157,7 @@ describe('nexus ship', () => {
           provider_topology: 'multi_session',
           requested_execution_path: 'codex-via-ccb',
         },
+        allow_stub_adapters: true,
         run_command: async (spec) => {
           commands.push(spec.argv.join(' '));
 

@@ -99,6 +99,7 @@ export async function runInTempRepo(
         adapters,
         execution,
         review_advisory_disposition_override: options.reviewAdvisoryDispositionOverride ?? null,
+        allow_stub_adapters: true,
       });
     },
     {

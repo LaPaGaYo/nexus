@@ -1,6 +1,6 @@
 import { createBuildStagePack, createReviewStagePack, createShipStagePack } from '../stage-packs';
 import type { LearningCandidate } from '../types';
-import type { AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
+import type { AdapterKind, AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
 
 export interface SuperpowersBuildDisciplineRaw {
   verification_summary: string;
@@ -35,12 +35,13 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
+function createSuperpowersAdapter(kind: AdapterKind): SuperpowersAdapter {
   const buildPack = createBuildStagePack();
   const reviewPack = createReviewStagePack();
   const shipPack = createShipStagePack();
 
   return {
+    kind,
     build_discipline: async (ctx) =>
       successResult<SuperpowersBuildDisciplineRaw>({
         verification_summary: buildPack.buildVerificationSummary(ctx),
@@ -60,4 +61,12 @@ export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
         merge_ready: true,
       }, shipPack.disciplineTraceability()),
   };
+}
+
+export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
+  return createSuperpowersAdapter('stub');
+}
+
+export function createRuntimeSuperpowersAdapter(): SuperpowersAdapter {
+  return createSuperpowersAdapter('runtime');
 }
