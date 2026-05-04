@@ -10,7 +10,8 @@ import { assertLegalTransition } from '../transitions';
 import type { DiscoveryFrameRaw } from '../adapters/discovery';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
-import { buildCompletionAdvisorWrite, buildFrameCompletionAdvisor } from '../completion-advisor';
+import { buildFrameCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {

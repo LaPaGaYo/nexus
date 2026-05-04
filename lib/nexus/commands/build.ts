@@ -61,7 +61,8 @@ import type { ExecutionBuildDisciplineRaw } from '../adapters/execution';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
-import { buildBuildCompletionAdvisor, buildCompletionAdvisorWrite } from '../completion-advisor';
+import { buildBuildCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 
 const PLAN_STATUS_PATH = stageStatusPath('plan');
 
