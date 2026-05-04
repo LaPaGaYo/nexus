@@ -15,17 +15,17 @@ export function makeFakeAdapters(overrides: PartialNexusAdapters = {}): NexusAda
       ...defaults.registry,
       ...(overrides.registry ?? {}),
     },
-    pm: {
-      ...defaults.pm,
-      ...(overrides.pm ?? {}),
+    discovery: {
+      ...defaults.discovery,
+      ...(overrides.discovery ?? {}),
     },
-    gsd: {
-      ...defaults.gsd,
-      ...(overrides.gsd ?? {}),
+    planning: {
+      ...defaults.planning,
+      ...(overrides.planning ?? {}),
     },
-    superpowers: {
-      ...defaults.superpowers,
-      ...(overrides.superpowers ?? {}),
+    execution: {
+      ...defaults.execution,
+      ...(overrides.execution ?? {}),
     },
     ccb: {
       ...defaults.ccb,

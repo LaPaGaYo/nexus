@@ -47,17 +47,17 @@ export interface AdapterResult<TRaw> {
   traceability?: AdapterTraceability;
 }
 
-export interface PmAdapter extends NexusAdapterMarker {
+export interface DiscoveryAdapter extends NexusAdapterMarker {
   discover(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   frame(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
-export interface GsdAdapter extends NexusAdapterMarker {
+export interface PlanningAdapter extends NexusAdapterMarker {
   plan(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   closeout(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
 }
 
-export interface SuperpowersAdapter extends NexusAdapterMarker {
+export interface ExecutionAdapter extends NexusAdapterMarker {
   build_discipline(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   review_discipline(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
   ship_discipline(ctx: NexusAdapterContext): Promise<AdapterResult<unknown>>;
@@ -81,22 +81,22 @@ export interface LocalAdapter extends NexusAdapterMarker {
 }
 
 export interface AdapterRegistryShape {
-  discover: { pm: AdapterActivationState };
-  frame: { pm: AdapterActivationState };
-  plan: { gsd: AdapterActivationState };
+  discover: { discovery: AdapterActivationState };
+  frame: { discovery: AdapterActivationState };
+  plan: { planning: AdapterActivationState };
   handoff: { ccb: AdapterActivationState; local: AdapterActivationState };
-  build: { superpowers: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
-  review: { superpowers: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
+  build: { execution: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
+  review: { execution: AdapterActivationState; ccb: AdapterActivationState; local: AdapterActivationState };
   qa: { ccb: AdapterActivationState; local: AdapterActivationState };
-  ship: { superpowers: AdapterActivationState; local: AdapterActivationState };
-  closeout: { gsd: AdapterActivationState };
+  ship: { execution: AdapterActivationState; local: AdapterActivationState };
+  closeout: { planning: AdapterActivationState };
 }
 
 export interface NexusAdapters {
   registry: AdapterRegistryShape;
-  pm: PmAdapter;
-  gsd: GsdAdapter;
-  superpowers: SuperpowersAdapter;
+  discovery: DiscoveryAdapter;
+  planning: PlanningAdapter;
+  execution: ExecutionAdapter;
   ccb: CcbAdapter;
   local: LocalAdapter;
 }

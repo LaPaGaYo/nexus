@@ -5,7 +5,7 @@ import {
   stageNormalizationPath,
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
-import type { GsdCloseoutRaw, GsdPlanRaw } from '../adapters/gsd';
+import type { PlanningCloseoutRaw, PlanningPlanRaw } from '../adapters/planning';
 
 interface ArtifactWrite {
   path: string;
@@ -34,8 +34,8 @@ function buildTraceWrites(
   ];
 }
 
-export function normalizeGsdPlan(
-  result: AdapterResult<GsdPlanRaw>,
+export function normalizePlanningPlan(
+  result: AdapterResult<PlanningPlanRaw>,
 ): { canonicalWrites: ArtifactWrite[] } {
   if (!result.raw_output.execution_readiness_packet.trim() || !result.raw_output.sprint_contract.trim()) {
     throw new Error('Canonical writeback failed');
@@ -64,8 +64,8 @@ export function normalizeGsdPlan(
   };
 }
 
-export function normalizeGsdCloseout(
-  result: AdapterResult<GsdCloseoutRaw>,
+export function normalizePlanningCloseout(
+  result: AdapterResult<PlanningCloseoutRaw>,
 ): { canonicalWrites: ArtifactWrite[] } {
   if (!result.raw_output.closeout_record.trim()) {
     throw new Error('Canonical writeback failed');
@@ -81,7 +81,7 @@ export function normalizeGsdCloseout(
   };
 }
 
-export function buildGsdTraceabilityPayloads(
+export function buildPlanningTraceabilityPayloads(
   stage: 'plan' | 'closeout',
   runId: string,
   inputs: string[],

@@ -20,7 +20,7 @@ import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorks
 import { assertCanonicalTailLedger, assertQaReadyForCloseout, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
 import { readLedger } from '../ledger';
 import { applyNormalizationPlan } from '../normalizers';
-import { buildShipStageTraceabilityPayloads } from '../normalizers/superpowers';
+import { buildShipStageTraceabilityPayloads } from '../normalizers/execution';
 import { resolveShipPullRequest } from '../ship-pull-request';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
@@ -33,7 +33,7 @@ import {
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
 } from '../review-advisories';
-import type { SuperpowersShipDisciplineRaw } from '../adapters/superpowers';
+import type { ExecutionShipDisciplineRaw } from '../adapters/execution';
 import type { LocalExecuteShipPersonasRaw } from '../adapters/local';
 import { LEARNING_SOURCES, LEARNING_TYPES, LOCAL_SHIP_PERSONA_ROLES } from '../types';
 import type {
@@ -105,7 +105,7 @@ function isOneOf<T extends readonly string[]>(value: unknown, values: T): value 
 }
 
 function augmentChecklist(
-  checklist: SuperpowersShipDisciplineRaw['checklist'],
+  checklist: ExecutionShipDisciplineRaw['checklist'],
   designImpact: StageStatus['design_impact'] | null | undefined,
   designContractPath: string | null | undefined,
   designVerified: boolean | null | undefined,
@@ -462,7 +462,7 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     ...(perfVerificationPath ? [artifactPointerFor(perfVerificationPath)] : []),
   ];
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
-  const result = await ctx.adapters.superpowers.ship_discipline({
+  const result = await ctx.adapters.execution.ship_discipline({
     cwd: ctx.cwd,
     workspace,
     run_id: ledger.run_id,
@@ -472,8 +472,8 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: null,
-  }) as Awaited<ReturnType<typeof ctx.adapters.superpowers.ship_discipline>> & {
-    raw_output: SuperpowersShipDisciplineRaw;
+  }) as Awaited<ReturnType<typeof ctx.adapters.execution.ship_discipline>> & {
+    raw_output: ExecutionShipDisciplineRaw;
   };
 
   const previousStage = qaStatus ? 'qa' : 'review';

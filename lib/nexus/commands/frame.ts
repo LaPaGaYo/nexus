@@ -5,9 +5,9 @@ import { CANONICAL_MANIFEST } from '../command-manifest';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { frameDesignIntentPath, stageCompletionAdvisorPath, stageStatusPath } from '../artifacts';
 import { applyNormalizationPlan } from '../normalizers';
-import { canonicalNextStages, normalizePmFrame, buildPmTraceabilityPayloads } from '../normalizers/pm';
+import { canonicalNextStages, normalizeDiscoveryFrame, buildDiscoveryTraceabilityPayloads } from '../normalizers/discovery';
 import { assertLegalTransition } from '../transitions';
-import type { PmFrameRaw } from '../adapters/pm';
+import type { DiscoveryFrameRaw } from '../adapters/discovery';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { buildCompletionAdvisorWrite, buildFrameCompletionAdvisor } from '../completion-advisor';
@@ -39,7 +39,7 @@ function nextLedger(
 function buildStatus(
   ledger: RunLedger,
   at: string,
-  designIntent: PmFrameRaw['design_intent'] | null,
+  designIntent: DiscoveryFrameRaw['design_intent'] | null,
   state: StageStatus['state'],
   decision: StageStatus['decision'],
   ready: boolean,
@@ -114,7 +114,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
     throw new Error(`Missing required input artifact: ${inputPath}`);
   }
 
-  const result = await ctx.adapters.pm.frame({
+  const result = await ctx.adapters.discovery.frame({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'frame',
@@ -123,7 +123,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: [artifactPointerFor(inputPath)],
     requested_route: null,
-  }) as Awaited<ReturnType<typeof ctx.adapters.pm.frame>> & { raw_output: PmFrameRaw };
+  }) as Awaited<ReturnType<typeof ctx.adapters.discovery.frame>> & { raw_output: DiscoveryFrameRaw };
 
   if (result.outcome === 'refused') {
     const status = buildStatus(ledger, at, null, 'refused', 'refused', false, ['PM framing refused']);
@@ -133,7 +133,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'frame',
         ledger.run_id,
         [inputPath],
@@ -156,7 +156,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'frame',
         ledger.run_id,
         [inputPath],
@@ -172,7 +172,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
   }
 
   try {
-    const normalized = normalizePmFrame(result);
+    const normalized = normalizeDiscoveryFrame(result);
     const status = buildStatus(ledger, at, result.raw_output.design_intent, 'completed', 'ready', true, []);
     const completionAdvisor = buildFrameCompletionAdvisor(status, at);
     const next = nextLedger(ledger, 'active', at, ctx.via);
@@ -190,7 +190,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
       canonicalWrites: [...normalized.canonicalWrites, buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'frame',
         ledger.run_id,
         [inputPath],
@@ -234,7 +234,7 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       stage: 'frame',
       statusPath: stageStatusPath('frame'),
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'frame',
         ledger.run_id,
         [inputPath],

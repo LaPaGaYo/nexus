@@ -6,9 +6,9 @@ describe('nexus superpowers build discipline', () => {
   test('records a disciplined build and then executes through the approved route', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           build_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               verification_summary: 'TDD checks passed',
@@ -33,7 +33,7 @@ describe('nexus superpowers build discipline', () => {
       expect(await run.readFile('.planning/current/build/build-result.md')).toContain('TDD checks passed');
       expect(await run.readJson('.planning/current/build/adapter-output.json')).toMatchObject({
         discipline: {
-          adapter_id: 'superpowers',
+          adapter_id: 'execution',
           traceability: {
             nexus_stage_pack: 'nexus-build-pack',
             absorbed_capability: 'superpowers-build-discipline',
@@ -78,9 +78,9 @@ describe('nexus superpowers build discipline', () => {
     await runInTempRepo(async ({ run }) => {
       let transportCalled = false;
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           build_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'blocked',
             raw_output: {
               verification_summary: 'tests missing',

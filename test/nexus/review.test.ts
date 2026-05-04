@@ -23,11 +23,11 @@ describe('nexus review', () => {
 
       const calls: string[] = [];
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => {
             calls.push('discipline');
             return {
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: {
                 discipline_summary: 'Verification-before-completion passed',
@@ -130,7 +130,7 @@ describe('nexus review', () => {
       expect(await run.readFile('.planning/audits/current/synthesis.md')).toContain('Verification-before-completion passed');
       expect(await run.readJson('.planning/current/review/adapter-output.json')).toMatchObject({
         discipline: {
-          adapter_id: 'superpowers',
+          adapter_id: 'execution',
           outcome: 'success',
           traceability: {
             nexus_stage_pack: 'nexus-review-pack',
@@ -237,9 +237,9 @@ describe('nexus review', () => {
       };
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -345,9 +345,9 @@ describe('nexus review', () => {
       let auditBObservedBeforeAuditACompleted = false;
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -466,9 +466,9 @@ describe('nexus review', () => {
 
       const seen: string[][] = [];
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -632,9 +632,9 @@ describe('nexus review', () => {
       await run('build');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -720,9 +720,9 @@ describe('nexus review', () => {
       await run('build');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -896,9 +896,9 @@ describe('nexus review', () => {
       await run('build');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1011,9 +1011,9 @@ describe('nexus review', () => {
       await run('build');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1140,9 +1140,9 @@ describe('nexus review', () => {
       );
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1285,9 +1285,9 @@ describe('nexus review', () => {
       await run('build');
 
       const failingReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1383,9 +1383,9 @@ describe('nexus review', () => {
       await run('build');
 
       const blockedReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1503,9 +1503,9 @@ describe('nexus review', () => {
       await run('build');
 
       const failingReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1561,9 +1561,9 @@ describe('nexus review', () => {
       expect(existsSync(join(cwd, '.planning/audits/current/gemini.md'))).toBe(true);
 
       const blockedReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1645,9 +1645,9 @@ describe('nexus review', () => {
       await run('build');
 
       const blockedReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1734,9 +1734,9 @@ describe('nexus review', () => {
       };
 
       const learningReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1795,9 +1795,9 @@ describe('nexus review', () => {
       });
 
       const refusedReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'refused',
             raw_output: {
               discipline_summary: 'Verification-before-completion refused',
@@ -1836,9 +1836,9 @@ describe('nexus review', () => {
       await run('build');
 
       const failingReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1924,9 +1924,9 @@ describe('nexus review', () => {
 
       const recoveredScopeCalls: Array<{ provider: 'codex' | 'gemini'; reviewScope: unknown }> = [];
       const recoveredReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -2028,9 +2028,9 @@ describe('nexus review', () => {
       await run('build');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',

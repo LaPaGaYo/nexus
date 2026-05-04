@@ -561,7 +561,7 @@ export function buildReviewTraceabilityPayloads(
         {
           run_id: runId,
           inputs,
-          adapter_chain: ['superpowers', requestedRoute.transport, requestedRoute.transport],
+          adapter_chain: ['execution', requestedRoute.transport, requestedRoute.transport],
           requested_route: requestedRoute,
           review_scope: reviewScope,
           workspace,

@@ -1,20 +1,20 @@
-import { createDefaultPmAdapter, createRuntimePmAdapter } from './pm';
-import { createDefaultGsdAdapter, createRuntimeGsdAdapter } from './gsd';
+import { createDefaultDiscoveryAdapter, createRuntimeDiscoveryAdapter } from './discovery';
+import { createDefaultPlanningAdapter, createRuntimePlanningAdapter } from './planning';
 import { createDefaultCcbAdapter, createRuntimeCcbAdapter } from './ccb';
 import { createDefaultLocalAdapter, createRuntimeLocalAdapter } from './local';
-import { createDefaultSuperpowersAdapter, createRuntimeSuperpowersAdapter } from './superpowers';
+import { createDefaultExecutionAdapter, createRuntimeExecutionAdapter } from './execution';
 import type { AdapterRegistryShape, NexusAdapters } from './types';
 
 const DEFAULT_REGISTRY: AdapterRegistryShape = {
-  discover: { pm: 'active' },
-  frame: { pm: 'active' },
-  plan: { gsd: 'active' },
+  discover: { discovery: 'active' },
+  frame: { discovery: 'active' },
+  plan: { planning: 'active' },
   handoff: { ccb: 'active', local: 'active' },
-  build: { superpowers: 'active', ccb: 'active', local: 'active' },
-  review: { superpowers: 'active', ccb: 'active', local: 'active' },
+  build: { execution: 'active', ccb: 'active', local: 'active' },
+  review: { execution: 'active', ccb: 'active', local: 'active' },
   qa: { ccb: 'active', local: 'active' },
-  ship: { superpowers: 'active', local: 'active' },
-  closeout: { gsd: 'active' },
+  ship: { execution: 'active', local: 'active' },
+  closeout: { planning: 'active' },
 };
 
 export function getDefaultAdapterRegistry(): AdapterRegistryShape {
@@ -34,9 +34,9 @@ export function getDefaultAdapterRegistry(): AdapterRegistryShape {
 export function getDefaultNexusAdapters(): NexusAdapters {
   return {
     registry: getDefaultAdapterRegistry(),
-    pm: createDefaultPmAdapter(),
-    gsd: createDefaultGsdAdapter(),
-    superpowers: createDefaultSuperpowersAdapter(),
+    discovery: createDefaultDiscoveryAdapter(),
+    planning: createDefaultPlanningAdapter(),
+    execution: createDefaultExecutionAdapter(),
     ccb: createDefaultCcbAdapter(),
     local: createDefaultLocalAdapter(),
   };
@@ -45,9 +45,9 @@ export function getDefaultNexusAdapters(): NexusAdapters {
 export function getRuntimeNexusAdapters(): NexusAdapters {
   return {
     registry: getDefaultAdapterRegistry(),
-    pm: createRuntimePmAdapter(),
-    gsd: createRuntimeGsdAdapter(),
-    superpowers: createRuntimeSuperpowersAdapter(),
+    discovery: createRuntimeDiscoveryAdapter(),
+    planning: createRuntimePlanningAdapter(),
+    execution: createRuntimeExecutionAdapter(),
     ccb: createRuntimeCcbAdapter(),
     local: createRuntimeLocalAdapter(),
   };

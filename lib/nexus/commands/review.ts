@@ -44,7 +44,7 @@ import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
 import type { LocalExecuteAuditRaw } from '../adapters/local';
-import type { SuperpowersReviewDisciplineRaw } from '../adapters/superpowers';
+import type { ExecutionReviewDisciplineRaw } from '../adapters/execution';
 import type {
   ArtifactPointer,
   CommandHistoryVia,
@@ -580,7 +580,7 @@ export async function runReviewWithWriteAtomicFile(
   }
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
 
-  const disciplineResult = await ctx.adapters.superpowers.review_discipline({
+  const disciplineResult = await ctx.adapters.execution.review_discipline({
     cwd: ctx.cwd,
     workspace,
     run_id: ledger.run_id,
@@ -591,8 +591,8 @@ export async function runReviewWithWriteAtomicFile(
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
     review_scope: inheritedReviewScope,
-  }) as Awaited<ReturnType<typeof ctx.adapters.superpowers.review_discipline>> & {
-    raw_output: SuperpowersReviewDisciplineRaw;
+  }) as Awaited<ReturnType<typeof ctx.adapters.execution.review_discipline>> & {
+    raw_output: ExecutionReviewDisciplineRaw;
   };
 
   if (disciplineResult.outcome !== 'success') {

@@ -311,9 +311,9 @@ describe('nexus discover/frame PM seams', () => {
   test('normalizes a happy-path discover result into canonical docs and status', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           discover: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               idea_brief_markdown: '# Idea Brief\n\nProblem: governed seams\n',
@@ -345,7 +345,7 @@ describe('nexus discover/frame PM seams', () => {
         stage: 'discover',
       });
       expect(await run.readJson('.planning/current/discover/adapter-output.json')).toMatchObject({
-        adapter_id: 'pm',
+        adapter_id: 'discovery',
         outcome: 'success',
         traceability: {
           nexus_stage_pack: 'nexus-discover-pack',
@@ -359,9 +359,9 @@ describe('nexus discover/frame PM seams', () => {
     await runInTempRepo(async ({ run }) => {
       await run('discover');
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: PM seam\n',
@@ -415,7 +415,7 @@ describe('nexus discover/frame PM seams', () => {
         },
       });
       expect(await run.readJson('.planning/current/frame/adapter-output.json')).toMatchObject({
-        adapter_id: 'pm',
+        adapter_id: 'discovery',
         outcome: 'success',
         traceability: {
           nexus_stage_pack: 'nexus-frame-pack',
@@ -429,9 +429,9 @@ describe('nexus discover/frame PM seams', () => {
     await runInTempRepo(async ({ run }) => {
       await run('discover');
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: material UI work\n',
@@ -525,9 +525,9 @@ describe('nexus discover/frame PM seams', () => {
   test('blocks plan when material design work has no design contract', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const frameAdapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: material plan gate\n',
@@ -618,9 +618,9 @@ describe('nexus discover/frame PM seams', () => {
   test('synthesizes the canonical plan design contract from repo design context when GSD omits one', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const frameAdapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: synthesize design contract\n',
@@ -644,9 +644,9 @@ describe('nexus discover/frame PM seams', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -697,9 +697,9 @@ describe('nexus discover/frame PM seams', () => {
   test('writes the plan design contract when material design work provides one', async () => {
     await runInTempRepo(async ({ run }) => {
       const frameAdapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: material plan contract\n',
@@ -723,9 +723,9 @@ describe('nexus discover/frame PM seams', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -807,9 +807,9 @@ describe('nexus discover/frame PM seams', () => {
   test('blocks discover when normalized PM output is malformed', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           discover: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               idea_brief_markdown: '',
@@ -843,9 +843,9 @@ describe('nexus discover/frame PM seams', () => {
     await runInTempRepo(async ({ run }) => {
       await run('discover');
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: malformed design intent\n',
@@ -1366,9 +1366,9 @@ describe('nexus discover/frame PM seams', () => {
     await runInTempRepo(async ({ run }) => {
       await run('discover');
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'refused',
             raw_output: { reason: 'missing product context' },
             requested_route: null,

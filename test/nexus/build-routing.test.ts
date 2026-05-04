@@ -760,11 +760,11 @@ describe('nexus build routing', () => {
             };
           },
         },
-        superpowers: {
+        execution: {
           build_discipline: async (ctx) => {
             seen.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
             return {
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: { verification_summary: 'verified current execution packet' },
               requested_route: null,
@@ -848,13 +848,13 @@ describe('nexus build routing', () => {
             };
           },
         },
-        superpowers: {
+        execution: {
           build_discipline: async (ctx) => {
             const workspaceReadme = readFileSync(join(ctx.workspace!.path, 'README.md'), 'utf8');
             expect(workspaceReadme).toContain('updated remote baseline after handoff');
 
             return {
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: { verification_summary: 'refreshed workspace before build' },
               requested_route: null,
@@ -932,11 +932,11 @@ describe('nexus build routing', () => {
             };
           },
         },
-        superpowers: {
+        execution: {
           build_discipline: async (ctx) => {
             seenBuild.push(ctx.predecessor_artifacts.map((artifact) => artifact.path));
             return {
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: { verification_summary: 'verified design-bearing execution packet' },
               requested_route: null,
@@ -1102,7 +1102,7 @@ describe('nexus build routing', () => {
       const staleWorktreePath = createLinkedWorktree(cwd, '.worktrees');
       const seen: Array<{ stage: string; workspace: unknown; ledgerWorkspace: unknown }> = [];
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           build_discipline: async (ctx) => {
             seen.push({
               stage: 'discipline',
@@ -1110,7 +1110,7 @@ describe('nexus build routing', () => {
               ledgerWorkspace: ctx.ledger.execution.workspace,
             });
             return {
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: { verification_summary: 'ok' },
               requested_route: null,
@@ -1464,9 +1464,9 @@ describe('nexus build routing', () => {
             conflict_candidates: [],
           }),
         },
-        superpowers: {
+        execution: {
           build_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: { verification_summary: 'verified current execution packet' },
             requested_route: null,
@@ -1493,9 +1493,9 @@ describe('nexus build routing', () => {
   test('allows a failing review gate to route back into build for a governed fix cycle', async () => {
     await runInTempRepo(async ({ run }) => {
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1626,9 +1626,9 @@ describe('nexus build routing', () => {
   test('rejects fix-cycle build when review status is not a completed failing review', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1709,9 +1709,9 @@ describe('nexus build routing', () => {
   test('allows advisory-scoped build when review passed with advisories and the user chooses fix_before_qa', async () => {
     await runInTempRepo(async ({ run }) => {
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1896,9 +1896,9 @@ describe('nexus build routing', () => {
   test('keeps the review stage active when a fix-cycle build finds a stale governed handoff contract, and allows handoff refresh', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',

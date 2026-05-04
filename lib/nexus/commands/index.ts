@@ -49,7 +49,7 @@ interface CommandInvocation {
 type CommandHandler = (ctx: CommandContext) => Promise<CommandResult>;
 type AdapterFamily = Exclude<keyof NexusAdapters, 'registry'>;
 
-const ADAPTER_FAMILIES: AdapterFamily[] = ['pm', 'gsd', 'superpowers', 'ccb', 'local'];
+const ADAPTER_FAMILIES: AdapterFamily[] = ['discovery', 'planning', 'execution', 'ccb', 'local'];
 
 const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
   discover: runDiscover,
