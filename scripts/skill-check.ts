@@ -16,6 +16,7 @@ import {
   describeSkillSourcePath,
   type SkillStructureCategory,
 } from '../lib/nexus/skill-structure';
+import { projectHostSkillInstallRoot } from '../lib/nexus/host-roots';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -186,10 +187,27 @@ for (const file of SKILL_FILES) {
 
 // ─── Codex Skills ───────────────────────────────────────────
 
-const AGENTS_DIR = path.join(ROOT, '.agents', 'skills');
+function discoverGeneratedHostSkillDirs(root: string): string[] {
+  const dirs: string[] = [];
+  function walk(dir: string): void {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('.')) continue;
+        walk(absolutePath);
+      } else if (entry.isFile() && entry.name === 'SKILL.md') {
+        dirs.push(path.relative(root, dir).replace(/\\/g, '/'));
+      }
+    }
+  }
+  walk(root);
+  return dirs.sort((a, b) => a.localeCompare(b));
+}
+
+const AGENTS_DIR = path.join(ROOT, projectHostSkillInstallRoot('codex').path);
 if (fs.existsSync(AGENTS_DIR)) {
   console.log('\n  Codex Skills (.agents/skills/):');
-  const codexDirs = fs.readdirSync(AGENTS_DIR).sort();
+  const codexDirs = discoverGeneratedHostSkillDirs(AGENTS_DIR);
   let codexCount = 0;
   let codexMissing = 0;
   for (const dir of codexDirs) {
@@ -218,10 +236,10 @@ if (fs.existsSync(AGENTS_DIR)) {
 
 // ─── Factory Skills ─────────────────────────────────────────
 
-const FACTORY_DIR = path.join(ROOT, '.factory', 'skills');
+const FACTORY_DIR = path.join(ROOT, projectHostSkillInstallRoot('factory').path);
 if (fs.existsSync(FACTORY_DIR)) {
   console.log('\n  Factory Skills (.factory/skills/):');
-  const factoryDirs = fs.readdirSync(FACTORY_DIR).sort();
+  const factoryDirs = discoverGeneratedHostSkillDirs(FACTORY_DIR);
   let factoryCount = 0;
   let factoryMissing = 0;
   for (const dir of factoryDirs) {
@@ -249,10 +267,10 @@ if (fs.existsSync(FACTORY_DIR)) {
 
 // ─── Gemini CLI Skills ──────────────────────────────────────
 
-const GEMINI_DIR = path.join(ROOT, '.gemini', 'skills');
+const GEMINI_DIR = path.join(ROOT, projectHostSkillInstallRoot('gemini-cli').path);
 if (fs.existsSync(GEMINI_DIR)) {
   console.log('\n  Gemini CLI Skills (.gemini/skills/):');
-  const geminiDirs = fs.readdirSync(GEMINI_DIR).sort();
+  const geminiDirs = discoverGeneratedHostSkillDirs(GEMINI_DIR);
   let geminiCount = 0;
   let geminiMissing = 0;
   for (const dir of geminiDirs) {

@@ -56,7 +56,7 @@ import type {
   RunLedger,
   StageStatus,
 } from '../types';
-import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
+import { LEARNING_SOURCES, LEARNING_TYPES, NEXUS_LEDGER_SCHEMA_VERSION } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
 import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from '../completion-advisor';
@@ -986,6 +986,7 @@ export async function runReviewWithWriteAtomicFile(
   );
   const gateDecisionMarkdown = buildReviewGateDecisionMarkdown(gateDecision);
   const meta: ReviewMetaRecord = {
+    schema_version: NEXUS_LEDGER_SCHEMA_VERSION,
     run_id: ledger.run_id,
     review_attempt_id: attemptId,
     execution_mode: ledger.execution.mode,

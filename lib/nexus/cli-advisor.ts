@@ -1,5 +1,6 @@
 import { join } from 'path';
 import { stageCompletionAdvisorPath, stageStatusPath } from './artifacts';
+import { warnOnUnexpectedLedgerSchemaVersion } from './ledger-schema';
 import { readLedger } from './ledger';
 import { readStageStatus } from './status';
 import type {
@@ -28,9 +29,13 @@ export interface CliErrorEnvelope {
 }
 
 function readCompletionAdvisor(cwd: string, stage: CanonicalCommandId): CompletionAdvisorRecord | null {
+  const advisorPath = stageCompletionAdvisorPath(stage);
   return readJsonFile(
-    join(cwd, stageCompletionAdvisorPath(stage)),
-    (value) => value as CompletionAdvisorRecord,
+    join(cwd, advisorPath),
+    (value) => {
+      warnOnUnexpectedLedgerSchemaVersion(value, advisorPath);
+      return value as CompletionAdvisorRecord;
+    },
   );
 }
 

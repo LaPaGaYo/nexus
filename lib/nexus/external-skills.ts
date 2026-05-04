@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { basename, join, resolve } from 'path';
+import { hostSkillInstallRootPaths } from './host-roots';
 import { CANONICAL_COMMANDS, type CanonicalCommandId, type CompletionAdvisorActionRecord, type InstalledSkillNamespace, type InstalledSkillRecord, type VerificationChecklistCategory, type VerificationMatrixRecord } from './types';
 
 const NEXUS_SUPPORT_SKILLS = new Set([
@@ -204,17 +205,7 @@ export function classifyInstalledSkill(input: {
 }
 
 export function defaultExternalSkillRoots(cwd: string, home = homedir()): string[] {
-  return unique([
-    join(cwd, '.claude', 'skills'),
-    join(cwd, '.agents', 'skills'),
-    join(cwd, '.gemini', 'skills'),
-    join(cwd, '.factory', 'skills'),
-    join(home, '.claude', 'skills'),
-    join(home, '.codex', 'skills'),
-    join(home, '.agents', 'skills'),
-    join(home, '.gemini', 'skills'),
-    join(home, '.factory', 'skills'),
-  ]);
+  return unique(hostSkillInstallRootPaths(cwd, home));
 }
 
 type DiscoverExternalInstalledSkillsOptions =

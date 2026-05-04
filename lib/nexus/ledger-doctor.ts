@@ -15,6 +15,7 @@ import {
 import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from './completion-advisor';
 import { artifactPointerFor } from './contract-artifacts';
 import { diagnoseCloseoutHistory } from './governance';
+import { warnOnUnexpectedLedgerSchemaVersion } from './ledger-schema';
 import { readLedger, writeLedger } from './ledger';
 import {
   buildReviewAdvisoriesRecord,
@@ -101,6 +102,7 @@ function parseAuditRequestMeta(value: unknown): { request_id?: unknown } | undef
 
 function readCurrentAuditMeta(path: string): CurrentAuditMeta | null {
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  warnOnUnexpectedLedgerSchemaVersion(parsed, path);
   if (!isRecord(parsed)) {
     return null;
   }
