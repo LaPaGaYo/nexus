@@ -1881,6 +1881,7 @@ export function createDefaultCcbAdapter(): CcbAdapter {
   const qaPack = createQaStagePack();
 
   return {
+    kind: 'stub',
     resolve_route: async (ctx) => {
       const resolved = handoffPack.buildResolvedRoute(ctx);
 
@@ -1970,6 +1971,7 @@ export function createRuntimeCcbAdapter(
   };
 
   return {
+    kind: 'runtime',
     resolve_route: async (ctx) => runRouteVerification(ctx, handoffPack.traceability(), options),
     execute_generator: async (ctx) => {
       const traceability = buildPack.executionTraceability();

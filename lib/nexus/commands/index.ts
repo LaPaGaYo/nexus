@@ -30,6 +30,7 @@ export interface CommandContext {
   continuation_mode_override?: ContinuationMode | null;
   review_advisory_disposition_override?: ReviewAdvisoryDisposition | null;
   run_command?: NexusCommandRunner;
+  allow_stub_adapters?: boolean;
 }
 
 export interface CommandResult {
@@ -46,6 +47,9 @@ interface CommandInvocation {
 }
 
 type CommandHandler = (ctx: CommandContext) => Promise<CommandResult>;
+type AdapterFamily = Exclude<keyof NexusAdapters, 'registry'>;
+
+const ADAPTER_FAMILIES: AdapterFamily[] = ['pm', 'gsd', 'superpowers', 'ccb', 'local'];
 
 const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
   discover: runDiscover,
@@ -68,7 +72,23 @@ export function resolveInvocation(name: string): CommandInvocation {
   return {
     command,
     via,
-    handler: async (ctx: CommandContext) => handler({ ...ctx, cwd: resolveRepositoryRoot(ctx.cwd), via }),
+    handler: async (ctx: CommandContext) => {
+      if (!ctx.allow_stub_adapters) {
+        assertProductionAdapters(ctx.adapters);
+      }
+
+      return handler({ ...ctx, cwd: resolveRepositoryRoot(ctx.cwd), via });
+    },
     contract: CANONICAL_MANIFEST[command],
   };
+}
+
+export function assertProductionAdapters(adapters: NexusAdapters): void {
+  for (const family of ADAPTER_FAMILIES) {
+    if (adapters[family].kind === 'stub') {
+      throw new Error(
+        `Refusing to run lifecycle command with stub ${family} adapter. Use getRuntimeNexusAdapters() in production.`,
+      );
+    }
+  }
 }

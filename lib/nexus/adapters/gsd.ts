@@ -1,5 +1,5 @@
 import { createCloseoutStagePack, createPlanStagePack } from '../stage-packs';
-import type { AdapterResult, AdapterTraceability, GsdAdapter } from './types';
+import type { AdapterKind, AdapterResult, AdapterTraceability, GsdAdapter } from './types';
 
 export interface GsdPlanRaw {
   execution_readiness_packet: string;
@@ -27,11 +27,12 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-export function createDefaultGsdAdapter(): GsdAdapter {
+function createGsdAdapter(kind: AdapterKind): GsdAdapter {
   const planPack = createPlanStagePack();
   const closeoutPack = createCloseoutStagePack();
 
   return {
+    kind,
     plan: async (ctx) =>
       successResult<GsdPlanRaw>({
         execution_readiness_packet: planPack.buildExecutionReadinessPacket(ctx),
@@ -46,4 +47,12 @@ export function createDefaultGsdAdapter(): GsdAdapter {
         merge_ready: true,
       }, closeoutPack.traceability()),
   };
+}
+
+export function createDefaultGsdAdapter(): GsdAdapter {
+  return createGsdAdapter('stub');
+}
+
+export function createRuntimeGsdAdapter(): GsdAdapter {
+  return createGsdAdapter('runtime');
 }
