@@ -12,6 +12,9 @@ export const CANONICAL_COMMANDS = [
 
 export type CanonicalCommandId = (typeof CANONICAL_COMMANDS)[number];
 
+export const NEXUS_LEDGER_SCHEMA_VERSION = 1 as const;
+export type NexusLedgerSchemaVersion = typeof NEXUS_LEDGER_SCHEMA_VERSION;
+
 export const ABSORBED_SOURCE_SYSTEMS = ['pm-skills', 'gsd', 'superpowers', 'ccb'] as const;
 export type AbsorbedSourceSystem = (typeof ABSORBED_SOURCE_SYSTEMS)[number];
 
@@ -745,6 +748,8 @@ export interface WorkspaceRecord {
 }
 
 export interface ReviewMetaRecord {
+  // Optional for legacy reads; canonical writers always stamp the current version.
+  schema_version?: NexusLedgerSchemaVersion;
   run_id: string;
   review_attempt_id?: string;
   execution_mode?: ExecutionMode;
@@ -834,7 +839,7 @@ export interface CompletionAdvisorEvidenceSignalRecord {
 }
 
 export interface CompletionAdvisorRecord {
-  schema_version: 1;
+  schema_version: NexusLedgerSchemaVersion;
   run_id: string;
   stage: CanonicalCommandId;
   generated_at: string;
@@ -933,6 +938,8 @@ export interface LocalPersonaShipStatusRecord {
 }
 
 export interface StageStatus {
+  // Optional for legacy reads; canonical writers always stamp the current version.
+  schema_version?: NexusLedgerSchemaVersion;
   run_id: string;
   stage: CanonicalCommandId;
   execution_mode?: ExecutionMode;
@@ -990,6 +997,8 @@ export interface StageStatus {
 }
 
 export interface RunLedger {
+  // Optional for legacy reads; canonical writers always stamp the current version.
+  schema_version?: NexusLedgerSchemaVersion;
   run_id: string;
   continuation_mode: ContinuationMode;
   status: RunStatus;

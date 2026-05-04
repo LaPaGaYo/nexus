@@ -12,6 +12,7 @@ import {
   stageStatusPath,
 } from './artifacts';
 import { defaultExecutionSelection, type ExecutionSelection } from './execution-topology';
+import { warnOnUnexpectedLedgerSchemaVersion, withLedgerSchemaVersion } from './ledger-schema';
 import { readStageStatus } from './status';
 import { getAllowedNextStages } from './transitions';
 import type {
@@ -22,6 +23,7 @@ import type {
   StageStatus,
   WorkspaceRecord,
 } from './types';
+import { NEXUS_LEDGER_SCHEMA_VERSION } from './types';
 import { readJsonFile } from './validation-helpers';
 
 const LEDGER_PATH = '.planning/nexus/current-run.json';
@@ -33,12 +35,15 @@ export function ledgerPath(cwd: string): string {
 }
 
 export function readLedger(cwd: string): RunLedger | null {
-  return readJsonFile(ledgerPath(cwd), (value) => value as RunLedger);
+  return readJsonFile(ledgerPath(cwd), (value) => {
+    warnOnUnexpectedLedgerSchemaVersion(value, LEDGER_PATH);
+    return value as RunLedger;
+  });
 }
 
 export function writeLedger(ledger: RunLedger, cwd: string): void {
   mkdirSync(join(cwd, '.planning', 'nexus'), { recursive: true });
-  writeFileSync(ledgerPath(cwd), JSON.stringify(ledger, null, 2) + '\n');
+  writeFileSync(ledgerPath(cwd), JSON.stringify(withLedgerSchemaVersion(ledger), null, 2) + '\n');
 }
 
 function closeoutReadyForRollover(status: StageStatus | null, runId: string): boolean {
@@ -97,7 +102,7 @@ function syncArchivedCurrentArtifact(runId: string, currentArtifactPath: string,
 export function archiveCompletedRunLedger(ledger: RunLedger, cwd: string): void {
   const archivedLedger = join(cwd, archivedRunLedgerPath(ledger.run_id));
   mkdirSync(dirname(archivedLedger), { recursive: true });
-  writeFileSync(archivedLedger, JSON.stringify(ledger, null, 2) + '\n');
+  writeFileSync(archivedLedger, JSON.stringify(withLedgerSchemaVersion(ledger), null, 2) + '\n');
 
   const closeoutRoot = join(cwd, '.planning', 'current', 'closeout');
   if (existsSync(closeoutRoot)) {
@@ -113,11 +118,11 @@ export function archiveCompletedRunLedger(ledger: RunLedger, cwd: string): void 
       writeFileSync(
         archivedCloseoutStatus,
         JSON.stringify(
-          {
+          withLedgerSchemaVersion({
             ...status,
             workspace: ledger.execution.workspace,
             session_root: ledger.execution.session_root,
-          },
+          }),
           null,
           2,
         ) + '\n',
@@ -145,6 +150,7 @@ export function startLedger(
   } = {},
 ): RunLedger {
   return {
+    schema_version: NEXUS_LEDGER_SCHEMA_VERSION,
     run_id,
     continuation_mode: options.continuationMode ?? 'project_reset',
     status: 'active',

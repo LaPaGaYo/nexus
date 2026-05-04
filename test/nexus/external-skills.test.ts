@@ -8,6 +8,10 @@ import {
   discoverExternalInstalledSkills,
   rankExternalInstalledSkillsForAdvisor,
 } from '../../lib/nexus/external-skills';
+import {
+  HOST_SKILL_INSTALL_ROOTS,
+  hostSkillInstallRootPaths,
+} from '../../lib/nexus/host-roots';
 import type { InstalledSkillRecord, VerificationMatrixRecord } from '../../lib/nexus/types';
 
 function writeSkill(root: string, name: string, description: string): string {
@@ -203,22 +207,15 @@ describe('external installed skill discovery and ranking', () => {
     expect(ranked.map((skill) => skill.surface)).toEqual(['/brand-audit']);
   });
 
-  test('defaultExternalSkillRoots covers all four supported hosts at project and home scope', () => {
+  test('defaultExternalSkillRoots follows the centralized host install root registry', () => {
     const cwd = '/tmp/nexus-fixture-cwd';
     const home = '/tmp/nexus-fixture-home';
     const roots = defaultExternalSkillRoots(cwd, home);
 
-    expect(roots).toEqual(expect.arrayContaining([
-      path.join(cwd, '.claude', 'skills'),
-      path.join(cwd, '.agents', 'skills'),
-      path.join(cwd, '.gemini', 'skills'),
-      path.join(cwd, '.factory', 'skills'),
-      path.join(home, '.claude', 'skills'),
-      path.join(home, '.codex', 'skills'),
-      path.join(home, '.agents', 'skills'),
-      path.join(home, '.gemini', 'skills'),
-      path.join(home, '.factory', 'skills'),
-    ]));
+    for (const root of HOST_SKILL_INSTALL_ROOTS) {
+      expect(roots).toContain(path.join(root.scope === 'project' ? cwd : home, root.path));
+    }
+    expect(roots).toEqual(hostSkillInstallRootPaths(cwd, home));
     expect(new Set(roots).size).toBe(roots.length);
   });
 });

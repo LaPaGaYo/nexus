@@ -12,7 +12,9 @@ import type {
   InstalledSkillRecord,
   VerificationChecklistCategory,
 } from './types';
+import { NEXUS_LEDGER_SCHEMA_VERSION } from './types';
 import { discoverExternalInstalledSkills, rankExternalInstalledSkillsForAdvisor } from './external-skills';
+import { withLedgerSchemaVersion } from './ledger-schema';
 import { readVerificationMatrix } from './verification-matrix';
 import { shellQuotePosix } from './shell-quote';
 
@@ -256,7 +258,7 @@ function baseAdvisor(
   overrides: Partial<Omit<CompletionAdvisorRecord, 'schema_version' | 'run_id' | 'stage' | 'generated_at' | 'summary'>>,
 ): CompletionAdvisorRecord {
   return {
-    schema_version: 1,
+    schema_version: NEXUS_LEDGER_SCHEMA_VERSION,
     run_id: status.run_id,
     stage: status.stage,
     generated_at: generatedAt,
@@ -1385,9 +1387,10 @@ export function buildCompletionAdvisorWrite(
   });
   const enriched = attachExternalInstalledSkillRecommendations(record, verificationMatrix, externalSkills);
   Object.assign(record, enriched);
+  const versionedRecord = withLedgerSchemaVersion(record);
   return {
     path: `.planning/current/${record.stage}/completion-advisor.json`,
-    content: JSON.stringify(record, null, 2) + '\n',
+    content: JSON.stringify(versionedRecord, null, 2) + '\n',
   };
 }
 
