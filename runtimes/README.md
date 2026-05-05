@@ -7,8 +7,8 @@ Active runtime source paths remain:
 - `runtimes/browse/`
 - `runtimes/design/`
 - `runtimes/design-html/`
-- `runtimes/safety/careful/`
-- `runtimes/safety/freeze/`
+- `runtimes/hooks/careful/`
+- `runtimes/hooks/freeze/`
 
 Runtime source lives under `runtimes/` for browse, design, design-html, and
 safety helper assets. Installed compatibility paths under `$NEXUS_ROOT/...`

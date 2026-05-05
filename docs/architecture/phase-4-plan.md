@@ -54,7 +54,7 @@ From `docs/architecture/post-audit-cleanup-plan.md` § Phase 4 code-shaped:
 | ST2 | Single-child directory `lib/` (only contains `lib/nexus/`) | Drop, fold, or document |
 | ST3 | Move `CHANGELOG.md` / `TODOS.md` out of repo root | Runtime artifacts; needs RFC for skill prose + resolver updates |
 | ST4 | Split `bin/` source from built artifacts | Move `.ts` entry files to `lib/nexus/cli/` or `runtimes/cli/` |
-| ST5 | Rename `runtimes/safety/` → `runtimes/hooks/` | Coordinated migration; install-path implications |
+| ST5 | Rename hook helper runtime directory to `runtimes/hooks/` | Coordinated migration; install-path implications |
 | ST6 | Standardize `hosts/*` naming | Tied to Track D D1 |
 | ST7 | Decide on `agents/openai.yaml` (single-child) | Drop, fold, or document |
 | ST8 | Decide on `skills/root/` (single-child shape) | Drop, fold, or document |
@@ -204,14 +204,14 @@ larger architectural moves.
 | #43 `HOST_INSTALL_ROOTS` constant + global migration | 1h | Issue body contains proposal |
 | #40 Three remaining `process.cwd()` defaults | 1h | Issue body inventoried |
 | #38 + #39 deploy-contract follow-ups (single PR) | 2h | Issue bodies contain fixes |
-| ST5 `runtimes/safety/` → `runtimes/hooks/` rename | 1h | Cleanup plan §Phase 4 ST5 |
+| ST5 hook helper runtime rename to `runtimes/hooks/` | 1h | Cleanup plan §Phase 4 ST5 |
 
 **Total: ~6-8h. Suggested as a single batched Codex round (multiple PRs in
 parallel since they touch different modules).**
 
 **Exit criteria:**
 - All 7 follow-up issues either closed or scoped down to "out of Phase 4".
-- `runtimes/hooks/` exists; `runtimes/safety/` removed.
+- `runtimes/hooks/` exists; the legacy safety-named runtime directory is removed.
 - Repo backlog ≤ 3 open issues, each in design (RFC) or future-work state.
 
 ### Phase 4.2 — Architecture surgery
@@ -367,7 +367,7 @@ the PR description. Mark items as ☑ here when their PR merges.
 - [ ] #43 host scanner asymmetry
 - [ ] #40 three cwd defaults
 - [ ] #38 + #39 deploy-contract follow-ups
-- [ ] ST5 `runtimes/safety/` → `runtimes/hooks/`
+- [x] ST5 hook helper runtime rename to `runtimes/hooks/`
 
 ### Phase 4.2 — Architecture surgery
 - [ ] #41 completion-advisor split (3 phases)

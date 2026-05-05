@@ -65,7 +65,7 @@ tests. The root `/nexus` source template now lives under
 `skills/root/nexus/`; root `SKILL.md` remains a generated compatibility mirror.
 The Chrome extension source now lives under `runtimes/browse/extension/`, the
 design runtime now lives under `runtimes/design/`, runtime sidecars now live
-under `runtimes/design-html/` and `runtimes/safety/`, tracked host sidecars now
+under `runtimes/design-html/` and `runtimes/hooks/`, tracked host sidecars now
 live under `hosts/`, and upstream vendor material now lives under `vendor/`,
 while installed hosts and root upstream symlinks keep historical compatibility
 paths.
@@ -78,8 +78,8 @@ Representative current-to-target mappings:
 - `runtimes/browse/extension` -> `runtimes/browse/extension`
 - `runtimes/design` -> `runtimes/design`
 - `runtimes/design-html` -> `runtimes/design-html`
-- `runtimes/safety/careful` -> `runtimes/safety/careful`
-- `runtimes/safety/freeze` -> `runtimes/safety/freeze`
+- `runtimes/hooks/careful` -> `runtimes/hooks/careful`
+- `runtimes/hooks/freeze` -> `runtimes/hooks/freeze`
 - `design/references` -> `references/design`
 - `review` -> `references/review`
 - `qa` -> `references/qa`
@@ -180,14 +180,14 @@ those installed compatibility paths to `runtimes/design/dist` and
 Runtime sidecars have moved under the runtime taxonomy:
 
 - `design-html/` -> `runtimes/design-html/`
-- `careful/` -> `runtimes/safety/careful/`
-- `freeze/` -> `runtimes/safety/freeze/`
+- `careful/` -> `runtimes/hooks/careful/`
+- `freeze/` -> `runtimes/hooks/freeze/`
 
 Generated and installed skills still use historical compatibility paths for
 runtime sidecars. Setup maps `$NEXUS_ROOT/design-html/vendor` to
 `runtimes/design-html/vendor`, `$NEXUS_ROOT/careful/bin` to
-`runtimes/safety/careful/bin`, and `$NEXUS_ROOT/freeze/bin` to
-`runtimes/safety/freeze/bin`.
+`runtimes/hooks/careful/bin`, and `$NEXUS_ROOT/freeze/bin` to
+`runtimes/hooks/freeze/bin`.
 
 ## Phase 10 Host Source Move
 
@@ -206,7 +206,7 @@ tracked source-of-truth.
 The remaining facade slice is intentionally conservative:
 
 - `runtimes/*.md` points to active runtime roots. `runtimes/browse/`,
-  `runtimes/design/`, `runtimes/design-html/`, and `runtimes/safety/` are
+  `runtimes/design/`, `runtimes/design-html/`, and `runtimes/hooks/` are
   migrated source paths while installed compatibility paths remain stable.
 - `references/review/README.md`, `references/qa/README.md`,
   `references/design/README.md`, and `references/cso/README.md` document active

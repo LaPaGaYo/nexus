@@ -220,7 +220,7 @@ build-script rewrite).
 | ST2 | Medium | `lib/` only contains `lib/nexus/`. Unused indirection layer. | Either populate `lib/` (e.g., `lib/shared/`) or drop the layer. |
 | ST3 | Medium | Root has ~24 files including 7 large markdown docs (~5,000 lines). `SKILL.md` (580 lines), `CHANGELOG.md` (1799), `TODOS.md` (715), `BROWSER.md` (399) at root. | **NOT a doc-only move**: `TODOS.md` is the unified backlog read/written by `/ship`, `/qa`, planning/review/retro skills (CONTRIBUTING:316, `scripts/resolvers/preamble.ts:580-581`, `scripts/resolvers/utility.ts:196`). `CHANGELOG.md` is read by `document-release` (`scripts/resolvers/utility.ts:449`). Both are runtime artifacts referenced by relative path in skill prose. Moving requires updating ~12 SKILL.md.tmpl + 12 generated SKILL.md + 3 resolver files + `lib/nexus/repo-taxonomy.ts:597,604` ROOT_FILES + regen + agent-behavior tests. **Code-shaped, not doc-shaped** — must wait for Phase 3 high-risk module test coverage. |
 | ST4 | Medium | `bin/` mixes TypeScript source (`nexus.ts`, `nexus-global-discover.ts`) and built binaries. | Move `.ts` sources to `lib/nexus/cli/` and build into `bin/`. |
-| ST5 | Medium | `runtimes/safety/` (hook helpers) collides naming with `skills/safety/` (skill defs). | Rename `runtimes/safety/` → `runtimes/hooks/`. |
+| ST5 | Medium | Hook helper runtime naming collides with `skills/safety/` (skill defs). | Rename to `runtimes/hooks/`. |
 | ST6 | Low | `hosts/claude/` vs `hosts/gemini-cli/` inconsistent suffix. | Standardize on suffix or no-suffix across hosts. |
 | ST7 | Low | `agents/` at root is a directory of one (`openai.yaml`). | Drop the directory or document why. |
 | ST8 | Low | `skills/root/` has exactly one subdir. | Fold into `canonical/` with a flag, or rename to make the asymmetry intentional. |
@@ -382,7 +382,7 @@ review-advisories, deploy-contract, command-runner) are in main.
 5. Split `bin/` source from built artifacts (ST4) — move the `.ts` entry
    files into `lib/nexus/cli/` or `runtimes/cli/` and have `bin/` contain
    only built/shipped binaries.
-6. Rename `runtimes/safety/` → `runtimes/hooks/` (ST5) — coordinated migration
+6. Rename hook helper runtime directory to `runtimes/hooks/` (ST5) — coordinated migration
    like PR #13 attempted, due to install-path implications.
 7. Standardize `hosts/*` naming (ST6).
 8. Optional: group `scripts/` (ST10).
