@@ -1,4 +1,8 @@
 import { CANONICAL_MANIFEST, LEGACY_ALIASES } from './command-manifest';
+import {
+  NEXUS_SAFETY_SKILL_NAMES,
+  NEXUS_STRUCTURED_SUPPORT_SKILL_NAMES,
+} from './skill-registry/support-skills';
 
 export type SkillStructureCategory = 'root' | 'canonical' | 'support' | 'safety' | 'alias';
 
@@ -14,38 +18,8 @@ export type SkillArtifactFileName = 'SKILL.md' | 'SKILL.md.tmpl';
 
 const ROOT_SKILL_TARGET_SOURCE_PATH = 'skills/root/nexus/SKILL.md.tmpl';
 
-export const SAFETY_SKILL_NAMES = [
-  'careful',
-  'freeze',
-  'guard',
-  'unfreeze',
-] as const;
-
-export const SUPPORT_SKILL_NAMES = [
-  'benchmark',
-  'browse',
-  'canary',
-  'codex',
-  'connect-chrome',
-  'cso',
-  'deploy',
-  'design-consultation',
-  'design-html',
-  'design-review',
-  'design-shotgun',
-  'document-release',
-  'investigate',
-  'land',
-  'land-and-deploy',
-  'learn',
-  'nexus-upgrade',
-  'plan-design-review',
-  'qa-only',
-  'retro',
-  'setup-browser-cookies',
-  'setup-deploy',
-  'simplify',
-] as const;
+export const SAFETY_SKILL_NAMES = NEXUS_SAFETY_SKILL_NAMES;
+export const SUPPORT_SKILL_NAMES = NEXUS_STRUCTURED_SUPPORT_SKILL_NAMES;
 
 const CANONICAL_SKILL_NAMES = new Set(Object.keys(CANONICAL_MANIFEST));
 const ALIAS_SKILL_NAMES = new Set(Object.keys(LEGACY_ALIASES));
