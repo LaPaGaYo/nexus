@@ -83,8 +83,6 @@ structure. Phase 4 / ST1 plans to subdir these.
 - `repo-paths.ts` — canonical repo-relative path constants
 - `repo-taxonomy.ts` — what's source-of-truth vs compat surface
 - `compatibility-surface.ts` — runtime path resolver across taxonomy versions
-- `upstream-compat.ts` — vendor compatibility alias resolver
-- `upstream-maintenance.ts` — absorbed-source maintenance metadata
 
 ### Advisors / surfaces
 - `completion-advisor.ts` — what to do next after each stage completes
@@ -102,7 +100,6 @@ structure. Phase 4 / ST1 plans to subdir these.
 - `shell-quote.ts` — POSIX shell-safe quoting
 - `conflicts.ts` — repo conflict detection
 - `migration-safety.ts` — checks before destructive maintainer migrations
-- `maintainer-loop.ts` — maintainer-side automation loop
 - `skill-structure.ts` — source taxonomy for `skills/` (canonical / support / safety / aliases / root)
 - `workspace-substrate.ts` — run workspace allocation under `.nexus-worktrees/`
 
