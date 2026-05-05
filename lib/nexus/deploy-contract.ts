@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { deployContractJsonPath } from './artifacts';
-import { isRecord, readJsonPartial } from './validation-helpers';
+import { isRecord, readJsonResult } from './validation-helpers';
 import {
   DEPLOY_CONFIG_SOURCES,
   DEPLOY_PLATFORMS,
@@ -71,7 +71,7 @@ function normalizeProjectType(value: unknown): DeployProjectType {
   return oneOf(normalized, DEPLOY_PROJECT_TYPES, 'unknown');
 }
 
-function normalizeTrigger(value: unknown): DeployTriggerKind {
+function normalizeTrigger(value: unknown, fallback: DeployTriggerKind = 'command'): DeployTriggerKind {
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (!normalized) {
     return 'none';
@@ -85,20 +85,31 @@ function normalizeTrigger(value: unknown): DeployTriggerKind {
   if (normalized.includes('command') || normalized.includes('script') || normalized.includes('cli')) return 'command';
   if (normalized === 'none') return 'none';
 
-  return oneOf(normalized, DEPLOY_TRIGGER_KINDS, 'command');
+  return oneOf(normalized, DEPLOY_TRIGGER_KINDS, fallback);
 }
 
-function normalizeStatusKind(command: unknown, workflow: unknown): DeployStatusKind {
+function normalizeStatusKind(
+  command: unknown,
+  workflow: unknown,
+  fallback: DeployStatusKind = 'command',
+): DeployStatusKind {
   const normalizedCommand = typeof command === 'string' ? command.trim() : '';
   const normalizedWorkflow = typeof workflow === 'string' ? workflow.trim() : '';
   if (!normalizedCommand || normalizedCommand.toLowerCase() === 'none') {
     return normalizedWorkflow ? 'github_actions' : 'none';
   }
-  if (normalizedCommand.toLowerCase().includes('http health check')) {
+  const loweredCommand = normalizedCommand.toLowerCase();
+  if (loweredCommand.includes('http health check')) {
     return 'http';
   }
+  if (loweredCommand.includes('github actions')) {
+    return 'github_actions';
+  }
+  if (loweredCommand.includes('command') || loweredCommand.includes('script') || loweredCommand.includes('cli')) {
+    return 'command';
+  }
 
-  return 'command';
+  return oneOf(loweredCommand, DEPLOY_STATUS_KINDS, fallback);
 }
 
 function parseBulletValue(section: string, label: string): string | null {
@@ -167,6 +178,42 @@ function normalizeSurfaceLabel(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function noteUnrecognizedKind(
+  notes: string[],
+  field: 'deploy_trigger.kind' | 'deploy_status.kind',
+  value: unknown,
+): void {
+  if (typeof value !== 'string') {
+    if (value !== null && value !== undefined) {
+      notes.push(`${field} non-string value not recognized; treated as 'none'.`);
+    }
+    return;
+  }
+
+  const normalized = value.trim();
+  if (!normalized || normalized.toLowerCase() === 'none') {
+    return;
+  }
+
+  notes.push(`${field} '${normalized}' not recognized; treated as 'none'.`);
+}
+
+function normalizeCanonicalTriggerKind(value: unknown, notes: string[]): DeployTriggerKind {
+  const normalized = normalizeTrigger(value, 'none');
+  if (normalized === 'none') {
+    noteUnrecognizedKind(notes, 'deploy_trigger.kind', value);
+  }
+  return normalized;
+}
+
+function normalizeCanonicalStatusKind(value: unknown, notes: string[]): DeployStatusKind {
+  const normalized = normalizeStatusKind(value, null, 'none');
+  if (normalized === 'none') {
+    noteUnrecognizedKind(notes, 'deploy_status.kind', value);
+  }
+  return normalized;
+}
+
 function normalizeSecondarySurfaces(contract: Record<string, unknown>): DeployContractRecord['secondary_surfaces'] {
   if (!Array.isArray(contract.secondary_surfaces)) {
     return [];
@@ -183,6 +230,7 @@ function normalizeSecondarySurfaces(contract: Record<string, unknown>): DeployCo
       const deployTrigger = recordOrNull(entry.deploy_trigger);
       const deployStatus = recordOrNull(entry.deploy_status);
       const label = normalizeSurfaceLabel(entry.label) ?? `secondary-${index + 1}`;
+      const notes = stringArray(entry.notes);
 
       return {
         label,
@@ -193,40 +241,32 @@ function normalizeSecondarySurfaces(contract: Record<string, unknown>): DeployCo
           health_check: stringOrNull(production?.health_check),
         },
         deploy_trigger: {
-          kind: oneOf(deployTrigger?.kind, DEPLOY_TRIGGER_KINDS, 'none'),
+          kind: normalizeCanonicalTriggerKind(deployTrigger?.kind, notes),
           details: stringOrNull(deployTrigger?.details),
         },
         deploy_workflow: stringOrNull(entry.deploy_workflow),
         deploy_status: {
-          kind: oneOf(deployStatus?.kind, DEPLOY_STATUS_KINDS, 'none'),
+          kind: normalizeCanonicalStatusKind(deployStatus?.kind, notes),
           command: stringOrNull(deployStatus?.command),
         },
-        notes: stringArray(entry.notes),
+        notes,
         sources: stringArray(entry.sources),
       };
     })
     .filter((surface): surface is DeployContractRecord['secondary_surfaces'][number] => surface !== null);
 }
 
-export function readCanonicalDeployContract(cwd: string): DeployContractRecord | null {
-  // Note: previously bare `JSON.parse(readFileSync(...))` — would crash on
-  // malformed JSON. `readJsonPartial` collapses missing-file and parse-error
-  // into the same null path, matching the existing "no canonical contract"
-  // semantic and removing the latent crash.
-  const parsed = readJsonPartial<DeployContractRecord>(join(cwd, deployContractJsonPath()));
-  if (!isRecord(parsed)) {
-    return null;
-  }
-
+function normalizeCanonicalDeployContract(parsed: Record<string, unknown>): DeployContractRecord {
   const production = recordOrNull(parsed.production);
   const staging = recordOrNull(parsed.staging);
   const deployTrigger = recordOrNull(parsed.deploy_trigger);
   const deployStatus = recordOrNull(parsed.deploy_status);
   const customHooks = recordOrNull(parsed.custom_hooks);
+  const notes = stringArray(parsed.notes);
 
   return {
     schema_version: 1,
-    configured_at: typeof parsed.configured_at === 'string' ? parsed.configured_at : new Date().toISOString(),
+    configured_at: typeof parsed.configured_at === 'string' ? parsed.configured_at : '',
     primary_surface_label: normalizeSurfaceLabel(parsed.primary_surface_label),
     platform: normalizePlatform(parsed.platform),
     project_type: normalizeProjectType(parsed.project_type),
@@ -239,12 +279,12 @@ export function readCanonicalDeployContract(cwd: string): DeployContractRecord |
       workflow: stringOrNull(staging?.workflow),
     },
     deploy_trigger: {
-      kind: oneOf(deployTrigger?.kind, DEPLOY_TRIGGER_KINDS, 'none'),
+      kind: normalizeCanonicalTriggerKind(deployTrigger?.kind, notes),
       details: stringOrNull(deployTrigger?.details),
     },
     deploy_workflow: stringOrNull(parsed.deploy_workflow),
     deploy_status: {
-      kind: oneOf(deployStatus?.kind, DEPLOY_STATUS_KINDS, 'none'),
+      kind: normalizeCanonicalStatusKind(deployStatus?.kind, notes),
       command: stringOrNull(deployStatus?.command),
     },
     custom_hooks: {
@@ -252,9 +292,35 @@ export function readCanonicalDeployContract(cwd: string): DeployContractRecord |
       post_merge: stringArray(customHooks?.post_merge),
     },
     secondary_surfaces: normalizeSecondarySurfaces(parsed),
-    notes: stringArray(parsed.notes),
+    notes,
     sources: stringArray(parsed.sources),
   };
+}
+
+type CanonicalDeployContractRead =
+  | { kind: 'contract'; contract: DeployContractRecord }
+  | { kind: 'missing' }
+  | { kind: 'invalid' }
+  | { kind: 'parse_error'; error: Error };
+
+function readCanonicalDeployContractResult(cwd: string): CanonicalDeployContractRead {
+  const result = readJsonResult<DeployContractRecord>(join(cwd, deployContractJsonPath()));
+  if (!result.ok) {
+    return result.reason === 'parse_error'
+      ? { kind: 'parse_error', error: result.error }
+      : { kind: 'missing' };
+  }
+
+  if (!isRecord(result.value)) {
+    return { kind: 'invalid' };
+  }
+
+  return { kind: 'contract', contract: normalizeCanonicalDeployContract(result.value) };
+}
+
+export function readCanonicalDeployContract(cwd: string): DeployContractRecord | null {
+  const result = readCanonicalDeployContractResult(cwd);
+  return result.kind === 'contract' ? result.contract : null;
 }
 
 export function readLegacyClaudeDeployContract(cwd: string): DeployContractRecord | null {
@@ -360,24 +426,20 @@ function readinessFromContract(
   };
 }
 
-export function resolveDeployReadiness(cwd: string, runId: string, generatedAt: string): DeployReadinessRecord {
-  const canonical = readCanonicalDeployContract(cwd);
-  if (canonical) {
-    return readinessFromContract('canonical_contract', canonical, runId, generatedAt, deployContractJsonPath());
-  }
-
-  const legacy = readLegacyClaudeDeployContract(cwd);
-  if (legacy) {
-    return readinessFromContract('legacy_claude', legacy, runId, generatedAt, null);
-  }
-
+function unconfiguredDeployReadiness(
+  source: DeployConfigSource,
+  contractPath: string | null,
+  runId: string,
+  generatedAt: string,
+  notes: string[] = [],
+): DeployReadinessRecord {
   return {
     schema_version: 1,
     run_id: runId,
     generated_at: generatedAt,
     configured: false,
-    source: 'none',
-    contract_path: null,
+    source,
+    contract_path: contractPath,
     primary_surface_label: null,
     platform: null,
     project_type: null,
@@ -388,6 +450,38 @@ export function resolveDeployReadiness(cwd: string, runId: string, generatedAt: 
     deploy_workflow: null,
     staging_detected: false,
     secondary_surfaces: [],
-    notes: [],
+    notes,
   };
+}
+
+export function resolveDeployReadiness(cwd: string, runId: string, generatedAt: string): DeployReadinessRecord {
+  const canonical = readCanonicalDeployContractResult(cwd);
+  if (canonical.kind === 'contract') {
+    return readinessFromContract('canonical_contract', canonical.contract, runId, generatedAt, deployContractJsonPath());
+  }
+  if (canonical.kind === 'parse_error') {
+    return unconfiguredDeployReadiness(
+      'canonical_contract',
+      deployContractJsonPath(),
+      runId,
+      generatedAt,
+      [`deploy contract parse error: ${canonical.error.message}`],
+    );
+  }
+  if (canonical.kind === 'invalid') {
+    return unconfiguredDeployReadiness(
+      'canonical_contract',
+      deployContractJsonPath(),
+      runId,
+      generatedAt,
+      ['deploy contract root is not a JSON object; treated as unconfigured.'],
+    );
+  }
+
+  const legacy = readLegacyClaudeDeployContract(cwd);
+  if (legacy) {
+    return readinessFromContract('legacy_claude', legacy, runId, generatedAt, null);
+  }
+
+  return unconfiguredDeployReadiness('none', null, runId, generatedAt);
 }

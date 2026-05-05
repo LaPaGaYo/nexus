@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { stageStatusPath } from '../../lib/nexus/artifacts';
-import { buildCompletionAdvisorWrite } from '../../lib/nexus/completion-advisor';
+import { buildCompletionAdvisorWrite } from '../../lib/nexus/completion-advisor/writer';
 import { readLedger, startLedger, writeLedger } from '../../lib/nexus/ledger';
 import { readStageStatus, writeStageStatus } from '../../lib/nexus/status';
 import {

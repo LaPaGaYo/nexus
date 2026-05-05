@@ -727,7 +727,7 @@ export function referenceCompatSourceCandidates(compatPath: string): string[] {
 
 export function resolveReferenceCompatSource(
   compatPath: string,
-  repoRoot: string = process.cwd()
+  repoRoot: string,
 ): string | null {
   for (const candidate of referenceCompatSourceCandidates(compatPath)) {
     if (existsSync(join(repoRoot, candidate))) {
