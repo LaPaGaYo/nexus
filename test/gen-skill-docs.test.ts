@@ -2658,8 +2658,8 @@ describe('setup script validation', () => {
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "browse/bin" "runtimes/browse/bin" "browse/bin"');
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "design/dist" "runtimes/design/dist" "design/dist"');
     expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "design-html/vendor" "runtimes/design-html/vendor" "design-html/vendor"');
-    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "careful/bin" "runtimes/safety/careful/bin" "careful/bin"');
-    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "freeze/bin" "runtimes/safety/freeze/bin" "freeze/bin"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "careful/bin" "runtimes/hooks/careful/bin" "careful/bin"');
+    expect(setupContent).toContain('link_compat_asset "$repo_root" "$runtime_root" "freeze/bin" "runtimes/hooks/freeze/bin" "freeze/bin"');
   });
 
   test('create_codex_runtime_root exposes only runtime assets', () => {

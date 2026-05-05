@@ -15,7 +15,7 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/careful/bin/check-careful.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/hooks/careful/bin/check-careful.sh"
           statusMessage: "Checking for destructive commands..."
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->

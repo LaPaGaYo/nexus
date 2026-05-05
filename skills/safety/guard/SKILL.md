@@ -16,17 +16,17 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/careful/bin/check-careful.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/hooks/careful/bin/check-careful.sh"
           statusMessage: "Checking for destructive commands..."
     - matcher: "Edit"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/hooks/freeze/bin/check-freeze.sh"
           statusMessage: "Checking freeze boundary..."
     - matcher: "Write"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/safety/freeze/bin/check-freeze.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../../../runtimes/hooks/freeze/bin/check-freeze.sh"
           statusMessage: "Checking freeze boundary..."
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->

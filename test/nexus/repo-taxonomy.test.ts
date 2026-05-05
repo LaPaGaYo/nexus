@@ -264,7 +264,7 @@ describe('nexus repo taxonomy v2', () => {
       'runtimes/browse.md',
       'runtimes/design.md',
       'runtimes/design-html.md',
-      'runtimes/safety.md',
+      'runtimes/hooks.md',
       'references/README.md',
       'references/review/README.md',
       'references/qa/README.md',
@@ -385,8 +385,8 @@ describe('nexus repo taxonomy v2', () => {
     expect(guardedFuturePaths).not.toContain('references/qa/templates');
     expect(guardedFuturePaths).not.toContain('references/cso/ACKNOWLEDGEMENTS.md');
     expect(guardedFuturePaths).not.toContain('runtimes/design-html');
-    expect(guardedFuturePaths).not.toContain('runtimes/safety/careful');
-    expect(guardedFuturePaths).not.toContain('runtimes/safety/freeze');
+    expect(guardedFuturePaths).not.toContain('runtimes/hooks/careful');
+    expect(guardedFuturePaths).not.toContain('runtimes/hooks/freeze');
     expect(guardedFuturePaths).not.toContain('hosts/claude/rules');
     expect(guardedFuturePaths).not.toContain('hosts/codex/openai.yaml');
 
@@ -589,16 +589,16 @@ describe('nexus repo taxonomy v2', () => {
       rule: 'design-html',
     });
 
-    expect(classifyRepoPath('runtimes/safety/careful/bin/check-careful.sh')).toMatchObject({
+    expect(classifyRepoPath('runtimes/hooks/careful/bin/check-careful.sh')).toMatchObject({
       category: 'runtimes',
-      target_path: 'runtimes/safety/careful/bin/check-careful.sh',
+      target_path: 'runtimes/hooks/careful/bin/check-careful.sh',
       move_policy: 'keep_in_place',
       rule: 'careful',
     });
 
-    expect(classifyRepoPath('runtimes/safety/freeze/bin/check-freeze.sh')).toMatchObject({
+    expect(classifyRepoPath('runtimes/hooks/freeze/bin/check-freeze.sh')).toMatchObject({
       category: 'runtimes',
-      target_path: 'runtimes/safety/freeze/bin/check-freeze.sh',
+      target_path: 'runtimes/hooks/freeze/bin/check-freeze.sh',
       move_policy: 'keep_in_place',
       rule: 'freeze',
     });

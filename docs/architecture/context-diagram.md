@@ -202,7 +202,7 @@ These are summarized here; each has (or will have) a tracked GitHub issue.
 |---|------|----------|-------------|
 | 1 | `completion-advisor.ts` is a 1100+ LOC god module imported by every command handler | 🔴 High | **Now** — blocks Phase 4 ST1 |
 | 2 | `governance.ts` has 26 identical `throw new Error('Run ledger is not canonical')` calls without discriminating codes | 🔴 High | Now — overlaps with PR #35 work |
-| 3 | Single-child directories (`lib/`, `agents/openai.yaml`, `skills/root/`) and `runtimes/safety/` ↔ `skills/safety/` naming collision | 🟡 Medium | Phase 4 (already in cleanup plan ST2/ST5/ST7/ST8) |
+| 3 | Single-child directories (`lib/`, `agents/openai.yaml`, `skills/root/`) and `runtimes/hooks/` ↔ `skills/safety/` naming collision | 🟡 Medium | Phase 4 (already in cleanup plan ST2/ST5/ST7/ST8) |
 | 4 | Default adapters can silently no-op in production code paths — no runtime kind check | 🟡 Medium | **Now** — low-cost, high-ROI |
 | 5 | External skill scanner ignores Gemini-CLI and Factory host install roots | 🟢 Low | Now (small fix) |
 | 6 | `.planning/` artifacts have no `schema_version` field — schema evolution has no detection point | 🟢 Low | Now (additive) |

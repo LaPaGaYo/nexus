@@ -986,8 +986,8 @@ link_runtime_compat_assets() {
   link_compat_asset "$repo_root" "$runtime_root" "browse/bin" "runtimes/browse/bin" "browse/bin"
   link_compat_asset "$repo_root" "$runtime_root" "design/dist" "runtimes/design/dist" "design/dist"
   link_compat_asset "$repo_root" "$runtime_root" "design-html/vendor" "runtimes/design-html/vendor" "design-html/vendor"
-  link_compat_asset "$repo_root" "$runtime_root" "careful/bin" "runtimes/safety/careful/bin" "careful/bin"
-  link_compat_asset "$repo_root" "$runtime_root" "freeze/bin" "runtimes/safety/freeze/bin" "freeze/bin"
+  link_compat_asset "$repo_root" "$runtime_root" "careful/bin" "runtimes/hooks/careful/bin" "careful/bin"
+  link_compat_asset "$repo_root" "$runtime_root" "freeze/bin" "runtimes/hooks/freeze/bin" "freeze/bin"
 }
 
 # ─── Helper: create .agents/skills/nexus/ sidecar symlinks ──────────
