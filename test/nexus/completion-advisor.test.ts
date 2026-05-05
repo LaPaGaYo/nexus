@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildBuildCompletionAdvisor,
   buildCloseoutCompletionAdvisor,
-  buildCompletionAdvisorWrite,
   buildFrameCompletionAdvisor,
   buildHandoffCompletionAdvisor,
   buildPlanCompletionAdvisor,
@@ -10,7 +9,9 @@ import {
   buildReviewCompletionAdvisor,
   buildShipCompletionAdvisor,
 } from '../../lib/nexus/completion-advisor';
+import { buildCompletionAdvisorWrite } from '../../lib/nexus/completion-advisor/writer';
 import { stageCompletionAdvisorPath } from '../../lib/nexus/artifacts';
+import { NEXUS_LEDGER_SCHEMA_VERSION } from '../../lib/nexus/types';
 import type {
   CompletionAdvisorRecord,
   DeployReadinessRecord,
@@ -432,6 +433,24 @@ describe('nexus completion advisor', () => {
       '/brand-audit',
     ]);
     expect(persisted.recommended_external_skills?.[0].visibility_reason).toContain('design');
+  });
+
+  test('completion advisor write stamps the ledger schema version at the writer boundary', () => {
+    const advisor = buildQaCompletionAdvisor(
+      readyStatus('qa'),
+      verificationMatrix('none'),
+      '2026-04-20T00:00:00.000Z',
+    );
+    const advisorWithoutSchema = { ...advisor } as Partial<CompletionAdvisorRecord>;
+    delete advisorWithoutSchema.schema_version;
+
+    const write = buildCompletionAdvisorWrite(advisorWithoutSchema as CompletionAdvisorRecord, {
+      verificationMatrix: verificationMatrix('none'),
+      externalSkills: [],
+    });
+    const persisted = JSON.parse(write.content) as CompletionAdvisorRecord;
+
+    expect(persisted.schema_version).toBe(NEXUS_LEDGER_SCHEMA_VERSION);
   });
 
   test('blocked front-half advisors do not surface ready-path actions', () => {

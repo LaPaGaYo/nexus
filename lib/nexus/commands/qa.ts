@@ -42,7 +42,8 @@ import {
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
 } from '../review-advisories';
-import { buildCompletionAdvisorWrite, buildQaCompletionAdvisor } from '../completion-advisor';
+import { buildQaCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {

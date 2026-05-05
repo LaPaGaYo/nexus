@@ -13,9 +13,7 @@ import type {
   VerificationChecklistCategory,
 } from './types';
 import { NEXUS_LEDGER_SCHEMA_VERSION } from './types';
-import { discoverExternalInstalledSkills, rankExternalInstalledSkillsForAdvisor } from './external-skills';
-import { withLedgerSchemaVersion } from './ledger-schema';
-import { readVerificationMatrix } from './verification-matrix';
+import { rankExternalInstalledSkillsForAdvisor } from './external-skills';
 import { shellQuotePosix } from './shell-quote';
 
 const HIDDEN_COMPAT_ALIASES = ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'] as const;
@@ -322,13 +320,6 @@ export function attachExternalInstalledSkillRecommendations(
       ...ranked,
     ],
   };
-}
-
-export interface CompletionAdvisorWriteOptions {
-  verificationMatrix?: VerificationMatrixRecord | null;
-  externalSkills?: InstalledSkillRecord[];
-  cwd?: string;
-  home?: string;
 }
 
 export function buildFrameCompletionAdvisor(
@@ -1373,25 +1364,6 @@ export function buildCloseoutCompletionAdvisor(
       stop_action: stopAction('closeout'),
     },
   );
-}
-
-export function buildCompletionAdvisorWrite(
-  record: CompletionAdvisorRecord,
-  options: CompletionAdvisorWriteOptions = {},
-): { path: string; content: string } {
-  const cwd = options.cwd ?? process.env.NEXUS_PROJECT_CWD ?? process.cwd();
-  const verificationMatrix = options.verificationMatrix ?? readVerificationMatrix(cwd);
-  const externalSkills = options.externalSkills ?? discoverExternalInstalledSkills({
-    cwd,
-    home: options.home,
-  });
-  const enriched = attachExternalInstalledSkillRecommendations(record, verificationMatrix, externalSkills);
-  Object.assign(record, enriched);
-  const versionedRecord = withLedgerSchemaVersion(record);
-  return {
-    path: `.planning/current/${record.stage}/completion-advisor.json`,
-    content: JSON.stringify(versionedRecord, null, 2) + '\n',
-  };
 }
 
 export function buildStageCompletionAdvisor(

@@ -59,7 +59,8 @@ import type {
 import { LEARNING_SOURCES, LEARNING_TYPES, NEXUS_LEDGER_SCHEMA_VERSION } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
-import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from '../completion-advisor';
+import { buildReviewCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 import {
   buildReviewAuditReceiptRecord,
   persistReviewAuditReceipt,

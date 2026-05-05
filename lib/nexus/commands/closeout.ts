@@ -69,7 +69,8 @@ import type {
   StageStatus,
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
-import { buildCloseoutCompletionAdvisor, buildCompletionAdvisorWrite } from '../completion-advisor';
+import { buildCloseoutCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {

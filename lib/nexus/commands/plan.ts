@@ -14,7 +14,8 @@ import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '..
 import type { CommandContext, CommandResult } from './index';
 import { readStageStatus } from '../status';
 import { buildVerificationMatrix } from '../verification-matrix';
-import { buildCompletionAdvisorWrite, buildPlanCompletionAdvisor } from '../completion-advisor';
+import { buildPlanCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 import { synthesizePlanDesignContractFromRepoContext } from '../design-contract';
 
 function artifactPointerFor(path: string): ArtifactPointer {

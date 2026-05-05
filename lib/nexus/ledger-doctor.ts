@@ -12,7 +12,8 @@ import {
   stageCompletionAdvisorPath,
   stageStatusPath,
 } from './artifacts';
-import { buildCompletionAdvisorWrite, buildReviewCompletionAdvisor } from './completion-advisor';
+import { buildReviewCompletionAdvisor } from './completion-advisor';
+import { buildCompletionAdvisorWrite } from './completion-advisor/writer';
 import { artifactPointerFor } from './contract-artifacts';
 import { diagnoseCloseoutHistory } from './governance';
 import { warnOnUnexpectedLedgerSchemaVersion } from './ledger-schema';

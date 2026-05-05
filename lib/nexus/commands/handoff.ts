@@ -26,7 +26,8 @@ import type { LocalResolveRouteRaw } from '../adapters/local';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
-import { buildCompletionAdvisorWrite, buildHandoffCompletionAdvisor } from '../completion-advisor';
+import { buildHandoffCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {

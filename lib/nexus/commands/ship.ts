@@ -49,7 +49,8 @@ import type {
 } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
-import { buildCompletionAdvisorWrite, buildShipCompletionAdvisor } from '../completion-advisor';
+import { buildShipCompletionAdvisor } from '../completion-advisor';
+import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
