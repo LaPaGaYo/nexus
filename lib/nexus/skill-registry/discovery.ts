@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
-import { basename, join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
 import { hostSkillInstallRootPaths } from '../host-roots';
 import { classifyInstalledSkill } from './classification';
 import type { DiscoverInstalledSkillsOptions, SkillRecord } from './types';
@@ -91,7 +91,7 @@ export function discoverInstalledSkills(options: DiscoverInstalledSkillsOptions)
         continue;
       }
       const parsed = parseSkillFrontmatter(content);
-      const fallbackName = basename(skillPath.replace(/\/SKILL\.md$/, ''));
+      const fallbackName = basename(dirname(skillPath));
       skills.push(classifyInstalledSkill({
         name: parsed.name ?? fallbackName,
         description: parsed.description,

@@ -9,6 +9,7 @@ import {
   assertNoDuplicateSupportRegistries,
   classifyInstalledSkill,
   createSkillRegistry,
+  discoverSkillFiles,
   discoverInstalledSkills,
   rankInstalledSkillsForAdvisor,
 } from '../../lib/nexus/skill-registry';
@@ -26,6 +27,14 @@ function writeSkill(root: string, name: string, description: string): string {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'SKILL.md');
   fs.writeFileSync(file, `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`);
+  return file;
+}
+
+function writeRawSkill(root: string, dirName: string, content: string): string {
+  const dir = path.join(root, dirName);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'SKILL.md');
+  fs.writeFileSync(file, content);
   return file;
 }
 
@@ -62,6 +71,46 @@ describe('SkillRegistry Phase 1 consolidation', () => {
         tags: expect.arrayContaining(['discovery', 'customer-research']),
       }),
     ]);
+  });
+
+  test('discover treats a missing root as an empty installed skill surface', () => {
+    const root = path.join(os.tmpdir(), `nexus-skill-registry-missing-${Date.now()}`);
+
+    expect(discoverSkillFiles(root)).toEqual([]);
+    expect(discoverInstalledSkills({ roots: [root] })).toEqual([]);
+  });
+
+  test('discover preserves malformed SKILL.md fallback behavior', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-'));
+    const skillPath = writeRawSkill(root, 'loose-skill', '# Loose Skill\n\nNo frontmatter here.\n');
+
+    expect(discoverInstalledSkills({ roots: [root] })).toEqual([
+      expect.objectContaining({
+        name: 'loose-skill',
+        surface: '/loose-skill',
+        description: null,
+        path: skillPath,
+        source_root: root,
+        namespace: 'external_installed',
+      }),
+    ]);
+  });
+
+  test('discover deduplicates repeated roots by resolved skill path', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-'));
+    writeSkill(root, 'review-helper', 'Code review audit support.');
+
+    const discovered = discoverInstalledSkills({ roots: [root, root] });
+
+    expect(discovered.map((skill) => skill.surface)).toEqual(['/review-helper']);
+  });
+
+  test('discover intentionally swallows invalid root walk errors', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-'));
+    const fileRoot = path.join(root, 'not-a-directory');
+    fs.writeFileSync(fileRoot, 'not a directory');
+
+    expect(discoverSkillFiles(fileRoot)).toEqual([]);
   });
 
   test('classifies canonical support safety and external skills', () => {
@@ -115,9 +164,9 @@ describe('SkillRegistry Phase 1 consolidation', () => {
   test('rank delegates through the compatibility shim unchanged', () => {
     const skills = [
       classifyInstalledSkill({
-        name: 'brand-audit',
-        description: 'External visual design review and brand quality audit.',
-        path: '/tmp/brand-audit/SKILL.md',
+        name: 'code-review-helper',
+        description: 'External code review audit for maintainability and quality.',
+        path: '/tmp/code-review-helper/SKILL.md',
         source_root: '/tmp',
       }),
     ];
@@ -129,6 +178,7 @@ describe('SkillRegistry Phase 1 consolidation', () => {
       limit: 3,
     };
 
+    expect(rankInstalledSkillsForAdvisor(input)).not.toEqual([]);
     expect(rankInstalledSkillsForAdvisor(input)).toEqual(rankExternalInstalledSkillsForAdvisor(input));
   });
 });
