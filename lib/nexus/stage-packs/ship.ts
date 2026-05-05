@@ -1,5 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildReleaseGateRecord } from '../absorption/superpowers/ship';
+import { buildReleaseGateRecord } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusShipStagePack {

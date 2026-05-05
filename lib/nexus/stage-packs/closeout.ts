@@ -1,5 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildCloseoutRecord } from '../absorption/gsd/closeout';
+import { buildCloseoutRecord } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusCloseoutStagePack {

@@ -1,5 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildExecutionReadinessPacket, buildSprintContract } from '../absorption/gsd/plan';
+import { buildExecutionReadinessPacket, buildSprintContract } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusPlanStagePack {

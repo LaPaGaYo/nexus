@@ -31,6 +31,8 @@ const REPO_UPSTREAM_MAINTENANCE_PATH = join(REPO_ROOT, 'lib/nexus/upstream-maint
 const REPO_PM_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/absorption/pm/source-map.ts');
 const STAGE_CONTENT_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/stage-content/source-map.ts');
 const STAGE_PACK_SOURCE_MAP_PATH = join(REPO_ROOT, 'lib/nexus/stage-packs/source-map.ts');
+const posixOnlyTest = process.platform === 'win32' ? test.skip : test;
+const UPSTREAM_REFRESH_TEST_TIMEOUT_MS = process.platform === 'win32' ? 20_000 : 5_000;
 
 function copyTree(source: string, target: string): void {
   const stats = lstatSync(source);
@@ -241,7 +243,7 @@ describe('nexus upstream refresh', () => {
     expect(pmSourceMap).toContain(`pinned_commit: '${fixture.commit}'`);
     expect(hashFile(join(root, 'lib/nexus/stage-content/source-map.ts'))).toBe(stageContentBefore);
     expect(hashFile(join(root, 'lib/nexus/stage-packs/source-map.ts'))).toBe(stagePackBefore);
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
   test('CLI refresh refuses dirty imported upstream state and does not clobber local edits or untracked files', () => {
     const { root } = prepareWorkspace();
@@ -269,7 +271,7 @@ describe('nexus upstream refresh', () => {
     expect(readFileSync(trackedPath, 'utf8')).toContain('LOCAL EDIT');
     expect(existsSync(untrackedPath)).toBe(true);
     expect(existsSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'))).toBe(false);
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
   test('CLI refresh refuses dirty metadata targets before mutating the imported tree', () => {
     const { root } = prepareWorkspace();
@@ -298,7 +300,7 @@ describe('nexus upstream refresh', () => {
     expect(readFileSync(readmePath, 'utf8')).toContain('LOCAL README EDIT');
     expect(readFileSync(candidatePath, 'utf8')).toBe('local candidate note\n');
     expect(hashFile(join(root, 'vendor/upstream/pm-skills/commands/discover.md'))).toBe(beforeImported);
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
   test('CLI refresh copies the checkout produced from repo_url + commit and stages a candidate note on disk', () => {
     const { root } = prepareWorkspace();
@@ -337,12 +339,10 @@ describe('nexus upstream refresh', () => {
     expect(candidate).toContain('## Changed upstream paths');
     expect(candidate).toContain('`vendor/upstream/pm-skills/commands/discover.md`');
     expect(candidate).toContain('lib/nexus/absorption/pm/source-map.ts');
-    expect(candidate).toContain('nexus-discover-content');
-    expect(candidate).toContain('nexus-discover-pack');
+    expect(candidate).toContain('## Likely affected stage-content areas\n\n- none');
+    expect(candidate).toContain('## Likely affected stage-pack areas\n\n- none');
     expect(candidate).toContain('## Tests to rerun before review');
     expect(candidate).toContain('test/nexus/absorption-source-map.test.ts');
-    expect(candidate).toContain('test/nexus/stage-content.test.ts');
-    expect(candidate).toContain('test/nexus/discover-frame.test.ts');
     expect(readme).toContain(`\`${fixture.commit}\``);
     expect(pm.pinned_commit).toBe(fixture.commit);
     expect(pm.behind_count).toBe(0);
@@ -353,7 +353,7 @@ describe('nexus upstream refresh', () => {
     expect(inventory).toContain(fixture.commit);
     expect(maintenanceContract).toContain(`pinned_commit: '${fixture.commit}'`);
     expect(pmSourceMap).toContain(`pinned_commit: '${fixture.commit}'`);
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
   test('CLI refresh clears any stale prior absorption decision when staging a new candidate', () => {
     const { root } = prepareWorkspace();
@@ -382,9 +382,9 @@ describe('nexus upstream refresh', () => {
 
     expect(pm.last_absorption_decision).toBeNull();
     expect(pm.refresh_status).toBe('refresh_candidate');
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
-  test('CLI refresh preserves executable bits and reports mode-only upstream changes in the candidate note', () => {
+  posixOnlyTest('CLI refresh preserves executable bits and reports mode-only upstream changes in the candidate note', () => {
     const { root } = prepareWorkspace();
     const fixture = createGitFixture(REPO_PM_SKILLS_PATH, {
       mutate: (repoRoot) => {
@@ -421,9 +421,9 @@ describe('nexus upstream refresh', () => {
     expect(pm.last_refresh_candidate_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(pm.refresh_status).toBe('refresh_candidate');
     expect(pm.notes).toContain('1 changed upstream file');
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
-  test('CLI refresh preserves symlink entries in imported upstream snapshots', () => {
+  posixOnlyTest('CLI refresh preserves symlink entries in imported upstream snapshots', () => {
     const { root } = prepareWorkspace();
     const fixture = createGitFixture(REPO_PM_SKILLS_PATH, {
       mutate: (repoRoot) => {
@@ -451,9 +451,9 @@ describe('nexus upstream refresh', () => {
     expect(lstatSync(targetPath).isSymbolicLink()).toBe(true);
     expect(readlinkSync(targetPath)).toBe('commands/discover.md');
     expect(candidate).toContain('`vendor/upstream/pm-skills/AGENTS.md`');
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
-  test('CLI refresh rolls back the imported upstream tree if a later write step fails', () => {
+  posixOnlyTest('CLI refresh rolls back the imported upstream tree if a later write step fails', () => {
     const { root } = prepareWorkspace();
     chmodSync(join(root, 'vendor/upstream-notes/refresh-candidates'), 0o555);
     const fixture = createGitFixture(REPO_PM_SKILLS_PATH, {
@@ -482,7 +482,7 @@ describe('nexus upstream refresh', () => {
     expect(result.stderr).toContain('EACCES');
     expect(readFileSync(join(root, 'vendor/upstream/pm-skills/commands/discover.md'), 'utf8')).toBe(beforeContent);
     expect(existsSync(join(root, 'vendor/upstream-notes/refresh-candidates/pm-skills.md'))).toBe(false);
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 
   test('invalid upstream names are rejected through the CLI entrypoint', () => {
     const { root } = prepareWorkspace();
@@ -490,5 +490,5 @@ describe('nexus upstream refresh', () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('Unknown upstream: not-a-real-upstream');
-  });
+  }, UPSTREAM_REFRESH_TEST_TIMEOUT_MS);
 });

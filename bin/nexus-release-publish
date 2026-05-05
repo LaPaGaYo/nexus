@@ -70,9 +70,6 @@ const report = await releasePublication.executePreparedReleasePublication({
 
 if (report.status === 'published') {
   console.log(`PUBLISHED ${report.version} ${report.tag}`);
-  if (report.post_publish_refresh_commit) {
-    console.log('- Post-release maintainer refresh committed and pushed.');
-  }
   process.exit(0);
 }
 

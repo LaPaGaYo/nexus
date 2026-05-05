@@ -1,6 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildExecutionSummary, buildGeneratorExecution } from '../absorption/ccb/build';
-import { buildVerificationSummary } from '../absorption/superpowers/build';
+import { buildExecutionSummary, buildGeneratorExecution, buildVerificationSummary } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusBuildStagePack {

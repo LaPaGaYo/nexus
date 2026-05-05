@@ -1,5 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildPmDiscoverIdeaBrief } from '../absorption/pm/discover';
+import { buildPmDiscoverIdeaBrief } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusDiscoverStagePack {

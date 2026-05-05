@@ -1,5 +1,4 @@
 import { buildReleasePreflightReport } from './release-publish';
-import { upstreamNotesPath } from './upstream-maintenance';
 
 export interface ReleasePublicationCommandSpec {
   argv: string[];
@@ -19,7 +18,6 @@ export interface ReleasePublicationReport {
   version: string;
   tag: string;
   issues: string[];
-  post_publish_refresh_commit: boolean;
 }
 
 export interface ExecutePreparedReleasePublicationOptions {
@@ -31,11 +29,6 @@ export interface ExecutePreparedReleasePublicationOptions {
 }
 
 const DEFAULT_RELEASE_REPO = 'LaPaGaYo/nexus' as const;
-const MAINTAINER_STATUS_PATHS = [
-  upstreamNotesPath('maintainer-status.json'),
-  upstreamNotesPath('maintainer-status.md'),
-] as const;
-
 function blockedPublication(version: string, tag: string, issues: string[]): ReleasePublicationReport {
   return {
     schema_version: 1,
@@ -43,18 +36,16 @@ function blockedPublication(version: string, tag: string, issues: string[]): Rel
     version,
     tag,
     issues,
-    post_publish_refresh_commit: false,
   };
 }
 
-function publishedPublication(version: string, tag: string, postPublishRefreshCommit: boolean): ReleasePublicationReport {
+function publishedPublication(version: string, tag: string): ReleasePublicationReport {
   return {
     schema_version: 1,
     status: 'published',
     version,
     tag,
     issues: [],
-    post_publish_refresh_commit: postPublishRefreshCommit,
   };
 }
 
@@ -76,15 +67,6 @@ function parseStatusLines(stdout: string): string[] {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-function postPublishMaintainerEnv(existingTags: string[], publishedTag: string): Record<string, string> {
-  const currentTags = [...new Set([...existingTags, publishedTag])];
-  return {
-    NEXUS_EXISTING_TAGS: currentTags.join('\n'),
-    NEXUS_GIT_STATUS_LINES: '',
-    NEXUS_REMOTE_RELEASE_MODE: 'live',
-  };
 }
 
 export async function executePreparedReleasePublication(
@@ -200,54 +182,7 @@ export async function executePreparedReleasePublication(
       'published release smoke failed',
     );
 
-    await runRequiredCommand(
-      options.runCommand,
-      {
-        argv: ['bun', 'run', 'maintainer:check'],
-        cwd: rootDir,
-        env: postPublishMaintainerEnv(options.existingTags, preflight.tag),
-      },
-      'maintainer check failed after publication',
-    );
-
-    const maintainerStatus = await runRequiredCommand(
-      options.runCommand,
-      {
-        argv: ['git', 'status', '--short', '--', ...MAINTAINER_STATUS_PATHS],
-        cwd: rootDir,
-      },
-      'failed to verify maintainer refresh state',
-    );
-
-    const maintainerDirty = parseStatusLines(maintainerStatus.stdout).length > 0;
-    if (maintainerDirty) {
-      await runRequiredCommand(
-        options.runCommand,
-        {
-          argv: ['git', 'add', ...MAINTAINER_STATUS_PATHS],
-          cwd: rootDir,
-        },
-        'failed to stage maintainer refresh artifacts',
-      );
-      await runRequiredCommand(
-        options.runCommand,
-        {
-          argv: ['git', 'commit', '-m', `chore: refresh maintainer status after ${preflight.tag}`],
-          cwd: rootDir,
-        },
-        'failed to commit maintainer refresh artifacts',
-      );
-      await runRequiredCommand(
-        options.runCommand,
-        {
-          argv: ['git', 'push', 'origin', 'main'],
-          cwd: rootDir,
-        },
-        'failed to push post-release maintainer refresh',
-      );
-    }
-
-    return publishedPublication(preflight.version, preflight.tag, maintainerDirty);
+    return publishedPublication(preflight.version, preflight.tag);
   } catch (error) {
     return blockedPublication(preflight.version, preflight.tag, [
       error instanceof Error ? error.message : String(error),

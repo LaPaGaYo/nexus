@@ -58,8 +58,8 @@ this RFC lands:
 | `lib/nexus/repo-paths.ts` | Remove re-exports of `UPSTREAM_SOURCE_ROOT`, `UPSTREAM_NOTES_SOURCE_ROOT`, `UPSTREAM_COMPAT_ROOT` from the now-deleted `upstream-maintenance.ts` |
 | `lib/nexus/repo-taxonomy.ts` | Remove 4 taxonomy entries (`upstream`, `upstream-compat`, `upstream-notes`, `upstream-notes-compat`) at lines 345-380 + remove vendor facade entry at line 582-587 + remove `vendor` category description "Absorbed upstream snapshots..." at lines 89-93 |
 | `lib/nexus/release-publication.ts` | Remove `MAINTAINER_STATUS_PATHS` constant (lines 34-37) and entire post-publish block (lines 206-248) that runs `maintainer:check` and stages `maintainer-status.*` |
-| `lib/nexus/stage-content/source-map.ts` | Remove imports of 4 `*_SOURCE_MAP` arrays (lines 1-5); delete `source_refs` field from `STAGE_CONTENT_SOURCE_MAP` entries |
-| `lib/nexus/stage-packs/source-map.ts` | Remove imports of 4 `*_SOURCE_MAP` arrays (lines 1-4); delete `source_refs` field from `STAGE_PACK_SOURCE_MAP` entries |
+| `lib/nexus/stage-content/source-map.ts` | Remove imports of 4 `*_SOURCE_MAP` arrays (lines 1-5); keep required `source_refs` fields as explicit empty arrays during Phase 2.1 |
+| `lib/nexus/stage-packs/source-map.ts` | Remove imports of 4 `*_SOURCE_MAP` arrays (lines 1-4); keep required `source_refs` fields as explicit empty arrays during Phase 2.1 |
 | `package.json` | Remove `upstream:check`, `upstream:refresh`, `maintainer:check` script entries |
 | `README.md` | Rewrite lines 19-31 ("absorbed", "upstream maintenance", "Imported upstream repos", "Managed installs are recorded as `managed_release` or `managed_vendored`...vendored copies sync to the same published Nexus release") |
 | `docs/skills.md` | Rewrite lines 1-17 ("absorbed internal capability sources", "Imported upstream repos") |
@@ -114,7 +114,7 @@ import-graph fan-out.
 
 **Changes:**
 
-1. `lib/nexus/stage-content/source-map.ts` — replace `source_refs: PM_SOURCE_MAP[...]` etc. with empty arrays or remove the field entirely. Update `STAGE_CONTENT_SOURCE_MAP` consumers to tolerate missing `source_refs`.
+1. `lib/nexus/stage-content/source-map.ts` — replace `source_refs: PM_SOURCE_MAP[...]` etc. with required empty arrays. Missing `source_refs` should stay a type error.
 2. `lib/nexus/stage-packs/source-map.ts` — same treatment.
 3. `lib/nexus/repo-paths.ts` — drop the `UPSTREAM_*` re-exports.
 4. `lib/nexus/release-publication.ts` — remove `MAINTAINER_STATUS_PATHS` and the post-publish block.
@@ -130,7 +130,7 @@ Phase 2.4.
 - `bun test` passes (with skipped tests)
 - `bun run repo:inventory:check` passes
 - Manual: run `bun run bin/nexus.ts <stage>` for one stage and verify
-  completion-advisor record is unaffected by the removed `source_refs`
+  completion-advisor record is unaffected by the empty `source_refs`
 
 **Estimated effort:** 3-4 hours.
 
@@ -280,11 +280,13 @@ After absorption deletion, `source_refs` is empty. Two options:
 
 | Option | Description |
 |--------|-------------|
-| Remove the field | Cleaner type definitions; less code |
-| Keep as empty array | Preserves the schema for future external tracking |
+| Remove the field | Cleaner type definitions; less code after all consumers are retired |
+| Keep as empty array | Preserves the schema and makes "no upstream refs" explicit |
 
-**Recommendation:** **Remove**. Provenance annotations for content that's now
-unambiguously native add cognitive load without value.
+**Recommendation for Phase 2.1:** **Keep as empty array**. This preserves the
+contract while runtime imports are severed, and prevents missing-field bugs from
+collapsing into silent empty results. Removing the field can be reconsidered
+after the upstream-refresh and absorption surfaces are deleted.
 
 ---
 
