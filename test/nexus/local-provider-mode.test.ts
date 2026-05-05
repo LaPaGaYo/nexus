@@ -1,7 +1,8 @@
 import { writeFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
-import { createRuntimeLocalAdapter } from '../../lib/nexus/adapters/local';
+import { createRuntimeLocalAdapter, localTraceability } from '../../lib/nexus/adapters/local';
+import { getStagePackSourceMap } from '../../lib/nexus/stage-packs';
 import { runInTempRepo } from './helpers/temp-repo';
 
 const LOCAL_EXECUTION = {
@@ -54,6 +55,25 @@ const GEMINI_LOCAL_SUBAGENT_EXECUTION = {
 };
 
 describe('nexus local_provider mode', () => {
+  test('local traceability maps local capabilities to explicit stage packs', () => {
+    expect(localTraceability('local-provider-routing')).toMatchObject({
+      nexus_stage_pack: 'nexus-handoff-pack',
+      absorbed_capability: 'local-provider-routing',
+      source_map: getStagePackSourceMap('nexus-handoff-pack'),
+    });
+    expect(localTraceability('local-provider-ship-personas')).toMatchObject({
+      nexus_stage_pack: 'nexus-ship-pack',
+      absorbed_capability: 'local-provider-ship-personas',
+      source_map: getStagePackSourceMap('nexus-ship-pack'),
+    });
+  });
+
+  test('local traceability rejects unknown local capabilities instead of falling through', () => {
+    expect(() => localTraceability('local-provider-unknown')).toThrow(
+      "localTraceability: unknown absorbedCapability 'local-provider-unknown' - add it to LOCAL_ABSORBED_CAPABILITY_TO_PACK",
+    );
+  });
+
   test('runs the thin slice end-to-end without CCB and records local provenance explicitly', async () => {
     await runInTempRepo(async ({ run }) => {
       await run('plan', undefined, LOCAL_EXECUTION);
@@ -92,6 +112,13 @@ describe('nexus local_provider mode', () => {
           transport: 'local',
           available: true,
           approved: true,
+        },
+      });
+      expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
+        traceability: {
+          nexus_stage_pack: 'nexus-handoff-pack',
+          absorbed_capability: 'local-provider-routing',
+          source_map: getStagePackSourceMap('nexus-handoff-pack'),
         },
       });
 
@@ -176,6 +203,15 @@ describe('nexus local_provider mode', () => {
           provider: 'claude',
           route: 'claude-local-single_agent-qa',
           transport: 'local',
+        },
+      });
+      expect(await run.readJson('.planning/current/ship/normalization.json')).toMatchObject({
+        local_ship_persona_result: {
+          traceability: {
+            nexus_stage_pack: 'nexus-ship-pack',
+            absorbed_capability: 'local-provider-ship-personas',
+            source_map: getStagePackSourceMap('nexus-ship-pack'),
+          },
         },
       });
 
