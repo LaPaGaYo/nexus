@@ -6,7 +6,7 @@ import {
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
 import { DESIGN_IMPACTS, type CanonicalCommandId, type DesignIntentRecord } from '../types';
-import type { PmDiscoverRaw, PmFrameRaw } from '../adapters/pm';
+import type { DiscoveryDiscoverRaw, DiscoveryFrameRaw } from '../adapters/discovery';
 
 interface ArtifactWrite {
   path: string;
@@ -51,8 +51,8 @@ function buildTraceWrites(
   ];
 }
 
-export function normalizePmDiscover(
-  result: AdapterResult<PmDiscoverRaw>,
+export function normalizeDiscoveryDiscover(
+  result: AdapterResult<DiscoveryDiscoverRaw>,
 ): { canonicalWrites: ArtifactWrite[] } {
   if (!result.raw_output.idea_brief_markdown.trim()) {
     throw new Error('Canonical writeback failed');
@@ -68,8 +68,8 @@ export function normalizePmDiscover(
   };
 }
 
-export function normalizePmFrame(
-  result: AdapterResult<PmFrameRaw>,
+export function normalizeDiscoveryFrame(
+  result: AdapterResult<DiscoveryFrameRaw>,
 ): { canonicalWrites: ArtifactWrite[] } {
   if (
     !result.raw_output.decision_brief_markdown.trim()
@@ -97,7 +97,7 @@ export function normalizePmFrame(
   };
 }
 
-export function buildPmTraceabilityPayloads(
+export function buildDiscoveryTraceabilityPayloads(
   stage: 'discover' | 'frame',
   runId: string,
   inputs: string[],

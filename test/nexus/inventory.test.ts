@@ -268,12 +268,12 @@ describe('nexus runtime activation authority', () => {
   test('governed tail seams remain active in the runtime registry', () => {
     const registry = getDefaultAdapterRegistry();
 
-    expect(registry.review.superpowers).toBe('active');
+    expect(registry.review.execution).toBe('active');
     expect(registry.review.ccb).toBe('active');
     expect(registry.qa.ccb).toBe('active');
-    expect(registry.ship.superpowers).toBe('active');
+    expect(registry.ship.execution).toBe('active');
     expect(registry.ship.local).toBe('active');
-    expect(registry.build.superpowers).toBe('active');
+    expect(registry.build.execution).toBe('active');
     expect(registry.build.ccb).toBe('active');
     expect(registry.handoff.ccb).toBe('active');
   });

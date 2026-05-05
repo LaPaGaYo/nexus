@@ -1,17 +1,17 @@
 import { createBuildStagePack, createReviewStagePack, createShipStagePack } from '../stage-packs';
 import type { LearningCandidate } from '../types';
-import type { AdapterKind, AdapterResult, AdapterTraceability, SuperpowersAdapter } from './types';
+import type { AdapterKind, AdapterResult, AdapterTraceability, ExecutionAdapter } from './types';
 
-export interface SuperpowersBuildDisciplineRaw {
+export interface ExecutionBuildDisciplineRaw {
   verification_summary: string;
 }
 
-export interface SuperpowersReviewDisciplineRaw {
+export interface ExecutionReviewDisciplineRaw {
   discipline_summary: string;
   learning_candidates?: LearningCandidate[];
 }
 
-export interface SuperpowersShipDisciplineRaw {
+export interface ExecutionShipDisciplineRaw {
   release_gate_record: string;
   checklist: {
     review_complete: boolean;
@@ -24,7 +24,7 @@ export interface SuperpowersShipDisciplineRaw {
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
   return {
-    adapter_id: 'superpowers',
+    adapter_id: 'execution',
     outcome: 'success',
     raw_output,
     requested_route: null,
@@ -35,7 +35,7 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-function createSuperpowersAdapter(kind: AdapterKind): SuperpowersAdapter {
+function createExecutionAdapter(kind: AdapterKind): ExecutionAdapter {
   const buildPack = createBuildStagePack();
   const reviewPack = createReviewStagePack();
   const shipPack = createShipStagePack();
@@ -43,15 +43,15 @@ function createSuperpowersAdapter(kind: AdapterKind): SuperpowersAdapter {
   return {
     kind,
     build_discipline: async (ctx) =>
-      successResult<SuperpowersBuildDisciplineRaw>({
+      successResult<ExecutionBuildDisciplineRaw>({
         verification_summary: buildPack.buildVerificationSummary(ctx),
       }, buildPack.disciplineTraceability()),
     review_discipline: async (ctx) =>
-      successResult<SuperpowersReviewDisciplineRaw>({
+      successResult<ExecutionReviewDisciplineRaw>({
         discipline_summary: reviewPack.buildDisciplineSummary(ctx),
       }, reviewPack.disciplineTraceability()),
     ship_discipline: async (ctx) =>
-      successResult<SuperpowersShipDisciplineRaw>({
+      successResult<ExecutionShipDisciplineRaw>({
         release_gate_record: shipPack.buildReleaseGateRecord(ctx, true),
         checklist: {
           review_complete: true,
@@ -63,10 +63,10 @@ function createSuperpowersAdapter(kind: AdapterKind): SuperpowersAdapter {
   };
 }
 
-export function createDefaultSuperpowersAdapter(): SuperpowersAdapter {
-  return createSuperpowersAdapter('stub');
+export function createDefaultExecutionAdapter(): ExecutionAdapter {
+  return createExecutionAdapter('stub');
 }
 
-export function createRuntimeSuperpowersAdapter(): SuperpowersAdapter {
-  return createSuperpowersAdapter('runtime');
+export function createRuntimeExecutionAdapter(): ExecutionAdapter {
+  return createExecutionAdapter('runtime');
 }

@@ -1,12 +1,12 @@
 import { createDiscoverStagePack, createFrameStagePack } from '../stage-packs';
-import type { AdapterKind, AdapterResult, AdapterTraceability, PmAdapter } from './types';
+import type { AdapterKind, AdapterResult, AdapterTraceability, DiscoveryAdapter } from './types';
 import type { DesignIntentRecord } from '../types';
 
-export interface PmDiscoverRaw {
+export interface DiscoveryDiscoverRaw {
   idea_brief_markdown: string;
 }
 
-export interface PmFrameRaw {
+export interface DiscoveryFrameRaw {
   decision_brief_markdown: string;
   prd_markdown: string;
   design_intent: DesignIntentRecord;
@@ -14,7 +14,7 @@ export interface PmFrameRaw {
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
   return {
-    adapter_id: 'pm',
+    adapter_id: 'discovery',
     outcome: 'success',
     raw_output,
     requested_route: null,
@@ -25,18 +25,18 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-function createPmAdapter(kind: AdapterKind): PmAdapter {
+function createDiscoveryAdapter(kind: AdapterKind): DiscoveryAdapter {
   const discoverPack = createDiscoverStagePack();
   const framePack = createFrameStagePack();
 
   return {
     kind,
     discover: async (ctx) =>
-      successResult<PmDiscoverRaw>({
+      successResult<DiscoveryDiscoverRaw>({
         idea_brief_markdown: discoverPack.buildIdeaBrief(ctx),
       }, discoverPack.traceability()),
     frame: async (ctx) =>
-      successResult<PmFrameRaw>({
+      successResult<DiscoveryFrameRaw>({
         decision_brief_markdown: framePack.buildDecisionBrief(ctx),
         prd_markdown: framePack.buildPrd(ctx),
         design_intent: {
@@ -50,10 +50,10 @@ function createPmAdapter(kind: AdapterKind): PmAdapter {
   };
 }
 
-export function createDefaultPmAdapter(): PmAdapter {
-  return createPmAdapter('stub');
+export function createDefaultDiscoveryAdapter(): DiscoveryAdapter {
+  return createDiscoveryAdapter('stub');
 }
 
-export function createRuntimePmAdapter(): PmAdapter {
-  return createPmAdapter('runtime');
+export function createRuntimeDiscoveryAdapter(): DiscoveryAdapter {
+  return createDiscoveryAdapter('runtime');
 }

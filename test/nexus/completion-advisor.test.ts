@@ -777,9 +777,9 @@ describe('nexus completion advisor', () => {
   test('commands persist completion-advisor artifacts with design-aware recommendations', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope\n',
@@ -857,9 +857,9 @@ describe('nexus completion advisor', () => {
             conflict_candidates: [],
           }),
         },
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -876,9 +876,9 @@ describe('nexus completion advisor', () => {
             conflict_candidates: [],
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -892,7 +892,7 @@ describe('nexus completion advisor', () => {
             conflict_candidates: [],
           }),
           closeout: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               closeout_record: '# Closeout Record\n\nResult: merge ready\n',

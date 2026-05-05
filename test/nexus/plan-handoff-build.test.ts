@@ -44,9 +44,9 @@ describe('nexus plan -> handoff -> build', () => {
   test('normalizes a GSD-ready plan into canonical planning artifacts', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -76,7 +76,7 @@ describe('nexus plan -> handoff -> build', () => {
       });
       expect(await run.readFile('.planning/current/plan/execution-readiness-packet.md')).toContain('Ready');
       expect(await run.readJson('.planning/current/plan/adapter-output.json')).toMatchObject({
-        adapter_id: 'gsd',
+        adapter_id: 'planning',
         outcome: 'success',
         traceability: {
           nexus_stage_pack: 'nexus-plan-pack',
@@ -104,9 +104,9 @@ describe('nexus plan -> handoff -> build', () => {
   test('blocks plan when GSD readiness is false', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nNot ready\n',

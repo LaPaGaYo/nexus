@@ -7,9 +7,9 @@ import {
 } from '../artifacts';
 import { executionFieldsFromLedger } from '../execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
-import { buildGsdTraceabilityPayloads, normalizeGsdPlan } from '../normalizers/gsd';
+import { buildPlanningTraceabilityPayloads, normalizePlanningPlan } from '../normalizers/planning';
 import { makeRunId, readLedger, startLedger } from '../ledger';
-import type { GsdPlanRaw } from '../adapters/gsd';
+import type { PlanningPlanRaw } from '../adapters/planning';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readStageStatus } from '../status';
@@ -88,7 +88,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
   const frameStatus = readStageStatus(stageStatusPath('frame'), ctx.cwd);
   const manifest = CANONICAL_MANIFEST.plan;
   const planInputs = [artifactPointerFor(stageStatusPath('frame'))];
-  const result = await ctx.adapters.gsd.plan({
+  const result = await ctx.adapters.planning.plan({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'plan',
@@ -97,7 +97,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: planInputs,
     requested_route: null,
-  }) as Awaited<ReturnType<typeof ctx.adapters.gsd.plan>> & { raw_output: GsdPlanRaw };
+  }) as Awaited<ReturnType<typeof ctx.adapters.planning.plan>> & { raw_output: PlanningPlanRaw };
 
   if (result.outcome !== 'success') {
     const status = buildStatus(
@@ -117,7 +117,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       stage: 'plan',
       statusPath,
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
-      traceWrites: buildGsdTraceabilityPayloads(
+      traceWrites: buildPlanningTraceabilityPayloads(
         'plan',
         runId,
         [stageStatusPath('frame')],
@@ -136,7 +136,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
   }
 
   try {
-    const normalized = normalizeGsdPlan(result);
+    const normalized = normalizePlanningPlan(result);
     if (frameStatus?.design_contract_required && !designContractPointerFromWrites(normalized.canonicalWrites)) {
       const synthesizedDesignContract = synthesizePlanDesignContractFromRepoContext(ctx.cwd);
       if (synthesizedDesignContract) {
@@ -192,7 +192,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
         ...normalized.canonicalWrites,
         buildCompletionAdvisorWrite(completionAdvisor, { verificationMatrix, cwd: ctx.cwd }),
       ],
-      traceWrites: buildGsdTraceabilityPayloads(
+      traceWrites: buildPlanningTraceabilityPayloads(
         'plan',
         runId,
         planInputs.map((input) => input.path),
@@ -254,7 +254,7 @@ export async function runPlan(ctx: CommandContext): Promise<CommandResult> {
       stage: 'plan',
       statusPath,
       canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
-      traceWrites: buildGsdTraceabilityPayloads(
+      traceWrites: buildPlanningTraceabilityPayloads(
         'plan',
         runId,
         planInputs.map((input) => input.path),

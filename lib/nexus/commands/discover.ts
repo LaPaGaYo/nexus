@@ -18,7 +18,7 @@ import {
   discoverSessionContinuationMarkdownPath,
   stageStatusPath,
 } from '../artifacts';
-import { canonicalNextStages, normalizePmDiscover, buildPmTraceabilityPayloads } from '../normalizers/pm';
+import { canonicalNextStages, normalizeDiscoveryDiscover, buildDiscoveryTraceabilityPayloads } from '../normalizers/discovery';
 import {
   discoverBootstrapSupportingContextArtifacts,
   resolveContinuationModeFromBootstrap,
@@ -41,7 +41,7 @@ import {
   resolveSessionRootRecord,
 } from '../workspace-substrate';
 import { readStageStatus, writeStageStatus } from '../status';
-import type { PmDiscoverRaw } from '../adapters/pm';
+import type { DiscoveryDiscoverRaw } from '../adapters/discovery';
 import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 
@@ -190,7 +190,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     effective_continuation_mode: ledger.continuation_mode,
     contract_outputs: manifest.durable_outputs,
   };
-  const result = await ctx.adapters.pm.discover({
+  const result = await ctx.adapters.discovery.discover({
     cwd: repositoryRoot,
     run_id: ledger.run_id,
     command: 'discover',
@@ -199,7 +199,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: null,
-  }) as Awaited<ReturnType<typeof ctx.adapters.pm.discover>> & { raw_output: PmDiscoverRaw };
+  }) as Awaited<ReturnType<typeof ctx.adapters.discovery.discover>> & { raw_output: DiscoveryDiscoverRaw };
 
   if (result.outcome === 'refused') {
     const status = buildStatus(ledger, at, 'refused', 'refused', false, predecessorArtifacts, ['PM discovery refused']);
@@ -208,7 +208,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'discover',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -238,7 +238,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'discover',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -262,7 +262,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   }
 
   try {
-    const normalized = normalizePmDiscover(result);
+    const normalized = normalizeDiscoveryDiscover(result);
     const status = buildStatus(ledger, at, 'completed', 'ready', true, predecessorArtifacts, []);
     const next = nextLedger(ledger, 'active', at, ctx.via);
     const continuationAdvice = seededFromArchivedRun
@@ -338,7 +338,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
             ]
           : []),
       ],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'discover',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -383,7 +383,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       stage: 'discover',
       statusPath: stageStatusPath('discover'),
       canonicalWrites: [],
-      traceWrites: buildPmTraceabilityPayloads(
+      traceWrites: buildDiscoveryTraceabilityPayloads(
         'discover',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),

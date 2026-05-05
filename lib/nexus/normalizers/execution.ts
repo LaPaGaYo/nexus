@@ -4,7 +4,7 @@ import {
   stageNormalizationPath,
 } from '../artifacts';
 import type { AdapterResult } from '../adapters/types';
-import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
+import type { ExecutionBuildDisciplineRaw } from '../adapters/execution';
 import type { RequestedRouteRecord, WorkspaceRecord } from '../types';
 
 interface ArtifactWrite {
@@ -13,7 +13,7 @@ interface ArtifactWrite {
 }
 
 export function normalizeBuildDiscipline(
-  result: AdapterResult<SuperpowersBuildDisciplineRaw>,
+  result: AdapterResult<ExecutionBuildDisciplineRaw>,
 ): { verification_summary: string } {
   if (result.outcome === 'blocked') {
     throw new Error('Superpowers discipline blocked build');
@@ -48,7 +48,7 @@ export function buildBuildStageTraceabilityPayloads(
         {
           run_id: runId,
           inputs,
-          adapter_chain: ['superpowers', requestedRoute.transport],
+          adapter_chain: ['execution', requestedRoute.transport],
           requested_route: requestedRoute,
           workspace,
           discipline_required: true,
@@ -89,7 +89,7 @@ export function buildShipStageTraceabilityPayloads(
         {
           run_id: runId,
           inputs,
-          adapter_chain: ['superpowers'],
+          adapter_chain: ['execution'],
           workspace,
         },
         null,

@@ -228,11 +228,11 @@ function governedAdapters(seen: SeenCall[]): NexusAdapters {
         };
       },
     },
-    superpowers: {
+    execution: {
       build_discipline: async (ctx) => {
         seen.push({ stage: 'build-discipline', cwd: ctx.cwd, workspace: ctx.workspace });
         return {
-          adapter_id: 'superpowers',
+          adapter_id: 'execution',
           outcome: 'success',
           raw_output: {
             verification_summary: 'bounded build verified',
@@ -246,7 +246,7 @@ function governedAdapters(seen: SeenCall[]): NexusAdapters {
       review_discipline: async (ctx) => {
         seen.push({ stage: 'review-discipline', cwd: ctx.cwd, workspace: ctx.workspace });
         return {
-          adapter_id: 'superpowers',
+          adapter_id: 'execution',
           outcome: 'success',
           raw_output: {
             discipline_summary: 'dual audit required',
@@ -260,7 +260,7 @@ function governedAdapters(seen: SeenCall[]): NexusAdapters {
       ship_discipline: async (ctx) => {
         seen.push({ stage: 'ship', cwd: ctx.cwd, workspace: ctx.workspace });
         return {
-          adapter_id: 'superpowers',
+          adapter_id: 'execution',
           outcome: 'success',
           raw_output: {
             release_gate_record: '# Release Gate\n\nready\n',

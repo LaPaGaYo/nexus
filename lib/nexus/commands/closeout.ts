@@ -37,7 +37,7 @@ import {
 } from '../learnings';
 import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '../follow-on-evidence';
 import { readLedger } from '../ledger';
-import { buildGsdTraceabilityPayloads, normalizeGsdCloseout } from '../normalizers/gsd';
+import { buildPlanningTraceabilityPayloads, normalizePlanningCloseout } from '../normalizers/planning';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   advisoryDispositionPermitsStage,
@@ -59,7 +59,7 @@ import {
   readLandingReentryGuidance,
   renderLandingReentryMarkdown,
 } from '../closeout-follow-on-refresh';
-import type { GsdCloseoutRaw } from '../adapters/gsd';
+import type { PlanningCloseoutRaw } from '../adapters/planning';
 import type {
   ArtifactPointer,
   ConflictRecord,
@@ -329,7 +329,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     artifactPointerFor(metaPath),
   ];
   const manifest = CANONICAL_MANIFEST.closeout;
-  const result = await ctx.adapters.gsd.closeout({
+  const result = await ctx.adapters.planning.closeout({
     cwd: ctx.cwd,
     run_id: ledger.run_id,
     command: 'closeout',
@@ -338,7 +338,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     manifest,
     predecessor_artifacts: predecessorArtifacts,
     requested_route: null,
-  }) as Awaited<ReturnType<typeof ctx.adapters.gsd.closeout>> & { raw_output: GsdCloseoutRaw };
+  }) as Awaited<ReturnType<typeof ctx.adapters.planning.closeout>> & { raw_output: PlanningCloseoutRaw };
 
   if (result.outcome !== 'success') {
     const nextLedger = clearCloseoutLearningArtifactIndex({
@@ -385,7 +385,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         closeoutFollowOnSummaryMarkdownPath(),
         closeoutFollowOnSummaryJsonPath(),
       ],
-      traceWrites: buildGsdTraceabilityPayloads(
+      traceWrites: buildPlanningTraceabilityPayloads(
         'closeout',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -409,7 +409,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   }
 
   try {
-    const normalized = normalizeGsdCloseout(result);
+    const normalized = normalizePlanningCloseout(result);
     const followOnEvidence = enrichFollowOnEvidenceSummary(buildFollowOnEvidenceSummary({
       cwd: ctx.cwd,
       runId: ledger.run_id,
@@ -551,7 +551,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
             closeoutLearningsMarkdownPath(),
             closeoutLearningsJsonPath(),
           ],
-      traceWrites: buildGsdTraceabilityPayloads(
+      traceWrites: buildPlanningTraceabilityPayloads(
         'closeout',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),
@@ -625,7 +625,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
         closeoutFollowOnSummaryMarkdownPath(),
         closeoutFollowOnSummaryJsonPath(),
       ],
-      traceWrites: buildGsdTraceabilityPayloads(
+      traceWrites: buildPlanningTraceabilityPayloads(
         'closeout',
         ledger.run_id,
         predecessorArtifacts.map((artifact) => artifact.path),

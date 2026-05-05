@@ -19,9 +19,9 @@ describe('nexus ship', () => {
   test('blocks ship when the verification matrix requires QA and no QA stage has been recorded', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: ship QA matrix gate\n',
@@ -45,9 +45,9 @@ describe('nexus ship', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -83,9 +83,9 @@ describe('nexus ship', () => {
   test('blocks design-bearing runs without design verification', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: touchup ship gate\n',
@@ -109,9 +109,9 @@ describe('nexus ship', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -129,9 +129,9 @@ describe('nexus ship', () => {
             },
           }),
         },
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -171,9 +171,9 @@ describe('nexus ship', () => {
   test('does not block when review and QA provenance are non-design', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const frameAdapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: material ship gate fallback check\n',
@@ -197,9 +197,9 @@ describe('nexus ship', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -262,9 +262,9 @@ describe('nexus ship', () => {
             },
           }),
         },
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -480,9 +480,9 @@ describe('nexus ship', () => {
       const commands: string[] = [];
       let prViewCount = 0;
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -657,9 +657,9 @@ describe('nexus ship', () => {
       const commands: Array<{ cwd: string; argv: string[] }> = [];
       let prViewCount = 0;
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -793,9 +793,9 @@ describe('nexus ship', () => {
 
       const commands: string[] = [];
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -890,9 +890,9 @@ describe('nexus ship', () => {
         const commands: string[] = [];
         let prViewCount = 0;
         const adapters = makeFakeAdapters({
-          superpowers: {
+          execution: {
             ship_discipline: async () => ({
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: {
                 release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1030,9 +1030,9 @@ describe('nexus ship', () => {
       await run('review');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1119,9 +1119,9 @@ describe('nexus ship', () => {
 
       const commands: string[] = [];
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1244,11 +1244,11 @@ describe('nexus ship', () => {
 
       const calls: string[] = [];
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => {
             calls.push('ship');
             return {
-              adapter_id: 'superpowers',
+              adapter_id: 'execution',
               outcome: 'success',
               raw_output: {
                 release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1295,7 +1295,7 @@ describe('nexus ship', () => {
         ready: true,
       });
       expect(await run.readJson('.planning/current/ship/adapter-output.json')).toMatchObject({
-        adapter_id: 'superpowers',
+        adapter_id: 'execution',
         outcome: 'success',
         traceability: {
           nexus_stage_pack: 'nexus-ship-pack',
@@ -1314,9 +1314,9 @@ describe('nexus ship', () => {
 
       const candidatesPath = shipLearningCandidatesPath();
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1400,9 +1400,9 @@ describe('nexus ship', () => {
 
       const candidatesPath = shipLearningCandidatesPath();
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1467,9 +1467,9 @@ describe('nexus ship', () => {
       writeFileSync(join(cwd, candidatesPath), JSON.stringify({ stale: true }, null, 2) + '\n');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1525,9 +1525,9 @@ describe('nexus ship', () => {
       writeFileSync(join(cwd, candidatesPath), JSON.stringify({ stale: true }, null, 2) + '\n');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'refused',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: merge ready\n',
@@ -1583,9 +1583,9 @@ describe('nexus ship', () => {
       writeFileSync(join(cwd, candidatesPath), JSON.stringify({ stale: true }, null, 2) + '\n');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'blocked',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: blocked\n',
@@ -1701,9 +1701,9 @@ describe('nexus ship', () => {
       await run('review');
 
       const adapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: blocked\n',

@@ -9,22 +9,22 @@ describe('nexus adapter registry', () => {
   test('activates both governed and local execution seams in the Nexus runtime', () => {
     const registry = getDefaultAdapterRegistry();
 
-    expect(registry.discover.pm).toBe('active');
-    expect(registry.frame.pm).toBe('active');
-    expect(registry.plan.gsd).toBe('active');
+    expect(registry.discover.discovery).toBe('active');
+    expect(registry.frame.discovery).toBe('active');
+    expect(registry.plan.planning).toBe('active');
     expect(registry.handoff.ccb).toBe('active');
     expect(registry.handoff.local).toBe('active');
-    expect(registry.build.superpowers).toBe('active');
+    expect(registry.build.execution).toBe('active');
     expect(registry.build.ccb).toBe('active');
     expect(registry.build.local).toBe('active');
-    expect(registry.review.superpowers).toBe('active');
+    expect(registry.review.execution).toBe('active');
     expect(registry.review.ccb).toBe('active');
     expect(registry.review.local).toBe('active');
     expect(registry.qa.ccb).toBe('active');
     expect(registry.qa.local).toBe('active');
-    expect(registry.ship.superpowers).toBe('active');
+    expect(registry.ship.execution).toBe('active');
     expect(registry.ship.local).toBe('active');
-    expect(registry.closeout.gsd).toBe('active');
+    expect(registry.closeout.planning).toBe('active');
   });
 });
 

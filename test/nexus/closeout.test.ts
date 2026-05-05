@@ -505,9 +505,9 @@ describe('nexus closeout', () => {
       };
 
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -586,9 +586,9 @@ describe('nexus closeout', () => {
       });
 
       const shipAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate\n\nResult: pass\n',
@@ -845,9 +845,9 @@ describe('nexus closeout', () => {
       writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
 
       const adapters = makeFakeAdapters({
-        gsd: {
+        planning: {
           closeout: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'blocked',
             raw_output: {
               closeout_record: '# Closeout Record\n\nResult: blocked\n',
@@ -1017,9 +1017,9 @@ describe('nexus closeout', () => {
   test('allows closeout after a governed fix cycle build and final passing review', async () => {
     await runInTempRepo(async ({ run }) => {
       const failingReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1089,9 +1089,9 @@ describe('nexus closeout', () => {
   test('allows closeout after a review retry without an intervening rebuild', async () => {
     await runInTempRepo(async ({ run }) => {
       const failingReviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -1261,9 +1261,9 @@ describe('nexus closeout', () => {
       await run('review');
 
       const shipAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           ship_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               release_gate_record: '# Release Gate Record\n\nResult: blocked\n',
@@ -1326,9 +1326,9 @@ describe('nexus closeout', () => {
       await run('review');
 
       const adapters = makeFakeAdapters({
-        gsd: {
+        planning: {
           closeout: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               closeout_record: '# Closeout Record\n\nResult: merge ready\n',
@@ -1360,7 +1360,7 @@ describe('nexus closeout', () => {
       });
       expect(await run.readFile('.planning/current/closeout/CLOSEOUT-RECORD.md')).toContain('merge ready');
       expect(await run.readJson('.planning/current/closeout/adapter-output.json')).toMatchObject({
-        adapter_id: 'gsd',
+        adapter_id: 'planning',
         outcome: 'success',
         traceability: {
           nexus_stage_pack: 'nexus-closeout-pack',
@@ -1390,9 +1390,9 @@ describe('nexus closeout', () => {
       writeFileSync(archiveMetaPath, '');
 
       const adapters = makeFakeAdapters({
-        gsd: {
+        planning: {
           closeout: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               closeout_record: '# Closeout Record\n\nResult: merge ready\n',

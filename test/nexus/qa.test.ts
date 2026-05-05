@@ -10,9 +10,9 @@ describe('nexus qa', () => {
     await runInTempRepo(async ({ run }) => {
       const seen: string[][] = [];
       const frameAdapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: touchup UI work\n',
@@ -36,9 +36,9 @@ describe('nexus qa', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -121,9 +121,9 @@ describe('nexus qa', () => {
   test('preserves design verification when the verification matrix still requires it', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       const frameAdapters = makeFakeAdapters({
-        pm: {
+        discovery: {
           frame: async () => ({
-            adapter_id: 'pm',
+            adapter_id: 'discovery',
             outcome: 'success',
             raw_output: {
               decision_brief_markdown: '# Decision Brief\n\nScope: material UI work\n',
@@ -147,9 +147,9 @@ describe('nexus qa', () => {
             },
           }),
         },
-        gsd: {
+        planning: {
           plan: async () => ({
-            adapter_id: 'gsd',
+            adapter_id: 'planning',
             outcome: 'success',
             raw_output: {
               execution_readiness_packet: '# Execution Readiness Packet\n\nReady\n',
@@ -892,9 +892,9 @@ describe('nexus qa', () => {
   test('blocks qa when review advisories require an explicit disposition', async () => {
     await runInTempRepo(async ({ run }) => {
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',
@@ -957,9 +957,9 @@ describe('nexus qa', () => {
   test('records advisories without blocking QA readiness', async () => {
     await runInTempRepo(async ({ run }) => {
       const reviewAdapters = makeFakeAdapters({
-        superpowers: {
+        execution: {
           review_discipline: async () => ({
-            adapter_id: 'superpowers',
+            adapter_id: 'execution',
             outcome: 'success',
             raw_output: {
               discipline_summary: 'Verification-before-completion passed',

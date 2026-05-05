@@ -2,15 +2,15 @@ import { describe, expect, test } from 'bun:test';
 import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
 import { startLedger } from '../../lib/nexus/ledger';
 import { createDefaultCcbAdapter } from '../../lib/nexus/adapters/ccb';
-import { createDefaultGsdAdapter } from '../../lib/nexus/adapters/gsd';
-import { createDefaultPmAdapter } from '../../lib/nexus/adapters/pm';
+import { createDefaultPlanningAdapter } from '../../lib/nexus/adapters/planning';
+import { createDefaultDiscoveryAdapter } from '../../lib/nexus/adapters/discovery';
 import { getDefaultAdapterRegistry } from '../../lib/nexus/adapters/registry';
-import { createDefaultSuperpowersAdapter } from '../../lib/nexus/adapters/superpowers';
+import { createDefaultExecutionAdapter } from '../../lib/nexus/adapters/execution';
 import { createQaStagePack, createReviewStagePack, createShipStagePack } from '../../lib/nexus/stage-packs';
 
 describe('nexus absorbed runtime', () => {
   test('pm adapter reports absorbed capability ids for discover and frame', async () => {
-    const adapter = createDefaultPmAdapter();
+    const adapter = createDefaultDiscoveryAdapter();
     const ledger = startLedger('run-test', 'discover');
 
     const discover = await adapter.discover({
@@ -43,7 +43,7 @@ describe('nexus absorbed runtime', () => {
   });
 
   test('gsd adapter reports absorbed capability ids for plan and closeout', async () => {
-    const adapter = createDefaultGsdAdapter();
+    const adapter = createDefaultPlanningAdapter();
     const ledger = startLedger('run-test', 'plan');
 
     const plan = await adapter.plan({
@@ -76,7 +76,7 @@ describe('nexus absorbed runtime', () => {
   });
 
   test('superpowers and ccb adapters report absorbed capability ids while the governed tail seams stay active', async () => {
-    const superpowers = createDefaultSuperpowersAdapter();
+    const superpowers = createDefaultExecutionAdapter();
     const ccb = createDefaultCcbAdapter();
     const registry = getDefaultAdapterRegistry();
     const ledger = startLedger('run-test', 'handoff');
@@ -132,10 +132,10 @@ describe('nexus absorbed runtime', () => {
     expect(execution.traceability?.nexus_stage_pack).toBe('nexus-build-pack');
     expect(execution.traceability?.absorbed_capability).toBe('ccb-execution');
     expect(execution.traceability?.source_map).toContain('vendor/upstream/claude-code-bridge/lib/codex_comm.py');
-    expect(registry.review.superpowers).toBe('active');
+    expect(registry.review.execution).toBe('active');
     expect(registry.review.ccb).toBe('active');
     expect(registry.qa.ccb).toBe('active');
-    expect(registry.ship.superpowers).toBe('active');
+    expect(registry.ship.execution).toBe('active');
     expect(registry.ship.local).toBe('active');
   });
 

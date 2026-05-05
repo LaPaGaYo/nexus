@@ -1,14 +1,14 @@
 import { createCloseoutStagePack, createPlanStagePack } from '../stage-packs';
-import type { AdapterKind, AdapterResult, AdapterTraceability, GsdAdapter } from './types';
+import type { AdapterKind, AdapterResult, AdapterTraceability, PlanningAdapter } from './types';
 
-export interface GsdPlanRaw {
+export interface PlanningPlanRaw {
   execution_readiness_packet: string;
   sprint_contract: string;
   design_contract: string | null;
   ready: boolean;
 }
 
-export interface GsdCloseoutRaw {
+export interface PlanningCloseoutRaw {
   closeout_record: string;
   archive_required: boolean;
   merge_ready: boolean;
@@ -16,7 +16,7 @@ export interface GsdCloseoutRaw {
 
 function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability): AdapterResult<TRaw> {
   return {
-    adapter_id: 'gsd',
+    adapter_id: 'planning',
     outcome: 'success',
     raw_output,
     requested_route: null,
@@ -27,21 +27,21 @@ function successResult<TRaw>(raw_output: TRaw, traceability: AdapterTraceability
   };
 }
 
-function createGsdAdapter(kind: AdapterKind): GsdAdapter {
+function createPlanningAdapter(kind: AdapterKind): PlanningAdapter {
   const planPack = createPlanStagePack();
   const closeoutPack = createCloseoutStagePack();
 
   return {
     kind,
     plan: async (ctx) =>
-      successResult<GsdPlanRaw>({
+      successResult<PlanningPlanRaw>({
         execution_readiness_packet: planPack.buildExecutionReadinessPacket(ctx),
         sprint_contract: planPack.buildSprintContract(ctx),
         design_contract: null,
         ready: true,
       }, planPack.traceability()),
     closeout: async (ctx) =>
-      successResult<GsdCloseoutRaw>({
+      successResult<PlanningCloseoutRaw>({
         closeout_record: closeoutPack.buildCloseoutRecord(ctx),
         archive_required: true,
         merge_ready: true,
@@ -49,10 +49,10 @@ function createGsdAdapter(kind: AdapterKind): GsdAdapter {
   };
 }
 
-export function createDefaultGsdAdapter(): GsdAdapter {
-  return createGsdAdapter('stub');
+export function createDefaultPlanningAdapter(): PlanningAdapter {
+  return createPlanningAdapter('stub');
 }
 
-export function createRuntimeGsdAdapter(): GsdAdapter {
-  return createGsdAdapter('runtime');
+export function createRuntimePlanningAdapter(): PlanningAdapter {
+  return createPlanningAdapter('runtime');
 }

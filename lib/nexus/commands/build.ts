@@ -38,7 +38,7 @@ import {
   resolveAdvisoryFixReviewScope,
   resolveFixCycleReviewScope,
 } from '../review-scope';
-import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/superpowers';
+import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/execution';
 import {
   advisoryDispositionPermitsStage,
   buildReviewAdvisoryDispositionRecord,
@@ -57,7 +57,7 @@ import {
 } from '../workspace-substrate';
 import type { CcbExecuteGeneratorRaw } from '../adapters/ccb';
 import type { LocalExecuteGeneratorRaw } from '../adapters/local';
-import type { SuperpowersBuildDisciplineRaw } from '../adapters/superpowers';
+import type { ExecutionBuildDisciplineRaw } from '../adapters/execution';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
 import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix } from '../verification-matrix';
@@ -427,7 +427,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
             {
               run_id: ledger.run_id,
               inputs: predecessorArtifacts.map((artifact) => artifact.path),
-              adapter_chain: ['superpowers', requestedRoute.transport],
+              adapter_chain: ['execution', requestedRoute.transport],
               requested_route: requestedRoute,
               review_scope: reviewScope,
               workspace,
@@ -475,7 +475,7 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     throw new Error(message);
   }
   syncRunWorkspaceArtifacts(ctx.cwd, workspace);
-  const disciplineResult = await ctx.adapters.superpowers.build_discipline({
+  const disciplineResult = await ctx.adapters.execution.build_discipline({
     cwd: ctx.cwd,
     workspace,
     run_id: ledger.run_id,
@@ -486,8 +486,8 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
     predecessor_artifacts: predecessorArtifacts,
     requested_route: requestedRoute,
     review_scope: reviewScope,
-  }) as Awaited<ReturnType<typeof ctx.adapters.superpowers.build_discipline>> & {
-    raw_output: SuperpowersBuildDisciplineRaw;
+  }) as Awaited<ReturnType<typeof ctx.adapters.execution.build_discipline>> & {
+    raw_output: ExecutionBuildDisciplineRaw;
   };
 
   if (disciplineResult.outcome !== 'success') {

@@ -30,7 +30,7 @@ describe('nexus command dispatcher', () => {
   test('keeps qa and ship on the implemented canonical runtime', async () => {
     expect(resolveInvocation('qa').contract.implementation).toBe('implemented');
     expect(resolveInvocation('ship').contract.implementation).toBe('implemented');
-    expect(getDefaultNexusAdapters().registry.ship.superpowers).toBe('active');
+    expect(getDefaultNexusAdapters().registry.ship.execution).toBe('active');
     expect(getDefaultNexusAdapters().registry.ship.local).toBe('active');
   });
 
@@ -38,14 +38,14 @@ describe('nexus command dispatcher', () => {
     const defaults = getDefaultNexusAdapters();
     const runtime = getRuntimeNexusAdapters();
 
-    expect(defaults.pm.kind).toBe('stub');
-    expect(defaults.gsd.kind).toBe('stub');
-    expect(defaults.superpowers.kind).toBe('stub');
+    expect(defaults.discovery.kind).toBe('stub');
+    expect(defaults.planning.kind).toBe('stub');
+    expect(defaults.execution.kind).toBe('stub');
     expect(defaults.ccb.kind).toBe('stub');
     expect(defaults.local.kind).toBe('stub');
-    expect(runtime.pm.kind).toBe('runtime');
-    expect(runtime.gsd.kind).toBe('runtime');
-    expect(runtime.superpowers.kind).toBe('runtime');
+    expect(runtime.discovery.kind).toBe('runtime');
+    expect(runtime.planning.kind).toBe('runtime');
+    expect(runtime.execution.kind).toBe('runtime');
     expect(runtime.ccb.kind).toBe('runtime');
     expect(runtime.local.kind).toBe('runtime');
   });
@@ -66,7 +66,7 @@ describe('nexus command dispatcher', () => {
     };
 
     await expect(invocation.handler(ctx)).rejects.toThrow(
-      'Refusing to run lifecycle command with stub pm adapter. Use getRuntimeNexusAdapters() in production.',
+      'Refusing to run lifecycle command with stub discovery adapter. Use getRuntimeNexusAdapters() in production.',
     );
   });
 });
