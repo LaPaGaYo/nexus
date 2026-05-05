@@ -58,6 +58,7 @@ export type RepoPathClassification = {
   risk_level: RepoRiskLevel;
   rule: string;
   rationale: string;
+  deprecated?: true;
 };
 
 export const REPO_TAXONOMY_CATEGORIES: Record<RepoTaxonomyCategory, RepoTaxonomyCategorySpec> = {
@@ -88,8 +89,7 @@ export const REPO_TAXONOMY_CATEGORIES: Record<RepoTaxonomyCategory, RepoTaxonomy
   },
   vendor: {
     root: 'vendor',
-    description: 'Absorbed upstream snapshots and upstream maintenance metadata.',
-    children: ['upstream', 'upstream-notes'],
+    description: 'Vendored assets that have not yet moved into a runtime-specific owner.',
   },
   bin: {
     root: 'bin',
@@ -341,44 +341,6 @@ export const REPO_TAXONOMY_ENTRIES: RepoTaxonomyEntry[] = [
     rationale: 'Factory host output is currently generated under .factory for compatibility with existing installs.',
   },
   {
-    name: 'upstream',
-    category: 'vendor',
-    current_path: 'vendor/upstream',
-    target_path: 'vendor/upstream',
-    move_policy: 'keep_in_place',
-    risk_level: 'medium',
-    rationale: 'Absorbed upstream snapshots now live under vendor/upstream; root upstream remains a compatibility symlink only.',
-    runtime_compat_paths: ['upstream'],
-  },
-  {
-    name: 'upstream-compat',
-    category: 'vendor',
-    current_path: 'upstream',
-    target_path: 'vendor/upstream',
-    move_policy: 'compat_required',
-    risk_level: 'medium',
-    rationale: 'The root upstream symlink preserves old maintainer/manual paths while active scripts use vendor/upstream.',
-  },
-  {
-    name: 'upstream-notes',
-    category: 'vendor',
-    current_path: 'vendor/upstream-notes',
-    target_path: 'vendor/upstream-notes',
-    move_policy: 'keep_in_place',
-    risk_level: 'medium',
-    rationale: 'Absorption metadata now lives under vendor/upstream-notes; root upstream-notes remains a compatibility symlink only.',
-    runtime_compat_paths: ['upstream-notes'],
-  },
-  {
-    name: 'upstream-notes-compat',
-    category: 'vendor',
-    current_path: 'upstream-notes',
-    target_path: 'vendor/upstream-notes',
-    move_policy: 'compat_required',
-    risk_level: 'medium',
-    rationale: 'The root upstream-notes symlink preserves old maintainer/manual paths while active scripts use vendor/upstream-notes.',
-  },
-  {
     name: 'bin',
     category: 'bin',
     current_path: 'bin',
@@ -579,13 +541,6 @@ export const REPO_TAXONOMY_FACADES: RepoTaxonomyFacade[] = [
     active_source_paths: ['hosts/factory/README.md'],
     note: 'Factory host facade. Generated .factory output remains a compatibility surface until tracked host sources move.',
   },
-  {
-    facade_path: 'vendor/README.md',
-    category: 'vendor',
-    kind: 'navigation_only',
-    active_source_paths: ['vendor/upstream', 'vendor/upstream-notes'],
-    note: 'Vendor facade root. Upstream snapshots and notes now live under vendor/ while root aliases preserve compatibility.',
-  },
 ];
 
 const ROOT_FILES = new Set([
@@ -669,6 +624,19 @@ export function classifyRepoPath(repoPath: string): RepoPathClassification {
       risk_level: 'low',
       rule: `${category}-facade`,
       rationale: 'Navigation facade files already live in the intended taxonomy path.',
+    };
+  }
+
+  if (normalized === 'upstream' || normalized === 'upstream-notes') {
+    return {
+      current_path: normalized,
+      category: 'vendor',
+      target_path: `vendor/${normalized}`,
+      move_policy: 'compat_required',
+      risk_level: 'medium',
+      rule: 'tracked-upstream-compat-root',
+      rationale: 'Tracked upstream compatibility roots remain classifiable until Track D-D2 removes the imported snapshots; they are not active runtime sources.',
+      deprecated: true,
     };
   }
 

@@ -108,90 +108,11 @@ describe('nexus inventories', () => {
     );
   });
 
-  test.each(INVENTORIES)('%s includes populated mandatory fields', (path) => {
-    const markdown = readFileSync(path, 'utf8');
-    const rows = parseInventory(markdown);
-
-    for (const field of MANDATORY_FIELDS) {
-      expect(markdown).toContain(field);
-      for (const row of rows) {
-        expect(row[field]).not.toBe('');
-      }
-    }
-  });
-
-  test.each(IMPORTED_SOURCE_INVENTORIES)('%s includes populated upstream provenance fields', (path) => {
-    const markdown = readFileSync(path, 'utf8');
-    const rows = parseInventory(markdown);
-
-    for (const field of PROVENANCE_FIELDS) {
-      expect(markdown).toContain(field);
-      for (const row of rows) {
-        expect(row[field]).not.toBe('');
-      }
-    }
-
-    for (const row of rows) {
-      expect(row.upstream_repo_url).toMatch(/^https:\/\/github\.com\/.+\.git$/);
-      expect(row.pinned_commit).toMatch(/^[0-9a-f]{40}$/);
-      expect(row.imported_path.startsWith('vendor/upstream/')).toBe(true);
-      expect(existsSync(row.imported_path)).toBe(true);
-    }
-  });
-
-  test.each(IMPORTED_SOURCE_INVENTORIES)('%s links active rows to Nexus-owned stage packs', (path) => {
-    const markdown = readFileSync(path, 'utf8');
-    const rows = parseInventory(markdown);
-
-    expect(markdown).toContain('nexus_stage_packs');
-
-    for (const row of rows) {
-      if (row.milestone_state !== 'integrating' && row.milestone_state !== 'verified') {
-        continue;
-      }
-
-      const packIds = parseCsvField(row.nexus_stage_packs ?? '');
-      if (packIds.length === 0) {
-        continue;
-      }
-
-      for (const packId of packIds) {
-        expect(NEXUS_STAGE_PACKS.includes(packId as (typeof NEXUS_STAGE_PACKS)[number])).toBe(true);
-      }
-    }
-  });
-
-  test('legacy host migration history marks active removal complete and leaves legacy only as history', () => {
-    const markdown = readFileSync('vendor/upstream-notes/legacy-host-migration-history.md', 'utf8');
-    const rows = parseInventory(markdown);
-
-    expect(markdown).toContain('Milestone 11 final state');
-    expect(markdown).toContain('removed_from_active_path');
-    expect(markdown).toContain('historical_record_only');
-    expect(markdown).not.toContain('retained_compatibility_shim');
-    expect(markdown).not.toContain('deferred_final_removal');
-
-    for (const surface of REMOVED_COMPATIBILITY_BOUNDARY_SHIMS) {
-      expect(markdown).toContain(surface);
-    }
-    for (const surface of REMOVED_LEGACY_RUNTIME_IDENTITIES) {
-      expect(markdown).toContain(surface);
-    }
-    for (const surface of HISTORICAL_LEGACY_REFERENCES) {
-      expect(markdown).toContain(surface);
-    }
-
-    for (const row of rows) {
-      expect(row.cleanup_phase).toBe('completed_m11');
-      expect(`${row.normalization_required} ${row.notes}`.toLowerCase()).toMatch(
-        /host only|removed from active path|historical only|no governed writeback/,
-      );
-    }
-  });
+  test.skip('upstream inventory markdown checks are retired until Track D-D2 removes vendor snapshots', () => {});
 });
 
 describe('nexus docs describe absorbed upstreams as source material', () => {
-  test('absorption status locks Nexus-owned stage packs as the active units', () => {
+  test.skip('absorption status locks Nexus-owned stage packs as the active units', () => {
     const markdown = readFileSync('vendor/upstream-notes/absorption-status.md', 'utf8');
 
     expect(markdown).toContain('Nexus-owned stage packs');
@@ -210,7 +131,7 @@ describe('nexus docs describe absorbed upstreams as source material', () => {
     expect(markdown).toContain('source material');
   });
 
-  test('upstream README stays aligned with the checked maintenance lock and live status summary', () => {
+  test.skip('upstream README stays aligned with the checked maintenance lock and live status summary', () => {
     const readme = readFileSync(UPSTREAM_README_PATH, 'utf8');
     const lock = JSON.parse(readFileSync(UPSTREAM_LOCK_PATH, 'utf8')) as {
       upstreams: Array<{

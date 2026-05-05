@@ -83,14 +83,13 @@ describe('nexus release publication', () => {
     }
   });
 
-  test('publishes a prepared release and pushes a post-release maintainer refresh commit', async () => {
+  test('publishes a prepared release without post-release maintainer refresh', async () => {
     const root = mkdtempSync(join(tmpdir(), 'nexus-release-publication-'));
     const calls: ReleasePublicationCommandSpec[] = [];
 
     try {
       writeAlignedReleaseFixture(root);
 
-      const maintainerStatuses = ['', ' M vendor/upstream-notes/maintainer-status.json\n M vendor/upstream-notes/maintainer-status.md\n'];
       const result = await executePreparedReleasePublication({
         rootDir: root,
         releaseRepo: 'LaPaGaYo/nexus',
@@ -104,7 +103,7 @@ describe('nexus release publication', () => {
           }
 
           if (spec.argv[0] === 'git' && spec.argv[1] === 'status') {
-            return { exitCode: 0, stdout: maintainerStatuses.shift() ?? '', stderr: '' };
+            return { exitCode: 0, stdout: '', stderr: '' };
           }
 
           if (spec.argv[0] === 'bun' && spec.argv[1] === 'run' && spec.argv[2] === 'gen:skill-docs') {
@@ -131,25 +130,6 @@ describe('nexus release publication', () => {
             return { exitCode: 0, stdout: 'READY 1.0.31 v1.0.31\n', stderr: '' };
           }
 
-          if (spec.argv[0] === 'bun' && spec.argv[1] === 'run' && spec.argv[2] === 'maintainer:check') {
-            if (!spec.env?.NEXUS_EXISTING_TAGS?.split('\n').includes('v1.0.31')) {
-              return {
-                exitCode: 1,
-                stdout: 'BLOCKED 1.0.31 v1.0.31\n- tag v1.0.31 is not visible to maintainer check\n',
-                stderr: 'stale tag snapshot\n',
-              };
-            }
-            return { exitCode: 0, stdout: 'READY none\n', stderr: '' };
-          }
-
-          if (spec.argv[0] === 'git' && spec.argv[1] === 'add') {
-            return { exitCode: 0, stdout: '', stderr: '' };
-          }
-
-          if (spec.argv[0] === 'git' && spec.argv[1] === 'commit') {
-            return { exitCode: 0, stdout: '[main abc1234] chore: refresh maintainer status after v1.0.31\n', stderr: '' };
-          }
-
           throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
         },
       });
@@ -157,12 +137,7 @@ describe('nexus release publication', () => {
       expect(result.status).toBe('published');
       expect(result.version).toBe('1.0.31');
       expect(result.tag).toBe('v1.0.31');
-      expect(result.post_publish_refresh_commit).toBe(true);
-      expect(calls.find((call) => call.argv.join(' ') === 'bun run maintainer:check')?.env).toMatchObject({
-        NEXUS_EXISTING_TAGS: 'v1.0.30\nv1.0.31',
-        NEXUS_GIT_STATUS_LINES: '',
-        NEXUS_REMOTE_RELEASE_MODE: 'live',
-      });
+      expect(result).not.toHaveProperty('post_publish_refresh_commit');
       expect(calls.map((call) => call.argv.join(' '))).toEqual([
         'git branch --show-current',
         'bun run gen:skill-docs',
@@ -174,11 +149,6 @@ describe('nexus release publication', () => {
         'git push origin v1.0.31',
         'gh release create v1.0.31 --repo LaPaGaYo/nexus --title Nexus v1.0.31 --notes-file docs/releases/2026-04-16-nexus-v1.0.31.md',
         './bin/nexus-release-smoke',
-        'bun run maintainer:check',
-        'git status --short -- vendor/upstream-notes/maintainer-status.json vendor/upstream-notes/maintainer-status.md',
-        'git add vendor/upstream-notes/maintainer-status.json vendor/upstream-notes/maintainer-status.md',
-        'git commit -m chore: refresh maintainer status after v1.0.31',
-        'git push origin main',
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });

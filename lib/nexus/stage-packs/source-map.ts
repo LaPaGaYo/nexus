@@ -1,7 +1,3 @@
-import { CCB_SOURCE_MAP } from '../absorption/ccb/source-map';
-import { GSD_SOURCE_MAP } from '../absorption/gsd/source-map';
-import { PM_SOURCE_MAP } from '../absorption/pm/source-map';
-import { SUPERPOWERS_SOURCE_MAP } from '../absorption/superpowers/source-map';
 import type { NexusStagePackId } from '../types';
 import type { NexusStagePackSourceBinding } from './types';
 
@@ -10,25 +6,25 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
     pack_id: 'nexus-discover-pack',
     canonical_stage: 'discover',
     absorbed_capabilities: ['pm-discover'],
-    source_refs: PM_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'discover'),
+    source_refs: [],
   },
   'nexus-frame-pack': {
     pack_id: 'nexus-frame-pack',
     canonical_stage: 'frame',
     absorbed_capabilities: ['pm-frame'],
-    source_refs: PM_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'frame'),
+    source_refs: [],
   },
   'nexus-plan-pack': {
     pack_id: 'nexus-plan-pack',
     canonical_stage: 'plan',
     absorbed_capabilities: ['gsd-plan'],
-    source_refs: GSD_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'plan'),
+    source_refs: [],
   },
   'nexus-handoff-pack': {
     pack_id: 'nexus-handoff-pack',
     canonical_stage: 'handoff',
     absorbed_capabilities: ['ccb-routing'],
-    source_refs: CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'handoff'),
+    source_refs: [],
   },
   'nexus-build-pack': {
     pack_id: 'nexus-build-pack',
@@ -39,10 +35,7 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
       'superpowers-build-two-stage-review',
       'ccb-execution',
     ],
-    source_refs: [
-      ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'build'),
-      ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'build'),
-    ],
+    source_refs: [],
   },
   'nexus-review-pack': {
     pack_id: 'nexus-review-pack',
@@ -53,31 +46,25 @@ const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBindin
       'ccb-review-codex',
       'ccb-review-gemini',
     ],
-    source_refs: [
-      ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'review'),
-      ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'review'),
-    ],
+    source_refs: [],
   },
   'nexus-qa-pack': {
     pack_id: 'nexus-qa-pack',
     canonical_stage: 'qa',
     absorbed_capabilities: ['superpowers-qa-verification', 'ccb-qa'],
-    source_refs: [
-      ...SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'qa'),
-      ...CCB_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'qa'),
-    ],
+    source_refs: [],
   },
   'nexus-ship-pack': {
     pack_id: 'nexus-ship-pack',
     canonical_stage: 'ship',
     absorbed_capabilities: ['superpowers-ship-discipline'],
-    source_refs: SUPERPOWERS_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'ship'),
+    source_refs: [],
   },
   'nexus-closeout-pack': {
     pack_id: 'nexus-closeout-pack',
     canonical_stage: 'closeout',
     absorbed_capabilities: ['gsd-closeout'],
-    source_refs: GSD_SOURCE_MAP.filter((entry) => entry.canonical_stage === 'closeout'),
+    source_refs: [],
   },
 };
 

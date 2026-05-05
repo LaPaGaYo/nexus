@@ -1,6 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildReviewAuditMarkdown } from '../absorption/review';
-import { buildReviewDisciplineSummary } from '../absorption/superpowers/review';
+import { buildReviewAuditMarkdown, buildReviewDisciplineSummary } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusReviewStagePack {

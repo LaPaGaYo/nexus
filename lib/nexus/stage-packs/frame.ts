@@ -1,5 +1,5 @@
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
-import { buildPmDecisionBrief, buildPmPrd } from '../absorption/pm/frame';
+import { buildPmDecisionBrief, buildPmPrd } from './native-builders';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 
 export interface NexusFrameStagePack {

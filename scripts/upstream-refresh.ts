@@ -138,10 +138,6 @@ const SOURCE_MAP_INDEX: SourceMapIndexEntry[] = [
   },
 ];
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function walkEntries(root: string): string[] {
   if (!existsSync(root)) {
     return [];
@@ -154,7 +150,7 @@ function walkEntries(root: string): string[] {
       if (entry.name === '.git') {
         continue;
       }
-      const rel = prefix ? join(prefix, entry.name) : entry.name;
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
       const abs = join(dir, entry.name);
 
       if (entry.isDirectory()) {
@@ -531,18 +527,28 @@ function renderUpstreamRefreshCandidateNote(
 }
 
 function rewriteUpstreamReadmePinnedCommit(readme: string, upstream: UpstreamName, pinnedCommit: string): string {
-  const pattern = new RegExp(
-    `(- \\\`${escapeRegExp(upstream)}\\\`\\n\\s+- repo: \\\`[^\\\`]+\\\`\\n\\s+- pinned_commit: \\\`)` +
-      `[^\\\`]+` +
-      `(\\\`)`,
-    'm',
-  );
+  const lines = readme.split('\n');
+  const header = `- \`${upstream}\``;
 
-  if (!pattern.test(readme)) {
-    throw new Error(`Unable to find upstream README entry for ${upstream}`);
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index]?.trim() !== header) {
+      continue;
+    }
+
+    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+      const line = lines[cursor];
+      if (line?.startsWith('- ')) {
+        break;
+      }
+
+      if (/^\s+- pinned_commit: `[^`]+`\r?$/.test(line ?? '')) {
+        lines[cursor] = line.replace(/`[^`]+`(\r?)$/, `\`${pinnedCommit}\`$1`);
+        return lines.join('\n');
+      }
+    }
   }
 
-  return readme.replace(pattern, `$1${pinnedCommit}$2`);
+  throw new Error(`Unable to find upstream README entry for ${upstream}`);
 }
 
 function resolveStatusCheckedAt(lock: UpstreamMaintenanceLock): string {

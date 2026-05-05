@@ -35,19 +35,14 @@ describe('nexus stage content', () => {
     }
   });
 
-  test('every stage-content source binding resolves to upstream material or Nexus-owned content roots', () => {
+  test('every stage-content source binding resolves to Nexus-owned content roots', () => {
     for (const id of NEXUS_STAGE_CONTENT) {
       const binding = getStageContentSourceBinding(id);
 
       expect(binding.content_id).toBe(id);
-      expect(binding.source_refs.length).toBeGreaterThan(0);
       expect(binding.content_root.startsWith('lib/nexus/stage-content/')).toBe(true);
-
-      for (const entry of binding.source_refs) {
-        expect(entry.imported_path.startsWith('vendor/upstream/')).toBe(true);
-        expect(entry.upstream_file.startsWith(entry.imported_path)).toBe(true);
-        expect(existsSync(entry.upstream_file)).toBe(true);
-      }
+      expect(existsSync(resolve(import.meta.dir, '..', '..', binding.content_root))).toBe(true);
+      expect(binding.source_refs).toEqual([]);
     }
   });
 

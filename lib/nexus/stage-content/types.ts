@@ -1,4 +1,3 @@
-import type { AbsorbedSourceRef } from '../absorption/types';
 import type { CanonicalCommandId, NexusStageContentId } from '../types';
 
 export interface NexusStageContentSections {
@@ -14,9 +13,14 @@ export interface NexusStageContentPack {
   sections: NexusStageContentSections;
 }
 
+export interface NexusStageContentSourceRef {
+  imported_path: string;
+  upstream_file: string;
+}
+
 export interface NexusStageContentSourceBinding {
   content_id: NexusStageContentId;
   canonical_stage: CanonicalCommandId;
   content_root: string;
-  source_refs: AbsorbedSourceRef[];
+  source_refs: NexusStageContentSourceRef[];
 }
