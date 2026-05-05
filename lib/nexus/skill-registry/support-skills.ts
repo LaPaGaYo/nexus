@@ -31,39 +31,14 @@ export const NEXUS_SAFETY_SKILL_NAMES = [
   'unfreeze',
 ] as const;
 
-export const NEXUS_SUPPORT_SKILL_NAMES = [
-  'benchmark',
-  'browse',
-  'canary',
-  'careful',
-  'codex',
-  'connect-chrome',
-  'cso',
-  'deploy',
-  'design-consultation',
-  'design-html',
-  'design-review',
-  'design-shotgun',
-  'document-release',
-  'freeze',
-  'guard',
-  'investigate',
-  'land',
-  'land-and-deploy',
-  'learn',
-  'nexus-upgrade',
-  'plan-design-review',
-  'qa-only',
-  'retro',
-  'setup-browser-cookies',
-  'setup-deploy',
-  'simplify',
-  'unfreeze',
-] as const;
-
 export type NexusStructuredSupportSkillName = (typeof NEXUS_STRUCTURED_SUPPORT_SKILL_NAMES)[number];
 export type NexusSafetySkillName = (typeof NEXUS_SAFETY_SKILL_NAMES)[number];
-export type NexusSupportSkillName = (typeof NEXUS_SUPPORT_SKILL_NAMES)[number];
+export type NexusSupportSkillName = NexusStructuredSupportSkillName | NexusSafetySkillName;
+
+export const NEXUS_SUPPORT_SKILL_NAMES: readonly NexusSupportSkillName[] = [
+  ...NEXUS_STRUCTURED_SUPPORT_SKILL_NAMES,
+  ...NEXUS_SAFETY_SKILL_NAMES,
+].sort((left, right) => left.localeCompare(right));
 
 export function assertNoDuplicateSupportRegistries(): void {
   const names = new Set<string>();
