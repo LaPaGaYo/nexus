@@ -7,15 +7,15 @@ import { attachExternalInstalledSkillRecommendations } from '../completion-advis
 export interface CompletionAdvisorWriteOptions {
   verificationMatrix?: VerificationMatrixRecord | null;
   externalSkills?: InstalledSkillRecord[];
-  cwd?: string;
+  cwd: string;
   home?: string;
 }
 
 export function buildCompletionAdvisorWrite(
   record: CompletionAdvisorRecord,
-  options: CompletionAdvisorWriteOptions = {},
+  options: CompletionAdvisorWriteOptions,
 ): { path: string; content: string } {
-  const cwd = options.cwd ?? process.env.NEXUS_PROJECT_CWD ?? process.cwd();
+  const { cwd } = options;
   const verificationMatrix = options.verificationMatrix ?? readVerificationMatrix(cwd);
   const externalSkills = options.externalSkills ?? discoverExternalInstalledSkills({
     cwd,

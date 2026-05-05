@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  attachExternalInstalledSkillRecommendations,
   buildBuildCompletionAdvisor,
   buildCloseoutCompletionAdvisor,
   buildFrameCompletionAdvisor,
@@ -414,6 +415,7 @@ describe('nexus completion advisor', () => {
     );
 
     const write = buildCompletionAdvisorWrite(advisor, {
+      cwd: '/tmp/project',
       verificationMatrix: verificationMatrix('material'),
       externalSkills: [
         {
@@ -445,12 +447,23 @@ describe('nexus completion advisor', () => {
     delete advisorWithoutSchema.schema_version;
 
     const write = buildCompletionAdvisorWrite(advisorWithoutSchema as CompletionAdvisorRecord, {
+      cwd: '/tmp/project',
       verificationMatrix: verificationMatrix('none'),
       externalSkills: [],
     });
     const persisted = JSON.parse(write.content) as CompletionAdvisorRecord;
 
     expect(persisted.schema_version).toBe(NEXUS_LEDGER_SCHEMA_VERSION);
+  });
+
+  test('external skill recommendation attach stays inert without external skills', () => {
+    const advisor = buildQaCompletionAdvisor(
+      readyStatus('qa'),
+      verificationMatrix('material'),
+      '2026-04-20T00:00:00.000Z',
+    );
+
+    expect(attachExternalInstalledSkillRecommendations(advisor)).toBe(advisor);
   });
 
   test('blocked front-half advisors do not surface ready-path actions', () => {

@@ -307,10 +307,7 @@ export function attachExternalInstalledSkillRecommendations(
     limit: 3,
   });
   if (ranked.length === 0) {
-    return {
-      ...record,
-      recommended_external_skills: record.recommended_external_skills ?? [],
-    };
+    return record;
   }
 
   return {

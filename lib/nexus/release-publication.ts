@@ -23,7 +23,7 @@ export interface ReleasePublicationReport {
 }
 
 export interface ExecutePreparedReleasePublicationOptions {
-  rootDir?: string;
+  rootDir: string;
   releaseRepo?: string;
   gitStatusLines: string[];
   existingTags: string[];
@@ -90,7 +90,7 @@ function postPublishMaintainerEnv(existingTags: string[], publishedTag: string):
 export async function executePreparedReleasePublication(
   options: ExecutePreparedReleasePublicationOptions,
 ): Promise<ReleasePublicationReport> {
-  const rootDir = options.rootDir ?? process.cwd();
+  const { rootDir } = options;
   const releaseRepo = options.releaseRepo ?? DEFAULT_RELEASE_REPO;
   const preflight = buildReleasePreflightReport({
     rootDir,

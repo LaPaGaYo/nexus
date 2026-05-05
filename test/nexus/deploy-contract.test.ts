@@ -157,6 +157,56 @@ describe('readCanonicalDeployContract', () => {
     expect(readCanonicalDeployContract(cwd)).toBeNull();
   });
 
+  test('normalizes human-friendly canonical deploy kind strings', () => {
+    const cwd = makeTempRepo();
+    writeRepoJson(cwd, deployContractJsonPath(), {
+      configured_at: '2026-01-01T00:00:00.000Z',
+      platform: 'Vercel',
+      project_type: 'web app',
+      deploy_trigger: {
+        kind: 'automatic on push',
+      },
+      deploy_status: {
+        kind: 'http health check',
+      },
+      secondary_surfaces: [
+        {
+          label: 'worker',
+          platform: 'GitHub Actions',
+          project_type: 'service',
+          deploy_trigger: {
+            kind: 'github actions',
+          },
+          deploy_status: {
+            kind: 'github actions',
+          },
+        },
+      ],
+    });
+
+    expect(readCanonicalDeployContract(cwd)).toMatchObject({
+      deploy_trigger: {
+        kind: 'auto_on_push',
+      },
+      deploy_status: {
+        kind: 'http',
+      },
+      secondary_surfaces: [
+        expect.objectContaining({
+          deploy_trigger: {
+            kind: 'github_actions',
+            details: null,
+          },
+          deploy_status: {
+            kind: 'github_actions',
+            command: null,
+          },
+        }),
+      ],
+      notes: [],
+    });
+  });
+
   test('coerces adversarial canonical object fields into safe defaults', () => {
     const cwd = makeTempRepo();
     writeRepoJson(cwd, deployContractJsonPath(), {
@@ -243,10 +293,39 @@ describe('readCanonicalDeployContract', () => {
           sources: ['worker.yml'],
         }),
       ],
-      notes: [],
+      notes: [
+        "deploy_trigger.kind 'invented' not recognized; treated as 'none'.",
+        "deploy_status.kind 'invented' not recognized; treated as 'none'.",
+      ],
       sources: ['deploy-contract.json'],
     });
-    expect(contract?.configured_at).toEqual(expect.any(String));
+    expect(contract?.configured_at).toBe('');
+  });
+
+  test('notes non-string canonical deploy kind anomalies', () => {
+    const cwd = makeTempRepo();
+    writeRepoJson(cwd, deployContractJsonPath(), {
+      deploy_trigger: {
+        kind: 7,
+      },
+      deploy_status: {
+        kind: { provider: 'github' },
+      },
+    });
+
+    const contract = readCanonicalDeployContract(cwd);
+    expect(contract).toMatchObject({
+      deploy_trigger: {
+        kind: 'none',
+      },
+      deploy_status: {
+        kind: 'none',
+      },
+      notes: [
+        'deploy_trigger.kind non-string value not recognized; treated as \'none\'.',
+        'deploy_status.kind non-string value not recognized; treated as \'none\'.',
+      ],
+    });
   });
 });
 
@@ -411,6 +490,61 @@ describe('resolveDeployReadiness', () => {
       staging_detected: false,
       secondary_surfaces: [],
       notes: [],
+    });
+  });
+
+  test('surfaces malformed canonical deploy contracts without falling through to none', () => {
+    const cwd = makeTempRepo();
+    writeRepoFile(cwd, deployContractJsonPath(), '{not valid json');
+
+    expect(resolveDeployReadiness(cwd, 'run-123', '2026-01-01T00:00:00.000Z')).toMatchObject({
+      configured: false,
+      source: 'canonical_contract',
+      contract_path: deployContractJsonPath(),
+      platform: null,
+      deploy_status_kind: 'none',
+      notes: [
+        expect.stringContaining('deploy contract parse error:'),
+      ],
+    });
+  });
+
+  test('surfaces non-object canonical deploy contracts without falling through to none', () => {
+    const cwd = makeTempRepo();
+    writeRepoJson(cwd, deployContractJsonPath(), ['not', 'an', 'object']);
+
+    expect(resolveDeployReadiness(cwd, 'run-123', '2026-01-01T00:00:00.000Z')).toMatchObject({
+      configured: false,
+      source: 'canonical_contract',
+      contract_path: deployContractJsonPath(),
+      platform: null,
+      deploy_status_kind: 'none',
+      notes: [
+        'deploy contract root is not a JSON object; treated as unconfigured.',
+      ],
+    });
+  });
+
+  test('propagates non-string canonical kind notes into deploy readiness', () => {
+    const cwd = makeTempRepo();
+    writeRepoJson(cwd, deployContractJsonPath(), {
+      deploy_trigger: {
+        kind: 7,
+      },
+      deploy_status: {
+        kind: { provider: 'github' },
+      },
+    });
+
+    expect(resolveDeployReadiness(cwd, 'run-123', '2026-01-01T00:00:00.000Z')).toMatchObject({
+      configured: false,
+      source: 'canonical_contract',
+      contract_path: deployContractJsonPath(),
+      deploy_status_kind: 'none',
+      notes: [
+        'deploy_trigger.kind non-string value not recognized; treated as \'none\'.',
+        'deploy_status.kind non-string value not recognized; treated as \'none\'.',
+      ],
     });
   });
 });
