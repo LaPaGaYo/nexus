@@ -20,6 +20,16 @@ Invoke canonical Nexus commands first.
 | `/ship` | Record the governed release-gate decision. |
 | `/closeout` | Verify archive, provenance, and final readiness status. |
 
+Each canonical skill carries **Iron Laws** (non-negotiable constraints), a **numbered workflow** (per-step procedure), and **typical prompts** (example user requests). Iron Laws constrain *what must be true at decision time*; the workflow defines *what to do in what order*. Both apply.
+
+For free-form intent dispatch (any host):
+
+```bash
+nexus do "<free-form intent>"
+```
+
+The dispatcher classifies the intent against each skill's `nexus.skill.yaml` manifest's `intent_keywords` and routes to a matching canonical or support skill. Returns `confident_match` | `ambiguous` | `no_match`.
+
 ## Nexus support surface
 
 | Skill | What it does |

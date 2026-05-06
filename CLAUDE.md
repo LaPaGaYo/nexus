@@ -25,6 +25,17 @@ Key routing rules:
 - Final governed verification and closure -> invoke closeout
 - Root-cause debugging and "why is this broken" -> invoke investigate
 - Browser QA, screenshots, and workflow capture -> invoke browse
+- Free-form intent → use `/nexus do "<intent>"` to dispatch via manifest classifier (Track D-D3 Phase 5)
+
+## Lifecycle discipline (Track E + Track F)
+
+Each canonical skill carries:
+- **Iron Laws** — non-negotiable constraints (e.g., `/build` Law 1 evidence-before-claims, `/qa` Law 2 ship-blocking categories)
+- **Numbered "How to run" workflow** — explicit per-step procedure between Iron Laws and Operator Checklist
+- **Typical prompts** — example user requests with the workflow walked through
+- **AskUserQuestion gates** at Iron Law branching points
+
+These are the contract `/build`, `/review`, `/qa`, `/ship`, `/closeout` evaluate against. Discipline reads top-down: discipline → procedure → contract → routing.
 
 ## Project Truths
 

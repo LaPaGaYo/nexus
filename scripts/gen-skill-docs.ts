@@ -343,6 +343,19 @@ function processExternalHost(
     }
   }
 
+  // Phase 5.5 (Track D-D3): copy nexus.skill.yaml manifest to host install
+  // path so the SkillRegistry can find it when discovering from any cwd.
+  // Without this, /nexus do dispatcher only sees manifests when running from
+  // inside the source repo. After this, installed Nexus on any host can route
+  // intent → skill via manifest keywords.
+  if (!symlinkLoop) {
+    const sourceManifest = path.join(ROOT, skillDir, 'nexus.skill.yaml');
+    if (fs.existsSync(sourceManifest)) {
+      const destManifest = path.join(outputDir, 'nexus.skill.yaml');
+      fs.copyFileSync(sourceManifest, destManifest);
+    }
+  }
+
   return { content: result, outputPath, outputDir, symlinkLoop };
 }
 
