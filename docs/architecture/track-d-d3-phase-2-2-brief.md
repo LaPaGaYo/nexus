@@ -96,7 +96,9 @@ The field is **optional** — that's the whole backwards-compat story.
 
 ### Step 2: Update `discovery.ts` to read manifests
 
-For each skill discovered, look for `nexus.skill.yaml` alongside `SKILL.md`:
+For each skill discovered, look for `nexus.skill.yaml` alongside `SKILL.md`.
+The discovery layer owns the filename convention: `.yaml` is canonical, and
+`nexus.skill.yml` is skipped even if present.
 
 ```typescript
 import { readNexusSkillManifest } from './manifest-parser';
@@ -104,6 +106,14 @@ import { readNexusSkillManifest } from './manifest-parser';
 // Inside the existing skill-discovery walk, after locating SKILL.md path:
 const skillDir = dirname(skillMdPath);
 const manifestPath = join(skillDir, 'nexus.skill.yaml');
+const legacyYmlManifestPath = join(skillDir, 'nexus.skill.yml');
+
+if (existsSync(legacyYmlManifestPath)) {
+  logForDebugging(
+    `ignored ${legacyYmlManifestPath}; rename to nexus.skill.yaml for Nexus manifest discovery`,
+  );
+}
+
 const manifestResult = readNexusSkillManifest(manifestPath);
 
 let manifest: NexusSkillManifest | undefined;
@@ -134,6 +144,17 @@ Key behaviors:
 - `kind: 'missing'` → silent fallthrough (most skills won't have a manifest)
 - `kind: 'unsupported_version'` → silent fallthrough + log warning
 - Name mismatch → log + ignore manifest (skill still discoverable)
+- `nexus.skill.yml` next to `SKILL.md` → debug log with "rename to .yaml"
+  guidance and no manifest load. The parser has no path responsibility;
+  discovery does.
+
+#### Additional path-policy behavior
+
+If `nexus.skill.yml` exists next to `SKILL.md`, discovery must skip it, emit a
+debug log that tells the author to rename to `.yaml`, and continue with
+`record.manifest === undefined`. This belongs in discovery rather than the
+parser because the parser receives a path chosen by its caller and does not own
+filesystem naming policy.
 
 ### Step 3: Update `classification.ts` to respect declared namespace
 
@@ -246,6 +267,12 @@ fixtures):
 12. **Boost doesn't match context** — score unchanged.
 13. **Multiple boosts** — they stack (additively).
 
+#### Additional discovery test from #74 review comment
+
+14. **Legacy `.yml` manifest path** - `nexus.skill.yml` next to `SKILL.md` is
+    skipped, `record.manifest === undefined`, and a debug log contains "rename
+    to .yaml". No runtime path should treat `.yml` as active manifest metadata.
+
 ### Step 6: Verify
 
 ```bash
@@ -276,11 +303,13 @@ This brief is complete when:
    present; falls through to heuristic otherwise.
 4. `ranking.ts` uses `manifest.ranking.base_score` + `boosts[]` when present;
    falls through to heuristic otherwise.
-5. Test cases above (13 enumerated) all pass.
-6. `bun test` green; `bun run skill:check` clean; `bunx tsc --noEmit` green.
-7. `docs/skill-manifest-schema.md` updated with consumption section.
-8. `docs/architecture/repo-path-inventory.md` regenerated.
-9. No regression in Phase 1 behavior for skills without manifest.
+5. Discovery skips `nexus.skill.yml` with a debug log containing "rename to
+   .yaml"; the manifest is not loaded from the legacy extension.
+6. Test cases above (14 enumerated) all pass.
+7. `bun test` green; `bun run skill:check` clean; `bunx tsc --noEmit` green.
+8. `docs/skill-manifest-schema.md` updated with consumption section.
+9. `docs/architecture/repo-path-inventory.md` regenerated.
+10. No regression in Phase 1 behavior for skills without manifest.
 
 ---
 
@@ -333,7 +362,7 @@ docs file). This phase is **pure wire-up** with the schema already frozen.
 | Manifest `boosts`: stack with heuristics or replace? | Stack | Manifest authors layer on top of heuristics; they don't have to redeclare them |
 | Name mismatch: fail or fall back? | Fall back (manifest ignored) | Preserves discoverability; logs the issue |
 | Unknown namespace value: fail or fall back? | Should never reach (parser rejects); if reached, fall back | Defense in depth |
-| Manifest at non-canonical path (e.g., `nexus.skill.yml`)? | Reject in parser; ignore here | Standard on `.yaml`, decided in Phase 2.a |
+| Manifest at non-canonical path (e.g., `nexus.skill.yml`)? | Reject in discovery, not parser | Discovery owns filesystem naming policy; it logs "rename to .yaml" and skips `.yml`. |
 
 ---
 
@@ -354,8 +383,8 @@ This document is complete when:
 
 1. ✅ Surface map (files to modify / not modify)
 2. ✅ 7-step implementation procedure
-3. ✅ 13 enumerated test cases
-4. ✅ Acceptance criteria (9 items)
+3. ✅ 14 enumerated test cases
+4. ✅ Acceptance criteria (10 items)
 5. ✅ Out-of-scope deferrals named (Phase 3 / Phase 4 / Phase 5)
 6. ✅ Decision points resolved
 7. ✅ Risk register

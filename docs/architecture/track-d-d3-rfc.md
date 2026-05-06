@@ -1,6 +1,6 @@
 # Track D-D3 RFC: SkillRegistry, `nexus.skill.yaml`, and Intent-aware skill cooperation
 
-**Status:** Active. Phase 1 (registry consolidation) landed via PR #57 + #60. Phase 2 (schema + parser) in flight via #65.
+**Status:** Active. Phase 1 (registry consolidation) landed via PR #57 + #60. Phase 3.2.a (schema + parser) landed via #91. Phase 3.2.b / 3.2.c / 3.2.d now have implementation briefs.
 **Author:** Surfaced from Phase 4 architecture audit on 2026-05-04. Last revised 2026-05-05 with Model γ framing + Δ1/Δ2 sub-phases (see Revision history below).
 **Parent plan:** `docs/architecture/phase-4-plan.md` § Phase 4.3.
 **Predecessor:** Track D-D2 (`docs/architecture/track-d-d2-rfc.md`) — independent; can land in any order.
@@ -13,6 +13,7 @@
 **Revision history:**
 - **2026-05-04 v1**: Initial draft.
 - **2026-05-05 v2**: Added "Strategic framing: Model γ" section (skill router, not warehouse) following pre-D3 absorption audit. Restructured Phase 3.2 into 3.2.a (schema + parser, brief landed at `track-d-d3-phase-2-brief.md`) and 3.2.b (registry consumes manifests, brief pending). Added Phase 3.2.c (Δ1 first-party catalog) + 3.2.d (Δ2 installer convenience) per audit recommendations.
+- **2026-05-06 v3**: Marked Phase 3.2.a landed; linked implementation briefs for Phase 3.2.b, 3.2.c, and 3.2.d.
 
 ---
 
@@ -445,7 +446,7 @@ each PR small and reviewable. Each sub-phase has its own brief.
 **Goal:** Define the schema and add parsing. Registry does not yet read manifests.
 
 **Brief:** `docs/architecture/track-d-d3-phase-2-brief.md` (committed)
-**Issue:** #65 (assigned glaocon)
+**Issue:** #65 (closed by PR #91)
 
 - Create `lib/nexus/skill-registry/manifest-schema.ts` with TypeScript types +
   `NEXUS_SKILL_MANIFEST_SCHEMA_VERSION = 1`
@@ -461,7 +462,7 @@ each PR small and reviewable. Each sub-phase has its own brief.
 **Goal:** Wire the schema into discovery + classification + ranking so Nexus
 actually uses manifests when present.
 
-**Brief:** pending (to be authored by Claude after 3.2.a lands)
+**Brief:** `docs/architecture/track-d-d3-phase-2-2-brief.md`
 **Issue:** #74
 
 - Update `lib/nexus/skill-registry/discovery.ts` to read `nexus.skill.yaml`
@@ -481,7 +482,7 @@ actually uses manifests when present.
 skills as Nexus-aware. Per Model γ, Nexus does not bundle but does publish
 templates.
 
-**Brief:** pending (to be authored by Claude)
+**Brief:** `docs/architecture/track-d-d3-phase-2-3-brief.md`
 **Issue:** #75
 
 - Create `docs/skill-manifests/` directory with template `nexus.skill.yaml`
@@ -500,7 +501,7 @@ templates.
 plugin manager for installing external skill bundles. Per Model γ, Nexus
 does not host these skills — the installer is a thin shell-out.
 
-**Brief:** pending (to be authored by Claude)
+**Brief:** `docs/architecture/track-d-d3-phase-2-4-brief.md`
 **Issue:** #76
 
 - Add `--with-pm-skills` / `--with-superpowers` / `--with-gsd` flags to
@@ -592,10 +593,10 @@ compatibility shim.
 | Phase | Effort | Risk | Status |
 |-------|--------|------|--------|
 | 3.1 — SkillRegistry consolidation | 4-5h | Medium | **✅ Done** (PR #57 + #60) |
-| 3.2.a — Manifest schema + parser | 4-6h | Low | **In flight** (#65) |
-| 3.2.b — Registry consumes manifests | 3-4h | Medium | Brief pending (#74) |
-| 3.2.c — Δ1: first-party manifest catalog | 3-4h | Low | Brief pending (#75) |
-| 3.2.d — Δ2: opt-in installer | 3-4h | Low | Brief pending (#76) |
+| 3.2.a — Manifest schema + parser | 4-6h | Low | **Done** (#65 / PR #91) |
+| 3.2.b — Registry consumes manifests | 3-4h | Medium | Brief ready (#74) |
+| 3.2.c — Δ1: first-party manifest catalog | 3-4h | Low | Brief ready (#75) |
+| 3.2.d — Δ2: opt-in installer | 3-4h | Low | Brief ready (#76) |
 | 3.3 — Stage-aware advisor (B) | 3-4h | Medium | Brief pending (#77) |
 | 3.4 — Built-in skill manifests (28) | 4-6h | Low | Brief pending (#78) |
 | 3.5 — `/nexus do` dispatcher (C) | 5-7h | High | Brief pending (#79) |
