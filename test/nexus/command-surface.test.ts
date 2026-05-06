@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { getDefaultNexusAdapters, getRuntimeNexusAdapters } from '../../lib/nexus/adapters/registry';
+import type { NexusAdapters } from '../../lib/nexus/adapters/types';
 import { resolveInvocation } from '../../lib/nexus/commands/index';
 
 const tempDirs: string[] = [];
@@ -18,6 +19,61 @@ function makeTempRepo(): string {
   const cwd = mkdtempSync(join(tmpdir(), 'nexus-command-surface-'));
   tempDirs.push(cwd);
   return cwd;
+}
+
+const STUB_REJECTION_CASES: Array<{
+  family: Exclude<keyof NexusAdapters, 'registry'>;
+  mutate: (adapters: NexusAdapters) => void;
+}> = [
+  {
+    family: 'discovery',
+    mutate: (adapters) => {
+      adapters.discovery = { ...adapters.discovery, kind: 'stub' };
+    },
+  },
+  {
+    family: 'planning',
+    mutate: (adapters) => {
+      adapters.planning = { ...adapters.planning, kind: 'stub' };
+    },
+  },
+  {
+    family: 'execution',
+    mutate: (adapters) => {
+      adapters.execution = { ...adapters.execution, kind: 'stub' };
+    },
+  },
+  {
+    family: 'ccb',
+    mutate: (adapters) => {
+      adapters.ccb = { ...adapters.ccb, kind: 'stub' };
+    },
+  },
+  {
+    family: 'local',
+    mutate: (adapters) => {
+      adapters.local = { ...adapters.local, kind: 'stub' };
+    },
+  },
+];
+
+function productionCommandContext(adapters: NexusAdapters) {
+  const invocation = resolveInvocation('discover');
+  return {
+    invocation,
+    ctx: {
+      cwd: makeTempRepo(),
+      clock: () => new Date().toISOString(),
+      via: invocation.via,
+      adapters,
+      execution: {
+        mode: 'governed_ccb' as const,
+        primary_provider: 'codex' as const,
+        provider_topology: 'multi_session' as const,
+        requested_execution_path: 'codex-via-ccb' as const,
+      },
+    },
+  };
 }
 
 describe('nexus command dispatcher', () => {
@@ -50,23 +106,23 @@ describe('nexus command dispatcher', () => {
     expect(runtime.local.kind).toBe('runtime');
   });
 
-  test('refuses to run lifecycle commands with stub adapters by default', async () => {
-    const invocation = resolveInvocation('discover');
-    const ctx = {
-      cwd: makeTempRepo(),
-      clock: () => new Date().toISOString(),
-      via: invocation.via,
-      adapters: getDefaultNexusAdapters(),
-      execution: {
-        mode: 'governed_ccb' as const,
-        primary_provider: 'codex' as const,
-        provider_topology: 'multi_session' as const,
-        requested_execution_path: 'codex-via-ccb' as const,
-      },
-    };
+  test.each(STUB_REJECTION_CASES)('refuses dispatch when $family adapter is stub', async ({ family, mutate }) => {
+    const adapters = getRuntimeNexusAdapters();
+    mutate(adapters);
+    const { invocation, ctx } = productionCommandContext(adapters);
 
     await expect(invocation.handler(ctx)).rejects.toThrow(
-      'Refusing to run lifecycle command with stub discovery adapter. Use getRuntimeNexusAdapters() in production.',
+      `Refusing to run lifecycle command with non-runtime ${family} adapter. Use getRuntimeNexusAdapters() in production.`,
+    );
+  });
+
+  test('treats missing adapter kind as stub-equivalent', async () => {
+    const adapters = getRuntimeNexusAdapters();
+    (adapters.discovery as unknown as { kind: unknown }).kind = undefined;
+    const { invocation, ctx } = productionCommandContext(adapters);
+
+    await expect(invocation.handler(ctx)).rejects.toThrow(
+      'Refusing to run lifecycle command with non-runtime discovery adapter. Use getRuntimeNexusAdapters() in production.',
     );
   });
 });
