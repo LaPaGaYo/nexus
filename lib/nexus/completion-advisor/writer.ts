@@ -2,7 +2,7 @@ import { discoverExternalInstalledSkills } from '../external-skills';
 import { withLedgerSchemaVersion } from '../ledger-schema';
 import { readVerificationMatrix } from '../verification-matrix';
 import type { CompletionAdvisorRecord, InstalledSkillRecord, VerificationMatrixRecord } from '../types';
-import { attachExternalInstalledSkillRecommendations } from '../completion-advisor';
+import { attachExternalInstalledSkillRecommendations } from './resolver';
 
 export interface CompletionAdvisorWriteOptions {
   verificationMatrix?: VerificationMatrixRecord | null;
