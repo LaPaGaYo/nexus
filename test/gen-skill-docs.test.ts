@@ -793,6 +793,75 @@ describe('gen-skill-docs', () => {
     expect(discoverContent).toContain('I want to explore X');
     expect(discoverContent).toContain('we should look into Y');
   });
+
+  test('build SKILL.md carries the Track F.2 numbered workflow + typical prompts + trigger phrases', () => {
+    const buildContent = readSkill('build');
+    expect(buildContent).toContain('## How to run /build');
+    expect(buildContent).toContain('## Typical prompts');
+    expect(buildContent).toContain('implement task X');
+  });
+
+  test('plan SKILL.md carries the Track F.3 numbered workflow + typical prompts + trigger phrases', () => {
+    const planContent = readSkill('plan');
+    expect(planContent).toContain('## How to run /plan');
+    expect(planContent).toContain('## Typical prompts');
+    expect(planContent).toContain('plan this work');
+  });
+
+  test('handoff SKILL.md carries the Track F.4 numbered workflow + typical prompts + trigger phrases', () => {
+    const handoffContent = readSkill('handoff');
+    expect(handoffContent).toContain('## How to run /handoff');
+    expect(handoffContent).toContain('## Typical prompts');
+    expect(handoffContent).toContain('approve the route');
+  });
+
+  test('frame SKILL.md carries the Track F.5 numbered workflow + typical prompts + trigger phrases', () => {
+    const frameContent = readSkill('frame');
+    expect(frameContent).toContain('## How to run /frame');
+    expect(frameContent).toContain('## Typical prompts');
+    expect(frameContent).toContain('frame the scope');
+  });
+
+  test('qa SKILL.md carries the Track F.6 numbered workflow + typical prompts + trigger phrases', () => {
+    const qaContent = readSkill('qa');
+    expect(qaContent).toContain('## How to run /qa');
+    expect(qaContent).toContain('## Typical prompts');
+    expect(qaContent).toContain('QA the build');
+  });
+
+  test('closeout SKILL.md carries the Track F.7 numbered workflow + typical prompts + trigger phrases', () => {
+    const closeoutContent = readSkill('closeout');
+    expect(closeoutContent).toContain('## How to run /closeout');
+    expect(closeoutContent).toContain('## Typical prompts');
+    expect(closeoutContent).toContain('close out the run');
+  });
+
+  test('review SKILL.md carries the Track F.8 numbered workflow + typical prompts + trigger phrases', () => {
+    const reviewContent = readSkill('review');
+    expect(reviewContent).toContain('## How to run /review');
+    expect(reviewContent).toContain('## Typical prompts');
+    expect(reviewContent).toContain('review the change');
+  });
+
+  test('ship SKILL.md carries the Track F.9 numbered workflow + typical prompts + trigger phrases', () => {
+    const shipContent = readSkill('ship');
+    expect(shipContent).toContain('## How to run /ship');
+    expect(shipContent).toContain('## Typical prompts');
+    expect(shipContent).toContain('ship it');
+  });
+
+  test('all 9 canonical skills carry Track E Iron Laws + Track F numbered workflows + typical prompts', () => {
+    const canonical = ['discover', 'frame', 'plan', 'handoff', 'build', 'review', 'qa', 'ship', 'closeout'];
+    for (const skill of canonical) {
+      const content = readSkill(skill);
+      expect(content).toContain('## Iron Laws (mandatory; non-negotiable)');
+      expect(content).toContain(`## How to run /${skill}`);
+      expect(content).toContain('## Typical prompts');
+      expect(content).toContain('### Law 1');
+      expect(content).toContain('### Law 2');
+      expect(content).toContain('### Law 3');
+    }
+  });
 });
 
 describe('nexus wrapper generation', () => {
