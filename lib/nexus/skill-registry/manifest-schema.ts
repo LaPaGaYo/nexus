@@ -4,7 +4,14 @@ export const NEXUS_SKILL_MANIFEST_SCHEMA_VERSION = 1 as const;
 
 export type NexusSkillManifestSchemaVersion = typeof NEXUS_SKILL_MANIFEST_SCHEMA_VERSION;
 export type NexusSkillLifecycleStage = CanonicalCommandId;
-export type NexusSkillManifestNamespace = InstalledSkillNamespace;
+export const NEXUS_SKILL_NAMESPACES = [
+  'nexus_canonical',
+  'nexus_support',
+  'nexus_safety',
+  'nexus_root',
+  'external_installed',
+] as const satisfies readonly InstalledSkillNamespace[];
+export type NexusSkillManifestNamespace = (typeof NEXUS_SKILL_NAMESPACES)[number];
 export type NexusSkillHost = 'claude' | 'codex' | 'gemini-cli';
 export type NexusSkillContext = 'solo' | 'pair' | 'team';
 

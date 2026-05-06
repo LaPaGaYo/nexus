@@ -3,7 +3,11 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, describe, expect, test } from 'bun:test';
 import { readNexusSkillManifest } from '../../lib/nexus/skill-registry/manifest-parser';
-import { NEXUS_SKILL_MANIFEST_SCHEMA_VERSION, type NexusSkillManifest } from '../../lib/nexus/skill-registry/manifest-schema';
+import {
+  NEXUS_SKILL_MANIFEST_SCHEMA_VERSION,
+  NEXUS_SKILL_NAMESPACES,
+  type NexusSkillManifest,
+} from '../../lib/nexus/skill-registry/manifest-schema';
 
 const roots: string[] = [];
 
@@ -107,6 +111,27 @@ notes:
             { tag: 'code-review', delta: -2 },
           ],
         },
+      },
+    });
+  });
+
+  test.each(['nexus_safety', 'nexus_root'] as const)('accepts %s classification namespace', (namespace) => {
+    expect(NEXUS_SKILL_NAMESPACES).toContain(namespace);
+
+    const result = readNexusSkillManifest(tempManifest(`
+schema_version: 1
+name: ${namespace}-skill
+summary: Namespaced skill.
+intent_keywords:
+  - ${namespace} routing
+classification:
+  namespace: ${namespace}
+`));
+
+    expect(result).toMatchObject({
+      kind: 'manifest',
+      data: {
+        classification: { namespace },
       },
     });
   });

@@ -1373,6 +1373,21 @@ describe('nexus closeout', () => {
     });
   });
 
+  test('blocks closeout with a symmetric message when gate decision is missing', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('plan');
+      await run('handoff');
+      await run('build');
+      await run('review');
+
+      rmSync(join(cwd, '.planning/audits/current/gate-decision.md'), { force: true });
+
+      await expect(run('closeout')).rejects.toThrow(
+        'Missing required audit artifact: .planning/audits/current/gate-decision.md',
+      );
+    });
+  });
+
   test('blocks closeout when the archive is required but missing', async () => {
     await runInTempRepo(async ({ cwd, run }) => {
       await run('plan');

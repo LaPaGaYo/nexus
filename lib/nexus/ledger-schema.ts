@@ -13,6 +13,10 @@ export function withLedgerSchemaVersion<T extends object>(
 
 const warnedUnexpectedLedgerSchemaArtifacts = new Set<string>();
 
+export function __resetMemoizedSchemaWarnings(): void {
+  warnedUnexpectedLedgerSchemaArtifacts.clear();
+}
+
 export function warnOnUnexpectedLedgerSchemaVersion(
   value: unknown,
   artifactLabel: string,
