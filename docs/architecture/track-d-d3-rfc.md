@@ -210,6 +210,10 @@ export interface IntentMatchResult {
 
 A new optional sidecar file at the same level as `SKILL.md`. Format:
 
+The implemented author-facing schema reference lives at
+`docs/skill-manifest-schema.md`; the parser contract lives in
+`lib/nexus/skill-registry/manifest-parser.ts`.
+
 ```yaml
 # nexus.skill.yaml
 # Schema version. Always 1 for this RFC. Future: bump for breaking changes.
