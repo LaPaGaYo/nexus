@@ -453,6 +453,49 @@ plan's living status.
 
 Nexus-owned QA guidance for governed validation scope beyond code review.
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/qa` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/qa` runs after `/review` and before `/ship`; the verdict it writes is what `/ship` reads when deciding to merge.
+
+### Law 1 — QA Finding Evidence Contract
+
+Every finding written to `qa-report.md` MUST carry:
+
+1. **Severity tag** — `P0` (broken primary flow / data loss / security regression) | `P1` (broken secondary flow / important UI regression) | `P2` (minor UI / non-blocking ergonomics) | `P3` (cosmetic). Untagged findings are rejected.
+2. **Repro that ran in this turn** — a step-by-step that the operator executed at finding time. The repro is verified by running it once at finding time AND once at report-write time. "Should reproduce by clicking X" is not a repro; it is a guess.
+3. **Evidence appropriate to category**:
+   - **Interactive bugs** (broken flows, dead controls, form failures) — screenshot before action + screenshot after action + diff snapshot. All three.
+   - **Static bugs** (typos, layout issues, missing images) — single annotated screenshot showing the problem.
+   - **Console-only bugs** (errors / warnings without UI break) — full console line(s) including stack frame, plus the URL where it fired.
+4. **No credentials** — passwords, tokens, session cookies, OAuth secrets are NEVER pasted into the report. If a finding requires authenticated repro, reference the auth method (e.g., "logged in as user@example.com") not the credential.
+
+A finding missing severity, repro, or evidence is not a finding; it is an observation. Observations are noise; the QA report carries findings.
+
+### Law 2 — `/ship`-Blocking Categories Are Non-Negotiable
+
+`/qa` MUST return verdict `not_ready` when any of these conditions hold, regardless of finding count:
+
+1. **Any P0 finding** — broken primary user flow, data loss path, security regression. P0 in the report ≡ `not_ready` verdict. There is no "P0 but ship anyway."
+2. **New console error not in baseline** — if `baseline.json` exists and the current run produces a console error not present in baseline, that is a regression. Regressions block `/ship`.
+3. **Failed health check on a primary user flow** — the home / sign-in / checkout / primary CRUD page must complete its happy path without error. A failure here is `not_ready` even with no other findings.
+
+Verdict ladder: `ready` | `ready_with_findings` (P1+/P2/P3 only, no console regressions, all primary flows green) | `not_ready` (any condition above).
+
+`/ship` reads the verdict from the advisor record. If the verdict is `not_ready`, `/ship` cannot proceed; the operator routes back to `/build` to address blockers, then re-enters `/qa`.
+
+The reason: shipping over a P0 trades user-visible breakage for release velocity. The trade is never worth it; reverts cost more than the revisit.
+
+### Law 3 — Stop After 3 Same-Root-Cause Failures
+
+If `/qa` finds 3+ failures that share an apparent root cause (same module, same error class, same broken interaction pattern), stop enumerating:
+
+1. Record the 3 findings already collected with full evidence per Law 1.
+2. STOP filing variants. Do not produce a 4th, 5th, 6th finding for the same root cause.
+3. Route to `/investigate` with the 3 collected findings as predecessor context. `/investigate`'s 4-phase protocol (locate → analyze → hypothesize → fix) is the right tool for "what underlies this cluster."
+4. `/qa` returns `not_ready` with the cluster recorded; resume after `/investigate` resolves the root.
+
+Continuing past 3 same-root-cause findings is enumeration without insight. Each additional duplicate makes the report longer without making the fix faster. The 3rd repetition is a signal: the issue is not in the surface; it is in the substrate.
+
 ## Operator Checklist
 
 - define governed validation scope after completed review
