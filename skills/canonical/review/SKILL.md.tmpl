@@ -4,7 +4,9 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus review command. Persists the required current audit set and structured
-  review completion state for the governed Nexus lifecycle. (nexus)
+  review completion state for the governed Nexus lifecycle. Use when the user says
+  "review the change", "audit this build", "dual-review before ship", or when a `/build`
+  result needs governed verdict before it can advance to `/qa` or `/ship`. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -60,6 +62,72 @@ When synthesis cannot choose without speculation, escalate via `AskUserQuestion`
 
 The reason: outside voices are signals, not votes. Two-out-of-three agreement on a wrong call is still a wrong call. The synthesis is responsible for the verdict, and the advisor record carries that responsibility.
 
+## How to run /review
+
+These steps execute one `/review` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Read the build result
+
+Open `.planning/current/build/build-result.md` and the most recent `/build` `status.json`. Confirm what changed, which acceptance criteria the implementer claimed satisfied, and which verification commands ran in the build turn. The Scope summary required by Law 1 #1 is written from this read — not paraphrased from the diff.
+
+If `.planning/current/plan/design-contract.md` is present, read it too. Per the Artifact Contract, missing design-contract provenance on a material design-bearing run blocks `/review` instead of silently proceeding.
+
+### Step 2 — Dispatch the dual audit slots
+
+Run two independent audits. The standard pairing is `codex` + `gemini`; the local pairing is `local_a` + `local_b`. Pass each slot:
+
+- The diff against the base branch
+- The acceptance criteria from `/plan` Law 1
+- The fresh test evidence from Step 1
+
+Two slots are the floor — Law 3 only triggers when 2+ slots disagree, so a single-slot review cannot satisfy the disagreement protocol.
+
+### Step 3 — Collect audit outputs
+
+Wait for both slots to return. For each, capture:
+
+- The findings list
+- Each finding's severity (`block`, `advisory`, `nit`)
+- The provenance signature (which audit slot, which model, what diff range)
+
+If either slot returned silent or empty output, treat that as a slot failure — re-dispatch or note the gap explicitly. A silent slot is not "no findings"; it's missing evidence.
+
+### Step 4 — Synthesize per Law 1
+
+Write the four required artifacts into the advisor record this turn:
+
+1. **Scope summary** — one paragraph synthesizing what changed (per Law 1 #1).
+2. **Fresh test evidence** — the verification command for this change ran in this message; output attached (per Law 1 #2). Stale CI runs from a previous turn don't count.
+3. **Risk register** — every finding with severity, with one-sentence justification per item (per Law 1 #3). An empty register requires an explicit "no risks identified because..." note.
+4. **Explicit gate verdict** — `pass` | `pass_with_advisories` | `fail` (per Law 1 #4).
+
+A review that omits any of the four is an opinion, not a verdict.
+
+### Step 5 — If any finding is block-grade, route to Pass 2 protocol
+
+Per Law 2, a Pass 1 verdict cannot become `pass` or `pass_with_advisories` while any `block`-severity advisory is open. Use `AskUserQuestion`:
+
+> "Pass 1 found block-grade advisories. Route to (a) `/build --review-advisory-disposition fix_before_qa` to address them, (b) `/qa --review-advisory-disposition continue_to_qa` to continue with advisories noted, or (c) `/qa --review-advisory-disposition defer_to_follow_on` to defer?"
+
+These three dispositions are the governed advisory choices the Completion Advisor footer enumerates — the AskUserQuestion gate surfaces them at the Law 2 branching moment so the operator picks before status is written.
+
+After `/build` addresses the advisory, re-enter `/review` for Pass 2. Pass 2 must verify the specific advisory closed AND no regression introduced. The advisor record's `pass_round` field tracks 1 or 2; `/ship` Law 1 reads it.
+
+### Step 6 — If audit slots disagree, apply the disagreement protocol
+
+Per Law 3, when 2+ slots return conflicting verdicts on the same finding, the synthesis enumerates:
+
+- Which slot said what
+- Which slot's call is being accepted
+- Why that slot is trusted on this specific finding
+- Which slot calls are being explicitly NOT followed, and why
+
+When the synthesis cannot choose without speculation, escalate via `AskUserQuestion` (Law 3 already gates this path). Do not silent-average and move on.
+
+### Step 7 — Write status with verdict and pass_round
+
+Run the canonical command (in the Routing section below). It writes audits to `.planning/audits/current/*`, the gate verdict to `.planning/current/review/status.json` with `pass_round: 1` or `2`, and `learning-candidates.json` if any audit returned valid candidates. The advisor record carries the verdict; `/ship`, `/qa`, and `/closeout` read it.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
@@ -77,5 +145,29 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:review}}
 ```
+
+## Typical prompts
+
+These are example user requests `/review` handles well. The skill produces an explicit gate verdict (`pass` | `pass_with_advisories` | `fail`) and persists the four required artifacts (scope summary, fresh test evidence, risk register, verdict) per Law 1.
+
+### Prompt 1 — Standard dual-audit review
+
+> "Review the change I just built on this branch."
+
+Step 1 reads `build-result.md` and the prior `/build` status. Step 2 dispatches `codex` + `gemini` audit slots against the diff. Step 3 collects findings with severity tags. Step 4 synthesizes the four Law 1 artifacts into the advisor record. If no block-grade findings, the verdict is `pass` or `pass_with_advisories` and `/qa` is the typical next stage. The advisor record's `pass_round` is `1`.
+
+### Prompt 2 — Block-grade finding requires Pass 2
+
+> "Codex flagged a P1 issue — can we still ship?"
+
+Step 4 records the block-grade advisory in the risk register. Step 5 fires the AskUserQuestion gate: `fix_before_qa`, `continue_to_qa`, or `defer_to_follow_on`. Per Law 2, Pass 1 cannot return `pass` while the block is open — the operator picks the disposition, `/build` addresses it, then `/review` Pass 2 verifies closure with `pass_round: 2` recorded in the advisor record.
+
+### Prompt 3 — Audit slots disagree
+
+> "Codex says block, Gemini says nit, what's the call?"
+
+Step 6 applies Law 3's disagreement protocol: enumerate the conflicting verdicts, name the accepted verdict, justify the choice on this specific finding, list the pushed-back calls with reasons. Silent averaging is forbidden. If the synthesis can't choose without speculation, Law 3 escalates via `AskUserQuestion` and the operator decides.
+
+These prompts test that `/review` produces a complete verdict contract per Law 1, applies Law 2 on block-grade findings, and applies Law 3 on slot disagreement — not a "looks good" opinion.
 
 {{NEXUS_COMPLETION_ADVISOR:review}}
