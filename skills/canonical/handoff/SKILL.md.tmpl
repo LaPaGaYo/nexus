@@ -9,6 +9,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 
 {{PREAMBLE}}
@@ -16,6 +17,49 @@ allowed-tools:
 # /handoff — Nexus Governed Handoff
 
 {{NEXUS_STAGE_OVERVIEW}}
+
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/handoff` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/handoff` is the routing approval gate between `/plan` and `/build`; ambiguity here means execution runs against an approval that no longer matches reality.
+
+### Law 1 — Handoff Freshness Check (Route + Provider + Branch + Contract)
+
+Before reusing an existing handoff approval (e.g., re-entering `/handoff` after a `/build` failure or a session resume), `/handoff` MUST re-validate four dimensions. ANY change invalidates the prior approval:
+
+1. **Route** — the dispatch target named in `governed-execution-routing.md`. If the route mentioned a specific stage pack, provider lane, or topology and any of those shifted since approval, the prior approval is stale.
+2. **Provider availability** — the provider lane (CCB session, Codex CLI, Gemini CLI, local) named in the route MUST currently be mounted and online. A provider that was online at approval but is now unmounted invalidates the approval.
+3. **Branch state** — the git branch the handoff approved against is the same branch present now. Branch renames, force-push to the same branch name, or operator-initiated branch switches all invalidate.
+4. **Upstream contract** — `sprint-contract.md` (per `/plan` Law 3 binding handoff) is unchanged since approval. New tasks added, existing tasks modified, or scope-changing edits all invalidate. The handoff approves a specific contract; a different contract is a different handoff.
+
+The 24-hour soft trigger: any handoff approval older than 24 hours is automatically re-validated against the four dimensions above, regardless of whether the operator believes nothing has changed. Time alone is not invalidating — change is — but 24h is the heuristic that always re-checks.
+
+If any dimension fails, `/handoff` writes `governed-handoff.md` with `status: stale_approval` listing the failed dimension(s), and the operator either re-approves explicitly or routes back to `/plan` to refresh the upstream contract.
+
+Stale handoff approval is the failure mode behind "we approved this two days ago and now it's running against a different tree." The freshness check makes that impossible.
+
+### Law 2 — Recovery From Blocked Handoff (No Silent Retry)
+
+When `/handoff` records approval but governed execution cannot begin, `/handoff` MUST write a `handoff-blocked` status entry to `status.json` rather than silently re-running:
+
+1. **Identify the failing leg** — which dimension blocked execution: `route_unavailable` | `provider_offline` | `branch_drift` | `contract_mismatch` | `transport_error` | `approval_revoked`. Generic "couldn't continue" is not enough; the failing leg is named.
+2. **Surface the blocker via `AskUserQuestion`** — the operator decides recovery: re-approve with the new state, route back to the owning skill (`/plan` for contract issues, the provider mount step for transport issues, etc.), or abort the run. `/handoff` does not pick the recovery path.
+3. **Record the recovery decision in `governed-handoff.md`** — what blocked, what the operator chose, when. The artifact carries the recovery context for future operators (per Law 3).
+4. **NEVER silently retry** — if the prior approval was for state A and the current state is B, attempting to "just run it again" risks executing against B with an approval that meant A. Silent retry is how mismatched approvals execute against drifted state.
+
+A blocked handoff is not a small failure mode. The handoff is the contract `/build` reads when it begins; if that contract was approved against a state that no longer exists, what `/build` reads is fiction. Surfacing the block is cheaper than discovering the fiction during execution.
+
+### Law 3 — Cross-Operator Context Dump
+
+When a `/handoff` will be consumed by a different operator (different person, different session, different agent provider) than approved it, `governed-handoff.md` MUST carry enough context for the receiving operator to begin without spelunking. At minimum:
+
+1. **What was decided** — the route, the rationale for choosing this route over alternatives, the relevant constraints. Not just "use Codex"; "use Codex because the work touches `lib/nexus/adapters/*` and Codex carries the type-system context this run."
+2. **What the receiving operator needs to read first** — explicit pointers to `prd.md` (per `/frame` Law 1), `sprint-contract.md` (per `/plan` Law 1), the design contract if present, and any prior advisor records relevant to the run. The pointer set is the minimum reading list, not "all of `.planning/current/`."
+3. **What's already been verified vs what hasn't** — at handoff time, what evidence exists (prior `/build` runs, partial verification) and what the receiving operator must produce fresh. This prevents re-verifying things already verified AND prevents trusting things that weren't actually verified.
+4. **Open decisions deferred to the receiving operator** — choices the approving operator did not make and is intentionally passing along, with the option set visible. "Picking between Approach A and B" is a deferred decision; "make it work" is not.
+
+Cross-operator handoffs without context dumps produce sessions where the receiving operator spends 30 minutes reconstructing what the approver knew, and frequently reaches different conclusions about what's been verified. The context dump is the contract between operators, the same way `prd.md` is the contract between framings.
+
+A handoff between the same operator across sessions counts as cross-operator. Memory across sleep cycles is not reliable; the artifact is.
 
 ## Operator Checklist
 
