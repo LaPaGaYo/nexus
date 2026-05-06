@@ -4,7 +4,9 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus closeout command. Verifies review completeness, archive state, and
-  final governed readiness before concluding the work unit. Use after `/review`. (nexus)
+  final governed readiness before concluding the work unit. Use when the user says
+  "close out the run", "archive this work", "finalize and prepare next run", or after
+  `/review` and `/ship` complete and the work unit needs to be sealed. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -61,6 +63,87 @@ The reason: lifecycle authority is single-owner. If `/build` says the build is `
 
 When closeout finds inconsistent state, the answer is to surface it and route back. The operator decides which owning skill to re-enter; closeout records the routing decision in its own status, not by editing upstream artifacts.
 
+## How to run /closeout
+
+These steps execute one `/closeout` run. Iron Laws constrain *what must be true at decision time* (especially Law 3's read-only boundary — closeout writes only to `.planning/current/closeout/*`); this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Read all upstream stage status.json files
+
+Per Law 1 and Law 3, closeout is read-only over upstream stages. Begin by reading every stage's `status.json` from `.planning/current/<stage>/status.json` for `/discover`, `/frame`, `/plan`, `/build`, `/review`, `/qa`, `/ship` (whichever ran for this run). These tell you what the run claims as truth.
+
+Do not modify them. If they look wrong, that is a Law 3 surface-and-route signal, not a closeout edit.
+
+### Step 2 — Run Law 1 integrity checklist (five mandatory verifications)
+
+Walk Law 1's five checks against the read state from Step 1:
+
+1. `/review` artifacts present in `.planning/audits/current/*`; review status.json records `pass_round` ≥ 1 with verdict `pass` or `pass_with_advisories`.
+2. `/qa` artifacts present when `/qa` was run, with verdict `ready` or `ready_with_findings`. If `/qa` was not run, capture that fact explicitly for `CLOSEOUT-RECORD.md`.
+3. `/ship` `release-gate-record.md` records the Law 3 outcome (merge / keep alive / discard / split). The decision is explicit, not silent.
+4. Ledger consistency — every artifact referenced exists; every artifact on disk in canonical paths is referenced.
+5. Each `/frame` success criterion is addressed by at least one audit or QA finding. List unaddressed criteria for the "what we did NOT verify" section.
+
+If any check fails, do NOT proceed. Closeout returns `not_archived` and reports which check failed (per Law 1).
+
+### Step 3 — Run Law 2 stale-evidence checks
+
+Independent of Law 1, verify against Law 2's three staleness signals:
+
+1. **Head-SHA staleness** — does any audit in `.planning/audits/current/*` carry a commit SHA older than the current `/build` head SHA?
+2. **Run-id mismatch** — do all audits, QA report, and ship artifacts share the same `run_id` field? Mismatched run_ids ≡ artifacts collated from different runs.
+3. **Clock staleness** — is any audit older than 7 days even when run_id and SHA align?
+
+If any signal fires, the run is `stale_audit`. Do NOT silently archive.
+
+### Step 4 — Surface staleness via AskUserQuestion (gate)
+
+When Step 3 flags `stale_audit`, do not auto-resolve. Use `AskUserQuestion`:
+
+> "The audit set is stale (head SHA / run_id / 7-day clock — name which fired). Should I (a) rerun `/review` against the current head, (b) accept staleness with a documented note in `CLOSEOUT-RECORD.md` ("audit is N days old; re-verify before re-shipping"), or (c) block archive until upstream re-runs complete?"
+
+The operator picks. Record the choice in the closeout record. Silent acceptance is forbidden (per Law 2's last paragraph).
+
+### Step 5 — Assemble follow-on summary
+
+Walk `.planning/current/closeout/` and any attached follow-on artifacts (e.g., `documentation-sync.md` from `/document-release`). Compose `FOLLOW-ON-SUMMARY.md` and `follow-on-summary.json` so future `/discover`, `/retro`, and `/learn` runs consume one stable index instead of rediscovering raw artifacts.
+
+This is closeout writing to its own outputs only — Law 3 still holds.
+
+### Step 6 — Write learnings if candidates exist
+
+If `/review`, `/qa`, or `/ship` left valid learning-candidate artifacts behind, assemble the canonical run learnings into `LEARNINGS.md` and `learnings.json` under `.planning/current/closeout/`. If no valid candidates are available on a rerun, remove any stale learnings artifacts and ledger references rather than leaving them behind.
+
+If no candidates exist at all, skip this step — do not synthesize learnings from nothing.
+
+### Step 7 — Write CLOSEOUT-RECORD.md
+
+Compose the closeout record with:
+
+- Outcome of all five Law 1 checks (pass / fail / N/A with reason)
+- Outcome of all three Law 2 staleness checks
+- The Step 4 staleness disposition if it fired
+- Artifact ledger (every file referenced exists; every canonical-path file is referenced)
+- "What we did NOT verify" section listing any unaddressed `/frame` success criteria
+
+If any Law 1 check failed, set `archive_state: not_archived` and include the routing target (which owning skill to re-enter, per Law 3).
+
+### Step 8 — Write next-run-bootstrap.json (for `/discover` continuation)
+
+If a future `/discover` will resume from this run, write `next-run-bootstrap.json` and the human-readable `NEXT-RUN.md` carrying:
+
+- Run-id, branch, head SHA at archive time
+- Open questions left unanswered
+- Follow-on items not yet routed
+- Any explicit "next discovery should consider" notes
+
+`/discover` Step 1 reads this on the next run. A missing or empty bootstrap is fine — it just means fresh discovery rather than seeded continuation.
+
+### Step 9 — Write status
+
+Run the canonical command (in the Routing section below). It writes `status.json` with the verdict (`archived` / `not_archived` / `stale_audit`). The advisor record carries the verdict; downstream tooling reads it.
+
+If the verdict is anything other than `archived`, the closeout has surfaced a problem — Law 3 says route back to the owning skill, not patch from inside `/closeout`.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
@@ -78,5 +161,29 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:closeout}}
 ```
+
+## Typical prompts
+
+These are example user requests `/closeout` handles well. The skill is invoked and produces a structured `CLOSEOUT-RECORD.md` plus `status.json` (and learnings/next-run artifacts when relevant).
+
+### Prompt 1 — Clean closeout
+
+> "Close out this run."
+
+`/closeout` walks Step 1–9. Step 1 reads all upstream status.json files. Step 2 confirms Law 1's five checks pass. Step 3 confirms no Law 2 staleness signal fires. Steps 5–7 assemble the follow-on summary, learnings (if candidates exist), and CLOSEOUT-RECORD. Step 9 writes `archive_state: archived`.
+
+### Prompt 2 — Stale audit branching
+
+> "Audit was generated yesterday but I made commits today — ok to archive?"
+
+Step 1 reads upstream state. Step 3 fires the head-SHA staleness signal (audit's commit SHA is older than current `/build` head). Step 4 surfaces the `AskUserQuestion` gate: rerun `/review`, accept staleness with note, or block until upstream re-runs. The operator picks; closeout records the disposition rather than silently archiving (per Law 2).
+
+### Prompt 3 — Inconsistent upstream state
+
+> "`/build` says complete but `/review` says fail — closeout fix it?"
+
+Step 1 reads both status.json files. The conflict is real. Per Law 3, closeout is read-only over upstream stages — it does not patch the inconsistency. Step 7 writes `CLOSEOUT-RECORD.md` with `archive_state: not_archived`, names the conflict, and identifies the owning skill to re-enter (`/build` or `/review`). The operator decides which stage to re-run; closeout does not launder the run by editing upstream artifacts.
+
+These prompts test that `/closeout` runs the integrity + staleness checklist faithfully, surfaces operator choice when staleness fires, and refuses to patch upstream state (Law 3).
 
 {{NEXUS_COMPLETION_ADVISOR:closeout}}
