@@ -4,7 +4,9 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus QA command. Records governed validation scope, QA findings, and
-  structured readiness state for the governed Nexus lifecycle. (nexus)
+  structured readiness state for the governed Nexus lifecycle. Use when the user says
+  "QA the build", "validate the change", "run end-to-end checks before ship",
+  or after `/review` passes and before `/ship` reads the verdict. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -60,6 +62,72 @@ If `/qa` finds 3+ failures that share an apparent root cause (same module, same 
 
 Continuing past 3 same-root-cause findings is enumeration without insight. Each additional duplicate makes the report longer without making the fix faster. The 3rd repetition is a signal: the issue is not in the surface; it is in the substrate.
 
+## How to run /qa
+
+These steps execute one `/qa` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Define validation scope
+
+Read the upstream advisor record from `/review`. If the review verdict was not `pass`, `/qa` cannot proceed — the operator routes back to `/build` first. If `pass`, enumerate the primary user flows the run touches:
+
+- The home / sign-in / checkout / primary CRUD pages always count as primary flows (per Law 2 #3).
+- Any flow named in `prd.md` `## Success Criteria` counts.
+- Any flow surfaced by `/review` as design-bearing or browser-facing counts.
+
+The scope is the union of these. A `/qa` run with no enumerated primary flows is not yet scoped — return to `/review` for a clearer handoff.
+
+### Step 2 — Run health check on each primary flow
+
+For every primary flow, execute its happy path once. Capture before-action state, perform the canonical interaction, capture after-action state. A failure here is a P0 candidate per Law 2 #3 regardless of how minor it looks.
+
+If the run has a baseline (`baseline.json` from a prior QA pass), diff console output against it as part of this step. New console errors not in baseline are Law 2 #2 regressions.
+
+### Step 3 — Enumerate findings with severity
+
+For each observed defect, write a finding per Law 1's evidence contract:
+
+1. **Severity tag** — `P0` | `P1` | `P2` | `P3`. Untagged findings are rejected.
+2. **Repro that ran in this turn** — step-by-step the operator executed, verified at finding time AND at report-write time.
+3. **Evidence appropriate to category**:
+   - Interactive: before screenshot + after screenshot + diff snapshot
+   - Static: single annotated screenshot
+   - Console-only: full console line(s) with stack frame + URL
+4. **No credentials** — never paste passwords, tokens, session cookies, OAuth secrets.
+
+A finding missing severity, repro, or evidence is an observation, not a finding. Drop it from the report or upgrade it to a finding.
+
+### Step 4 — Apply Law 2 ship-blocking gate
+
+After findings are enumerated, evaluate the verdict ladder:
+
+- Any P0 finding → verdict `not_ready`. There is no "P0 but ship anyway."
+- New console error not in baseline → verdict `not_ready` (regression).
+- Failed health check on a primary user flow → verdict `not_ready`.
+- Otherwise, only P1+/P2/P3 findings → verdict `ready_with_findings`.
+- No findings, all primary flows green → verdict `ready`.
+
+The verdict is mechanical from the findings — it is not a judgment call.
+
+### Step 5 — Detect 3-strike cluster (per Law 3)
+
+Scan the findings for shared root cause: same module, same error class, same broken interaction pattern. If 3+ findings cluster, STOP enumerating. Use `AskUserQuestion`:
+
+> "Three findings appear to share a root cause ([brief cluster description]). Should I (a) confirm cluster and route to `/investigate`, (b) continue gathering more variants, or (c) mark the cluster P0 and write `not_ready` without `/investigate`?"
+
+The operator picks. If (a), record the 3 collected findings, write `not_ready`, route to `/investigate` per Law 3. If (b), continue but flag the risk in the report. If (c), the cluster is recorded as a single P0 with the 3 findings as evidence. The default expectation is (a).
+
+### Step 6 — Write `qa-report.md`
+
+Compile the findings into `qa-report.md` per the artifact contract. At write time, re-verify each repro per Law 1 #2. A finding whose repro fails on re-verification is dropped from the report (it was a transient).
+
+### Step 7 — Write `design-verification.md`
+
+For design-bearing or browser-facing runs, write `design-verification.md` capturing what was visually verified against intent. For non-design runs, this artifact MAY be empty but the file should still be written so `/ship` knows QA touched it.
+
+### Step 8 — Write status
+
+Run the canonical command (in the Routing section below). It writes `status.json` with the verdict from Step 4 and any continuation artifacts. The advisor record carries the verdict; `/ship` reads it and refuses to proceed if `not_ready`.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
@@ -77,5 +145,29 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:qa}}
 ```
+
+## Typical prompts
+
+These are example user requests `/qa` handles well. The skill is invoked and produces a structured `qa-report.md` plus `status.json` with a verdict.
+
+### Prompt 1 — Standard QA after `/review` pass
+
+> "QA the build before we ship."
+
+`/qa` walks Step 1–8. Step 1 reads the `/review` advisor record and enumerates primary flows from `prd.md`. Step 2 runs each happy path. Step 3 records findings with severity + repro + evidence. Step 4 applies the verdict ladder mechanically. If clean, `status.json` carries `ready` and `/ship` proceeds.
+
+### Prompt 2 — Multiple findings appearing related
+
+> "I'm seeing 5 broken-link errors across the marketing pages — should I write them all up?"
+
+Step 5's 3-strike rule fires on the first 3 findings; the workflow stops enumerating and uses `AskUserQuestion` to confirm cluster routing. The default route is `/investigate` (Law 3) so the underlying cause gets fixed once instead of patched five times.
+
+### Prompt 3 — Found one P0
+
+> "Sign-in is broken on Safari but works on Chrome. Verdict?"
+
+Law 2 #1: any P0 → `not_ready`. There is no "P0 but ship anyway." Step 4 writes `not_ready` mechanically. Step 6 records the finding with cross-browser repro per Law 1 #3 (interactive: before + after + diff). `/ship` reads the verdict and refuses to merge until the operator routes back to `/build`.
+
+These prompts test that `/qa` produces a verdict-bearing report (not an enumeration), respects the 3-strike cluster rule, and never softens P0 → ship.
 
 {{NEXUS_COMPLETION_ADVISOR:qa}}
