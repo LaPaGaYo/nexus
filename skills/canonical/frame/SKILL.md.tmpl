@@ -18,6 +18,57 @@ allowed-tools:
 
 {{NEXUS_STAGE_OVERVIEW}}
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/frame` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/frame` is the input contract for everything downstream — `/plan`, `/build`, `/review`, `/qa` — and ambiguity here propagates straight through to the user.
+
+### Law 1 — PRD Content Contract
+
+`docs/product/prd.md` MUST contain these seven sections, each non-empty:
+
+1. **Problem statement** — who hurts, how, and how much (2–4 sentences). "Users are frustrated" is rejected; specify the user, the action they fail at, and the cost.
+2. **Hypothesis** — the "If/Then/Because" statement (see Law 2). Without a hypothesis, the PRD is wishful description, not framing.
+3. **Success criteria** — observable, falsifiable conditions. Each one must answer "what command/metric/artifact reveals whether this is achieved?" Vague criteria like "users love it" are rejected; "task completion rate >85% on the X flow" is accepted.
+4. **Non-goals** — ≥3 concrete things this work will NOT do. The non-goals section is where scope creep gets pre-empted; an empty non-goals section means scope is undefined.
+5. **Risks** — ≥3 specific failure modes the framing acknowledges, each with a one-sentence mitigation or "accepted; will revisit if it materializes" note.
+6. **Alternatives considered** — at least one rejected alternative with the reason it was rejected. "We considered nothing else" is a sign the framing is premature.
+7. **Decision rationale** — why this scope, why now, what changes when this ships. The rationale is what `/review` reads when judging whether the work matches intent.
+
+A PRD missing any of the seven sections is not a PRD; it is a wishlist. Wishlists don't survive contact with `/plan`.
+
+### Law 2 — Hypothesis Framing
+
+Every framed scope MUST articulate its hypothesis as:
+
+> **If we [action], then [users] will [outcome] because [evidence].**
+
+Each clause is mandatory:
+
+- **Action** — what the work does, in concrete verbs (build, ship, change, deprecate). Not "improve" or "enhance"; those are direction without target.
+- **Users** — who is affected, named specifically. "All users" is rarely true; specify the segment whose behavior the hypothesis predicts.
+- **Outcome** — the observable change in user behavior or system state. Must be falsifiable in the same way Law 1 success criteria are.
+- **Evidence** — what makes the team believe this hypothesis is true now. Could be data, prior research, customer interviews, market signal, or explicit reasoning. "We think it'll work" is not evidence; it is hope.
+
+The hypothesis is the contract `/review` evaluates against. When `/review` asks "did this work deliver what `/frame` framed?", the hypothesis is what answers that question. A scope without a hypothesis cannot be reviewed honestly.
+
+Stating a hypothesis up front also surfaces disagreement early. If two teammates can't agree on the [evidence] clause, the framing is not yet ready for `/plan`.
+
+### Law 3 — Framing Readiness Gate Before `/plan`
+
+Before `/frame` writes `status.json` with verdict `ready`, ALL of these must hold:
+
+1. **Success criteria are observable and falsifiable** — each one names the command, metric, or artifact that reveals achievement. "Users are happier" fails; "p95 latency on the search endpoint drops below 300ms" passes.
+2. **Non-goals lists ≥3 concrete items** — empty or one-bullet non-goals sections are rejected. Pre-empting scope creep is the cheapest at framing time.
+3. **At least one user story has explicit acceptance criteria** — in the form "Given X, when Y, then Z." Without this, `/plan` has nothing to translate into bite-sized tasks (per `/plan` Law 1).
+4. **`out-of-scope` section is non-empty** — distinct from non-goals; out-of-scope captures things adjacent users may expect that this work doesn't address.
+5. **Hypothesis is present per Law 2** — all four clauses (action, users, outcome, evidence) populated.
+
+If any of the five fail, `/frame` returns `not_ready` and the operator either iterates within `/frame` or routes back to `/discover` to gather missing input.
+
+`/plan` reads the framing verdict from the advisor record. If `not_ready`, `/plan` cannot proceed.
+
+The reason: `/plan` translates framing into tasks. If the framing has no falsifiable success criteria, the tasks have no observable acceptance criteria (per `/plan` Law 1) — the ambiguity propagates straight through `/build`, `/review`, `/qa`, and lands in the user's lap as "we shipped what we said we'd ship, but the user expected something different."
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
