@@ -18,6 +18,47 @@ sensitive: true
 
 {{NEXUS_STAGE_OVERVIEW}}
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/ship` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/ship` is the merge boundary; ambiguity here lands as broken main.
+
+### Law 1 — Pre-Merge Readiness Gate (Five Mandatory Checks)
+
+`/ship` cannot mark `release-gate-record.md` `ready` without ALL of these visible in the advisor record at decision time:
+
+1. **Tests pass with output evidence in this turn** — the verification command for the change ran in the current message AND its output is attached. Stale CI runs from a previous turn are not evidence; they describe a different state of the tree (mirrors `/build` Law 1, `/review` Law 1).
+2. **CI green on the head SHA** — the CI run for the exact commit being merged completes green. CI green on an earlier commit is not green for what's being shipped.
+3. **`/review` verdict is current and not stale** — the `pass_round` field in the advisor record is the latest review pass; subsequent commits to the branch invalidate it (per `/review` Law 2). If commits landed after Pass 2, re-enter `/review`.
+4. **`/qa` verdict is `ready` or `ready_with_findings`** when `/qa` was run. `/qa` verdict `not_ready` is non-negotiable: any P0 finding, console regression, or primary-flow health check failure (per `/qa` Law 2) blocks `/ship`. There is no override.
+5. **Branch is up-to-date with base** — the branch contains the latest base-branch commit. Stale-base merges introduce conflicts that the gate didn't see; rebase first, then re-verify checks 1–4.
+
+If any check fails, `/ship` returns `not_ready` and refuses to merge. The release gate is the contract for downstream `/closeout`; ambiguity here lands as broken main.
+
+### Law 2 — Refuse To Ship Broken
+
+`/ship` MUST refuse to merge when any of these conditions hold, regardless of operator framing:
+
+1. **No silent merges past failed checks** — if any of the five readiness checks (Law 1) fails, `/ship` STOPS. The advisor record carries `release_gate: not_ready` with the failing check enumerated. The operator either fixes the failure or routes back through the relevant stage (`/build`, `/review`, `/qa`).
+2. **No force-push to base or shared branches** — `git push --force` to `main`, `master`, or release branches is forbidden. `/ship` operates on the ship branch only; the merge happens via PR mechanics, not by overwriting base history.
+3. **No skipping CI** — `[skip ci]` commit messages, `--no-verify` flags, or branch-protection bypasses are forbidden at the `/ship` layer. CI is part of the readiness gate (Law 1, check 2); skipping CI ≡ skipping the gate.
+
+When the user asks `/ship` to merge despite a failing check, the answer is to surface the check and explain. Bad work is worse than no work; a regression shipped past a failing check costs more than the revisit. The user can choose to re-enter the failing stage; `/ship` cannot choose to overlook it.
+
+This rule has one exception path: an explicit, documented, time-boxed override flow that requires `AskUserQuestion` confirmation AND records the override in `release-gate-record.md` with rationale. Silent override is not an option.
+
+### Law 3 — Branch Decision Tree Is Explicit
+
+When `/ship` runs, the work on the ship branch ends in exactly one of four outcomes. The operator picks; `/ship` records the choice in `pull-request.json` and `release-gate-record.md`:
+
+1. **Merge** — readiness gate is `ready`, the PR merges to base, the branch is deleted (per repo policy). Standard happy path.
+2. **Keep alive** — the branch is not ready to merge but represents valid in-progress work. `/ship` records `release_gate: deferred` with a one-paragraph reason ("blocked on dependency X", "awaiting design review", "scheduled for next release window"). The branch remains; `/closeout` may not consume it yet.
+3. **Discard** — the work was explored, learned from, but is not shipping. `/ship` records `release_gate: discarded` with a discovery-style note (what was tried, what was learned, why this approach didn't proceed). The branch closes without merge.
+4. **Split** — the branch contains too much; some commits are mergeable now, others need rework. `/ship` records `release_gate: split` and routes back to `/plan` to extend the contract (per `/plan` Law 3) for the unmergeable subset, while the mergeable subset advances through Law 1.
+
+Outcomes 2–4 are not failures; they are honest endings. The failure mode is "neither merging nor explicitly choosing one of the other three." Branches in limbo accumulate; in-flight branches without an outcome become operational debt.
+
+`/ship` does not auto-pick an outcome. The operator picks; the artifact records the choice.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
