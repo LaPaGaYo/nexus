@@ -35,9 +35,18 @@ export { rankInstalledSkillsForAdvisor } from './ranking';
 
 export function createSkillRegistry(options: SkillRegistryDiscoveryOptions = {}) {
   return {
-    discover: () => discoverInstalledSkills(options.roots
-      ? { roots: options.roots, cwd: options.cwd, home: options.home }
-      : { cwd: options.cwd ?? process.cwd(), home: options.home }),
+    discover: () => {
+      if (options.roots) {
+        return discoverInstalledSkills({ roots: options.roots, cwd: options.cwd, home: options.home });
+      }
+      if (options.cwd === undefined) {
+        throw new Error(
+          'createSkillRegistry: cwd is required when no roots are provided. ' +
+            'Pass { cwd } explicitly — library helpers must not depend on the ambient working directory.',
+        );
+      }
+      return discoverInstalledSkills({ cwd: options.cwd, home: options.home });
+    },
     classify: classifyInstalledSkill,
     rank: rankInstalledSkillsForAdvisor,
   };
