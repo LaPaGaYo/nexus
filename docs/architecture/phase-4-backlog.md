@@ -71,7 +71,7 @@ Spec exists (RFC or brief). Can dispatch as glaocon's queue clears.
 | Issue | Title | Effort | Depends on |
 |---|---|---|---|
 | #69 | D2 Phase 2.3: delete `lib/nexus/absorption/` (~9 files) | S (~30 min) | #62 (PR #66) merge |
-| #70 | D2 Phase 2.4: delete `vendor/upstream/` + retire upstream tests | M (~2h) | #69 |
+| #70 | D2 Phase 2.4: delete retired upstream snapshots + retire upstream tests | M (~2h) | #69 |
 | #71 | D2 Phase 2.5: docs rewrite (README, skills.md, runbook, etc.) | S-M (~1-1.5h) | #70 |
 | #72 | #41 Phase 3: mirror tests for resolver | S (~1h) | #63 merge |
 | #73 | Local verifyCodex/verifyGeminiSubagentSupport | S (~1-2h) | None |
@@ -147,7 +147,7 @@ Doc refreshes that should happen post-D2 to keep architecture docs in sync.
                         │
                        #69 (delete absorption/)
                         │
-                       #70 (delete vendor/upstream/)
+                       #70 (delete retired upstream snapshots)
                         │
                        #71 (docs rewrite)
                        /  \

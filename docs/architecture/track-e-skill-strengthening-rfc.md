@@ -297,9 +297,9 @@ Assuming Codex throughput ~30 min/issue (per session pattern), 9 PRs land in ~5 
 - `skills/canonical/build/SKILL.md.tmpl` — Phase E.1 PoC reference (commit `4209cc4`)
 - `docs/architecture/track-d-d3-rfc.md` § Phase 5 (dispatcher) — complementary track
 - `docs/architecture/phase-4-plan.md` — parent track plan
-- Superpowers skills at `vendor/upstream/superpowers/skills/` — concept inspiration (NOT bundled)
-- GSD commands at `vendor/upstream/gsd/commands/gsd/` — concept inspiration (NOT bundled)
-- PM skills at `vendor/upstream/pm-skills/skills/` — concept inspiration (NOT bundled)
+- Superpowers skills — concept inspiration (NOT bundled)
+- GSD commands — concept inspiration (NOT bundled)
+- PM skills — concept inspiration (NOT bundled)
 - Issue #78 (D3 Phase 4 — built-in manifests) — independent but related work
 - Issue #82 (Phase 4.4 ST1+ST9 — subdir reorg) — independent
 

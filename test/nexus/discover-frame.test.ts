@@ -325,7 +325,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-discover-pack',
               absorbed_capability: 'pm-discover',
-              source_map: ['vendor/upstream/pm-skills/commands/discover.md'],
+              source_map: [],
             },
           }),
         },
@@ -381,7 +381,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
+              source_map: [],
             },
           }),
         },
@@ -451,7 +451,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
+              source_map: [],
             },
           }),
         },
@@ -547,7 +547,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
+              source_map: [],
             },
           }),
         },
@@ -640,7 +640,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
+              source_map: [],
             },
           }),
         },
@@ -661,7 +661,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-plan-pack',
               absorbed_capability: 'gsd-plan',
-              source_map: ['vendor/upstream/gsd/commands/gsd/plan-phase.md'],
+              source_map: [],
             },
           }),
         },
@@ -719,7 +719,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
+              source_map: [],
             },
           }),
         },
@@ -740,7 +740,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-plan-pack',
               absorbed_capability: 'gsd-plan',
-              source_map: ['vendor/upstream/gsd/commands/gsd/plan-phase.md'],
+              source_map: [],
             },
           }),
         },
@@ -821,7 +821,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-discover-pack',
               absorbed_capability: 'pm-discover',
-              source_map: ['vendor/upstream/pm-skills/commands/discover.md'],
+              source_map: [],
             },
           }),
         },
@@ -865,7 +865,7 @@ describe('nexus discover/frame PM seams', () => {
             traceability: {
               nexus_stage_pack: 'nexus-frame-pack',
               absorbed_capability: 'pm-frame',
-              source_map: ['vendor/upstream/pm-skills/commands/write-prd.md'],
+              source_map: [],
             },
           }),
         },

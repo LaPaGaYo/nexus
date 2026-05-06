@@ -87,34 +87,38 @@ Four sub-tracks (each is its own chunk of work, not a single PR):
 - `lib/nexus/adapters/gsd.ts` → `planning.ts` (used by `/plan`, `/handoff`)
 - `lib/nexus/adapters/superpowers.ts` → `execution.ts` (used by `/build`, `/review`, `/qa`, `/ship`, `/closeout`)
 - Reorganize `lib/nexus/stage-packs/{pm,gsd,superpowers}/` → `stage-packs/{discover,plan,build}/`
-- Drop "absorbed from upstream" framing in `README.md`
+- Drop legacy upstream provenance framing in `README.md`
 
 Estimated: ~3-4h, low risk (cosmetic rename + grep-replace, no behavior change).
 
 #### D2 — Delete upstream snapshots and absorption surface
 
-**Requires RFC.** See open question: `docs/architecture/track-d-d2-rfc.md` (to be written).
+**Status: complete.** The approved RFC lives at
+`docs/architecture/track-d-d2-rfc.md`; implementation has removed the upstream
+maintenance modules, absorption surface, upstream release gate, and vendored
+snapshot roots.
 
-Touches:
+Completed removals and simplifications:
 - `vendor/upstream/` — 1231 files (all PM/GSD/Superpowers snapshots)
 - `vendor/upstream-notes/` — lockfile + source maps
 - `lib/nexus/absorption/` — entire module (9 files)
 - `lib/nexus/upstream-maintenance.ts`
 - `lib/nexus/upstream-compat.ts`
 - `lib/nexus/maintainer-loop.ts`
-- `release_channel` mechanism — currently validates against `upstream-lock.json`
-- `bun run skill:check` — validates upstream-vs-generated mapping
+- `release_channel` now points at Nexus release manifests
+- `bun run skill:check` no longer validates upstream-vs-generated mapping
 
-Open questions for the RFC:
-- Migration path for users with vendored installs that reference upstream paths
-- How `release_channel` simplification affects existing config in `~/.nexus/config.yaml`
-- What replaces `skill:check`'s upstream-validation pass
+RFC decisions resolved:
+- Vendored installs continue through Nexus release-based upgrade paths.
+- `release_channel` keeps existing config shape while dropping upstream lockfile coupling.
+- `skill:check` stays focused on Nexus-owned generated surfaces.
 
-Estimated: ~10-15h once RFC is approved (most of the time is testing migrations).
+Completed across D2 Phase 2.1 through Phase 2.5.
 
 #### D3 — Skill ecology v2
 
-**Requires RFC + 2 product decisions.** See open question: `docs/architecture/track-d-d3-rfc.md` (to be written).
+**RFC approved.** See `docs/architecture/track-d-d3-rfc.md` for the current
+skill ecology model and remaining implementation phases.
 
 Three candidate routing models (must pick one or a hybrid):
 - **A — Advisor-only** (current behavior): scan installed skills, surface as `recommended_external_skills` in completion-advisor records, host displays. Low ROI to fix; already works.
@@ -261,19 +265,17 @@ cooperation" vision.
    - **No RFC needed** — pure rename + grep-replace + tests
    - Effort: ~3-4h
 
-2. **D2 — Delete upstream (RFC required)**
-   - Write `docs/architecture/track-d-d2-rfc.md` first
-   - RFC must answer:
-     - Migration path for vendored installs
-     - `release_channel` simplification
-     - `skill:check` replacement
-     - `~/.nexus/config.yaml` schema impact
-   - Implementation: delete `vendor/upstream/`, `lib/nexus/absorption/`, `upstream-*.ts`, `maintainer-loop.ts`
-   - Effort: ~10-15h after RFC approved
+2. **D2 — Delete upstream (complete)**
+   - RFC approved in `docs/architecture/track-d-d2-rfc.md`
+   - `release_channel` simplified to Nexus release manifests
+   - `skill:check` no longer validates upstream snapshot mappings
+   - `lib/nexus/absorption/`, upstream maintenance modules, upstream release
+     gates, `vendor/upstream/`, and `vendor/upstream-notes/` removed
+   - Phase 2.5 docs rewrite removed upstream provenance framing from active docs
 
-3. **D3 — Skill ecology v2 (RFC required + 2 decisions)**
-   - Write `docs/architecture/track-d-d3-rfc.md`
-   - RFC must answer:
+3. **D3 — Skill ecology v2 (RFC approved; implementation in progress)**
+   - Follow `docs/architecture/track-d-d3-rfc.md`
+   - RFC answers:
      - **Decision 2:** Routing model — A / B / C / B+C hybrid (recommendation: B + optional C)
      - **Decision 4:** Manifest format — extended frontmatter vs `nexus.skill.yaml`
      - SkillRegistry API surface
@@ -286,7 +288,7 @@ cooperation" vision.
 
 **Exit criteria:**
 - `vendor/upstream*/` directories removed.
-- No "absorbed from" framing in `README.md`, `lib/nexus/`, or stage-pack source.
+- No legacy upstream provenance framing in `README.md`, `lib/nexus/`, or stage-pack source.
 - `adapters/{discovery,planning,execution}.ts` (renamed) exist.
 - SkillRegistry exports replace `external-skills.ts`.
 - `recommended_external_skills` records carry richer metadata (lifecycle stage,
@@ -380,7 +382,7 @@ the PR description. Mark items as ☑ here when their PR merges.
 ### Phase 4.3 — Track D
 - [x] D1 rename adapters + stage-packs (+ ST6) — PR #50 landed
 - [x] D2 RFC written and approved (`track-d-d2-rfc.md` v1; revised 2026-05-05 with Phase 2.5 audit additions)
-- [~] D2 implementation — Phase 2.1 done (PR #58); Phase 2.2 in flight (#62 / PR #66); 2.3-2.5 queued (#69-#71)
+- [x] D2 implementation — Phases 2.1-2.5 complete (#58, #62, #69, #70, #71)
 - [x] D3 RFC written and approved (`track-d-d3-rfc.md` v1; revised 2026-05-05 v2 with Model γ + Δ1/Δ2 sub-phases)
 - [~] D3 implementation — Phase 1 done (PR #57 + #60); Phase 2.a in flight (#65); 2.b/2.c/2.d/3-7 queued (#74-#81)
 - [ ] D3 optional intent dispatcher (`/nexus do`) — queued as Phase 3.5 (#79)
@@ -408,6 +410,6 @@ issue tracker view (priorities, dependencies, assignment policy).
 - `docs/architecture/post-audit-cleanup-plan.md` — Phases 1-3 origin and ST list
 - `docs/architecture/context-diagram.md` — system architecture overview, design risks
 - `docs/architecture/completion-advisor-split-proposal.md` — RFC for #41
-- `docs/architecture/track-d-d2-rfc.md` — to be written
-- `docs/architecture/track-d-d3-rfc.md` — to be written
+- `docs/architecture/track-d-d2-rfc.md` — approved D2 removal RFC
+- `docs/architecture/track-d-d3-rfc.md` — approved D3 skill ecology RFC
 - Open issues: #38, #39, #40, #41, #42, #43, #44

@@ -202,7 +202,7 @@ Required cases:
 7. Plan-json output is stable and parseable.
 8. `--local` plus external bundle flags blocks with a clear message.
 9. Non-zero installer result stops later installers.
-10. No command plan includes `vendor/upstream` or copies external skill bodies
+10. No command plan includes retired upstream snapshot paths or copies external skill bodies
     into Nexus.
 
 If direct shell integration tests are too heavy on Windows, test the pure
@@ -232,7 +232,7 @@ Update `docs/skill-manifest-schema.md` or add a short setup section that says:
 bun test test/nexus/setup-external-installers.test.ts
 bun run skill:check
 bun run repo:inventory:check
-git grep -F "vendor/upstream" -- setup scripts/external-skill-installers.ts test/nexus/setup-external-installers.test.ts
+git grep -F "retired upstream snapshot" -- setup scripts/external-skill-installers.ts test/nexus/setup-external-installers.test.ts
 ```
 
 The final grep must return no matches.
@@ -270,7 +270,7 @@ The final grep must return no matches.
 | Exact external install command is guessed incorrectly | Planner blocks unknown commands until implementation verifies them from source documentation. |
 | Setup partially installs one bundle then blocks another | Plan all requested bundles before executing any installer. |
 | CI accidentally installs external tools | Use dry-run and plan-json tests. |
-| Nexus starts hosting third-party bits again | Keep installer as shell-out only; add grep/test guard against `vendor/upstream` and copied skill bodies. |
+| Nexus starts hosting third-party bits again | Keep installer as shell-out only; add grep/test guard against retired upstream snapshot paths and copied skill bodies. |
 | Host-specific installer behavior diverges | Keep per-host command plans explicit and covered by tests. |
 
 ---
