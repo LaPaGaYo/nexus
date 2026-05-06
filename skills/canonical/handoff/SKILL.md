@@ -4,8 +4,10 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus governed handoff command. Records explicit routing, provider intent,
-  and handoff state before governed execution begins. Use after `/plan` declares the
-  work execution-ready. (nexus)
+  and handoff state before governed execution begins. Use when the user says
+  "approve the route", "hand off to /build", "lock in the routing", or after `/plan`
+  declares the work execution-ready and a provider lane needs to be named before
+  governed execution starts. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -497,6 +499,68 @@ Cross-operator handoffs without context dumps produce sessions where the receivi
 
 A handoff between the same operator across sessions counts as cross-operator. Memory across sleep cycles is not reliable; the artifact is.
 
+## How to run /handoff
+
+These steps execute one `/handoff` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Validate framing + plan completeness
+
+Before opening any routing question, confirm the upstream contract is real:
+
+- `prd.md` exists and `/frame` Law 1 was satisfied (named user, falsifiable hypothesis, design contract if design-bearing).
+- `sprint-contract.md` exists and `/plan` Law 3 declared this run handoff-ready.
+- The `status.json` for `/plan` shows the work execution-ready, not advisory or returned-to-frame.
+
+If any upstream artifact is missing or in a non-ready state, `/handoff` cannot legitimately approve a route. Return to the owning skill (`/frame` or `/plan`) before proceeding.
+
+### Step 2 — Run the four-dimension freshness check
+
+Per Law 1, the prior approval (if any) must be re-validated against four dimensions before reuse. Even on first entry, capture the current state of each dimension so future re-entries have a baseline:
+
+1. **Route** — read `governed-execution-routing.md` (if it exists). Note the named stage pack, provider lane, and topology.
+2. **Provider availability** — confirm the provider lane (CCB session, Codex CLI, Gemini CLI, local) is mounted and online *now*. A provider online at approval time but unmounted now invalidates the prior approval.
+3. **Branch state** — `git rev-parse HEAD` and `git status` to capture the current branch and tree. Compare to the branch the prior handoff approved against. Force-pushes, branch renames, or operator-initiated switches all invalidate.
+4. **Upstream contract** — diff `sprint-contract.md` against the version the prior handoff bound. New tasks added, existing tasks modified, or scope-changing edits all invalidate.
+
+Time alone is not invalidating, but per Law 1 any approval older than 24 hours is automatically re-checked regardless of whether the operator believes nothing has changed.
+
+### Step 3 — If any dimension shows drift, surface the gate
+
+If Step 2 found a dimension that no longer matches the prior approval, STOP. Use `AskUserQuestion`:
+
+> "Handoff approval is stale on the [route | provider | branch | contract] dimension: [specifics]. Should I (a) re-validate the route with the new state, (b) route back to `/plan` to refresh the upstream contract, or (c) abort and reframe?"
+
+The operator picks; record the choice in `governed-handoff.md`. Per Law 1, never silently treat a stale approval as fresh.
+
+If all four dimensions pass (or this is a first-entry run with no prior approval), proceed to Step 4.
+
+### Step 4 — Request route approval
+
+The operator names the route explicitly: which provider lane, which stage pack, which topology. Capture the rationale per Law 3 #1 — not just "use Codex" but "use Codex because the work touches `lib/nexus/adapters/*` and Codex carries the type-system context this run."
+
+If the operator has not stated a route, prompt for one. `/handoff` does not pick the route; it records and validates the operator's choice.
+
+### Step 5 — Write `governed-handoff.md` with cross-operator context dump
+
+Per Law 3, the handoff artifact MUST carry enough context for a different operator (different person, different session, different agent provider) to begin without spelunking. At minimum include:
+
+1. **What was decided** — the route and the rationale (per Step 4).
+2. **What the receiving operator needs to read first** — explicit pointers to `prd.md`, `sprint-contract.md`, the design contract if present, prior advisor records relevant to the run.
+3. **What's already verified vs what hasn't** — prior `/build` runs, partial verification, or fresh-run state. Prevents both re-verifying things already verified AND trusting things that weren't actually verified.
+4. **Open decisions deferred to the receiving operator** — choices the approving operator did not make, with the option set visible.
+
+A handoff between the same operator across sessions counts as cross-operator. Memory across sleep cycles is not reliable; the artifact is.
+
+### Step 6 — Write `governed-execution-routing.md`
+
+The routing artifact captures the dispatch target named in the route. This is what `/build` reads when it begins. Per Law 1 #1, the route names the specific stage pack, provider lane, and topology — the granularity at which a future freshness check can detect drift.
+
+### Step 7 — Write status
+
+Run the canonical command (in the Routing section below). It writes `status.json` and any continuation artifacts. The advisor record carries the verdict; `/build` reads it.
+
+If governed execution cannot begin (transport error, provider went offline between approval and dispatch, route revoked), do NOT silently retry. Per Law 2, write `status: handoff-blocked` to `status.json` with the named failing leg (`route_unavailable` | `provider_offline` | `branch_drift` | `contract_mismatch` | `transport_error` | `approval_revoked`) and surface to the operator via `AskUserQuestion`.
+
 ## Operator Checklist
 
 - record requested route
@@ -519,6 +583,30 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts handoff
 ```
+
+## Typical prompts
+
+These are example user requests `/handoff` handles well. The skill is invoked and produces a `governed-handoff.md`, `governed-execution-routing.md`, and a `status.json` with route approval recorded.
+
+### Prompt 1 — Standard governed handoff to a provider lane
+
+> "Hand off the planned work to Codex."
+
+`/handoff` walks Step 1–7. Step 1 verifies `prd.md` and `sprint-contract.md` are ready. Step 2 captures branch/route/provider/contract baseline. Step 4 records "route: Codex CLI, rationale: work touches `lib/nexus/adapters/*` and Codex carries type-system context." Step 5 writes the cross-operator context dump per Law 3. Step 6 writes the routing artifact. Step 7 writes status; advisor surfaces canonical continuation into `/build`.
+
+### Prompt 2 — Re-entering after a paused run
+
+> "I approved this handoff yesterday but the branch was force-pushed — still valid?"
+
+Step 2's freshness check finds branch drift. Step 3 fires the `AskUserQuestion` gate: "Handoff approval is stale on the branch dimension: prior approval was against `track-f-phase-4-handoff` at sha X, current head is sha Y (force-pushed). Re-validate / route back to `/plan` / abort?" The operator picks; the choice is recorded in `governed-handoff.md`. Per Law 1, the prior approval is invalidated until the operator re-approves explicitly or refreshes the upstream contract.
+
+### Prompt 3 — Recovery from a blocked /build
+
+> "/build failed transport — auto-retry the handoff?"
+
+Per Law 2, NEVER silent retry. Step 7's failure path writes `status: handoff-blocked` with leg `transport_error` to `status.json` and surfaces via `AskUserQuestion`: "Build transport failed mid-dispatch. Re-approve with current state / route back to provider mount step / abort?" The operator decides; the recovery decision is recorded in `governed-handoff.md`. The skill does not pick the recovery path; it records what the operator chose.
+
+These prompts test that `/handoff` re-validates freshness, surfaces blocks rather than silently retrying, and produces an artifact a different operator could resume from.
 
 ## Completion Advisor
 
