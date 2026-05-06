@@ -85,6 +85,13 @@ try {
       console.error('Usage: nexus do "<intent>"');
       process.exit(1);
     }
+    // Best-effort: auto-register a real LLM classifier if NEXUS_INTENT_LLM=1
+    // and an API key is present in the environment. Without auto-register,
+    // the no-op classifier preserves the keyword-only outcome.
+    if (process.env.NEXUS_INTENT_LLM === '1') {
+      const { autoRegisterLLMClassifier } = await import('../lib/nexus/intent-classifier');
+      autoRegisterLLMClassifier();
+    }
     // Use async variant so the LLM classifier hook fires when enabled
     // (NEXUS_INTENT_LLM=1 + non-local_provider mode). Sync path runs when
     // LLM disabled — same outcome as before.
