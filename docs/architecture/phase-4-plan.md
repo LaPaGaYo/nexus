@@ -375,7 +375,7 @@ the PR description. Mark items as ☑ here when their PR merges.
 - [~] #41 completion-advisor split — Phase 1 done (PR #51 — writer extracted); Phase 2 in flight (#63); Phase 3 queued (#72)
 - [ ] ST1 lib/nexus/ subdir — blocked on #41 Phase 3 (#82)
 - [ ] ST9 test/nexus/ mirror — bundled with ST1 (#82)
-- [ ] ST3 CHANGELOG/TODOS root cleanup — needs RFC first (#84)
+- [x] ST3 CHANGELOG/TODOS root cleanup (#84) — RFC done; decision: stay in root
 
 ### Phase 4.3 — Track D
 - [x] D1 rename adapters + stage-packs (+ ST6) — PR #50 landed
@@ -388,7 +388,7 @@ the PR description. Mark items as ☑ here when their PR merges.
 ### Phase 4.4 — Optional polish
 - [ ] ST1+ST9 bundled (#82) — blocked
 - [ ] ST2 lib/ single-child (#83)
-- [ ] ST3 CHANGELOG/TODOS (#84) — needs RFC
+- [x] ST3 CHANGELOG/TODOS (#84) — RFC done; **decision: stay in root** (`track-c-st3-rfc.md`); doc note added to `repo-taxonomy-v2.md`
 - [ ] ST4 split bin/ (#85)
 - [ ] ST7 agents/openai.yaml (#86)
 - [ ] ST8 skills/root single-child (#87)

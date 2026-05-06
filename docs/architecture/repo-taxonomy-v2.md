@@ -246,6 +246,25 @@ exception.
 - `future_move`: intended target is recorded, but moving now would require
   coordinated generator, setup, docs, and test changes.
 
+## Intentional repo-root files
+
+Two files are deliberately kept at repo root despite the general "minimize root
+churn" instinct. Decision recorded in `track-c-st3-rfc.md` (2026-05-05,
+Option A):
+
+- **`CHANGELOG.md`** — release artifact. OSS convention strongly favors root
+  placement (GitHub Releases auto-link, many tools assume the path). Read at
+  runtime by `scripts/resolvers/utility.ts`.
+- **`TODOS.md`** — planning artifact. Read at runtime by
+  `scripts/resolvers/{preamble,review,utility}.ts` during `/review` and `/qa`
+  flows. Co-located with `CHANGELOG.md` for symmetry; their root placement is
+  intentional even though `TODOS.md` is more planning-shaped than
+  documentation-shaped.
+
+Both files are classified `keep_in_place` in the runtime taxonomy
+(`lib/nexus/repo-taxonomy.ts`). If a future phase reconsiders, append a new
+dated entry to `track-c-st3-rfc.md` § Decision log.
+
 The executable taxonomy contract lives in `lib/nexus/repo-taxonomy.ts`, with
 coverage in `test/nexus/repo-taxonomy.test.ts`.
 
