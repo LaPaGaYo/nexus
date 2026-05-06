@@ -4,8 +4,10 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus framing command. Writes repo-visible framing artifacts and stage
-  status through Nexus-owned normalization and governance. Use when discovery is
-  complete enough to define scope and success criteria. (nexus)
+  status through Nexus-owned normalization and governance. Use when the user says
+  "frame the scope", "write the PRD", "define what we're building", or when
+  discovery is complete enough to define scope and success criteria before /plan
+  can sequence tasks. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -69,6 +71,118 @@ If any of the five fail, `/frame` returns `not_ready` and the operator either it
 
 The reason: `/plan` translates framing into tasks. If the framing has no falsifiable success criteria, the tasks have no observable acceptance criteria (per `/plan` Law 1) — the ambiguity propagates straight through `/build`, `/review`, `/qa`, and lands in the user's lap as "we shipped what we said we'd ship, but the user expected something different."
 
+## How to run /frame
+
+These steps execute one `/frame` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Read upstream context
+
+Read `docs/product/idea-brief.md` from the prior `/discover` run. The brief carries:
+
+- The Look Inward / Look Outward / optional Reframe sections
+- The named user segment, observed pain with cost, evidence sources
+- The hypothesis hint that `/frame` Law 2 sharpens
+- The ≥3 open questions that `/frame` is responsible for answering
+
+If `idea-brief.md` is missing or returned `not_ready` from `/discover`, framing has nothing to scope. Route back to `/discover` rather than guessing.
+
+If a prior closeout produced `next-run-bootstrap.json` or `RETRO-CONTINUITY.md`, read those too — they may carry framing-relevant context (prior decisions, deferred scope).
+
+### Step 2 — Draft `prd.md` with all seven sections
+
+Open `docs/product/prd.md` and draft each of the seven sections required by Law 1, in order:
+
+1. Problem statement (who hurts, how, how much)
+2. Hypothesis (the If/Then/Because — see Step 3)
+3. Success criteria (observable, falsifiable conditions)
+4. Non-goals (≥3 concrete things this work will NOT do)
+5. Risks (≥3 specific failure modes with mitigations)
+6. Alternatives considered (≥1 rejected alternative + reason)
+7. Decision rationale (why this scope, why now)
+
+Sections may be drafted in any order, but ALL seven must end up non-empty before Step 6. A wishlist is not a PRD.
+
+If unsure where to start, draft Problem statement first (Step 1's idea-brief feeds it directly), then Non-goals (cheapest pre-empt of scope creep), then iterate.
+
+### Step 3 — Write hypothesis as If/Then/Because
+
+Per Law 2, the hypothesis MUST be of the form:
+
+> If we [action], then [users] will [outcome] because [evidence].
+
+Each clause:
+
+- **Action** — concrete verbs (build, ship, change, deprecate). Not "improve" or "enhance."
+- **Users** — named segment, not "all users." Reuse the segment from `idea-brief.md`'s Look Outward.
+- **Outcome** — observable behavior or system change, falsifiable in the same way Law 1 success criteria are.
+- **Evidence** — what makes the team believe this hypothesis is true now. Pull citations from `idea-brief.md`.
+
+If two teammates can't agree on the [evidence] clause, the framing is not yet ready for `/plan`. Iterate or route back to `/discover` for more evidence.
+
+### Step 4 — Define `out-of-scope` distinct from non-goals
+
+Law 3 #4 requires `out-of-scope` non-empty AND distinct from non-goals:
+
+- **Non-goals** — things this work intentionally won't do (e.g., "won't add multi-tenant support")
+- **Out-of-scope** — things adjacent users may expect that this work doesn't address (e.g., "doesn't change the existing billing flow even though users may assume framing changes touch it")
+
+Both sections may overlap in spirit but the audience differs: non-goals talk to the team's discipline; out-of-scope talks to the user's expectations.
+
+### Step 5 — Write ≥1 user story with explicit acceptance criteria
+
+Law 3 #3 requires at least one user story in the form:
+
+> Given [context], when [action], then [observable outcome].
+
+This is what `/plan` Law 1 reads to translate framing into bite-sized tasks with verifiable acceptance criteria. Without it, `/plan` has nothing concrete to plan against.
+
+A framing pass with ten stories but none in Given/When/Then form fails Law 3 #3 — one rigorous story beats ten vague ones.
+
+### Step 6 — Verify framing readiness gate
+
+Before writing `status.json`, check ALL five Law 3 conditions:
+
+1. Success criteria are observable and falsifiable (Law 1 #3 + Law 3 #1)
+2. Non-goals lists ≥3 concrete items (Law 1 #4 + Law 3 #2)
+3. ≥1 user story has explicit Given/When/Then acceptance criteria (Law 3 #3)
+4. `out-of-scope` section non-empty (Law 3 #4)
+5. Hypothesis present per Law 2, all four clauses populated (Law 3 #5)
+
+If any fail, surface the choice via `AskUserQuestion`:
+
+> "Framing readiness gate failed on [list which of the 5]. Should I (a) iterate within `/frame` and try to satisfy the failing checks, (b) route back to `/discover` to gather missing input, or (c) continue and write `status.json` with verdict `not_ready`?"
+
+The operator picks; record the choice in the decision brief.
+
+### Step 7 — Write `decision-brief.md`
+
+`docs/product/decision-brief.md` summarizes the framing in 1–2 pages:
+
+- The hypothesis (per Law 2)
+- The chosen scope and rejected alternatives (Law 1 #6 — the Alternatives Considered section, condensed)
+- The decision rationale (Law 1 #7 — why this scope, why now)
+- Any open framing questions that survived to `/plan`
+
+The decision brief is what `/review` reads later when judging whether the work matches intent. It is also the artifact the operator points stakeholders at when explaining "what we framed and why."
+
+### Step 8 — Write `design-intent.json`
+
+`.planning/current/frame/design-intent.json` captures the framing's machine-readable contract:
+
+- `hypothesis` (the four-clause If/Then/Because, parsed)
+- `success_criteria` (array of observable conditions)
+- `non_goals` (array of ≥3 items)
+- `out_of_scope` (array)
+- `acceptance_criteria` (array of Given/When/Then statements from Step 5)
+
+Downstream stages read this file rather than re-parsing prose. Keep it consistent with `prd.md` — they are two views of the same framing.
+
+### Step 9 — Write status
+
+Run the canonical command (in the Routing section below). It writes `decision-brief.md`, `prd.md`, `design-intent.json`, and `status.json`. The advisor record carries the verdict (`ready` or `not_ready`); `/plan` reads it.
+
+If verdict is `not_ready`, `/plan` cannot proceed. The operator either iterates within `/frame` or routes back to `/discover`.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
@@ -86,5 +200,29 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:frame}}
 ```
+
+## Typical prompts
+
+These are example user requests `/frame` handles well. The skill is invoked and produces `decision-brief.md`, `prd.md`, `design-intent.json`, and `status.json`.
+
+### Prompt 1 — Direct framing request after discovery
+
+> "We finished `/discover` for the telemetry idea. Frame the scope so we can plan the build."
+
+`/frame` walks Step 1–9. Step 1 reads `idea-brief.md` from the prior discovery. Step 2 drafts the seven PRD sections; Step 3 sharpens the hypothesis hint into a full If/Then/Because per Law 2. Step 5 writes ≥1 Given/When/Then user story. Step 6 verifies the readiness gate; if it fails, the AskUserQuestion surfaces the iterate/route-back/not_ready choice. Verdict written to `status.json`.
+
+### Prompt 2 — Reframing a vague success metric
+
+> "Our success criterion is 'users will love the new flow' — frame this properly so review can evaluate it later."
+
+Step 2 forces the seven sections; Law 1 #3 rejects "users will love it" as vague and demands an observable command/metric/artifact. The skill pushes the operator toward something like "task completion rate >85% on the X flow, measured via session telemetry over a 14-day window." Step 6's gate fails on Law 3 #1 until the criterion is concrete; the AskUserQuestion routes the choice.
+
+### Prompt 3 — Deciding between non-goals and out-of-scope
+
+> "What goes in non-goals vs out-of-scope for this PRD?"
+
+Step 4 names the distinction explicitly: non-goals are intentional team discipline ("won't add multi-tenant"), out-of-scope is user-expectation management ("doesn't change billing even though users may assume so"). Both are required non-empty by Law 3 #2 and #4 respectively. The skill helps the operator draft both sections rather than collapsing one into the other.
+
+These prompts test that `/frame` produces a complete framing artifact with hypothesis, falsifiable success criteria, and the readiness-gate verdict that `/plan` can act on.
 
 {{NEXUS_COMPLETION_ADVISOR:frame}}
