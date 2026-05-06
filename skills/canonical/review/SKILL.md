@@ -488,6 +488,49 @@ plan's living status.
 
 Nexus-owned review guidance for governed dual-audit completion, synthesis, and explicit gate state.
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/review` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/review` is the gate `/ship` reads; ambiguity in the verdict propagates straight to a release decision.
+
+### Law 1 — Review Content Contract
+
+A `/review` verdict — `pass`, `pass_with_advisories`, or `fail` — requires four artifacts visible in the advisor record at decision time:
+
+1. **Scope summary** — what changed, in concrete terms (files touched, behavior modified). Not "the PR diff" as a substitute; a one-paragraph synthesis the reviewer wrote in this turn.
+2. **Fresh test evidence** — the verification command for this change ran in the current message AND its output is attached. Stale CI runs from a previous turn are not evidence — they describe a different state of the tree.
+3. **Risk register** — listed risks with severity (`block`, `advisory`, `nit`). An empty list is acceptable only when paired with a one-sentence justification. "Looks good" without enumeration is not a risk register.
+4. **Explicit gate verdict** — one of `pass` | `pass_with_advisories` | `fail`, written into the advisor record in this turn. The runtime advisor reads what is attached, not what is remembered.
+
+A review that omits any of the four is not a review; it is an opinion. Opinions don't open gates.
+
+### Law 2 — Two-Round Protocol For Block-Grade Advisories
+
+When Pass 1 of `/review` produces ANY `block`-severity advisory, single-pass completion is forbidden:
+
+1. The block-grade advisory is recorded in the advisor record.
+2. `/build` is re-entered to address it (per `/build` Law 3 — prior advisories are address-or-dispute).
+3. `/review` is re-entered for Pass 2. Pass 2 verifies the specific advisory has been closed AND no regression was introduced. Re-running the same audit set is the minimum; spot-checking the changed area is the recommended.
+4. Only after Pass 2 completes clean may the gate verdict become `pass` or `pass_with_advisories`.
+
+Pass 1 alone never produces `pass` when block-grade advisories exist. The advisor record carries the round number (`pass_round: 1` or `2`) and downstream `/ship` reads it.
+
+Single-round review on block-grade findings is the most common path to "we shipped a regression that the review caught."
+
+### Law 3 — Reviewer Disagreement Protocol
+
+When 2+ audit slots disagree on a finding (e.g., `codex` flags `block`, `gemini` flags `nit`, `local_a` is silent), the synthesis MUST enumerate the disagreement explicitly. Silent averaging is forbidden.
+
+For every disagreed finding, the synthesis records:
+
+- **The conflicting verdicts** — which slot said what
+- **The accepted verdict** — which slot's call the synthesis is taking
+- **The rationale** — why this slot is being trusted on this specific finding (e.g., "codex inspected the failure path the others didn't read"; "gemini misread the type signature")
+- **The pushed-back verdicts** — which slot calls are being explicitly NOT followed, and why
+
+When synthesis cannot choose without speculation, escalate via `AskUserQuestion`. Do not pick the majority and move on; do not pick the most cautious and move on. Either choice without rationale is silent averaging.
+
+The reason: outside voices are signals, not votes. Two-out-of-three agreement on a wrong call is still a wrong call. The synthesis is responsible for the verdict, and the advisor record carries that responsibility.
+
 ## Operator Checklist
 
 - run dual audits through Nexus-owned review completion
