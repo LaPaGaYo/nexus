@@ -52,6 +52,16 @@ function emitFailure(message: string, payload: unknown, advisorSummary: string |
   console.log(JSON.stringify(payload, null, 2));
 }
 
+function parseFlag(argv: string[], name: string): string | undefined {
+  // Supports both --foo=bar and --foo bar
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === name && i + 1 < argv.length) return argv[i + 1];
+    if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
+  }
+  return undefined;
+}
+
 function formatCompletionContextForOutput(
   context: ReturnType<typeof resolveCliCompletionContext>,
 ): string | null {
@@ -88,6 +98,31 @@ try {
       console.log(result.text);
     }
     process.exit(result.outcome.kind === 'no_match' ? 0 : 0);
+  }
+
+  // Phase H (adoption telemetry — Track D-D3 follow-up): `nexus telemetry`
+  // is a read-only reporter over the per-project telemetry log. Like
+  // `nexus do`, NOT a canonical lifecycle stage; bypasses resolveInvocation.
+  if (argv[0] === 'telemetry') {
+    const { runTelemetryCommand } = await import('../lib/nexus/commands/telemetry');
+    const stage = parseFlag(argv, '--stage');
+    const kind = parseFlag(argv, '--kind');
+    const since = parseFlag(argv, '--since');
+    const raw = argv.includes('--raw');
+    const outputJson = argv.includes('--json') || !process.stdout.isTTY;
+    const result = runTelemetryCommand({ cwd, stage, kind, since, raw });
+    if (outputJson) {
+      console.log(JSON.stringify({
+        enabled: result.enabled,
+        log_path: result.log_path,
+        summary: result.summary,
+        events: result.events,
+        read_meta: { total_lines: result.read.total_lines, parsed: result.read.parsed, skipped: result.read.skipped },
+      }, null, 2));
+    } else {
+      console.log(result.text);
+    }
+    process.exit(0);
   }
 
   const runtimeInvocation = resolveRuntimeInvocation(argv, process.env);

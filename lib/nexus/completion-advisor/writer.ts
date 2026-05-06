@@ -3,6 +3,11 @@ import { withLedgerSchemaVersion } from '../ledger-schema';
 import { readVerificationMatrix } from '../verification-matrix';
 import { discoverInstalledSkills } from '../skill-registry/discovery';
 import type { SkillRecord } from '../skill-registry/types';
+import {
+  buildTelemetryEvent,
+  emitTelemetryEventForCwd,
+  type StageAdvisorRecordedEvent,
+} from '../telemetry';
 import type { CompletionAdvisorRecord, InstalledSkillRecord, VerificationMatrixRecord } from '../types';
 import { attachExternalInstalledSkillRecommendations } from './resolver';
 import { stageAwareAdvisor } from './stage-aware-advisor';
@@ -47,6 +52,26 @@ export function buildCompletionAdvisorWrite(
       stage: record.stage,
     });
   }
+
+  // Phase H (adoption telemetry — Track D-D3 follow-up): emit a
+  // stage_advisor_recorded event for every advisor write. This is the
+  // chokepoint where every stage's lifecycle outcome flows through —
+  // instrumenting here captures the canonical 9 with one integration.
+  // No-op when NEXUS_TELEMETRY != '1' (zero cost for default users).
+  emitTelemetryEventForCwd(
+    buildTelemetryEvent<StageAdvisorRecordedEvent>({
+      run_id: record.run_id,
+      kind: 'stage_advisor_recorded',
+      stage: record.stage,
+      stage_outcome: record.stage_outcome,
+      interaction_mode: record.interaction_mode,
+      requires_user_choice: record.requires_user_choice,
+      recommended_skills_count: record.recommended_skills?.length ?? 0,
+      primary_action_count: record.primary_next_actions.length,
+    }),
+    cwd,
+    options.home,
+  );
 
   const versionedRecord = withLedgerSchemaVersion(record);
   return {

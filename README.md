@@ -391,6 +391,24 @@ Every canonical skill ships with three concurrent prose layers:
 
 Iron Laws constrain *what must be true at decision time*. The workflow defines *what to do in what order*. Both apply.
 
+### Adoption telemetry (`nexus telemetry`)
+
+Nexus can record which Iron Law gates and AskUserQuestion checkpoints actually fire in real runs, so operators can validate the lifecycle discipline is operational and not just declarative. **Default OFF**; opt-in via `NEXUS_TELEMETRY=1`.
+
+```bash
+NEXUS_TELEMETRY=1 nexus build         # records a stage_advisor_recorded event
+nexus telemetry                        # report a per-project summary
+nexus telemetry --stage=build --raw    # filter + show last 50 raw events
+nexus telemetry --json                 # structured output for scripts
+```
+
+**Privacy contract:**
+- Events carry **only metadata** — stage, outcome, run_id, ISO timestamp, schema version. No prose, no PRD content, no intent strings, no user prompts.
+- Storage is **per-project, append-only JSONL** at `~/.nexus/telemetry/<slug>/events.jsonl`. Same pattern as `~/.nexus/projects/<slug>/learnings.jsonl`.
+- Failures to write telemetry are **non-fatal** — telemetry never breaks the stage write.
+
+**What gets emitted:** the chokepoint hook in `lib/nexus/completion-advisor/writer.ts` emits one `stage_advisor_recorded` event per advisor write — captures every canonical lifecycle stage (`/build`, `/review`, `/qa`, `/ship`, `/closeout`, etc.) without per-stage instrumentation. Iron Law–specific event kinds (review_pass_round_changed, ship_branch_outcome_chosen, qa_cluster_routed, etc.) are defined in the schema for future per-stage emit points.
+
 ### Free-form intent dispatch (`/nexus do`)
 
 For users who'd rather describe what they want than remember command names:
