@@ -20,6 +20,34 @@ export {
   type LLMClassifier,
 } from './llm';
 
+export { ClaudeAPILLMClassifier, type ClaudeAPILLMClassifierOptions } from './llm-claude';
+
+/**
+ * Best-effort auto-registration of an LLM classifier based on available
+ * env vars. Idempotent — calling repeatedly is safe.
+ *
+ * Currently supports:
+ *   - ANTHROPIC_API_KEY → registers ClaudeAPILLMClassifier
+ *
+ * Other providers (OpenAI/Gemini) follow the same shape; future PRs can
+ * add them. Does NOT auto-route across providers — only the first match
+ * registers.
+ *
+ * Returns the registered classifier name, or null if none could be
+ * registered (no relevant env var present).
+ */
+export function autoRegisterLLMClassifier(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env.ANTHROPIC_API_KEY) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ClaudeAPILLMClassifier: Cls } = require('./llm-claude') as typeof import('./llm-claude');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { registerLLMClassifier: register } = require('./llm') as typeof import('./llm');
+    register(new Cls({ apiKey: env.ANTHROPIC_API_KEY }));
+    return 'claude-api';
+  }
+  return null;
+}
+
 const DEFAULT_OPTIONS: Required<ClassifyOptions> = {
   // Tuned for the current Phase 4 manifest keyword density (4-5 keywords/skill).
   // A single exact keyword match scores 5 (per keyword.ts weights), which is
