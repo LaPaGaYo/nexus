@@ -51,6 +51,11 @@ import type { CommandContext, CommandResult } from './index';
 import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
 import { buildShipCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
+import {
+  buildTelemetryEvent,
+  emitTelemetryEventForCwd,
+  type ShipReadinessGateVerdictEvent,
+} from '../telemetry';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {
@@ -684,6 +689,22 @@ export async function runShip(ctx: CommandContext): Promise<CommandResult> {
   const localPersonaShip = buildLocalPersonaShipStatus(localShipPersonaGates);
   const localPersonaMergeReady = localShipPersonaGatePassed(localShipPersonaGates);
   const finalMergeReady = result.raw_output.merge_ready && localPersonaMergeReady;
+
+  // Phase H (Track D-D3 Iron Law telemetry): emit
+  // `ship_readiness_gate_verdict` whenever finalMergeReady is computed.
+  // This maps directly to /ship Law 1's pre-merge readiness gate (5
+  // mandatory checks). When merge_ready is false, /ship Law 2 (refuse to
+  // ship broken) is in effect. No-op when telemetry disabled.
+  emitTelemetryEventForCwd(
+    buildTelemetryEvent<ShipReadinessGateVerdictEvent>({
+      run_id: ledger.run_id,
+      kind: 'ship_readiness_gate_verdict',
+      stage: 'ship',
+      merge_ready: finalMergeReady,
+    }),
+    ctx.cwd,
+  );
+
   const checklist = {
     ...augmentChecklist(
     result.raw_output.checklist,

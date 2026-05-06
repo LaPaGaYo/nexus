@@ -63,6 +63,11 @@ import { readVerificationMatrix } from '../verification-matrix';
 import { buildReviewCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 import {
+  buildTelemetryEvent,
+  emitTelemetryEventForCwd,
+  type ReviewAdvisoryDispatchedEvent,
+} from '../telemetry';
+import {
   buildReviewAuditReceiptRecord,
   persistReviewAuditReceipt,
   readReviewAuditReceipt,
@@ -1104,6 +1109,24 @@ export async function runReviewWithWriteAtomicFile(
     archive_required: gateRequiresArchive(gateDecisionMarkdown),
     archive_state: gateRequiresArchive(gateDecisionMarkdown) ? 'pending' : 'not_required',
   };
+
+  // Phase H (Track D-D3 Iron Law telemetry): emit
+  // `review_advisory_dispatched` when the operator has selected an advisory
+  // disposition. This maps directly to /review Law 2 (two-round protocol)
+  // and Law 3 (disagreement protocol) — disposition is where the operator's
+  // routing decision becomes structured data. No-op when telemetry disabled.
+  if (advisoryDispositionRecord?.selected) {
+    emitTelemetryEventForCwd(
+      buildTelemetryEvent<ReviewAdvisoryDispatchedEvent>({
+        run_id: ledger.run_id,
+        kind: 'review_advisory_dispatched',
+        stage: 'review',
+        advisory_disposition: advisoryDispositionRecord.selected,
+      }),
+      ctx.cwd,
+    );
+  }
+
   const next = nextLedger(
     ledgerWithExecution,
     gateDecision === 'pass' ? 'active' : 'blocked',
