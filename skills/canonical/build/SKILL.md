@@ -4,7 +4,9 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus build command. Executes the bounded governed implementation contract
-  and writes repo-visible build request, result, and stage status artifacts. (nexus)
+  and writes repo-visible build request, result, and stage status artifacts. Use when
+  the user says "implement task X", "build the feature", "execute the sprint contract",
+  or otherwise asks to turn a planned task into shipped code with verification. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -525,6 +527,79 @@ If you re-enter `/build` from a prior `/review` with advisories on the advisor r
 
 Silently dropping advisories — even one — is not allowed. The reviewer found something real; you must engage with it on the record. Disputed advisories are visible to `/review` and `/ship` for downstream re-evaluation.
 
+## How to run /build
+
+These steps execute one `/build` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Read the binding contract
+
+Open `.planning/current/plan/sprint-contract.md` (and `.planning/current/plan/design-contract.md` if present). The sprint contract is the binding handoff per `/plan` Law 3 — every task in scope is named there with an observable acceptance criterion and a verification command. Anything not named is out of scope.
+
+If the contract is missing, `/build` cannot proceed. Route back to `/plan` rather than improvising scope.
+
+### Step 2 — Pick the next task and identify its verification command
+
+Each task in `sprint-contract.md` has a verification command per `/plan` Law 1 (e.g., `bun test test/foo.test.ts`, `bunx tsc --noEmit`, `bun run skill:check`). That command is the contract for "this task is done" — you will run it twice, once before editing and once after.
+
+If the task lacks a verification command, treat that as a `/plan` Law 1 violation and route back to `/plan` to extend the contract before editing.
+
+### Step 3 — Run the verification command BEFORE editing
+
+Execute the task's verification command first. Capture exit code and output. The pre-edit run establishes the baseline failure (red state) the edit must turn green; it also catches the case where the test was already passing and the task description was stale.
+
+If the pre-edit run is already green, stop and ask: is the task already done, is the verification command wrong, or is the test under-specified? Resolve before editing.
+
+### Step 4 — Edit the task's files
+
+Make the smallest change that satisfies the task's acceptance criterion. Touch only files the task names; resist scope creep into adjacent code per `/plan` Law 3 (no silent scope expansion).
+
+If the edit reveals the task needs more files than `sprint-contract.md` lists, STOP. Do not silently expand. Route back to `/plan` to extend the contract.
+
+### Step 5 — Re-run the verification command and attach output
+
+Execute the same verification command from Step 3. Capture exit code and full output. Per Law 1 (evidence-before-claims), this output is what the advisor record will read; "tests passed" without attached output is not verification.
+
+If the run is green, the task is verified — proceed to Step 7.
+
+If the run is red, proceed to Step 6.
+
+### Step 6 — Handle failure (per Law 2)
+
+A failed verification is normal. Diagnose, edit, re-verify. Track consecutive failures on the same root cause.
+
+When **3 consecutive failures share the same root cause**, Law 2's hard stop fires. Use `AskUserQuestion`:
+
+> The same failure has reproduced 3 times: [one-line root-cause description].
+> Per `/build` Law 2, continuing to patch symptoms past 3 strikes is the most common path to a wrong fix shipped under stage-status `ready`.
+>
+> RECOMMENDATION: Choose B if the failure is genuinely about understanding why; choose A only if you have a fresh hypothesis that wasn't tested in the prior 3 attempts. Completeness: B 10/10, A 7/10, C 6/10.
+> A) Continue investigating with a new hypothesis (human: ~15m / CC: ~5m) — Completeness: 7/10
+> B) Route to `/investigate` for the 4-phase root-cause protocol (human: ~30m / CC: ~10m) — Completeness: 10/10
+> C) Add diagnostic logging and re-run before forming the next hypothesis (human: ~15m / CC: ~5m) — Completeness: 6/10
+
+Record the operator's choice in `build-result.md`. If B, hand off to `/investigate` and stop the current `/build` run; the investigate output drives the next `/build` re-entry.
+
+### Step 7 — Repeat per task
+
+Loop Step 2 through Step 6 for every task in `sprint-contract.md`. Per-task verification output stays attached for `/review` Law 1 to consume — fresh evidence is non-fungible.
+
+If a task can't be completed without breaking another, that's a `/plan` Law 3 scope-extension trigger, not a license to silently rework the contract.
+
+### Step 8 — Address prior advisories (per Law 3)
+
+If this `/build` is a re-entry from `/review` with advisories on the advisor record:
+
+- Address every advisory before claiming complete, OR
+- Document explicit dispute in `build-result.md` (cite advisory id, state rationale, propose alternative resolution)
+
+Silently dropping advisories is forbidden per Law 3. Disputed advisories remain visible to `/review` and `/ship` for downstream re-evaluation.
+
+### Step 9 — Aggregate into `build-result.md` and write status
+
+Collect per-task verification output, resolved advisories, disputed advisories, and any scope notes. Write `build-result.md` and `status.json` via the canonical command (in the Routing section below). The advisor record carries the verdict; `/review` reads it next.
+
+If the advisor returns `requires_user_choice`, follow the advisor's branching prompt — that's a runtime checkpoint, not a workflow step the operator picks unprompted.
+
 ## Operator Checklist
 
 - run build discipline before transport
@@ -549,6 +624,30 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts build
 ```
+
+## Typical prompts
+
+These are example user requests `/build` handles well. The skill consumes the bounded sprint contract, runs per-task verification, and produces `build-result.md` plus `status.json`.
+
+### Prompt 1 — Single bite-sized task
+
+> "Implement task #3 from sprint-contract.md."
+
+`/build` walks Step 1 (read contract) → Step 2 (pick task #3, find its verification command) → Step 3 (pre-edit run, captures red baseline) → Step 4 (edit) → Step 5 (post-edit run, captures green output) → Step 8 (no prior advisories on a fresh build) → Step 9 (aggregate into `build-result.md`). The advisor record carries `stage_outcome: ready`; `/review` picks up next.
+
+### Prompt 2 — Stuck on the same error
+
+> "I've tried fixing this test failure three times and it keeps coming back the same way."
+
+Step 6 fires. Per Law 2, three consecutive failures on the same root cause is a hard stop. The `AskUserQuestion` gate surfaces three options: continue with a new hypothesis (only valid if genuinely new), route to `/investigate` for the 4-phase protocol (recommended), or add diagnostic logging before re-attempting. The operator's choice is recorded in `build-result.md`; if `/investigate` is chosen, the current build halts and re-enters after investigation completes.
+
+### Prompt 3 — Re-entering after review found advisories
+
+> "Review left 4 advisories on my last build — finish the implementation."
+
+Step 8 governs. Per Law 3, every advisory is address-or-dispute. The build addresses each advisory, OR documents disagreement with explicit rationale (advisory id, why-disagree, alternative-resolution) in `build-result.md`. Silently dropping any advisory is forbidden — disputed ones remain visible to `/review` and `/ship` for downstream re-evaluation.
+
+These prompts test that `/build` produces verified, contract-bounded implementation output — not symptomatic patches (Iron Law 2's failure mode) and not silent scope expansion (Iron Law 3's failure mode).
 
 ## Completion Advisor
 
