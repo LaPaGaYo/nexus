@@ -9,6 +9,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - AskUserQuestion
 ---
 
 {{PREAMBLE}}
@@ -16,6 +17,49 @@ allowed-tools:
 # /discover — Nexus Discovery
 
 {{NEXUS_STAGE_OVERVIEW}}
+
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/discover` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/discover` is the entry edge of the lifecycle; ambiguity here propagates straight through to the user.
+
+### Law 1 — What `/discover` Is NOT
+
+`/discover` rejects these patterns at entry. If the work is drifting into any of them, stop and reframe:
+
+1. **Not a feature spec** — discovery does not produce "build X with Y fields and Z button." That is `/plan`'s output. Discovery output is a problem statement; the solution comes after `/frame` confirms scope.
+2. **Not user testing** — discovery is not "have users click on prototypes and tell us what they think." It is upstream of any artifact to test. If the work is testing something, it is not yet discovery.
+3. **Not a substitute for shipping** — discovery does not replace learning from a shipped change. If a small slice can be shipped to validate the hypothesis, route to `pol-probe` (lightweight validation) instead of expanding discovery scope.
+4. **Not single-stakeholder framing** — discovery from one person's view of the problem is biased framing. The artifact must reflect ≥2 perspectives (user + owner, owner + ops, etc.); single-source discovery is captured but flagged as a known limitation.
+5. **Not solutioning in disguise** — "we should add X" is a solution. "Users currently fail at Y because Z" is discovery. If the brief reads like a feature list, discovery hasn't started yet.
+
+A `/discover` artifact that reads like any of these is a category error. Re-enter discovery rather than passing the artifact to `/frame`.
+
+### Law 2 — Minimum Signal Bar Before `/frame`
+
+`docs/product/idea-brief.md` MUST carry the following before `/discover` writes `status.json` with verdict `ready`:
+
+1. **Named user segment** — not "users." A specific segment with a name (e.g., "operators running multi-provider Nexus on macOS"). The name does not have to be a customer; it has to be specific enough that ≠ "everyone."
+2. **Observed pain with cost** — what the named user fails at and what that failure costs (time, money, churn, broken trust). "Users are frustrated" fails; "operators run /build, hit a 3-strike loop, and abandon the session 18% of the time per session-archive logs" passes.
+3. **≥2 evidence sources** — at least two distinct sources informed this discovery. Sources count as: user interviews, support tickets, metrics, prior PRDs, market signals, internal usage logs, customer email threads. Two sources of the same type (e.g., two interview transcripts) count as two; same source quoted twice does not.
+4. **Hypothesis hint** — a one-paragraph version of the "If/Then/Because" hypothesis (per `/frame` Law 2) that `/frame` will sharpen. The hint may be incomplete; the framing pass refines it. But discovery without a hypothesis hint is observation, not direction.
+5. **Open questions list** — explicit questions for `/frame` to answer, ≥3 items. "What's the success metric?", "Which segment ships first?", "What's the rollback plan?" are typical. Empty open-questions sections mean discovery overclaimed.
+
+If any of the five fail, `/discover` returns `not_ready`. `/frame` reads the verdict from the advisor record. If `not_ready`, `/frame` cannot proceed.
+
+Discovery-from-vibes is a real failure mode. The signal bar exists because two interviews + one customer email is cheaper than three weeks of `/build` based on guessed framing.
+
+### Law 3 — Look Inward Before Look Outward
+
+`idea-brief.md` MUST contain two clearly separated sections, in this order:
+
+1. **Look Inward** — what the team currently believes, before gathering evidence. Captures team assumptions, prior framings, the hypothesis the team is bringing in. This section is written FIRST so the team's prior is on the record.
+2. **Look Outward** — what evidence was gathered (interviews, tickets, metrics, etc.) and what it actually said. Cite each piece of evidence to its source per Law 2.
+
+Without **Look Inward**, the team cannot tell what its prior was — and cannot tell whether its evidence collection was confirming or challenging that prior. That is the trap of confirmation-only discovery: the team interviews until interviews agree with what the team already thought.
+
+The brief MAY end with a brief **Reframe** section noting where Look Outward changed Look Inward — what the team thought going in vs. what it concluded. The Reframe is the receipt that discovery happened.
+
+The reason: a discovery brief that does not record the team's prior is unfalsifiable as a discovery output. There is no way to tell whether the brief reflects what users said or what the team wanted users to say.
 
 ## Operator Checklist
 
