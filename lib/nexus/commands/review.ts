@@ -39,6 +39,7 @@ import {
   buildReviewAdvisoriesRecord,
   buildReviewAdvisoryDispositionRecord,
 } from '../review-advisories';
+import { buildReviewMetaWrite, CURRENT_REVIEW_META_PATH } from '../review-meta';
 import { readStageStatus } from '../status';
 import { assertLegalTransition, getAllowedNextStages } from '../transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
@@ -500,7 +501,7 @@ export async function runReviewWithWriteAtomicFile(
   const geminiPath = '.planning/audits/current/gemini.md';
   const synthesisPath = '.planning/audits/current/synthesis.md';
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
-  const metaPath = '.planning/audits/current/meta.json';
+  const metaPath = CURRENT_REVIEW_META_PATH;
   const learningCandidatesPath = reviewLearningCandidatesPath();
   const advisoriesPath = reviewAdvisoriesPath();
   const advisoryDispositionPath = reviewAdvisoryDispositionPath();
@@ -1154,7 +1155,7 @@ export async function runReviewWithWriteAtomicFile(
       { path: geminiPath, content: geminiMarkdown },
       { path: synthesisPath, content: synthesisMarkdown },
       { path: gateDecisionPath, content: gateDecisionMarkdown },
-      { path: metaPath, content: JSON.stringify(meta, null, 2) + '\n' },
+      buildReviewMetaWrite(meta),
       ...localPersonaAudits.map((audit) => ({
         path: reviewPersonaAuditPath(audit.role),
         content: `${audit.markdown.trimEnd()}\n`,

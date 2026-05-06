@@ -49,7 +49,15 @@ interface CommandInvocation {
 type CommandHandler = (ctx: CommandContext) => Promise<CommandResult>;
 type AdapterFamily = Exclude<keyof NexusAdapters, 'registry'>;
 
-const ADAPTER_FAMILIES: AdapterFamily[] = ['discovery', 'planning', 'execution', 'ccb', 'local'];
+const ADAPTER_FAMILY_MARKERS = {
+  discovery: true,
+  planning: true,
+  execution: true,
+  ccb: true,
+  local: true,
+} as const satisfies Record<AdapterFamily, true>;
+
+const ADAPTER_FAMILIES = Object.keys(ADAPTER_FAMILY_MARKERS) as AdapterFamily[];
 
 const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
   discover: runDiscover,
@@ -85,9 +93,9 @@ export function resolveInvocation(name: string): CommandInvocation {
 
 export function assertProductionAdapters(adapters: NexusAdapters): void {
   for (const family of ADAPTER_FAMILIES) {
-    if (adapters[family].kind === 'stub') {
+    if (adapters[family].kind !== 'runtime') {
       throw new Error(
-        `Refusing to run lifecycle command with stub ${family} adapter. Use getRuntimeNexusAdapters() in production.`,
+        `Refusing to run lifecycle command with non-runtime ${family} adapter. Use getRuntimeNexusAdapters() in production.`,
       );
     }
   }

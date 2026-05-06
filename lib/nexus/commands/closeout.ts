@@ -39,6 +39,7 @@ import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '..
 import { readLedger } from '../ledger';
 import { buildPlanningTraceabilityPayloads, normalizePlanningCloseout } from '../normalizers/planning';
 import { applyNormalizationPlan } from '../normalizers';
+import { CURRENT_REVIEW_META_PATH, readCurrentReviewMeta } from '../review-meta';
 import {
   advisoryDispositionPermitsStage,
   buildReviewAdvisoryDispositionRecord,
@@ -228,26 +229,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     );
   }
 
-  const metaPath = '.planning/audits/current/meta.json';
+  const metaPath = CURRENT_REVIEW_META_PATH;
   const gateDecisionPath = '.planning/audits/current/gate-decision.md';
-  const meta = JSON.parse(readFileSync(join(ctx.cwd, metaPath), 'utf8')) as {
-    run_id: string;
-    execution_mode?: string;
-    primary_provider?: string;
-    provider_topology?: string;
-    implementation_route?: string;
-    implementation_substrate?: string;
-    implementation?: {
-      requested_route?: {
-        generator?: string | null;
-        substrate?: string | null;
-      };
-      actual_route?: {
-        route?: string | null;
-        substrate?: string | null;
-      } | null;
-    };
-  };
+  const meta = readCurrentReviewMeta(ctx.cwd, metaPath);
+  if (!meta) {
+    throw new Error(`Missing required audit artifact: ${metaPath}`);
+  }
   const gateDecisionMarkdown = readFileSync(join(ctx.cwd, gateDecisionPath), 'utf8');
   const perfVerificationPath = attachedEvidencePathIfPresent(ctx.cwd, qaPerfVerificationPath());
   const canaryEvidencePath = attachedEvidencePathIfPresent(ctx.cwd, shipCanaryStatusPath());
