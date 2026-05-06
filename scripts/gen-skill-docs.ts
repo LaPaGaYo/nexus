@@ -17,7 +17,6 @@ import * as path from 'path';
 import type { Host, TemplateContext } from './resolvers/types';
 import { HOST_PATHS } from './resolvers/types';
 import { RESOLVERS } from './resolvers/index';
-import { externalSkillName, extractHookSafetyProse as _extractHookSafetyProse, extractNameAndDescription as _extractNameAndDescription, condenseOpenAIShortDescription as _condenseOpenAIShortDescription, generateOpenAIYaml as _generateOpenAIYaml } from './resolvers/codex-helpers';
 import { generatePlanCompletionAuditShip, generatePlanCompletionAuditReview, generatePlanVerificationExec } from './resolvers/review';
 
 const ROOT = path.resolve(import.meta.dir, '..');
@@ -97,17 +96,15 @@ function externalSkillName(skillDir: string, frontmatterName?: string): string {
 }
 
 function extractNameAndDescription(content: string): { name: string; description: string } {
-  const fmStart = content.indexOf('---\n');
-  if (fmStart !== 0) return { name: '', description: '' };
-  const fmEnd = content.indexOf('\n---', fmStart + 4);
-  if (fmEnd === -1) return { name: '', description: '' };
+  const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatterMatch) return { name: '', description: '' };
 
-  const frontmatter = content.slice(fmStart + 4, fmEnd);
+  const frontmatter = frontmatterMatch[1] ?? '';
   const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
   const name = nameMatch ? nameMatch[1].trim() : '';
 
   let description = '';
-  const lines = frontmatter.split('\n');
+  const lines = frontmatter.split(/\r?\n/);
   let inDescription = false;
   const descLines: string[] = [];
   for (const line of lines) {
@@ -169,12 +166,10 @@ function transformFrontmatter(content: string, host: Host, nameOverride?: string
     return content.replace(/^sensitive:\s*true\r?\n/m, '');
   }
 
-  const fmStart = content.indexOf('---\n');
-  if (fmStart !== 0) return content;
-  const fmEnd = content.indexOf('\n---', fmStart + 4);
-  if (fmEnd === -1) return content;
-  const frontmatter = content.slice(fmStart + 4, fmEnd);
-  const body = content.slice(fmEnd + 4); // includes the leading \n after ---
+  const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatterMatch) return content;
+  const frontmatter = frontmatterMatch[1] ?? '';
+  const body = content.slice(frontmatterMatch[0].length);
   const { name, description } = extractNameAndDescription(content);
   const emittedName = nameOverride ?? name;
 

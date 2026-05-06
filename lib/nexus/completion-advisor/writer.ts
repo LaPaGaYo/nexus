@@ -1,10 +1,8 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { discoverExternalInstalledSkills } from '../external-skills';
 import { withLedgerSchemaVersion } from '../ledger-schema';
 import { readVerificationMatrix } from '../verification-matrix';
-import { discoverInstalledSkills } from '../skill-registry/discovery';
-import type { SkillRecord } from '../skill-registry/types';
+import { discoverInstalledSkills, type SkillRecord } from '../skill-registry';
 import {
   buildTelemetryEvent,
   emitTelemetryEventForCwd,
@@ -35,20 +33,17 @@ export function buildCompletionAdvisorWrite(
 ): { path: string; content: string } {
   const { cwd } = options;
   const verificationMatrix = options.verificationMatrix ?? readVerificationMatrix(cwd);
-  const externalSkills = options.externalSkills ?? discoverExternalInstalledSkills({
+  const installedSkills = options.installedSkills ?? discoverInstalledSkills({
     cwd,
     home: options.home,
   });
+  const externalSkills = options.externalSkills ?? installedSkills;
   const enriched = attachExternalInstalledSkillRecommendations(record, verificationMatrix, externalSkills);
   Object.assign(record, enriched);
 
   // Phase 3 (Track D-D3): manifest-driven stage-aware recommendations.
   // Uses the same discovery roots as external skills, but loads the full
   // SkillRecord including manifests.
-  const installedSkills = options.installedSkills ?? discoverInstalledSkills({
-    cwd,
-    home: options.home,
-  });
   if (installedSkills.length > 0) {
     record.recommended_skills = stageAwareAdvisor({
       skills: installedSkills,

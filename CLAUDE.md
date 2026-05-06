@@ -25,7 +25,13 @@ Key routing rules:
 - Final governed verification and closure -> invoke closeout
 - Root-cause debugging and "why is this broken" -> invoke investigate
 - Browser QA, screenshots, and workflow capture -> invoke browse
-- Free-form intent → use `/nexus do "<intent>"` to dispatch via manifest classifier (Track D-D3 Phase 5)
+- Free-form intent -> use `/nexus do "<intent>"`; it dispatches through
+  SkillRegistry manifest metadata and preserves governed lifecycle boundaries.
+- After a canonical stage completes, read
+  `.planning/current/<stage>/completion-advisor.json`; its
+  `recommended_skills` and `recommended_external_skills` fields are the
+  stage-aware advisor surface for support skills and installed third-party
+  skills.
 
 ## Lifecycle discipline (Track E + Track F)
 

@@ -14,10 +14,6 @@ import {
   rankInstalledSkillsForAdvisor,
 } from '../../lib/nexus/skill-registry';
 import {
-  discoverExternalInstalledSkills,
-  rankExternalInstalledSkillsForAdvisor,
-} from '../../lib/nexus/external-skills';
-import {
   SAFETY_SKILL_NAMES,
   SUPPORT_SKILL_NAMES,
 } from '../../lib/nexus/skill-structure';
@@ -52,14 +48,12 @@ describe('SkillRegistry Phase 1 consolidation', () => {
     expect(NEXUS_SUPPORT_SKILL_NAMES).toContain('guard');
   });
 
-  test('discover returns the same shape as the compatibility shim', () => {
+  test('discover returns installed skills with the stable advisor shape', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-'));
     const skillPath = writeSkill(root, 'jobs-to-be-done', 'Explore customer jobs, discovery, and opportunity framing.');
 
     const discovered = discoverInstalledSkills({ roots: [root] });
-    const legacyDiscovered = discoverExternalInstalledSkills({ roots: [root] });
 
-    expect(discovered).toEqual(legacyDiscovered);
     expect(discovered).toEqual([
       expect.objectContaining({
         name: 'jobs-to-be-done',
@@ -161,7 +155,7 @@ describe('SkillRegistry Phase 1 consolidation', () => {
     }
   });
 
-  test('rank delegates through the compatibility shim unchanged', () => {
+  test('rank emits advisor actions for matching installed skills', () => {
     const skills = [
       classifyInstalledSkill({
         name: 'code-review-helper',
@@ -179,7 +173,10 @@ describe('SkillRegistry Phase 1 consolidation', () => {
     };
 
     expect(rankInstalledSkillsForAdvisor(input)).not.toEqual([]);
-    expect(rankInstalledSkillsForAdvisor(input)).toEqual(rankExternalInstalledSkillsForAdvisor(input));
+    expect(rankInstalledSkillsForAdvisor(input)[0]).toMatchObject({
+      surface: '/code-review-helper',
+      kind: 'external_installed_skill',
+    });
   });
 });
 

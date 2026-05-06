@@ -1,7 +1,7 @@
 # Phase 4 Backlog
 
 **Status:** Living document. Updated as issues are assigned, merged, or new work surfaces.
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-06
 **Scope:** All Phase 4 work — ongoing tracks (D2/D3/#41/local-provider) + Phase 4.4 polish + housekeeping.
 
 ---
@@ -27,11 +27,12 @@ issue together (don't let drift accumulate).
 | ✅ Merged this session | 9 | PRs already in main |
 | 🟢 Currently assigned to glaocon | 6 | In queue, may have PR open |
 | 🟡 Tier 1 unassigned (actionable) | 5 | Spec exists, can dispatch when queue clears |
-| 🟠 Tier 2 needs brief | 8 | D3 chain; brief required before dispatch |
+| 🟠 Tier 2 D3 closeout | 2 | #80/#81 are in flight for docs and shim removal |
 | 🟣 Tier 3 polish unassigned | 7 | Phase 4.4 ST items |
 | 🔵 Tier 4 housekeeping | 2 | Doc refreshes |
 
-**Total open backlog: 28 issues** (6 assigned + 22 filed unassigned).
+**Total open backlog:** see the GitHub issue tracker; this document records
+the architecture queue and its dependency state.
 
 ---
 
@@ -83,30 +84,24 @@ Spec exists (RFC or brief). Can dispatch as glaocon's queue clears.
 
 ---
 
-## 🟠 Tier 2 — D3 chain, needs brief
+## 🟠 Tier 2 — D3 chain, closeout
 
-Briefs to be written by Claude before dispatch. Each issue has a placeholder
-description pointing at its brief location.
+D3 phases are tracked here for historical dependency context. Phases 2.2
+through 5 are closed; #80/#81 are the remaining closeout pair.
 
-| Issue | Title | Brief status | Depends on |
+| Issue | Title | Status | Depends on |
 |---|---|---|---|
-| #74 | D3 Phase 2.2: SkillRegistry consumes manifests | brief pending | #65 merge |
-| #75 | D3 Phase 2.3: first-party manifest catalog (Δ1) | brief pending | #65 merge |
-| #76 | D3 Phase 2.4: installer convenience (Δ2) | brief pending | #65 merge |
-| #77 | D3 Phase 3: stage-aware advisor | brief pending | #74 merge |
-| #78 | D3 Phase 4: 28 built-in nexus.skill.yaml manifests | brief pending | #74 merge |
-| #79 | D3 Phase 5: `/nexus do` dispatcher | brief pending | #74 + #78 merge |
-| #80 | D3 Phase 6: documentation pass | brief pending | #79 merge |
-| #81 | D3 Phase 7: shim removal | brief pending | #80 merge |
+| #74 | D3 Phase 2.2: SkillRegistry consumes manifests | CLOSED | #65 merge |
+| #75 | D3 Phase 2.3: first-party manifest catalog (Delta 1) | CLOSED | #65 merge |
+| #76 | D3 Phase 2.4: installer convenience (Delta 2) | CLOSED | #65 merge |
+| #77 | D3 Phase 3: stage-aware advisor | CLOSED | #74 merge |
+| #78 | D3 Phase 4: built-in nexus.skill.yaml manifests | CLOSED | #74 merge |
+| #79 | D3 Phase 5: `/nexus do` dispatcher | CLOSED | #74 + #78 merge |
+| #80 | D3 Phase 6: documentation pass | PR in flight | #79 merge |
+| #81 | D3 Phase 7: shim removal | PR in flight | #80 merge |
 
-**Brief authoring order** (recommended):
-1. D3 Phase 2.2 brief — natural sequel to Phase 2 brief; unblocks the rest
-2. D3 Phase 4 brief — built-in manifests; easier to author after 2.2 is real
-3. D3 Phase 2.3 brief (catalog Δ1) — independent; can lag
-4. D3 Phase 2.4 brief (installer Δ2) — independent; can lag
-5. D3 Phase 3 brief — advisor; the user-facing payoff
-6. D3 Phase 5 brief — dispatcher; biggest UX win
-7. D3 Phase 6/7 briefs — small; write once 2-5 land
+**Completion note:** D3 Phases 2.2 through 5 are closed. #80 and #81 are the
+remaining closeout pair for docs plus shim removal.
 
 ---
 

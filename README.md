@@ -1,6 +1,6 @@
 # Nexus
 
-Nexus is a single-package AI engineering operating system.
+Nexus is a single-package AI engineering operating system and skill router.
 
 Nexus is the only command surface.
 
@@ -20,7 +20,9 @@ Nexus owns the commands, stage content, runtime contracts, and generated host
 surfaces that define the lifecycle. CCB remains dispatch and transport
 infrastructure only.
 
-Nexus-owned stage packs remain the active internal runtime units.
+Nexus-owned stage packs remain the active internal runtime units. Nexus does
+not bundle every useful external skill; it routes to installed skills through
+SkillRegistry metadata and `nexus.skill.yaml` manifests when they are present.
 Users upgrade Nexus versions, not upstream repos.
 `/nexus-upgrade` and automatic upgrade are the only user-facing update paths.
 Release detection is channel-based through `release_channel` and published
@@ -58,6 +60,13 @@ trees are gitignored — they are produced by `bun run gen:skill-docs --host
 - support workflows: `skills/support/<skill>/`
 - safety workflows: `skills/safety/<skill>/`
 - compatibility aliases: `skills/aliases/<alias>/`
+- routing manifests: `nexus.skill.yaml` next to each generated skill source
+
+At runtime, `lib/nexus/skill-registry/` scans installed host skill roots,
+loads each `SKILL.md`, attaches any adjacent `nexus.skill.yaml`, and feeds both
+the stage-completion advisor and `/nexus do` dispatcher. Nexus-owned manifests
+describe the canonical and support surface; third-party manifests let external
+skills participate without copying their implementation into this repository.
 
 Only the generated root `/nexus` compatibility mirror stays at the repository root. Migrated
 reference sidecars now live under `references/`, while setup preserves installed
@@ -417,13 +426,18 @@ nexus do "I want to explore an idea"         # → routes to /discover
 nexus do "review the code change"            # → routes to /review
 ```
 
-The dispatcher classifies the intent against each skill's `nexus.skill.yaml` manifest's `intent_keywords` and returns one of:
+The dispatcher classifies the intent against each skill's `nexus.skill.yaml`
+manifest `intent_keywords` and returns one of:
 
-- **Confident match** — auto-dispatch (governed if canonical)
+- **Confident match** — report the best route for the operator or host to
+  invoke through the target command surface
 - **Ambiguous** — show top 3–5 candidates, user picks
 - **No match** — refuse with helpful suggestion
 
-Per Model γ (Nexus is a router, not a skill warehouse), the dispatcher consumes the registry's manifest data: 9 canonical + 23 support + 4 safety + 1 root manifests author by Track D-D3 Phase 4. Third-party skills installed via host marketplaces show up too once they ship a `nexus.skill.yaml`.
+Per Model gamma (Nexus is a router, not a skill warehouse), the dispatcher
+consumes SkillRegistry manifest data: 9 canonical + 23 support + 4 safety + 1
+root manifests authored by Track D-D3 Phase 4. Third-party skills installed via
+host marketplaces show up too once they ship a `nexus.skill.yaml`.
 
 Each canonical stage from `/frame` through `/closeout` now also writes
 `.planning/current/<stage>/completion-advisor.json`. That advisor is the
