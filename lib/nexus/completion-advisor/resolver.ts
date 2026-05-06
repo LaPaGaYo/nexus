@@ -13,7 +13,7 @@ import type {
   VerificationChecklistCategory,
 } from '../types';
 import { NEXUS_LEDGER_SCHEMA_VERSION } from '../types';
-import { rankExternalInstalledSkillsForAdvisor } from '../external-skills';
+import { rankInstalledSkillsForAdvisor } from '../skill-registry';
 import { shellQuotePosix } from '../shell-quote';
 
 const HIDDEN_COMPAT_ALIASES = ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'] as const;
@@ -299,7 +299,7 @@ export function attachExternalInstalledSkillRecommendations(
     return record;
   }
 
-  const ranked = rankExternalInstalledSkillsForAdvisor({
+  const ranked = rankInstalledSkillsForAdvisor({
     stage: record.stage,
     verification_matrix: verificationMatrix,
     skills: externalSkills,

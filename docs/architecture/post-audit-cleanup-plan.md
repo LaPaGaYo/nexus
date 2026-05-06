@@ -87,7 +87,7 @@ deeper redesign — see Phase 2.3.
 
 `governance.ts:155-170`, `ledger.ts:28-41`, `status.ts:9-18`,
 `install-metadata.ts:224-239`, `release-contract.ts:28`, `release-publish.ts`,
-`external-skills.ts:206`. Lib code shouldn't reach for ambient state — push
+`skill-registry/index.ts`. Lib code shouldn't reach for ambient state — push
 defaults to CLI entry points.
 
 **Status**: Open. Phase 3 follow-up is tracked separately because it changes
@@ -188,7 +188,7 @@ check to `scripts/skill-check.ts`.
 
 #### 4.4 Host coverage gap in `defaultExternalSkillRoots`
 
-`lib/nexus/external-skills.ts:206-214` lists default scan roots for runtime
+`lib/nexus/skill-registry/discovery.ts` lists default scan roots for runtime
 discovery of user-installed skills. The list covers Claude (project + home)
 and Codex (project + home, plus the legacy `~/.codex/skills/` path) but is
 **missing Gemini CLI and Factory**. Symmetric to §4.2: 4 hosts in the
@@ -198,9 +198,8 @@ Result: when a user has installed Nexus skills under `~/.gemini/skills/` or
 `~/.factory/skills/`, the completion advisor doesn't see them and can't
 recommend them as cooperative options for the current stage.
 
-**Status**: Open → **Phase 1.6**. Add `<cwd>/.gemini/skills/`,
-`<cwd>/.factory/skills/`, `~/.gemini/skills/`, `~/.factory/skills/` to
-`defaultExternalSkillRoots`.
+**Status**: Closed by the host-root registry work. `defaultExternalSkillRoots`
+now follows `HOST_SKILL_INSTALL_ROOTS`, including Gemini CLI and Factory.
 
 #### 4.3 Cross-platform build undocumented
 
@@ -277,7 +276,7 @@ weren't on the original Phase 1 scope.
 Same shape as Phase 1.5 — closing a 4-host symmetry gap.
 
 - 🔲 Add `.gemini/skills/` and `.factory/skills/` (project + home scope) to
-  `defaultExternalSkillRoots` in `lib/nexus/external-skills.ts`. Closes
+  `defaultExternalSkillRoots` through `HOST_SKILL_INSTALL_ROOTS`. Closes
   finding §4.4. ~5 lines plus a coverage test.
 
 ### Phase 2 — Consolidate duplicates
@@ -485,10 +484,11 @@ up without rediscovering the context, but they should be re-scoped through
 
 ### Deep external-skill cooperation
 
-Today `lib/nexus/external-skills.ts` discovers user-installed skills across
-hosts and `completion-advisor` surfaces them as `recommended_external_skills`
-suggestions. That is a one-way "here are skills you might want to invoke"
-relationship.
+Today `lib/nexus/skill-registry/` discovers user-installed skills across hosts,
+loads optional `nexus.skill.yaml` manifests, and feeds `completion-advisor`
+records. Manifest-aware Nexus surfaces land in `recommended_skills`; external
+installed skills remain supplemental through `recommended_external_skills`.
+That is still primarily an advisory relationship.
 
 A deeper cooperation model could include:
 

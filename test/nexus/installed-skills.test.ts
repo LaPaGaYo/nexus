@@ -5,9 +5,9 @@ import * as path from 'path';
 import {
   classifyInstalledSkill,
   defaultExternalSkillRoots,
-  discoverExternalInstalledSkills,
-  rankExternalInstalledSkillsForAdvisor,
-} from '../../lib/nexus/external-skills';
+  discoverInstalledSkills,
+  rankInstalledSkillsForAdvisor,
+} from '../../lib/nexus/skill-registry';
 import {
   HOST_SKILL_INSTALL_ROOTS,
   hostSkillInstallRootPaths,
@@ -114,13 +114,13 @@ function matrixWithSignals(): VerificationMatrixRecord {
   };
 }
 
-describe('external installed skill discovery and ranking', () => {
+describe('installed skill discovery and ranking', () => {
   test('discovers user-installed skills and classifies Nexus-owned names separately', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-external-skills-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-installed-skills-'));
     const externalPath = writeSkill(root, 'jobs-to-be-done', 'Explore customer jobs, discovery, and opportunity framing.');
     writeSkill(root, 'nexus-review', 'Canonical Nexus review wrapper.');
 
-    const skills = discoverExternalInstalledSkills({ roots: [root] });
+    const skills = discoverInstalledSkills({ roots: [root] });
 
     expect(skills).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -160,7 +160,7 @@ describe('external installed skill discovery and ranking', () => {
       }),
     ];
 
-    const ranked = rankExternalInstalledSkillsForAdvisor({
+    const ranked = rankInstalledSkillsForAdvisor({
       stage: 'review',
       verification_matrix: matrixWithSignals(),
       skills,
@@ -196,7 +196,7 @@ describe('external installed skill discovery and ranking', () => {
       source_root: '/tmp/root-b',
     };
 
-    const ranked = rankExternalInstalledSkillsForAdvisor({
+    const ranked = rankInstalledSkillsForAdvisor({
       stage: 'qa',
       verification_matrix: matrixWithSignals(),
       skills: [first, duplicate],

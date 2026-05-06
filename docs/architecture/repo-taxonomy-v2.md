@@ -37,6 +37,10 @@ nexus/
 
   lib/
     nexus/
+      commands/
+      completion-advisor/
+      intent-classifier/
+      skill-registry/
 
   hosts/
     claude/
@@ -69,6 +73,12 @@ under `runtimes/design-html/` and `runtimes/hooks/`, tracked host sidecars now
 live under `hosts/`, and upstream vendor material now lives under `vendor/`,
 while installed hosts and root upstream symlinks keep historical compatibility
 paths.
+
+Inside `lib/nexus/`, `skill-registry/` is the active home for installed skill
+discovery, manifest loading, classification, and ranking. `intent-classifier/`
+is the active home for `/nexus do` routing. Generated host output may carry
+`nexus.skill.yaml` manifests, but the registry and dispatcher own the runtime
+interpretation of those manifests.
 
 Representative current-to-target mappings:
 

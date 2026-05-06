@@ -114,7 +114,9 @@ Estimated: ~10-15h once RFC is approved (most of the time is testing migrations)
 
 #### D3 — Skill ecology v2
 
-**Requires RFC + 2 product decisions.** See open question: `docs/architecture/track-d-d3-rfc.md` (to be written).
+**Closeout in progress.** The RFC and product decisions landed in
+`docs/architecture/track-d-d3-rfc.md`; #80/#81 finish the docs pass and shim
+removal.
 
 Three candidate routing models (must pick one or a hybrid):
 - **A — Advisor-only** (current behavior): scan installed skills, surface as `recommended_external_skills` in completion-advisor records, host displays. Low ROI to fix; already works.
@@ -123,12 +125,13 @@ Three candidate routing models (must pick one or a hybrid):
 
 **Recommendation: B + optional C** — keep governed lifecycle as the truth source, add C as an entry-point dispatcher.
 
-Components:
-- `SkillRegistry` (new) — replaces and supersets `lib/nexus/external-skills.ts`
-- Skill manifest schema — extend `SKILL.md` frontmatter or add `nexus.skill.yaml`
-- (If C) Intent classifier — LLM call at `/nexus do` entry; result is non-governed advice that the user accepts to enter governed lifecycle
-
-Estimated: ~15-20h once RFC + decisions are settled.
+Implemented components:
+- `SkillRegistry` owns installed skill discovery, manifest loading,
+  classification, and ranking.
+- `nexus.skill.yaml` is the manifest format for Nexus-aware routing metadata.
+- Stage-aware advisor recommendations use registry records.
+- `/nexus do <intent>` is the intent dispatcher in front of governed lifecycle
+  commands and support surfaces.
 
 #### D4 — Lifecycle stage hooks for user skills (long-term, optional)
 
@@ -271,16 +274,13 @@ cooperation" vision.
    - Implementation: delete `vendor/upstream/`, `lib/nexus/absorption/`, `upstream-*.ts`, `maintainer-loop.ts`
    - Effort: ~10-15h after RFC approved
 
-3. **D3 — Skill ecology v2 (RFC required + 2 decisions)**
-   - Write `docs/architecture/track-d-d3-rfc.md`
-   - RFC must answer:
-     - **Decision 2:** Routing model — A / B / C / B+C hybrid (recommendation: B + optional C)
-     - **Decision 4:** Manifest format — extended frontmatter vs `nexus.skill.yaml`
-     - SkillRegistry API surface
-     - Backwards compatibility with current `external-skills.ts` callers
-   - Implementation: SkillRegistry, manifest schema, scanner upgrade
-   - (If C decided) `/nexus do <intent>` dispatcher
-   - Effort: ~15-20h after RFC + decisions
+3. **D3 — Skill ecology v2 (closeout)**
+   - RFC and product decisions are recorded in
+     `docs/architecture/track-d-d3-rfc.md`.
+   - Implemented surface: SkillRegistry, `nexus.skill.yaml`, manifest-aware
+     advisor recommendations, and `/nexus do <intent>`.
+   - Remaining closeout: keep user docs and architecture diagrams aligned, then
+     delete the Phase 1 `external-skills.ts` compatibility shim.
 
 **Total: ~30-40h across 3 sub-tracks. Spans multiple weeks.**
 
@@ -288,10 +288,10 @@ cooperation" vision.
 - `vendor/upstream*/` directories removed.
 - No "absorbed from" framing in `README.md`, `lib/nexus/`, or stage-pack source.
 - `adapters/{discovery,planning,execution}.ts` (renamed) exist.
-- SkillRegistry exports replace `external-skills.ts`.
-- `recommended_external_skills` records carry richer metadata (lifecycle stage,
-  triggers, inputs/outputs).
-- (If C is implemented) `bun run bin/nexus.ts do <intent>` works end-to-end.
+- SkillRegistry exports replace the deleted `external-skills.ts` shim.
+- `recommended_skills` and `recommended_external_skills` keep Nexus-aware and
+  supplemental external recommendations distinct.
+- `bun run bin/nexus.ts do <intent>` works end-to-end.
 
 ### Phase 4.4 — Optional polish (background work)
 
@@ -381,9 +381,10 @@ the PR description. Mark items as ☑ here when their PR merges.
 - [x] D1 rename adapters + stage-packs (+ ST6) — PR #50 landed
 - [x] D2 RFC written and approved (`track-d-d2-rfc.md` v1; revised 2026-05-05 with Phase 2.5 audit additions)
 - [~] D2 implementation — Phase 2.1 done (PR #58); Phase 2.2 in flight (#62 / PR #66); 2.3-2.5 queued (#69-#71)
-- [x] D3 RFC written and approved (`track-d-d3-rfc.md` v1; revised 2026-05-05 v2 with Model γ + Δ1/Δ2 sub-phases)
-- [~] D3 implementation — Phase 1 done (PR #57 + #60); Phase 2.a in flight (#65); 2.b/2.c/2.d/3-7 queued (#74-#81)
-- [ ] D3 optional intent dispatcher (`/nexus do`) — queued as Phase 3.5 (#79)
+- [x] D3 RFC written and approved (`track-d-d3-rfc.md`)
+- [~] D3 implementation — Phases 1 through 5 closed; #80/#81 close out docs
+  and shim removal
+- [x] D3 optional intent dispatcher (`/nexus do`) — closed by #79
 
 ### Phase 4.4 — Optional polish
 - [ ] ST1+ST9 bundled (#82) — blocked
@@ -409,5 +410,5 @@ issue tracker view (priorities, dependencies, assignment policy).
 - `docs/architecture/context-diagram.md` — system architecture overview, design risks
 - `docs/architecture/completion-advisor-split-proposal.md` — RFC for #41
 - `docs/architecture/track-d-d2-rfc.md` — to be written
-- `docs/architecture/track-d-d3-rfc.md` — to be written
+- `docs/architecture/track-d-d3-rfc.md` — D3 RFC and closeout status
 - Open issues: #38, #39, #40, #41, #42, #43, #44

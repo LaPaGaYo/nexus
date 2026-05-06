@@ -1,19 +1,23 @@
 # Track D-D3 RFC: SkillRegistry, `nexus.skill.yaml`, and Intent-aware skill cooperation
 
-**Status:** Active. Phase 1 (registry consolidation) landed via PR #57 + #60. Phase 3.2.a (schema + parser) landed via #91. Phase 3.2.b / 3.2.c / 3.2.d now have implementation briefs.
-**Author:** Surfaced from Phase 4 architecture audit on 2026-05-04. Last revised 2026-05-05 with Model γ framing + Δ1/Δ2 sub-phases (see Revision history below).
-**Parent plan:** `docs/architecture/phase-4-plan.md` § Phase 4.3.
-**Predecessor:** Track D-D2 (`docs/architecture/track-d-d2-rfc.md`) — independent; can land in any order.
-**Companion:** Issue #43 (host scanner asymmetry) is a precursor — this RFC assumes #43 has unified the host enumeration.
+**Status:** Active closeout. Phase 1 through Phase 3.5 have landed. Phase 3.6
+documentation and Phase 3.7 shim removal are tracked by #80 and #81.
+**Author:** Surfaced from Phase 4 architecture audit on 2026-05-04. Last revised 2026-05-05 with Model 纬 framing + 螖1/螖2 sub-phases (see Revision history below).
+**Parent plan:** `docs/architecture/phase-4-plan.md` 搂 Phase 4.3.
+**Predecessor:** Track D-D2 (`docs/architecture/track-d-d2-rfc.md`) 鈥?independent; can land in any order.
+**Companion:** Issue #43 (host scanner asymmetry) is a precursor 鈥?this RFC assumes #43 has unified the host enumeration.
 
 **Decisions made (per Phase 4 plan discussion 2026-05-04):**
-- **Routing model:** B + optional C — Router-aware lifecycle as the baseline, with `/nexus do <intent>` as an additional entry-point dispatcher.
+- **Routing model:** B + optional C 鈥?Router-aware lifecycle as the baseline, with `/nexus do <intent>` as an additional entry-point dispatcher.
 - **Manifest format:** Separate `nexus.skill.yaml` file alongside `SKILL.md` (cleaner schema evolution; skill author manages two files).
 
 **Revision history:**
 - **2026-05-04 v1**: Initial draft.
-- **2026-05-05 v2**: Added "Strategic framing: Model γ" section (skill router, not warehouse) following pre-D3 absorption audit. Restructured Phase 3.2 into 3.2.a (schema + parser, brief landed at `track-d-d3-phase-2-brief.md`) and 3.2.b (registry consumes manifests, brief pending). Added Phase 3.2.c (Δ1 first-party catalog) + 3.2.d (Δ2 installer convenience) per audit recommendations.
+- **2026-05-05 v2**: Added "Strategic framing: Model 纬" section (skill router, not warehouse) following pre-D3 absorption audit. Restructured Phase 3.2 into 3.2.a (schema + parser, brief landed at `track-d-d3-phase-2-brief.md`) and 3.2.b (registry consumes manifests, brief pending). Added Phase 3.2.c (螖1 first-party catalog) + 3.2.d (螖2 installer convenience) per audit recommendations.
 - **2026-05-06 v3**: Marked Phase 3.2.a landed; linked implementation briefs for Phase 3.2.b, 3.2.c, and 3.2.d.
+- **2026-05-06 v4**: Marked D3 closeout state after manifest consumption,
+  built-in manifests, stage-aware advisor, and `/nexus do` landed; #80/#81
+  finish docs and remove the Phase 1 shim.
 
 ---
 
@@ -56,26 +60,26 @@ Concretely:
   `nexus.skill.yaml` for skills that have it (used to inject richer template
   context), but the core pipeline is unchanged.
 - **Bundling user-facing third-party skills inside the Nexus repo**. Per
-  Model γ (added v2), Nexus is a *router* not a *warehouse*; PM Skills /
+  Model 纬 (added v2), Nexus is a *router* not a *warehouse*; PM Skills /
   Superpowers / GSD / CCB skills install via their own marketplaces. See
   Strategic framing below.
 
 ---
 
-## Strategic framing: Model γ (added 2026-05-05)
+## Strategic framing: Model 纬 (added 2026-05-05)
 
 A pre-D3 absorption audit (run on PR #58 head) discovered a critical nuance
 about the absorption thesis. The 9 lifecycle stages are absorbed natively
-(`lib/nexus/stage-content/` + `lib/nexus/stage-packs/` — done via PR #58 and
-predecessors). But the broader *user-facing skill libraries* — 47 PM skills,
-14 Superpowers skills, ~24 GSD agents, 11 CCB skills — are NOT bundled in
+(`lib/nexus/stage-content/` + `lib/nexus/stage-packs/` 鈥?done via PR #58 and
+predecessors). But the broader *user-facing skill libraries* 鈥?47 PM skills,
+14 Superpowers skills, ~24 GSD agents, 11 CCB skills 鈥?are NOT bundled in
 Nexus. They install via independent channels (PM marketplace,
 `claude-plugins-official`, GSD installer, CCB).
 
-This RFC adopts **Model γ** as its strategic frame: Nexus is a *skill router
+This RFC adopts **Model 纬** as its strategic frame: Nexus is a *skill router
 + lifecycle harness*, NOT a skill warehouse. External skills installed by
 the user become first-class citizens to Nexus's intent dispatch and advisor
-surface — without ever being copied into the Nexus repo.
+surface 鈥?without ever being copied into the Nexus repo.
 
 This is more humble and more achievable than "absorb every PM skill into
 Nexus's bundle". Key implications:
@@ -83,21 +87,21 @@ Nexus's bundle". Key implications:
 - `nexus.skill.yaml` (Component 2) is the protocol that lets externally-
   installed skills participate in Nexus's router. Skill authors (Nexus or
   third party) write the manifest; Nexus's SkillRegistry reads it.
-- The catalog of template manifests (Phase 3.2.c, Δ1 below) ships *examples*
-  third-party skill authors can use — but Nexus does not own the bits.
-- The optional installer (Phase 3.2.d, Δ2 below) shells out to the host's
+- The catalog of template manifests (Phase 3.2.c, 螖1 below) ships *examples*
+  third-party skill authors can use 鈥?but Nexus does not own the bits.
+- The optional installer (Phase 3.2.d, 螖2 below) shells out to the host's
   plugin manager rather than bundling skills inside Nexus.
 
 Rejected alternatives:
-- **Bundle PM/Superpowers/GSD skills into `skills/support/`** (Model α): would
+- **Bundle PM/Superpowers/GSD skills into `skills/support/`** (Model 伪): would
   create a maintenance trap, contradict D2's deletion premise, and violate
   the vendor README's "second command surface" red line.
 - **Replace upstream's plugin marketplaces with Nexus**: out of Nexus's scope
   and identity. Nexus is governance, not distribution.
-- **Keep status quo with no manifest contract** (Model δ): forfeits all the
+- **Keep status quo with no manifest contract** (Model 未): forfeits all the
   intent-routing leverage that motivates Components 3 + 4.
 
-Model γ is what makes D3 possible without re-creating the upstream-snapshot
+Model 纬 is what makes D3 possible without re-creating the upstream-snapshot
 pattern that D2 just removed.
 
 ---
@@ -108,18 +112,18 @@ pattern that D2 just removed.
 
 ### Skill discovery surface
 
-- `lib/nexus/external-skills.ts` (368 LOC) — runtime scanner. Walks 9 install
+- `lib/nexus/external-skills.ts` (368 LOC) 鈥?runtime scanner. Walks 9 install
   roots, deduplicates, classifies by name into `nexus_canonical` /
   `nexus_support` / `external_installed`, ranks by tag overlap, emits
   `recommended_external_skills`.
-- `lib/nexus/skill-structure.ts` — source-path routing + classification for
+- `lib/nexus/skill-structure.ts` 鈥?source-path routing + classification for
   the *generation* side. Has its own `SUPPORT_SKILL_NAMES` and
   `SAFETY_SKILL_NAMES` registries that **partially diverge** from
   `external-skills.ts` `NEXUS_SUPPORT_SKILLS`.
-- `scripts/discover-skills.ts` — source-tree template discovery (different
+- `scripts/discover-skills.ts` 鈥?source-tree template discovery (different
   from runtime install-tree discovery; both have a function named
   `discoverSkillFiles`).
-- `scripts/gen-skill-docs.ts` — `.tmpl` → host-specific `SKILL.md` rendering.
+- `scripts/gen-skill-docs.ts` 鈥?`.tmpl` 鈫?host-specific `SKILL.md` rendering.
 
 ### Frontmatter actually parsed by the scanner
 
@@ -135,8 +139,8 @@ external-skill recommendation surface. Must be preserved by SkillRegistry.
 
 ### CLI dispatch
 
-`bin/nexus.ts` → `resolveRuntimeInvocation` → `resolveInvocation` →
-`assertCanonicalLifecycleEntrypoint` (hard rejects unknown commands) →
+`bin/nexus.ts` 鈫?`resolveRuntimeInvocation` 鈫?`resolveInvocation` 鈫?
+`assertCanonicalLifecycleEntrypoint` (hard rejects unknown commands) 鈫?
 `COMMAND_HANDLERS[command]`. Adding `do` requires it to land in
 `documentedLifecycleEntrypoints()` AND get a handler in `COMMAND_HANDLERS`.
 
@@ -220,7 +224,7 @@ The implemented author-facing schema reference lives at
 # Schema version. Always 1 for this RFC. Future: bump for breaking changes.
 schema_version: 1
 
-# Lifecycle integration (powers B — router-aware advisor)
+# Lifecycle integration (powers B 鈥?router-aware advisor)
 applies_to:
   lifecycle_stages:
     - build       # this skill is a useful next step after /build
@@ -233,7 +237,7 @@ applies_to:
     # Optional: this skill should NOT be recommended if these conditions hold
     - "no design impact"
 
-# Intent classification (powers C — /nexus do dispatcher)
+# Intent classification (powers C 鈥?/nexus do dispatcher)
 intent:
   primary: "translate Figma design into production code"
   keywords:
@@ -257,22 +261,22 @@ outputs_to:
 
 **Field semantics:**
 
-- `schema_version: 1` — required. SkillRegistry treats unknown schema versions
+- `schema_version: 1` 鈥?required. SkillRegistry treats unknown schema versions
   as "ignore manifest, fall back to heuristics".
-- `applies_to.lifecycle_stages` — ordered list of canonical command IDs. Skill
+- `applies_to.lifecycle_stages` 鈥?ordered list of canonical command IDs. Skill
   is a candidate for B-style suggestion after these stages complete.
-- `applies_to.triggers` — free-text matched fuzzy against `VerificationMatrixRecord`
+- `applies_to.triggers` 鈥?free-text matched fuzzy against `VerificationMatrixRecord`
   fields and `CompletionAdvisorRecord.evidence_signal`. Higher specificity =
   higher score.
-- `applies_to.blocked_by` — negative conditions; skill is suppressed when any
+- `applies_to.blocked_by` 鈥?negative conditions; skill is suppressed when any
   match.
-- `intent.primary` — the canonical "what does this skill do" sentence; used in
+- `intent.primary` 鈥?the canonical "what does this skill do" sentence; used in
   C dispatcher's confidence scoring.
-- `intent.keywords` — fast-path keyword matching; cheap pre-filter before LLM
+- `intent.keywords` 鈥?fast-path keyword matching; cheap pre-filter before LLM
   classification.
-- `intent.examples` — sample user inputs; used both for documentation and
+- `intent.examples` 鈥?sample user inputs; used both for documentation and
   (optionally) for few-shot learning by the C classifier.
-- `inputs_from` / `outputs_to` — declarative skill graph; used for
+- `inputs_from` / `outputs_to` 鈥?declarative skill graph; used for
   "Recommended after you ran X" / "Will write to Y" hints.
 
 **Validation:** `lib/nexus/skill-registry/manifest-parser.ts` validates the
@@ -291,8 +295,8 @@ attachExternalInstalledSkillRecommendations(
   matrix,           // VerificationMatrixRecord
   externalSkills,   // pre-discovered InstalledSkillRecord[]
 )
-  → ranks externalSkills by tag overlap with stage + matrix context
-  → appends top-3 to record.recommended_external_skills
+  鈫?ranks externalSkills by tag overlap with stage + matrix context
+  鈫?appends top-3 to record.recommended_external_skills
 ```
 
 After D3:
@@ -304,13 +308,13 @@ attachLifecycleAwareSkillRecommendations(
   registry,         // SkillRegistry instance
   stage,            // CanonicalCommandId of just-completed stage
 )
-  → registry.findForLifecycleStage(stage, matrix)
-  → for each candidate:
+  鈫?registry.findForLifecycleStage(stage, matrix)
+  鈫?for each candidate:
        - if has manifest with applies_to.lifecycle_stages.includes(stage): score boost
        - if applies_to.triggers fuzzy-match matrix: score boost
        - if applies_to.blocked_by matches: skip
        - else: fall back to current tag-overlap heuristic
-  → top-3 surface as recommended_external_skills
+  鈫?top-3 surface as recommended_external_skills
 ```
 
 **Key change:** the ranking is now **driven by manifest data when available**,
@@ -325,29 +329,29 @@ A new canonical command. Hook points:
 1. Add `'do'` to `command-manifest.ts` `CANONICAL_MANIFEST` (or to a new
    `META_COMMANDS` if we don't want it to count as a lifecycle stage).
 2. Add `'do'` handler to `commands/index.ts` `COMMAND_HANDLERS`.
-3. Implement `commands/do.ts` — the dispatcher.
+3. Implement `commands/do.ts` 鈥?the dispatcher.
 
 **Dispatcher logic** (`commands/do.ts`):
 
 ```
 runDo(ctx, intent: string):
   1. Pre-filter: registry.matchIntent(intent) using keyword + manifest data
-     → returns ranked candidates
+     鈫?returns ranked candidates
   2. If no candidates score above threshold:
-       → emit "no skill matches this intent; suggest creating one"
-       → return refuse status
+       鈫?emit "no skill matches this intent; suggest creating one"
+       鈫?return refuse status
   3. If single candidate scores >> rest (confident_match):
-       → propose it; require user confirmation
-       → on confirm: invoke target via existing CLI path
+       鈫?propose it; require user confirmation
+       鈫?on confirm: invoke target via existing CLI path
   4. If multiple candidates close in score:
-       → present chooser via interaction_mode='recommended_choice'
-       → host shows AskUserQuestion with candidates
-       → user picks → invoke
+       鈫?present chooser via interaction_mode='recommended_choice'
+       鈫?host shows AskUserQuestion with candidates
+       鈫?user picks 鈫?invoke
   5. If LLM classifier is enabled (NEXUS_INTENT_LLM=1):
-       → on ambiguous results, call out to LLM (Claude/Codex via existing
+       鈫?on ambiguous results, call out to LLM (Claude/Codex via existing
          adapter) for refined classification
-       → merge LLM verdict with keyword scores
-       → present to user
+       鈫?merge LLM verdict with keyword scores
+       鈫?present to user
 ```
 
 **Governance preservation:**
@@ -386,7 +390,7 @@ A skill author who wants richer integration:
 4. SkillRegistry picks up the manifest on next `discover()`.
 
 **Forward compatibility:** `schema_version: 1` lets us evolve the schema.
-SkillRegistry parsers treat unknown versions as "ignore manifest" — no hard
+SkillRegistry parsers treat unknown versions as "ignore manifest" 鈥?no hard
 break for users on older Nexus.
 
 ### Built-in Nexus support skills
@@ -414,7 +418,7 @@ all callers (runtime + generation) consult the registry.
 D3 is the largest sub-track in Phase 4.3. Eight PRs in five phases. Each PR
 keeps the system in a working state at HEAD.
 
-### Phase 3.1 — SkillRegistry consolidation
+### Phase 3.1 鈥?SkillRegistry consolidation
 
 **Goal:** Replace `external-skills.ts` with a `SkillRegistry` module. **No new
 behavior**; just consolidation.
@@ -436,12 +440,12 @@ behavior**; just consolidation.
 
 **Effort:** 4-5h. Mechanical move + dedupe + small interface design.
 
-### Phase 3.2 — `nexus.skill.yaml` schema + cooperation surface
+### Phase 3.2 鈥?`nexus.skill.yaml` schema + cooperation surface
 
 This phase has been **split into 4 sub-phases** (revised 2026-05-05) to keep
 each PR small and reviewable. Each sub-phase has its own brief.
 
-#### Phase 3.2.a — schema + parser only
+#### Phase 3.2.a 鈥?schema + parser only
 
 **Goal:** Define the schema and add parsing. Registry does not yet read manifests.
 
@@ -457,7 +461,7 @@ each PR small and reviewable. Each sub-phase has its own brief.
 
 **Effort:** 4-6h. Schema design + parser + tests + docs.
 
-#### Phase 3.2.b — SkillRegistry consumes manifests
+#### Phase 3.2.b 鈥?SkillRegistry consumes manifests
 
 **Goal:** Wire the schema into discovery + classification + ranking so Nexus
 actually uses manifests when present.
@@ -476,10 +480,10 @@ actually uses manifests when present.
 
 **Effort:** 3-4h. Registry consumption + tests.
 
-#### Phase 3.2.c — Δ1: first-party manifest catalog (audit recommendation)
+#### Phase 3.2.c 鈥?螖1: first-party manifest catalog (audit recommendation)
 
 **Goal:** Provide examples third-party skill authors can use to declare their
-skills as Nexus-aware. Per Model γ, Nexus does not bundle but does publish
+skills as Nexus-aware. Per Model 纬, Nexus does not bundle but does publish
 templates.
 
 **Brief:** `docs/architecture/track-d-d3-phase-2-3-brief.md`
@@ -490,16 +494,16 @@ templates.
 - Build `bun run skill:manifest:suggest <skill-name>` script that reads a
   third-party `SKILL.md` and emits a stub manifest based on heuristics
 - Documentation: how a skill author / marketplace adopts a manifest
-- These are **published examples**, not shipped manifests — Nexus does not
+- These are **published examples**, not shipped manifests 鈥?Nexus does not
   ship third-party skill content
 
 **Effort:** 3-4h.
 
-#### Phase 3.2.d — Δ2: opt-in installer convenience (audit recommendation)
+#### Phase 3.2.d 鈥?螖2: opt-in installer convenience (audit recommendation)
 
 **Goal:** Convenience flag on `nexus setup` that delegates to the host's
-plugin manager for installing external skill bundles. Per Model γ, Nexus
-does not host these skills — the installer is a thin shell-out.
+plugin manager for installing external skill bundles. Per Model 纬, Nexus
+does not host these skills 鈥?the installer is a thin shell-out.
 
 **Brief:** `docs/architecture/track-d-d3-phase-2-4-brief.md`
 **Issue:** #76
@@ -512,7 +516,7 @@ does not host these skills — the installer is a thin shell-out.
 
 **Effort:** 3-4h.
 
-### Phase 3.3 — Stage-aware advisor (B)
+### Phase 3.3 鈥?Stage-aware advisor (B)
 
 **Goal:** Wire the manifest data into completion-advisor's recommendation
 flow.
@@ -530,7 +534,7 @@ flow.
 **Effort:** 3-4h. Logic + ranking + tests. Depends on #41 (completion-advisor
 split) being done so the resolver is its own module.
 
-### Phase 3.4 — Built-in skill manifests
+### Phase 3.4 鈥?Built-in skill manifests
 
 **Goal:** Write `nexus.skill.yaml` for the 28 Nexus-native support skills.
 
@@ -545,40 +549,40 @@ split) being done so the resolver is its own module.
 **Effort:** 4-6h. The manifest authoring is per-skill and requires judgement
 calls; not purely mechanical. Spread across multiple PRs if too large.
 
-### Phase 3.5 — `/nexus do <intent>` dispatcher (C)
+### Phase 3.5 鈥?`/nexus do <intent>` dispatcher (C)
 
 **Goal:** Add the intent-routing pseudo-command.
 
 - Add `'do'` to `command-manifest.ts` (decision: extend `CANONICAL_MANIFEST`
-  or add a separate `META_COMMANDS` table — recommend the latter)
+  or add a separate `META_COMMANDS` table 鈥?recommend the latter)
 - Implement `commands/do.ts` with the dispatcher logic
 - Implement `SkillRegistry.matchIntent(intent)` with keyword + manifest scoring
 - Add LLM classifier path (gated by `NEXUS_INTENT_LLM`)
 - Add `do-history.json` artifact write under `.planning/<run>/`
 - Update `migration-safety.ts:assertCanonicalLifecycleEntrypoint` to allow
   `'do'` (or refactor the gate to check both lifecycle + meta sets)
-- Tests: keyword-only matching; ambiguous case → chooser; refuse case →
+- Tests: keyword-only matching; ambiguous case 鈫?chooser; refuse case 鈫?
   helpful error
 
 **Effort:** 5-7h. New code + LLM integration + tests.
 
-### Phase 3.6 — Documentation
+### Phase 3.6 鈥?Documentation
 
 **Goal:** Write the user-facing docs.
 
-- New: `docs/skill-authoring.md` — how to author a `nexus.skill.yaml`
-- New: `docs/intent-routing.md` — how `/nexus do` works, examples
-- Update `README.md` Skill Surface section with cross-link to skill-authoring
+- Existing: `docs/skill-manifest-schema.md` - how to author a `nexus.skill.yaml`
+- Update `README.md` Skill Surface section with SkillRegistry and `/nexus do`
+  routing context
 - Update `docs/skills.md` to reflect post-D2 absorption + post-D3 skill
   cooperation reality
-- Update `phase-4-plan.md` to mark Phase 4.3 D3 as ☑
+- Update `phase-4-plan.md` and backlog docs to mark D3 closeout state
 
 **Effort:** 3-4h.
 
-### Phase 3.7 — Optional: `external-skills.ts` compatibility shim removal
+### Phase 3.7 鈥?Optional: `external-skills.ts` compatibility shim removal
 
-**Goal:** After Phase 3.3 is fully landed and stable for a while, remove the
-compatibility shim.
+**Goal:** After manifest-aware advisor and dispatcher phases land, remove the
+Phase 1 compatibility shim.
 
 - Delete `external-skills.ts` if all callers have migrated to
   `skill-registry/` (likely already done in 3.1)
@@ -592,21 +596,21 @@ compatibility shim.
 
 | Phase | Effort | Risk | Status |
 |-------|--------|------|--------|
-| 3.1 — SkillRegistry consolidation | 4-5h | Medium | **✅ Done** (PR #57 + #60) |
-| 3.2.a — Manifest schema + parser | 4-6h | Low | **Done** (#65 / PR #91) |
-| 3.2.b — Registry consumes manifests | 3-4h | Medium | Brief ready (#74) |
-| 3.2.c — Δ1: first-party manifest catalog | 3-4h | Low | Brief ready (#75) |
-| 3.2.d — Δ2: opt-in installer | 3-4h | Low | Brief ready (#76) |
-| 3.3 — Stage-aware advisor (B) | 3-4h | Medium | Brief pending (#77) |
-| 3.4 — Built-in skill manifests (28) | 4-6h | Low | Brief pending (#78) |
-| 3.5 — `/nexus do` dispatcher (C) | 5-7h | High | Brief pending (#79) |
-| 3.6 — Documentation | 3-4h | Low | Brief pending (#80) |
-| 3.7 — Compat shim removal | 30 min | Low | Brief pending (#81) |
+| 3.1 鈥?SkillRegistry consolidation | 4-5h | Medium | **鉁?Done** (PR #57 + #60) |
+| 3.2.a 鈥?Manifest schema + parser | 4-6h | Low | **Done** (#65 / PR #91) |
+| 3.2.b - Registry consumes manifests | 3-4h | Medium | **Done** (#74) |
+| 3.2.c - Delta 1: first-party manifest catalog | 3-4h | Low | **Done** (#75) |
+| 3.2.d - Delta 2: opt-in installer | 3-4h | Low | **Done** (#76) |
+| 3.3 - Stage-aware advisor (B) | 3-4h | Medium | **Done** (#77) |
+| 3.4 - Built-in skill manifests | 4-6h | Low | **Done** (#78) |
+| 3.5 - `/nexus do` dispatcher (C) | 5-7h | High | **Done** (#79) |
+| 3.6 - Documentation | 3-4h | Low | PR in flight (#80) |
+| 3.7 - Compat shim removal | 30 min | Low | PR in flight (#81) |
 | **Total (revised)** | **32-44h** | | ~10-15% complete |
 
 **Effort delta vs v1**: +10-14h, driven by (a) schema-only sub-phase 3.2.a vs
-combined "schema + register" in v1, and (b) two new sub-phases 3.2.c (Δ1
-catalog) and 3.2.d (Δ2 installer) added per Model γ recommendation.
+combined "schema + register" in v1, and (b) two new sub-phases 3.2.c (螖1
+catalog) and 3.2.d (螖2 installer) added per Model 纬 recommendation.
 
 ---
 
@@ -630,12 +634,13 @@ catalog) and 3.2.d (Δ2 installer) added per Model γ recommendation.
 
 D3 is complete when:
 
-1. `lib/nexus/skill-registry/` exists; `lib/nexus/external-skills.ts` is
-   either deleted or a thin compatibility shim.
+1. `lib/nexus/skill-registry/` exists and the Phase 1
+   `lib/nexus/external-skills.ts` compatibility shim is deleted.
 2. There is a single canonical `NEXUS_SUPPORT_SKILL_NAMES` constant; both
    runtime and generation pipelines reference it.
-3. `nexus.skill.yaml` schema is documented in `docs/skill-authoring.md`.
-4. The 28 built-in support skills each have a valid `nexus.skill.yaml`.
+3. `nexus.skill.yaml` schema is documented in `docs/skill-manifest-schema.md`.
+4. The 9 canonical, 23 support, 4 safety, and 1 root skills each have a valid
+   `nexus.skill.yaml`.
 5. SkillRegistry's `findForLifecycleStage()` is wired into completion-advisor;
    manifest-aware recommendations score higher than heuristic-only.
 6. `bun run bin/nexus.ts do <intent>` works for at least 5 representative
@@ -647,7 +652,8 @@ D3 is complete when:
 8. `NEXUS_EXTERNAL_SKILLS=0` continues to disable external skills.
 9. `NEXUS_INTENT_LLM=0` continues to allow `/nexus do` to work in
    keyword-only mode.
-10. `docs/architecture/phase-4-plan.md` § Phase 4.3 D3 marked ☑.
+10. `docs/architecture/phase-4-plan.md` and
+    `docs/architecture/phase-4-backlog.md` record D3 closeout status.
 
 ---
 
@@ -662,7 +668,7 @@ These need explicit answers before Phase 3.1 starts.
 | **A** | Add `'do'` to `CANONICAL_MANIFEST` in `command-manifest.ts` |
 | **B** | Add a new `META_COMMANDS` table; `'do'` is the first entry. `migration-safety.ts` checks both sets. |
 
-**Recommendation: B** — `'do'` is structurally different from lifecycle stages
+**Recommendation: B** 鈥?`'do'` is structurally different from lifecycle stages
 (it routes, it doesn't produce governed artifacts of its own). Treating it as
 a meta-command keeps the lifecycle taxonomy clean.
 
@@ -670,11 +676,11 @@ a meta-command keeps the lifecycle taxonomy clean.
 
 | Option | Description |
 |--------|-------------|
-| **A** | Always ask — every candidate requires explicit confirmation. |
+| **A** | Always ask 鈥?every candidate requires explicit confirmation. |
 | **B** | Auto-execute only when confidence > threshold (e.g., 0.9) AND the candidate is canonical. |
 | **C** | Configurable via `nexus-config set do_auto_execute true/false`. Default false (ask). |
 
-**Recommendation: A** — Phase 3.5 is the first iteration of an LLM-driven
+**Recommendation: A** 鈥?Phase 3.5 is the first iteration of an LLM-driven
 surface; conservatism on auto-execute prevents nasty surprises. Move to B/C
 as a later RFC if user feedback says "it asks too much".
 
@@ -685,7 +691,7 @@ as a later RFC if user feedback says "it asks too much".
 | **A** | Source: `skills/support/<name>/nexus.skill.yaml` exists and is checked in. Generation copies to install root. |
 | **B** | Install-only: skill authors place `nexus.skill.yaml` next to the installed `SKILL.md`. Source tree has no manifest. |
 
-**Recommendation: A** — for built-in skills, the manifest is part of the source.
+**Recommendation: A** 鈥?for built-in skills, the manifest is part of the source.
 For external user skills, both placement options work (the registry just looks
 for manifest next to SKILL.md). Source-tree presence makes the manifest part
 of the version-controlled skill definition.
@@ -696,34 +702,34 @@ of the version-controlled skill definition.
 |--------|-------------|
 | **A** | Per-run, like other `.planning/current/<run>/` artifacts. Cleared on next run. |
 | **B** | Append-only across runs. Useful for retro / learning patterns. |
-| **C** | Both — current run gets `current-do-history.json`; archive is `archive/do-history.jsonl`. |
+| **C** | Both 鈥?current run gets `current-do-history.json`; archive is `archive/do-history.jsonl`. |
 
-**Recommendation: C** — current run gives explainability for that run; archive
+**Recommendation: C** 鈥?current run gives explainability for that run; archive
 gives long-term pattern data for `/learn` skill consumption.
 
 ---
 
 ## References
 
-- `docs/architecture/phase-4-plan.md` — parent plan
-- `docs/architecture/track-d-d2-rfc.md` — companion RFC (upstream removal)
-- `docs/architecture/context-diagram.md` — system overview
-- Code-explorer report (2026-05-04) — surface map this RFC was written against
-- Issue #43 — host scanner asymmetry (precursor; #43 unifies the host
+- `docs/architecture/phase-4-plan.md` 鈥?parent plan
+- `docs/architecture/track-d-d2-rfc.md` 鈥?companion RFC (upstream removal)
+- `docs/architecture/context-diagram.md` 鈥?system overview
+- Code-explorer report (2026-05-04) 鈥?surface map this RFC was written against
+- Issue #43 鈥?host scanner asymmetry (precursor; #43 unifies the host
   enumeration that SkillRegistry consumes)
-- `lib/nexus/external-skills.ts:1-368` — current scanner
-- `lib/nexus/skill-structure.ts` — duplicated support-skill registry to merge
-- `lib/nexus/types.ts:858-868` — `InstalledSkillRecord` definition
-- `lib/nexus/completion-advisor.ts:293-323` — current advisor enrichment flow
-- `lib/nexus/runtime-invocation.ts:67` — argv parsing, hook for `'do'`
-- `lib/nexus/migration-safety.ts:7` — `assertCanonicalLifecycleEntrypoint`
-- `lib/nexus/command-manifest.ts` — `CANONICAL_MANIFEST`,
+- `lib/nexus/external-skills.ts:1-368` 鈥?current scanner
+- `lib/nexus/skill-structure.ts` 鈥?duplicated support-skill registry to merge
+- `lib/nexus/types.ts:858-868` 鈥?`InstalledSkillRecord` definition
+- `lib/nexus/completion-advisor.ts:293-323` 鈥?current advisor enrichment flow
+- `lib/nexus/runtime-invocation.ts:67` 鈥?argv parsing, hook for `'do'`
+- `lib/nexus/migration-safety.ts:7` 鈥?`assertCanonicalLifecycleEntrypoint`
+- `lib/nexus/command-manifest.ts` 鈥?`CANONICAL_MANIFEST`,
   `documentedLifecycleEntrypoints`
-- `bin/nexus.ts:66-92` — CLI entry + dispatch
-- `scripts/gen-skill-docs.ts` — host-specific generation pipeline
-- `scripts/discover-skills.ts` — source-tree discovery
-- `skills/canonical/discover/SKILL.md.tmpl` — representative canonical
+- `bin/nexus.ts:66-92` 鈥?CLI entry + dispatch
+- `scripts/gen-skill-docs.ts` 鈥?host-specific generation pipeline
+- `scripts/discover-skills.ts` 鈥?source-tree discovery
+- `skills/canonical/discover/SKILL.md.tmpl` 鈥?representative canonical
   frontmatter (for understanding what `nexus.skill.yaml` does NOT need to carry)
-- `skills/support/browse/SKILL.md.tmpl` — representative support frontmatter
-- `test/nexus/external-skills.test.ts` — reusable fixture style for
+- `skills/support/browse/SKILL.md.tmpl` 鈥?representative support frontmatter
+- `test/nexus/external-skills.test.ts` 鈥?reusable fixture style for
   `skill-registry.test.ts`

@@ -1,12 +1,12 @@
 # Nexus Context Diagram
 
 A high-level architectural view of Nexus, showing external actors, internal
-substrate, sidecar runtimes, and the persistence boundary. Use this as a
-single-glance reference when validating new design choices or onboarding a
-contributor.
+runtime substrate, skill routing, sidecar runtimes, and the persistence
+boundary. Use this as a single-glance reference when validating new design
+choices or onboarding a contributor.
 
-For component-level detail (file-by-file), see `lib/nexus/README.md`. For
-work-in-progress remediation, see `docs/architecture/post-audit-cleanup-plan.md`.
+For component-level detail, see `lib/nexus/README.md`. For work-in-progress
+remediation, see `docs/architecture/post-audit-cleanup-plan.md`.
 
 ---
 
@@ -14,58 +14,62 @@ work-in-progress remediation, see `docs/architecture/post-audit-cleanup-plan.md`
 
 ```mermaid
 graph TB
-    Human([👤 Human Engineer])
+    Human(["Human Engineer"])
 
     subgraph Hosts["AI Coding Hosts<br/>(interactive front doors)"]
         direction LR
-        Claude[Claude Code]
-        Codex[Codex CLI]
-        Gemini[Gemini CLI]
-        Factory[Factory Droid]
+        Claude["Claude Code"]
+        Codex["Codex CLI"]
+        Gemini["Gemini CLI"]
+        Factory["Factory Droid"]
     end
 
     subgraph External["External Systems"]
         direction LR
-        GitHub[(GitHub<br/>PRs / Issues)]
-        Browser[Chrome /<br/>Puppeteer]
-        CCB{{CCB Bridge<br/>multi-provider<br/>transport}}
+        GitHub[("GitHub<br/>PRs / Issues")]
+        Browser["Chrome / Puppeteer"]
+        CCB{{"CCB Bridge<br/>multi-provider transport"}}
     end
 
-    subgraph Nexus["⬢ Nexus — single-package AI engineering OS"]
+    subgraph Nexus["Nexus - single-package AI engineering OS"]
         direction TB
-        CLI["bin/nexus.ts<br/><i>CLI dispatch</i>"]
+        CLI["bin/nexus.ts<br/>CLI dispatch"]
 
-        subgraph Substrate["lib/nexus/ — runtime substrate (~53 flat files)"]
+        subgraph Substrate["lib/nexus/ runtime substrate"]
             direction TB
-            Cmds["commands/<br/>9 lifecycle handlers<br/>discover→frame→plan→<br/>handoff→build→review→<br/>qa→ship→closeout"]
-            Adapt["adapters/<br/><b>pm · gsd · superpowers</b><br/><b>ccb · local</b>"]
-            State["ledger.ts +<br/>governance.ts +<br/>artifacts.ts<br/><i>state machine</i>"]
-            Norm["normalizers/<br/><i>adapter→canonical</i>"]
-            Adv["⚠️ completion-advisor.ts<br/><b>1100+ LOC</b><br/><i>highest coupling</i>"]
+            Cmds["commands/<br/>9 lifecycle handlers"]
+            Intent["intent-classifier/<br/>/nexus do"]
+            SkillReg["skill-registry/<br/>manifest discovery + ranking"]
+            Adapt["adapters/<br/>governed_ccb + local_provider"]
+            State["ledger.ts + governance.ts + artifacts.ts<br/>state machine"]
+            Norm["normalizers/<br/>adapter to canonical records"]
+            Adv["completion-advisor/<br/>stage-aware recommendations"]
         end
 
-        subgraph Side["runtimes/ — sidecar binaries<br/>(loosely coupled, file-IPC)"]
+        subgraph Side["runtimes/<br/>sidecar binaries"]
             direction LR
-            Browse["browse/<br/>QA + sidebar-agent"]
-            Design["design/<br/>mockup→HTML"]
-            SafetyR["safety/<br/>git hooks"]
+            Browse["browse/<br/>QA + sidebar agent"]
+            Design["design/<br/>mockup + export pipeline"]
+            Hooks["hooks/<br/>safety helpers"]
         end
 
-        subgraph SkillsGen["skills/ → hosts/ → generated outputs<br/>(skill prose, not runtime code)"]
+        subgraph SkillsGen["skills/ to hosts/<br/>generated skill output"]
             direction LR
-            Tmpl["skills/**/*.tmpl<br/>canonical / support /<br/>safety / aliases / root"]
-            HostCfg["hosts/<br/>claude · codex ·<br/>gemini-cli · factory"]
-            Gen{{"bun run<br/>gen:skill-docs"}}
+            Tmpl["skills/**/*.tmpl<br/>canonical / support / safety / aliases / root"]
+            Manifests["nexus.skill.yaml<br/>routing metadata"]
+            HostCfg["hosts/<br/>claude / codex / gemini-cli / factory"]
+            Gen{{"bun run gen:skill-docs"}}
             Tmpl --> Gen
+            Manifests --> Gen
             HostCfg --> Gen
         end
     end
 
     subgraph Persist["Persistence (repo-local, no remote DB)"]
         direction LR
-        Planning[(".planning/<br/>governed artifacts<br/>per-stage state<br/>audits / current /<br/>archive")]
-        Cfg[("~/.nexus/<br/>config.yaml<br/>+ workspace state")]
-        GenSkills["⊘ .claude/skills/<br/>.agents/skills/<br/>.gemini/skills/<br/>.factory/skills/<br/><i>(gitignored)</i>"]
+        Planning[(".planning/<br/>governed artifacts + audits")]
+        Cfg[("~/.nexus/<br/>config + workspace state")]
+        GenSkills["Generated host skill roots<br/>.claude / .agents / .gemini / .factory"]
     end
 
     Human --> Claude
@@ -79,10 +83,14 @@ graph TB
     Factory --> CLI
 
     CLI --> Cmds
+    CLI --> Intent
+    Intent --> SkillReg
     Cmds --> Adapt
     Cmds --> State
     Cmds --> Norm
     Cmds --> Adv
+    Adv --> SkillReg
+    SkillReg --> Adv
 
     Adapt -->|"governed_ccb mode"| CCB
     CCB --> Codex
@@ -93,147 +101,120 @@ graph TB
 
     State -->|read/write| Planning
     State -.read.-> Cfg
-    Browse -.file-IPC.-> Planning
-    Design -.file-IPC.-> Planning
-    SafetyR -.file-IPC.-> Planning
+    Browse -.file IPC.-> Planning
+    Design -.file IPC.-> Planning
+    Hooks -.file IPC.-> Planning
 
     Gen --> GenSkills
+    Manifests -.installed with.-> GenSkills
     GenSkills -.discovered by.-> Hosts
+    GenSkills -.scanned by.-> SkillReg
 
-    classDef warn fill:#fff4e1,stroke:#cc8800,stroke-width:2px,color:#000
     classDef coreSystem fill:#e1f5ff,stroke:#0066cc,stroke-width:2px,color:#000
+    classDef router fill:#eaf8e6,stroke:#2b8a3e,stroke-width:2px,color:#000
     classDef genArtifact fill:#f5f5f5,stroke:#999,stroke-dasharray:5 5,color:#666
-    class Adv warn
     class Substrate coreSystem
+    class SkillReg,Intent router
     class GenSkills genArtifact
 ```
 
 ---
 
-## Layer model
+## Layer Model
 
-### 1. Hosts (interactive front doors)
+### 1. Hosts
 
-Claude / Codex / Gemini-CLI / Factory each load Nexus skill prose from a
-host-specific install root (`.claude/skills/`, `.agents/skills/`,
-`.gemini/skills/`, `.factory/skills/`). The host is the user's interactive
-shell; it reads `SKILL.md` and invokes `bun run bin/nexus.ts <command>`. Hosts
-do not extend lifecycle behavior — they are distribution targets.
+Claude, Codex, Gemini CLI, and Factory load generated Nexus skill prose from
+host-specific install roots. The host is the interactive shell; it reads
+`SKILL.md` and invokes `bun run bin/nexus.ts <command>`. Hosts do not own
+lifecycle behavior.
 
-### 2. CLI entry (`bin/nexus.ts`)
+### 2. CLI Entry
 
-Resolves runtime cwd, reads `~/.nexus/config.yaml` to choose execution mode
-(`governed_ccb` vs `local_provider`), dispatches to the appropriate command
-handler in `lib/nexus/commands/`.
+`bin/nexus.ts` resolves the runtime cwd, reads `~/.nexus/config.yaml` to choose
+`governed_ccb` or `local_provider`, and dispatches to lifecycle handlers,
+meta-command handlers such as `/nexus do`, or support surfaces.
 
-### 3. Runtime substrate (`lib/nexus/`)
+### 3. Runtime Substrate
 
-Currently ~53 flat files plus six partial subdirectories. Logical concerns:
+`lib/nexus/` owns the governed lifecycle and router contract:
 
-- **Lifecycle** (`commands/`) — one handler per stage; each reads ledger,
-  asserts transition legality, calls adapters, normalizes output, writes
-  artifacts, updates ledger.
-- **Adapters** (`adapters/`) — five families: `pm`, `gsd`, `superpowers`
-  (absorbed-pattern entries), `ccb`, `local` (transport entries). The default
-  vs runtime distinction (`registry.ts`) is import-time only — see Risk #2.
-- **State** (`ledger.ts`, `status.ts`, `artifacts.ts`) — primary persistence
-  read/write boundary. All `.planning/` paths are constants here.
-- **Governance** (`governance.ts`) — pure invariant assertion layer.
-  Currently 26 identical throws — see Risk #2 in cleanup plan §2.6.
-- **Normalizers** (`normalizers/`) — transform raw adapter output into
-  canonical record shapes for persistence.
-- **Cross-cutting** — `validation-helpers.ts`, `shell-quote.ts`,
-  `execution-topology.ts`, `completion-advisor.ts` (the god module — see
-  Risk #1).
+- `commands/` implements the nine lifecycle handlers and writes governed
+  artifacts.
+- `intent-classifier/` powers `/nexus do` by matching free-form intent against
+  SkillRegistry records.
+- `skill-registry/` scans installed `SKILL.md` files, loads adjacent
+  `nexus.skill.yaml` manifests, classifies skill namespaces, and ranks
+  candidates for dispatch or advisor recommendations.
+- `completion-advisor/` writes stage-completion records, including
+  `recommended_skills` and `recommended_external_skills`.
+- `adapters/`, `normalizers/`, `ledger.ts`, `governance.ts`, and `artifacts.ts`
+  preserve Nexus's transport-independent truth model.
 
-### 4. Sidecar runtimes (`runtimes/`)
+### 4. Sidecar Runtimes
 
-`browse/`, `design/`, `safety/` are compiled binaries with no TypeScript
-import relationship to `lib/nexus/`. They communicate with the substrate via
-filesystem queues and a localhost HTTP server (port 34567). The
-`browse/sidebar-agent.ts` spawns `claude -p` and relays events.
+`runtimes/browse/`, `runtimes/design/`, and `runtimes/hooks/` are compiled or
+scripted sidecars. They communicate through filesystem artifacts and local
+process boundaries rather than importing lifecycle internals as product
+owners.
 
-### 5. Skill generation pipeline
+### 5. Skill Generation And Routing Metadata
 
-Templates in `skills/**/*.tmpl` plus per-host configuration in `hosts/` are
-compiled by `bun run gen:skill-docs --host <host>` into the host install
-roots. Skill prose is **agent-facing instructions only** — it tells the host
-how to call `bin/nexus.ts`. The runtime never reads the generated files.
+Templates in `skills/**/*.tmpl`, routing manifests in `nexus.skill.yaml`, and
+host configuration in `hosts/` compile into generated host skill roots. Skill
+prose is agent-facing instruction; routing metadata is machine-readable input
+for SkillRegistry and `/nexus do`.
 
 ### 6. Persistence
 
-- `.planning/` — governed truth source, repo-local, git-tracked.
-- `~/.nexus/config.yaml` — user-level execution preferences.
-- Generated skill roots — gitignored, regenerated on every install/upgrade.
+- `.planning/` is the repo-local governed truth source.
+- `~/.nexus/config.yaml` stores user-level execution preferences.
+- Generated host skill roots are gitignored install output.
 
-No database. No remote state store. Repo == single source of truth.
+No database. No remote state store. The repository and `.planning/` artifacts
+are the source of truth.
 
 ---
 
-## Two execution modes
+## Execution Modes
 
 ### `governed_ccb`
 
-```
-Human → Claude → Nexus → CCB → Codex/Gemini
+```text
+Human -> Claude -> Nexus -> CCB -> Codex/Gemini
 ```
 
 Full multi-provider governed path. CCB is transport only; lifecycle and
-governance still owned by Nexus. Used when `ccb claude codex gemini` is
-mounted in a tmux session.
+governance remain owned by Nexus.
 
 ### `local_provider`
 
-```
-Human → Claude/Codex/Gemini → Nexus → local provider CLI
+```text
+Human -> Claude/Codex/Gemini -> Nexus -> local provider CLI
 ```
 
-Single-host fallback. Nexus still owns the lifecycle. Local subagents
-(`single_agent` / `subagents` / `multi_session`) configure how the local
-provider fans out review and ship personas.
+Single-host fallback. Nexus still owns the lifecycle, state model, and
+artifacts.
 
 ---
 
-## Design risks observed at this snapshot
+## Preservation Rules
 
-These are summarized here; each has (or will have) a tracked GitHub issue.
-
-| # | Risk | Severity | When to fix |
-|---|------|----------|-------------|
-| 1 | `completion-advisor.ts` is a 1100+ LOC god module imported by every command handler | 🔴 High | **Now** — blocks Phase 4 ST1 |
-| 2 | `governance.ts` has 26 identical `throw new Error('Run ledger is not canonical')` calls without discriminating codes | 🔴 High | Now — overlaps with PR #35 work |
-| 3 | Single-child directories (`lib/`, `agents/openai.yaml`, `skills/root/`) and `runtimes/hooks/` ↔ `skills/safety/` naming collision | 🟡 Medium | Phase 4 (already in cleanup plan ST2/ST5/ST7/ST8) |
-| 4 | Default adapters can silently no-op in production code paths — no runtime kind check | 🟡 Medium | **Now** — low-cost, high-ROI |
-| 5 | External skill scanner ignores Gemini-CLI and Factory host install roots | 🟢 Low | Now (small fix) |
-| 6 | `.planning/` artifacts have no `schema_version` field — schema evolution has no detection point | 🟢 Low | Now (additive) |
-
-## Two architectural choices that are right and worth preserving
-
-1. **CCB as transport, not contract owner** — `lib/nexus/adapters/ccb.ts`
-   is a thin wrapper. Nexus governance, lifecycle, artifacts have zero
-   dependency on CCB. If CCB is unavailable, `local_provider` mode keeps
-   the lifecycle intact. This separation should be defended on every PR
-   that touches the adapter layer.
-2. **`.planning/` as single source of truth** — no conversational state, no
-   LLM memory dependency, all governed truth lands in git-visible files.
-   `lib/nexus/` modules can be rebuilt at any commit and the work-unit state
-   is reconstructible from `.planning/` alone. This is the project's core
-   thesis: **transport is replaceable, truth is not**.
-
-The 6 risks above are implementation-level concerns. They do not threaten
-the thesis; they only erode it if left unaddressed.
+1. CCB is transport, not contract owner. If CCB is unavailable,
+   `local_provider` mode keeps the lifecycle intact.
+2. `.planning/` is the single source of governed truth. No conversational state
+   can replace repo-visible artifacts.
+3. SkillRegistry routes to installed skills; it does not make Nexus a warehouse
+   for external skill implementations.
 
 ---
 
 ## Maintenance
 
-This document is generated from the codebase state at the time of writing
-and should be re-validated whenever:
+Re-validate this document whenever:
 
-- A major lifecycle stage is added or removed
-- A new sidecar runtime joins `runtimes/`
-- A new host is supported in `hosts/`
-- The execution-mode topology changes
-- Significant Phase 4 cleanup lands
-
-Re-render the Mermaid block in any GitHub or VS Code preview pane.
+- A lifecycle stage is added or removed.
+- A new sidecar runtime joins `runtimes/`.
+- A new host is supported in `hosts/`.
+- SkillRegistry, `/nexus do`, or the stage-completion advisor contract changes.
+- The execution-mode topology changes.
