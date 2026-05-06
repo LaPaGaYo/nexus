@@ -4,7 +4,9 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus ship command. Persists the governed release gate, checklist state,
-  and structured ship readiness for the governed Nexus lifecycle. (nexus)
+  and structured ship readiness for the governed Nexus lifecycle. Use when the user
+  says "ship it", "merge to main", "release the change", or asks to gate a branch
+  on its pre-merge readiness checks. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -59,6 +61,74 @@ Outcomes 2–4 are not failures; they are honest endings. The failure mode is "n
 
 `/ship` does not auto-pick an outcome. The operator picks; the artifact records the choice.
 
+## How to run /ship
+
+These steps execute one `/ship` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply. `/ship` is the merge boundary — every step here either confirms the readiness gate or refuses the merge.
+
+### Step 1 — Verify the pre-merge readiness gate
+
+Per Law 1, `/ship` cannot mark `release-gate-record.md` `ready` without all five mandatory checks visible at decision time:
+
+1. Tests pass with output evidence in this turn
+2. CI green on the head SHA
+3. `/review` `pass_round` is current and not stale
+4. `/qa` verdict is `ready` or `ready_with_findings` (when `/qa` was run)
+5. Branch is up-to-date with base
+
+Walk each check explicitly. Stale CI from a prior turn does not count; a `/review` pass invalidated by later commits does not count. If a check needs rerunning, rerun it in this turn.
+
+### Step 2 — If any check fails, refuse the merge
+
+Per Law 2, `/ship` MUST refuse when any readiness check (Law 1) fails. The advisor record carries `release_gate: not_ready` with the failing check enumerated, and the operator routes back through the relevant stage (`/build`, `/review`, `/qa`).
+
+Three shortcuts are forbidden regardless of operator framing:
+
+- No silent merges past failed checks
+- No force-push to base or shared branches
+- No `[skip ci]`, `--no-verify`, or branch-protection bypasses
+
+Bad work is worse than no work. The exception path (Law 2) is explicit, time-boxed, and requires `AskUserQuestion` confirmation plus a recorded rationale in `release-gate-record.md`. Silent override is not an option.
+
+### Step 3 — Pick the branch outcome
+
+If the readiness gate is verified, surface the four explicit outcomes per Law 3 and let the operator pick. Use `AskUserQuestion`:
+
+> "The readiness gate is verified. How should this branch end?
+> (a) Merge — the PR merges to base, branch deleted per repo policy
+> (b) Keep alive — record `release_gate: deferred` with a one-paragraph reason (blocked dep, design pending, scheduled for next window)
+> (c) Discard — record `release_gate: discarded` with a discovery-style note (what was tried, what was learned)
+> (d) Split — record `release_gate: split` and route back to `/plan` Law 3 to extend the contract for the unmergeable subset"
+
+`/ship` does not auto-pick. Outcomes 2–4 are honest endings, not failures; the only failure mode is "neither merging nor explicitly choosing one of the other three." Branches in limbo become operational debt.
+
+### Step 4 — Push the ship branch (if merging)
+
+If the operator picked Merge, ensure the ship branch is pushed before PR creation. If `pull-request.json` records `status: "push_required"`, `/ship` remains not-ready until the branch is pushed and `/ship` is rerun to create or reuse the PR handoff. `/closeout` must not run while `push_required` is on the record.
+
+For Keep alive / Discard / Split, push state is informational only — the outcome is recorded and the merge does not happen.
+
+### Step 5 — Write `release-gate-record.md`
+
+Write the canonical release-gate artifact. It records:
+
+- `release_gate: ready | not_ready | deferred | discarded | split`
+- The five Law 1 checks with their evidence (test output reference, CI run URL, `pass_round` value, `/qa` verdict, base-branch SHA)
+- For `not_ready`, the failing check with its block reason
+- For `deferred | discarded | split`, the rationale per Law 3
+- For any Law 2 exception path use, the recorded override with rationale and `AskUserQuestion` confirmation timestamp
+
+This artifact is the contract `/closeout` consumes. Ambiguity here lands as broken main or laundered runs downstream.
+
+### Step 6 — Record outcome in `pull-request.json`
+
+`pull-request.json` carries the PR handoff state (`open`, `merged`, `push_required`, etc.) and the chosen Law 3 outcome. The PR handoff belongs to `/ship` — `/closeout` verifies the completed handoff but does not create or repair PR state (per `/closeout` Law 3).
+
+For follow-on attestations, `/canary` may add `canary-status.json` and `/land-and-deploy` may add `deploy-result.json` without changing the canonical ship state recorded here.
+
+### Step 7 — Write status
+
+Run the canonical command (in the Routing section below). It writes `release-gate-record.md`, `checklist.json`, `deploy-readiness.json`, `pull-request.json`, `status.json`, and (optionally) `learning-candidates.json`. The advisor record carries the verdict; `/closeout` reads it.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
@@ -76,5 +146,29 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:ship}}
 ```
+
+## Typical prompts
+
+These are example user requests `/ship` handles well. The skill verifies the readiness gate, surfaces the branch-outcome decision, and writes the canonical release-gate artifact.
+
+### Prompt 1 — Standard merge
+
+> "Ship it."
+
+`/ship` walks Step 1 to verify all five Law 1 checks (tests fresh in this turn, CI green on head SHA, `pass_round` current, `/qa` verdict ready or ready_with_findings, branch up-to-date with base). If any check is stale or fails, Step 2 refuses the merge and surfaces which check blocked. If all pass, Step 3 surfaces the four-outcome decision; on Merge, Steps 4–7 push the branch (if needed), record `release_gate: ready` in `release-gate-record.md`, and write `pull-request.json` with the merged status.
+
+### Prompt 2 — P0 surfaced but operator wants to merge anyway
+
+> "QA found a P0 but I want to ship — we'll patch it next sprint."
+
+Per Law 2, "no silent merges past failed checks." Step 1's check 4 reads the `/qa` verdict (`not_ready` because of the P0); Step 2 refuses the merge and surfaces the failing check with its block reason. The exception path is the only release valve, and it requires explicit `AskUserQuestion` confirmation plus a recorded rationale in `release-gate-record.md` (per Law 2). `/ship` does not silently override; the operator chooses to invoke the exception path on the record, or routes back through `/qa`.
+
+### Prompt 3 — In-progress branch the team isn't ready to delete
+
+> "This branch isn't ready to merge but we don't want to discard it — we'll come back to it."
+
+Step 3 surfaces the four-outcome `AskUserQuestion`; the operator picks Keep alive. `/ship` records `release_gate: deferred` with a one-paragraph reason ("blocked on dependency X", "awaiting design review", "scheduled for next window"). The branch remains; `/closeout` may not consume it yet. This is Law 3 outcome 2 — an honest ending, not a failure.
+
+These prompts test that `/ship` enforces the readiness gate (Law 1), refuses to ship broken (Law 2), and surfaces the four explicit branch outcomes (Law 3) rather than auto-picking or silently merging.
 
 {{NEXUS_COMPLETION_ADVISOR:ship}}
