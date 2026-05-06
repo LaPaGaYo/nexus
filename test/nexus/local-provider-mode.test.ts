@@ -628,6 +628,184 @@ describe('nexus local_provider mode', () => {
     });
   });
 
+  test('blocks handoff when codex local subagents are selected but codex CLI is unavailable', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: string[] = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        runCommand: async (spec) => {
+          calls.push(spec.argv.join(' '));
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 1,
+              stdout: '',
+              stderr: 'codex not found',
+            };
+          }
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      await run('plan', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await expect(run('handoff', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(calls).toEqual(['which codex']);
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'subagents',
+        state: 'blocked',
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'codex not found',
+        },
+        errors: ['codex not found'],
+      });
+    });
+  });
+
+  test('blocks handoff when codex local subagents lack exec stdin support', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: string[] = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        runCommand: async (spec) => {
+          calls.push(spec.argv.join(' '));
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/codex\n',
+              stderr: '',
+            };
+          }
+          if (spec.argv[0] === 'codex' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: codex [OPTIONS] [PROMPT]\nCommands:\n  review\n  resume\n',
+              stderr: '',
+            };
+          }
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      await run('plan', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION);
+      await expect(run('handoff', adapters, CODEX_LOCAL_SUBAGENT_EXECUTION)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(calls).toEqual(['which codex', 'codex --help']);
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'codex',
+        provider_topology: 'subagents',
+        state: 'blocked',
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'codex CLI does not support exec - for local_provider subagents',
+        },
+        errors: ['codex CLI does not support exec - for local_provider subagents'],
+      });
+    });
+  });
+
+  test('blocks handoff when gemini local subagents are selected but gemini CLI is unavailable', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: string[] = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        runCommand: async (spec) => {
+          calls.push(spec.argv.join(' '));
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 1,
+              stdout: '',
+              stderr: 'gemini not found',
+            };
+          }
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      await run('plan', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await expect(run('handoff', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(calls).toEqual(['which gemini']);
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'gemini',
+        provider_topology: 'subagents',
+        state: 'blocked',
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'gemini not found',
+        },
+        errors: ['gemini not found'],
+      });
+    });
+  });
+
+  test('blocks handoff when gemini local subagents lack prompt and yolo support', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const calls: string[] = [];
+      const adapters = getDefaultNexusAdapters();
+      adapters.local = createRuntimeLocalAdapter({
+        runCommand: async (spec) => {
+          calls.push(spec.argv.join(' '));
+          if (spec.argv[0] === 'which') {
+            return {
+              exit_code: 0,
+              stdout: '/Users/henry/.local/bin/gemini\n',
+              stderr: '',
+            };
+          }
+          if (spec.argv[0] === 'gemini' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: gemini [OPTIONS]\n  --output-format <format>\n',
+              stderr: '',
+            };
+          }
+          throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+        },
+      });
+
+      await run('plan', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION);
+      await expect(run('handoff', adapters, GEMINI_LOCAL_SUBAGENT_EXECUTION)).rejects.toThrow(
+        'Local provider route is not approved by Nexus',
+      );
+
+      expect(calls).toEqual(['which gemini', 'gemini --help']);
+      expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+        stage: 'handoff',
+        execution_mode: 'local_provider',
+        primary_provider: 'gemini',
+        provider_topology: 'subagents',
+        state: 'blocked',
+        route_validation: {
+          transport: 'local',
+          available: false,
+          approved: false,
+          reason: 'gemini CLI does not support -p and --yolo for local_provider subagents',
+        },
+        errors: ['gemini CLI does not support -p and --yolo for local_provider subagents'],
+      });
+    });
+  });
+
   test('blocks handoff when local multi_session is selected for claude', async () => {
     await runInTempRepo(async ({ run }) => {
       const reservedExecution = {
@@ -1449,6 +1627,14 @@ describe('nexus local_provider mode', () => {
             };
           }
 
+          if (spec.argv[0] === 'codex' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: codex [OPTIONS] [PROMPT]\nCommands:\n  exec -\n  review\n  resume\n',
+              stderr: '',
+            };
+          }
+
           if (spec.argv[0] !== 'codex') {
             throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
           }
@@ -1507,16 +1693,18 @@ describe('nexus local_provider mode', () => {
         'codex',
         'codex',
         'codex',
+        'codex',
       ]);
-      expect(calls.slice(1).every((call) => call.argv.includes('exec'))).toBe(true);
-      expect(calls.slice(1).every((call) => call.argv.includes('--output-last-message'))).toBe(true);
-      expect(calls[1]?.stdin_text).toContain('nexus_builder');
-      expect(calls[2]?.stdin_text).toContain('nexus_verifier');
-      expect(calls[3]?.stdin_text).toContain('nexus_review_code');
-      expect(calls[4]?.stdin_text).toContain('nexus_review_test');
-      expect(calls[5]?.stdin_text).toContain('nexus_review_security');
-      expect(calls[6]?.stdin_text).toContain('nexus_review_design');
-      expect(calls[7]?.stdin_text).toContain('nexus_qa');
+      expect(calls[1]?.argv.join(' ')).toContain('codex --help');
+      expect(calls.slice(2).every((call) => call.argv.includes('exec'))).toBe(true);
+      expect(calls.slice(2).every((call) => call.argv.includes('--output-last-message'))).toBe(true);
+      expect(calls[2]?.stdin_text).toContain('nexus_builder');
+      expect(calls[3]?.stdin_text).toContain('nexus_verifier');
+      expect(calls[4]?.stdin_text).toContain('nexus_review_code');
+      expect(calls[5]?.stdin_text).toContain('nexus_review_test');
+      expect(calls[6]?.stdin_text).toContain('nexus_review_security');
+      expect(calls[7]?.stdin_text).toContain('nexus_review_design');
+      expect(calls[8]?.stdin_text).toContain('nexus_qa');
 
       expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
         execution_mode: 'local_provider',
@@ -1656,6 +1844,14 @@ describe('nexus local_provider mode', () => {
             };
           }
 
+          if (spec.argv[0] === 'gemini' && spec.argv.includes('--help')) {
+            return {
+              exit_code: 0,
+              stdout: 'Usage: gemini [OPTIONS]\n  -p <prompt>\n  --output-format <format>\n  --yolo\n',
+              stderr: '',
+            };
+          }
+
           if (spec.argv[0] !== 'gemini') {
             throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
           }
@@ -1735,15 +1931,17 @@ describe('nexus local_provider mode', () => {
         'gemini',
         'gemini',
         'gemini',
+        'gemini',
       ]);
-      expect(calls.slice(1).every((call) => call.argv.includes('-p'))).toBe(true);
-      expect(calls[1]?.argv.join(' ')).toContain('nexus_builder');
-      expect(calls[2]?.argv.join(' ')).toContain('nexus_verifier');
-      expect(calls[3]?.argv.join(' ')).toContain('nexus_review_code');
-      expect(calls[4]?.argv.join(' ')).toContain('nexus_review_test');
-      expect(calls[5]?.argv.join(' ')).toContain('nexus_review_security');
-      expect(calls[6]?.argv.join(' ')).toContain('nexus_review_design');
-      expect(calls[7]?.argv.join(' ')).toContain('nexus_qa');
+      expect(calls[1]?.argv.join(' ')).toContain('gemini --help');
+      expect(calls.slice(2).every((call) => call.argv.includes('-p'))).toBe(true);
+      expect(calls[2]?.argv.join(' ')).toContain('nexus_builder');
+      expect(calls[3]?.argv.join(' ')).toContain('nexus_verifier');
+      expect(calls[4]?.argv.join(' ')).toContain('nexus_review_code');
+      expect(calls[5]?.argv.join(' ')).toContain('nexus_review_test');
+      expect(calls[6]?.argv.join(' ')).toContain('nexus_review_security');
+      expect(calls[7]?.argv.join(' ')).toContain('nexus_review_design');
+      expect(calls[8]?.argv.join(' ')).toContain('nexus_qa');
 
       expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
         execution_mode: 'local_provider',
