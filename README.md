@@ -381,6 +381,35 @@ cd ~/nexus && ./setup --host factory
 
 For design-bearing runs, `/frame` classifies design impact, `/plan` writes the canonical verification matrix and requires a design contract for material UI work, and `/qa` records visual verification before `/ship` for design-bearing runs.
 
+### Lifecycle discipline (Iron Laws + numbered workflows)
+
+Every canonical skill ships with three concurrent prose layers:
+
+- **Iron Laws** — non-negotiable constraints checked at decision time. E.g., `/build` Law 1 requires evidence in this turn (verification command output attached to the advisor record), `/qa` Law 2 enumerates the ship-blocking finding categories, `/ship` Law 1 lists the five mandatory pre-merge readiness checks.
+- **Numbered "How to run" workflow** — explicit per-step procedure with inputs/outputs per step, between Iron Laws and the Operator Checklist. E.g., `/build` walks read sprint-contract → run pre-edit verification → edit → re-run verification with output attached → repeat per task → aggregate.
+- **Typical prompts** — 2–3 example user requests showing how the skill responds, plus the workflow walked through. Functions as both documentation and self-test target.
+
+Iron Laws constrain *what must be true at decision time*. The workflow defines *what to do in what order*. Both apply.
+
+### Free-form intent dispatch (`/nexus do`)
+
+For users who'd rather describe what they want than remember command names:
+
+```bash
+nexus do "ship it now to production"        # → routes to /ship
+nexus do "implement the auth feature"        # → routes to /build
+nexus do "I want to explore an idea"         # → routes to /discover
+nexus do "review the code change"            # → routes to /review
+```
+
+The dispatcher classifies the intent against each skill's `nexus.skill.yaml` manifest's `intent_keywords` and returns one of:
+
+- **Confident match** — auto-dispatch (governed if canonical)
+- **Ambiguous** — show top 3–5 candidates, user picks
+- **No match** — refuse with helpful suggestion
+
+Per Model γ (Nexus is a router, not a skill warehouse), the dispatcher consumes the registry's manifest data: 9 canonical + 23 support + 4 safety + 1 root manifests author by Track D-D3 Phase 4. Third-party skills installed via host marketplaces show up too once they ship a `nexus.skill.yaml`.
+
 Each canonical stage from `/frame` through `/closeout` now also writes
 `.planning/current/<stage>/completion-advisor.json`. That advisor is the
 runtime-owned next-step contract for interactive hosts: it carries the primary
