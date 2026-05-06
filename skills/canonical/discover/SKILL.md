@@ -4,8 +4,10 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus discovery command. Writes repo-visible discovery artifacts and stage
-  status through Nexus-owned normalization and governance. Use when the problem is still
-  vague and needs clarification. (nexus)
+  status through Nexus-owned normalization and governance. Use when the user says
+  "I want to explore X", "we should look into Y", "I'm not sure what we should build for Z",
+  or when the problem is still vague and needs clarification before /frame can scope it.
+  (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -497,6 +499,89 @@ The brief MAY end with a brief **Reframe** section noting where Look Outward cha
 
 The reason: a discovery brief that does not record the team's prior is unfalsifiable as a discovery output. There is no way to tell whether the brief reflects what users said or what the team wanted users to say.
 
+## How to run /discover
+
+These steps execute one `/discover` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Read upstream context
+
+If a prior closeout produced `next-run-bootstrap.json` or `RETRO-CONTINUITY.md` for this run, read them first. They carry seeded discovery context and prior open questions; ignoring them duplicates work the team already did.
+
+If no prior closeout context exists, this is a fresh discovery run — proceed to Step 2.
+
+### Step 2 — Capture Look Inward
+
+Before gathering any evidence, write the team's current beliefs into a draft `idea-brief.md` `## Look Inward` section (per Law 3). Capture:
+
+- The problem the team thinks exists
+- The user segment the team thinks is affected
+- The hypothesis the team is bringing in
+- Any prior framings or assumptions the team is operating under
+
+This step exists so confirmation bias is on the record. Skip it and Law 3 fails.
+
+### Step 3 — Detect anti-patterns early
+
+If the captured Look Inward already reads like any of Law 1's 5 anti-patterns (feature spec, user testing, substitute-for-shipping, single-stakeholder, solutioning in disguise), STOP. Use `AskUserQuestion`:
+
+> "The current Look Inward reads like a [feature spec | solutioning | etc.]. Should I (a) reframe as a problem statement, (b) route to `pol-probe` for lightweight validation, or (c) continue and flag in the brief?"
+
+The operator picks; record the choice in the brief.
+
+### Step 4 — Gather Look Outward evidence
+
+Per Law 2 the brief needs ≥2 distinct evidence sources. Sources to consider:
+
+- User interviews (transcripts or notes)
+- Support tickets matching the problem space
+- Usage metrics or telemetry
+- Prior PRDs or design docs
+- Market signals (competitor moves, public commentary)
+- Customer email threads
+- Internal usage observations
+
+Cite each piece of evidence to its source. Two interview transcripts count as two sources; the same email quoted twice does not.
+
+### Step 5 — Synthesize hypothesis hint
+
+From Look Outward findings, draft a one-paragraph "If/Then/Because" hint per Law 2 #4. This is not the final hypothesis — `/frame` Law 2 sharpens it. The hint just commits to a direction the framing pass can refine.
+
+### Step 6 — Enumerate open questions
+
+List ≥3 explicit questions for `/frame` to answer (per Law 2 #5). Examples:
+
+- "What's the falsifiable success metric?"
+- "Which user segment ships first?"
+- "What's the rollback plan if hypothesis fails?"
+
+If you can't enumerate three, the discovery has overclaimed — return to Step 4 and gather more.
+
+### Step 7 — Write Reframe section (optional but recommended)
+
+If Look Outward changed Look Inward in any way, write a brief `## Reframe` section noting:
+
+- What the team thought going in
+- What it concluded after evidence
+- Why the change matters
+
+The Reframe is the receipt that discovery actually happened.
+
+### Step 8 — Verify all 5 Law 2 checks pass
+
+Before writing `status.json`, verify the brief has:
+
+1. Named user segment (not "users")
+2. Observed pain with concrete cost
+3. ≥2 distinct evidence sources cited
+4. Hypothesis hint
+5. ≥3 open questions
+
+If any fail, return to the relevant step. If all pass, proceed to Step 9.
+
+### Step 9 — Write status
+
+Run the canonical command (in the Routing section below). It writes `idea-brief.md`, `status.json`, and any continuation artifacts. The advisor record carries the verdict; `/frame` reads it.
+
 ## Operator Checklist
 
 - capture goals
@@ -519,3 +604,83 @@ _NEXUS_ROOT="~/.claude/skills/nexus"
 [ -d "$_REPO_CWD/.claude/skills/nexus" ] && _NEXUS_ROOT="$_REPO_CWD/.claude/skills/nexus"
 cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts discover
 ```
+
+## Typical prompts
+
+These are example user requests `/discover` handles well. The skill is invoked and produces a structured `idea-brief.md` plus `status.json`.
+
+### Prompt 1 — Vague feature idea
+
+> "I think Nexus should have some kind of telemetry, but I don't really know what shape."
+
+`/discover` walks Step 1–9. Look Inward captures the team's prior ("telemetry would help with X"). Look Outward gathers evidence (existing logs? competitor approaches? user requests?). Hypothesis hint emerges. Open questions enumerate what `/frame` must decide. Brief returns `ready` if all 5 Law 2 checks pass.
+
+### Prompt 2 — Reactive problem framing
+
+> "Multiple users are reporting `/build` feels broken when 3-strike fires; I want to understand why before we patch."
+
+Step 1 reads any prior `LEARNINGS.md` for relevant context. Step 2 captures team's current theory. Step 3 detects whether the prompt is already a solution (it isn't — "understand why" is discovery-shaped). Step 4 gathers actual session logs, prior reports. Step 5 produces hypothesis hint. The brief frames the problem rather than proposing fixes.
+
+### Prompt 3 — Strategic exploration
+
+> "Should Nexus expand beyond CCB transport? What would that look like?"
+
+Step 2 captures team's strategic prior. Step 4 gathers competitive landscape, current architectural constraints, prior strategic docs. Hypothesis hint commits to one direction (e.g., "If we add X transport, then Y users will Z because evidence W"). Open questions are aggressive — multiple items the team can't yet answer.
+
+These prompts test that `/discover` produces structured discovery output, not feature specs or implementation plans (Iron Law 1's anti-patterns).
+
+## Completion Advisor
+
+After `/discover` returns, prefer the runtime JSON field `completion_advisor`. If the host only has
+filesystem access, or the field is absent, fall back to `.planning/current/discover/completion-advisor.json`.
+If the runtime exited nonzero, inspect `completion_context.completion_advisor` from the error JSON
+envelope before falling back to disk. Treat that advisor as the canonical next-step contract.
+
+Read and summarize:
+
+- `summary`
+- `interaction_mode`
+- `requires_user_choice`
+- `primary_next_actions`
+- `alternative_next_actions`
+- `recommended_side_skills`
+- `stop_action`
+- `project_setup_gaps`
+- `suppressed_surfaces`
+- `default_action_id`
+
+If `interaction_mode` is `summary_only`, do not call AskUserQuestion. Print the advisor
+`summary`, any `project_setup_gaps`, and the invocation for the `default_action_id` if one exists.
+
+If the session is interactive and `interaction_mode` is not `summary_only`, always use
+AskUserQuestion for `/discover` completion.
+
+If the host cannot display AskUserQuestion, rerun `/discover` with `--output interactive`
+to print the same runtime-owned chooser in the terminal. Do not reconstruct choices
+from `status.json`.
+
+If `interaction_mode` is `recommended_choice`, present:
+
+1. recommended primary action
+2. other primary actions
+3. alternatives
+4. recommended side skills
+5. `stop_action`
+
+If `interaction_mode` is `required_choice`, present only the actions emitted by the advisor.
+
+Use each action's `label` and `description`. If an action has `visibility_reason`,
+`why_this_skill`, or `evidence_signal`, include it in the explanation so the user sees
+why it is showing up now.
+
+After the user chooses an action, run the selected `invocation` unless the selected action
+is `stop_action` or has no invocation.
+
+`/discover` normally has a single canonical continuation into `/frame`. The advisor may also surface
+`/pol-probe` as a side skill when Iron Law 1's anti-patterns suggest lightweight validation is the
+right next move (e.g., the discovery output is starting to read like solutioning rather than problem
+framing). For genuinely strategic discoveries that need additional sharpening, the advisor may
+recommend re-entering `/discover` with a tighter hypothesis hint before `/frame`.
+
+If the session is non-interactive, print the advisor `summary` and the invocation for the
+`default_action_id` when one exists.

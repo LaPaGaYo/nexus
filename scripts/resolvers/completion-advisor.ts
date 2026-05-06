@@ -1,6 +1,18 @@
 import type { TemplateContext } from './types';
 
 const STAGE_FIELDS: Record<string, string[]> = {
+  discover: [
+    'summary',
+    'interaction_mode',
+    'requires_user_choice',
+    'primary_next_actions',
+    'alternative_next_actions',
+    'recommended_side_skills',
+    'stop_action',
+    'project_setup_gaps',
+    'suppressed_surfaces',
+    'default_action_id',
+  ],
   frame: [
     'summary',
     'interaction_mode',
@@ -106,6 +118,11 @@ const STAGE_FIELDS: Record<string, string[]> = {
 };
 
 const STAGE_NOTES: Record<string, string> = {
+  discover: `\`/discover\` normally has a single canonical continuation into \`/frame\`. The advisor may also surface
+\`/pol-probe\` as a side skill when Iron Law 1's anti-patterns suggest lightweight validation is the
+right next move (e.g., the discovery output is starting to read like solutioning rather than problem
+framing). For genuinely strategic discoveries that need additional sharpening, the advisor may
+recommend re-entering \`/discover\` with a tighter hypothesis hint before \`/frame\`.`,
   frame: `If the advisor surfaces \`/plan-design-review\` or \`/design-consultation\`, that means the run is
 design-bearing or still lacks a stable design contract. Keep the canonical path anchored on
 \`/plan\`.`,

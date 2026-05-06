@@ -769,6 +769,30 @@ describe('gen-skill-docs', () => {
     expect(closeoutContent).toContain('/learn');
     expect(closeoutContent).toContain('/document-release');
   });
+
+  test('discover SKILL.md surfaces the Completion Advisor footer with discover-specific routing (Track F.1)', () => {
+    const discoverContent = readSkill('discover');
+    expect(discoverContent).toContain('## Completion Advisor');
+    expect(discoverContent).toContain('.planning/current/discover/completion-advisor.json');
+    expect(discoverContent).toContain('prefer the runtime JSON field `completion_advisor`');
+    expect(discoverContent).toContain('completion_context.completion_advisor');
+    expect(discoverContent).toContain('interaction_mode');
+    expect(discoverContent).toContain('stop_action');
+    expect(discoverContent).toContain('If `interaction_mode` is `summary_only`, do not call AskUserQuestion.');
+    expect(discoverContent).toContain('--output interactive');
+    expect(discoverContent).toContain('/frame');
+    expect(discoverContent).toContain('/pol-probe');
+  });
+
+  test('discover SKILL.md carries the Track F.1 numbered workflow + typical prompts + trigger phrases', () => {
+    const discoverContent = readSkill('discover');
+    expect(discoverContent).toContain('## How to run /discover');
+    expect(discoverContent).toContain('### Step 1 — Read upstream context');
+    expect(discoverContent).toContain('### Step 9 — Write status');
+    expect(discoverContent).toContain('## Typical prompts');
+    expect(discoverContent).toContain('I want to explore X');
+    expect(discoverContent).toContain('we should look into Y');
+  });
 });
 
 describe('nexus wrapper generation', () => {
