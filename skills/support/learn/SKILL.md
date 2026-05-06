@@ -568,6 +568,64 @@ published by governed `/closeout` when available.
 
 ---
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/learn` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/learn` is the team-memory layer; without calibrated capture and explicit hygiene, it accumulates into a wiki nobody reads.
+
+### Law 1 — Confidence Rubric (Calibrated Across Contributors)
+
+Every learning entry MUST carry a confidence value calibrated against this published rubric:
+
+- **9-10 — Verified universal**: confirmed by ≥2 independent runs, or backed by code/test that enforces the pattern. Safe to act on without re-checking. Example: "Bun test exits 0 even with failing tests on macOS — verified across runs #41, #67, #99."
+- **7-8 — Verified specific**: confirmed in one run with explicit evidence (test output, error trace, profile data, etc.) attached. Likely to repeat for similar work; re-check before relying on it for materially different work.
+- **5-6 — Pattern hint**: observed once with reasoning that suggests it generalizes, but not yet re-verified. Worth checking before acting.
+- **3-4 — Working assumption**: the team currently believes this but has not gathered explicit evidence. Treat as hypothesis, not fact.
+- **1-2 — Speculation**: noted because it might matter, but no confirming signal yet. Pruning candidate if not promoted within 3 months.
+
+**Evidence type** field accompanies confidence: `test-output` | `code-pattern` | `profile-data` | `multi-run-observation` | `single-run-observation` | `team-consensus` | `external-reference` | `speculation`.
+
+A learning logged without an explicit confidence + evidence-type pair is incomplete. Future contributors cannot calibrate against an incomplete rubric; one contributor's "I'm pretty confident" is another's "we're guessing."
+
+The rubric is the contract between contributors. When in doubt, log lower; promotion is cheap, retraction is costly.
+
+### Law 2 — When To Log A Learning (Cross-Skill Capture Discipline)
+
+These skills MUST log a learning when their workflow produces a non-obvious finding:
+
+1. **`/investigate`** — every confirmed root cause is a learning entry (`type: pattern` or `type: pitfall`, `evidence: test-output` typical). Investigation without a learning record loses the insight to memory decay.
+2. **`/simplify`** — every removed duplication or simplification reveals a pattern about the codebase. Log the pattern (`type: pattern`, `evidence: code-pattern`).
+3. **`/cso`** — every security finding (low or high severity) is a learning. The threat model is updatable; learnings are how it gets updated.
+4. **`/retro`** — retrospectives produce process learnings (`type: pattern` or `type: preference`, `evidence: team-consensus` typical).
+5. **`/closeout`** — already produces `LEARNINGS.md` per artifact contract. The 3-strike triggers from `/build` Law 2 and `/qa` Law 3 (`route to /investigate`) feed candidate learnings here.
+
+These skills SHOULD log a learning when surprised:
+
+6. **`/review`** — when an audit slot finds something the synthesis didn't expect. Surprises are the highest-information events; not logging them wastes the surprise.
+7. **`/build`** — when a 3-strike stop reveals a substrate issue (per `/build` Law 2). The substrate finding is a candidate learning, not just a routing event.
+8. **`/qa`** — when a 3-strike same-root-cause cluster reveals a pattern (per `/qa` Law 3). The cluster is the learning, even if the individual findings were P3 cosmetic.
+
+The MUST list is mandatory because those skills generate insights that are otherwise lost. The SHOULD list is situational because not every routing event produces a generalizable learning — the operator judges.
+
+A learning that is not logged within 24h of the producing event has a high probability of being lost entirely. The "I'll capture later" path is the most reliable way to lose insights.
+
+### Law 3 — Learning Hygiene (Quarterly Prune + Staleness Discipline)
+
+The learnings store rots into noise without explicit maintenance. Two cadences:
+
+1. **Quarterly prune** — `/learn prune` SHOULD run at the start of each quarter (or whenever 3 months have passed since the last prune). The operator reviews flagged entries (deleted-file references, contradictions, low-confidence entries older than 3 months without promotion) and accepts/rejects each via `AskUserQuestion`. Quarterly prune is the maintenance contract; without it, the store accumulates dead references and contradictions that drown the signal.
+
+2. **On-demand prune** — `/learn prune` MUST run before `/learn export` to CLAUDE.md or any documentation surface. Exporting stale or contradicting learnings into the team's working memory propagates the noise. Pre-export prune is non-negotiable.
+
+**Staleness signals** (Iron Law 3-relevant, mirrors existing prune logic):
+
+- **Dead-file reference**: learning's `files` field points to deleted paths. Either remove the learning or update it to reference the current location.
+- **Same-key contradiction**: two entries with the same `key` and `type` carry contradicting `insight` values. The latest entry wins by append-only convention, but explicit prune resolves the contradiction in the operator's favor (delete the older one or promote the newer with a "supersedes #N" note).
+- **Low-confidence aging**: entries at confidence 1-2 (Speculation tier per Law 1) that haven't been promoted to ≥3 within 3 months are pruning candidates. They were noted; if they didn't matter enough to verify, they don't earn permanent storage.
+
+A learnings store with quarterly hygiene scales with the project. A store without it accumulates contradictions until contributors stop trusting it — at which point the team has a wiki nobody reads.
+
+---
+
 ## Detect command
 
 Parse the user's input to determine which command to run:
