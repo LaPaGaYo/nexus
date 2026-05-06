@@ -1,0 +1,10 @@
+schema_version: 1
+name: build
+summary: Bounded implementation per the sprint contract.
+intent_keywords: ["implement task X", "build the feature", "execute the sprint contract", "implement the planned work"]
+lifecycle_stages: [build]
+classification:
+  namespace: nexus_canonical
+provenance:
+  author: nexus
+  version: "1.0.0"

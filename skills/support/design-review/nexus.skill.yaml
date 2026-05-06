@@ -1,0 +1,10 @@
+schema_version: 1
+name: design-review
+summary: "Designer-eye QA: visual inconsistency + spacing + hierarchy + AI slop patterns."
+intent_keywords: ["design review", "visual review", "designer QA"]
+lifecycle_stages: [qa, review]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

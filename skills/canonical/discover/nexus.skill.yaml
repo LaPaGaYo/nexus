@@ -1,0 +1,10 @@
+schema_version: 1
+name: discover
+summary: "Discovery: clarify the problem before framing."
+intent_keywords: ["explore an idea", "scope a problem", "I want to look into", "we should explore", "I am not sure what we should build"]
+lifecycle_stages: [discover]
+classification:
+  namespace: nexus_canonical
+provenance:
+  author: nexus
+  version: "1.0.0"

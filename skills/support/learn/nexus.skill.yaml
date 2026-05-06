@@ -1,0 +1,9 @@
+schema_version: 1
+name: learn
+summary: "Manage project learnings: review/search/prune/export."
+intent_keywords: ["what have we learned", "show learnings", "prune learnings", "export learnings"]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

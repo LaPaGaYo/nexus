@@ -1,0 +1,10 @@
+schema_version: 1
+name: connect-chrome
+summary: Launch real Chrome with Side Panel extension for browser-driven QA.
+intent_keywords: ["connect chrome", "launch chrome with extension", "side panel"]
+lifecycle_stages: [qa]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

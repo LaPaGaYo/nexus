@@ -182,3 +182,79 @@ describe('SkillRegistry Phase 1 consolidation', () => {
     expect(rankInstalledSkillsForAdvisor(input)).toEqual(rankExternalInstalledSkillsForAdvisor(input));
   });
 });
+
+describe('SkillRegistry Phase 2.b — manifest discovery', () => {
+  function writeSkillWithManifest(root: string, name: string, description: string, manifest: string): string {
+    const dir = path.join(root, name);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`);
+    fs.writeFileSync(path.join(dir, 'nexus.skill.yaml'), manifest);
+    return dir;
+  }
+
+  test('discovery loads nexus.skill.yaml manifest when present', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-manifest-'));
+    writeSkillWithManifest(root, 'with-manifest', 'A test skill with a manifest', `schema_version: 1
+name: with-manifest
+summary: Test skill summary
+intent_keywords: ["do test thing", "run a test"]
+lifecycle_stages: [build]
+classification:
+  namespace: nexus_canonical
+`);
+
+    const discovered = discoverInstalledSkills({ roots: [root] });
+    expect(discovered).toHaveLength(1);
+    expect(discovered[0]?.manifest).toBeDefined();
+    expect(discovered[0]?.manifest?.name).toBe('with-manifest');
+    expect(discovered[0]?.manifest?.intent_keywords).toEqual(['do test thing', 'run a test']);
+    expect(discovered[0]?.manifest?.lifecycle_stages).toEqual(['build']);
+  });
+
+  test('discovery returns skill record without manifest field when nexus.skill.yaml absent', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-no-manifest-'));
+    writeSkill(root, 'plain-skill', 'A skill without a manifest');
+
+    const discovered = discoverInstalledSkills({ roots: [root] });
+    expect(discovered).toHaveLength(1);
+    expect(discovered[0]?.manifest).toBeUndefined();
+  });
+
+  test('discovery skips invalid manifest gracefully (record has no manifest field)', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-skill-registry-invalid-manifest-'));
+    writeSkillWithManifest(root, 'bad-manifest', 'A skill with a malformed manifest', `schema_version: 99
+name: bad-manifest
+summary: Has unsupported version
+intent_keywords: ["x"]
+`);
+
+    const discovered = discoverInstalledSkills({ roots: [root] });
+    expect(discovered).toHaveLength(1);
+    expect(discovered[0]?.manifest).toBeUndefined();
+  });
+
+  test('discovery loads manifest for canonical /build skill (regression for SKIP_DIRS bug)', () => {
+    // Phase 2.b also fixed a pre-existing bug: 'build' was in SKIP_DIRS,
+    // causing skills/canonical/build/ to be silently excluded.
+    const root = path.resolve('./skills/canonical');
+    const discovered = discoverInstalledSkills({ roots: [root] });
+    const buildSkill = discovered.find((s) => s.name === 'build');
+    expect(buildSkill).toBeDefined();
+    expect(buildSkill?.manifest).toBeDefined();
+    expect(buildSkill?.manifest?.intent_keywords.length).toBeGreaterThan(0);
+    expect(buildSkill?.manifest?.lifecycle_stages).toEqual(['build']);
+  });
+
+  test('discovery loads manifests for all 9 canonical skills', () => {
+    const root = path.resolve('./skills/canonical');
+    const discovered = discoverInstalledSkills({ roots: [root] });
+    const canonicalNames = ['discover', 'frame', 'plan', 'handoff', 'build', 'review', 'qa', 'ship', 'closeout'];
+    for (const name of canonicalNames) {
+      const skill = discovered.find((s) => s.name === name);
+      expect(skill, `canonical /${name} should be discovered`).toBeDefined();
+      expect(skill?.manifest, `canonical /${name} should have manifest`).toBeDefined();
+      expect(skill?.manifest?.classification?.namespace).toBe('nexus_canonical');
+      expect(skill?.manifest?.lifecycle_stages).toEqual([name]);
+    }
+  });
+});

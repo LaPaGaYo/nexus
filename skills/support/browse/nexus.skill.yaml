@@ -1,0 +1,10 @@
+schema_version: 1
+name: browse
+summary: Headless browser for QA testing and dogfooding.
+intent_keywords: ["browse the site", "check the page", "headless browser test", "QA the URL"]
+lifecycle_stages: [qa, build]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

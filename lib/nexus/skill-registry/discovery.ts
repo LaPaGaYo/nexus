@@ -3,9 +3,13 @@ import { homedir } from 'os';
 import { basename, dirname, join, resolve } from 'path';
 import { hostSkillInstallRootPaths } from '../host-roots';
 import { classifyInstalledSkill } from './classification';
+import { readNexusSkillManifest } from './manifest-parser';
 import type { DiscoverInstalledSkillsOptions, SkillRecord } from './types';
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'coverage']);
+// NOTE: do NOT add 'build' to this list — it would mask the canonical
+// `skills/canonical/build/` directory. node_modules is the main place build
+// artifacts appear, and it is already skipped.
+const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', '.next', 'coverage']);
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
@@ -92,12 +96,38 @@ export function discoverInstalledSkills(options: DiscoverInstalledSkillsOptions)
       }
       const parsed = parseSkillFrontmatter(content);
       const fallbackName = basename(dirname(skillPath));
-      skills.push(classifyInstalledSkill({
+      const skillDir = dirname(skillPath);
+      const record = classifyInstalledSkill({
         name: parsed.name ?? fallbackName,
         description: parsed.description,
         path: skillPath,
         source_root: root,
-      }));
+      });
+
+      // Phase 2.b: load nexus.skill.yaml if present alongside SKILL.md.
+      // Per Phase 2.2 brief: only `.yaml` is canonical; legacy `.yml` is
+      // skipped with a debug log to nudge authors toward the canonical path.
+      const yamlManifestPath = join(skillDir, 'nexus.skill.yaml');
+      const ymlManifestPath = join(skillDir, 'nexus.skill.yml');
+      if (existsSync(ymlManifestPath) && process.env.NEXUS_DEBUG_SKILL_DISCOVERY) {
+        process.stderr.write(
+          `nexus skill discovery: ignored ${ymlManifestPath}; rename to nexus.skill.yaml for manifest discovery\n`,
+        );
+      }
+      if (existsSync(yamlManifestPath)) {
+        const manifestResult = readNexusSkillManifest(yamlManifestPath);
+        if (manifestResult.kind === 'manifest') {
+          (record as SkillRecord).manifest = manifestResult.data;
+        } else if (process.env.NEXUS_DEBUG_SKILL_DISCOVERY) {
+          process.stderr.write(
+            `nexus skill discovery: ${yamlManifestPath}: ${manifestResult.kind}${
+              'reason' in manifestResult && manifestResult.reason ? ` - ${manifestResult.reason}` : ''
+            }\n`,
+          );
+        }
+      }
+
+      skills.push(record);
     }
   }
   return skills;

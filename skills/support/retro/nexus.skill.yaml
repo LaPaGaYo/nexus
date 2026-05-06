@@ -1,0 +1,10 @@
+schema_version: 1
+name: retro
+summary: "Weekly engineering retrospective: commit history + work patterns + code quality."
+intent_keywords: ["weekly retro", "engineering retrospective", "code quality trends"]
+lifecycle_stages: [closeout]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

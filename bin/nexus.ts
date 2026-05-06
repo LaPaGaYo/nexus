@@ -63,7 +63,31 @@ function formatCompletionContextForOutput(
 }
 
 try {
-  const runtimeInvocation = resolveRuntimeInvocation(process.argv.slice(2), process.env);
+  // Phase 5 (Track D-D3): `nexus do "<intent>"` is a meta-command that
+  // routes via the SkillRegistry rather than the canonical lifecycle.
+  // It must be handled BEFORE resolveRuntimeInvocation since it does not
+  // map to a CanonicalCommandId.
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'do') {
+    const { runDoCommand } = await import('../lib/nexus/commands/do');
+    const intentString = argv.slice(1).join(' ').trim();
+    if (!intentString) {
+      console.error('Usage: nexus do "<intent>"');
+      process.exit(1);
+    }
+    const result = runDoCommand({ intent: intentString, cwd });
+    if (process.env.NEXUS_DO_OUTPUT === 'json' || !process.stdout.isTTY) {
+      console.log(JSON.stringify({
+        intent: result.intent,
+        outcome: result.outcome,
+      }, null, 2));
+    } else {
+      console.log(result.text);
+    }
+    process.exit(result.outcome.kind === 'no_match' ? 0 : 0);
+  }
+
+  const runtimeInvocation = resolveRuntimeInvocation(argv, process.env);
   const invocation = resolveInvocation(runtimeInvocation.command);
   command = invocation.command;
   outputMode = runtimeInvocation.outputMode;

@@ -858,9 +858,39 @@ export interface CompletionAdvisorRecord {
   hidden_compat_aliases: string[];
   hidden_utility_skills: string[];
   suppressed_surfaces: string[];
+  /**
+   * Manifest-driven recommendations from the SkillRegistry for skills whose
+   * `nexus.skill.yaml` declares this stage. Phase 3 (Track D-D3) adds this.
+   * Empty when no skills match. Optional for backwards compatibility with
+   * pre-Phase-3 readers; expect always-present after the field stabilizes.
+   * Sorted by score descending.
+   */
+  recommended_skills?: RecommendedSkill[];
 }
 
-export type InstalledSkillNamespace = 'nexus_canonical' | 'nexus_support' | 'external_installed';
+export interface RecommendedSkill {
+  /** Canonical skill name (matches SKILL.md frontmatter and manifest `name`). */
+  name: string;
+  /** Slash-form for display: "/qa", "/cso", etc. */
+  surface: string;
+  /** Manifest namespace (or 'external_installed' for unmanifested skills). */
+  namespace: InstalledSkillNamespace;
+  /** Manifest summary, or SKILL.md description as fallback. */
+  summary: string;
+  /** Why this skill matched the stage (manifest-declared vs heuristic). */
+  why_relevant: string;
+  /** Final ranking score after manifest boosts (higher = more relevant). */
+  score: number;
+  /** True if recommendation came from a manifest; false if heuristic fallback. */
+  manifest_backed: boolean;
+}
+
+export type InstalledSkillNamespace =
+  | 'nexus_canonical'
+  | 'nexus_support'
+  | 'nexus_safety'
+  | 'nexus_root'
+  | 'external_installed';
 
 export interface InstalledSkillRecord {
   name: string;

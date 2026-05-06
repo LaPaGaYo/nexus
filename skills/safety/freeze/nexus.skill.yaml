@@ -1,0 +1,9 @@
+schema_version: 1
+name: freeze
+summary: "Safety guardrail: restrict edits to a directory boundary for the session."
+intent_keywords: ["freeze edits", "lock to this directory", "session edit boundary"]
+classification:
+  namespace: nexus_safety
+provenance:
+  author: nexus
+  version: "1.0.0"

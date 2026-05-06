@@ -1,0 +1,10 @@
+schema_version: 1
+name: review
+summary: Dual-audit code review with explicit gate verdict.
+intent_keywords: ["review the change", "audit this build", "dual-review before ship", "code review"]
+lifecycle_stages: [review]
+classification:
+  namespace: nexus_canonical
+provenance:
+  author: nexus
+  version: "1.0.0"

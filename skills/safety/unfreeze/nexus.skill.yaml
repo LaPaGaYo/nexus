@@ -1,0 +1,9 @@
+schema_version: 1
+name: unfreeze
+summary: "Safety guardrail: clear the freeze boundary."
+intent_keywords: ["unfreeze", "clear freeze", "open up edits again"]
+classification:
+  namespace: nexus_safety
+provenance:
+  author: nexus
+  version: "1.0.0"

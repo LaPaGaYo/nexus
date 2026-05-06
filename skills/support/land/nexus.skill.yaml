@@ -1,0 +1,10 @@
+schema_version: 1
+name: land
+summary: Land a PR after merge readiness.
+intent_keywords: ["land the PR", "merge to main", "complete the merge"]
+lifecycle_stages: [ship]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

@@ -1,0 +1,10 @@
+schema_version: 1
+name: deploy
+summary: Deploy the change to a configured deploy surface.
+intent_keywords: ["deploy now", "ship to production", "release the build"]
+lifecycle_stages: [ship]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

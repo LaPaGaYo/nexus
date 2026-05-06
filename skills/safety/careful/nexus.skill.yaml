@@ -1,0 +1,9 @@
+schema_version: 1
+name: careful
+summary: "Safety guardrail: warn before destructive shell commands."
+intent_keywords: ["careful", "destructive command warning", "rm -rf safeguard", "warn before drop table"]
+classification:
+  namespace: nexus_safety
+provenance:
+  author: nexus
+  version: "1.0.0"

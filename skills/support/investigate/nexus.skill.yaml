@@ -1,0 +1,10 @@
+schema_version: 1
+name: investigate
+summary: "Systematic debugging: investigate / analyze / hypothesize / implement."
+intent_keywords: ["debug this", "why is this broken", "investigate the failure", "find root cause"]
+lifecycle_stages: [build, qa]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

@@ -1,0 +1,10 @@
+schema_version: 1
+name: canary
+summary: "Post-deploy canary monitoring: console errors + perf regressions + page failures."
+intent_keywords: ["canary monitor", "post-deploy health", "watch the live app"]
+lifecycle_stages: [ship]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

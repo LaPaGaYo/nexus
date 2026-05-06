@@ -1,0 +1,10 @@
+schema_version: 1
+name: cso
+summary: "Chief Security Officer mode: infrastructure-first security audit."
+intent_keywords: ["security audit", "cso review", "secrets archaeology", "supply chain check"]
+lifecycle_stages: [review, qa, ship]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

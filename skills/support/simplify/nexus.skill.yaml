@@ -1,0 +1,10 @@
+schema_version: 1
+name: simplify
+summary: "Behavior-preserving review follow-on: remove duplication, dead code, complexity."
+intent_keywords: ["simplify this", "remove duplication", "clean up the code", "behavior-preserving cleanup"]
+lifecycle_stages: [review, build]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

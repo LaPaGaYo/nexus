@@ -1,0 +1,10 @@
+schema_version: 1
+name: setup-browser-cookies
+summary: Import cookies from real Chromium into headless browse session.
+intent_keywords: ["import cookies", "browser cookies setup", "browse with auth"]
+lifecycle_stages: [qa]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

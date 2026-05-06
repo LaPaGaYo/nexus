@@ -1,0 +1,10 @@
+schema_version: 1
+name: codex
+summary: "OpenAI Codex CLI wrapper: review / challenge / consult modes."
+intent_keywords: ["codex review", "challenge mode", "second opinion review", "adversarial review"]
+lifecycle_stages: [review]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

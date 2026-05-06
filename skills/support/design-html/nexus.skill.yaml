@@ -1,0 +1,10 @@
+schema_version: 1
+name: design-html
+summary: Production-quality HTML/CSS finalization from design-shotgun mockup.
+intent_keywords: ["design HTML", "finalize the mockup", "design to production"]
+lifecycle_stages: [build]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

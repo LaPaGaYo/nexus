@@ -1,0 +1,10 @@
+schema_version: 1
+name: qa-only
+summary: "Report-only QA: structured bug report with screenshots + repro, no fixes."
+intent_keywords: ["just QA report", "test but do not fix", "report bugs only"]
+lifecycle_stages: [qa]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"

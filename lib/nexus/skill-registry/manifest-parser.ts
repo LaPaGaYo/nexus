@@ -37,7 +37,13 @@ const TOP_LEVEL_FIELDS = new Set([
   'notes',
 ]);
 
-const NAMESPACES: readonly InstalledSkillNamespace[] = ['nexus_canonical', 'nexus_support', 'external_installed'];
+const NAMESPACES: readonly InstalledSkillNamespace[] = [
+  'nexus_canonical',
+  'nexus_support',
+  'nexus_safety',
+  'nexus_root',
+  'external_installed',
+];
 const HOSTS: readonly NexusSkillHost[] = ['claude', 'codex', 'gemini-cli'];
 const CONTEXTS: readonly NexusSkillContext[] = ['solo', 'pair', 'team'];
 

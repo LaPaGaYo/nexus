@@ -1,0 +1,9 @@
+schema_version: 1
+name: guard
+summary: "Safety guardrail: combined careful + freeze."
+intent_keywords: ["full safety mode", "guardrails on", "careful and freeze"]
+classification:
+  namespace: nexus_safety
+provenance:
+  author: nexus
+  version: "1.0.0"

@@ -1,0 +1,10 @@
+schema_version: 1
+name: design-consultation
+summary: "Design system consultation: aesthetic + typography + color + layout proposals."
+intent_keywords: ["design consult", "design system advice", "color and layout proposal"]
+lifecycle_stages: [discover, frame]
+classification:
+  namespace: nexus_support
+provenance:
+  author: nexus
+  version: "1.0.0"
