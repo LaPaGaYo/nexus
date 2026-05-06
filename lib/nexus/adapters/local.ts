@@ -8,13 +8,14 @@ import {
   buildQaValidationPrompt,
   buildReviewAuditPrompt,
 } from './prompt-contracts';
-import { createBuildStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
+import { createBuildStagePack, createQaStagePack, createReviewStagePack, getStagePackSourceMap } from '../stage-packs';
 import type {
   ActualRouteRecord,
   ConflictRecord,
   LearningCandidate,
   LocalReviewPersonaRole,
   LocalShipPersonaRole,
+  NexusStagePackId,
   PrimaryProvider,
   ProviderTopology,
 } from '../types';
@@ -255,17 +256,26 @@ function defaultRunCommand(spec: LocalCommandSpec): Promise<LocalCommandResult> 
   });
 }
 
-function localTraceability(absorbedCapability: string): AdapterTraceability {
+const LOCAL_ABSORBED_CAPABILITY_TO_PACK: Record<string, NexusStagePackId> = {
+  'local-provider-routing': 'nexus-handoff-pack',
+  'local-provider-execution': 'nexus-build-pack',
+  'local-provider-review-a': 'nexus-review-pack',
+  'local-provider-review-b': 'nexus-review-pack',
+  'local-provider-qa': 'nexus-qa-pack',
+  'local-provider-ship-personas': 'nexus-ship-pack',
+};
+
+export function localTraceability(absorbedCapability: string): AdapterTraceability {
+  const packId = LOCAL_ABSORBED_CAPABILITY_TO_PACK[absorbedCapability];
+
+  if (!packId) {
+    throw new Error(`localTraceability: unknown absorbedCapability '${absorbedCapability}' - add it to LOCAL_ABSORBED_CAPABILITY_TO_PACK`);
+  }
+
   return {
-    nexus_stage_pack: absorbedCapability.includes('review')
-      ? 'nexus-review-pack'
-      : absorbedCapability.includes('qa')
-        ? 'nexus-qa-pack'
-        : absorbedCapability.includes('handoff')
-          ? 'nexus-handoff-pack'
-          : 'nexus-build-pack',
+    nexus_stage_pack: packId,
     absorbed_capability: absorbedCapability,
-    source_map: [],
+    source_map: getStagePackSourceMap(packId),
   };
 }
 
