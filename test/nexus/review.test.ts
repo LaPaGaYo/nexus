@@ -39,7 +39,7 @@ describe('nexus review', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-review-pack',
                 absorbed_capability: 'superpowers-review-discipline',
-                source_map: ['vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+                source_map: [],
               },
             };
           },
@@ -67,7 +67,7 @@ describe('nexus review', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-review-pack',
                 absorbed_capability: 'ccb-review-codex',
-                source_map: ['vendor/upstream/claude-code-bridge/lib/codex_comm.py'],
+                source_map: [],
               },
             };
           },
@@ -93,7 +93,7 @@ describe('nexus review', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-review-pack',
                 absorbed_capability: 'ccb-review-gemini',
-                source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+                source_map: [],
               },
             };
           },
@@ -251,7 +251,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'superpowers-review-discipline',
-              source_map: ['vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+              source_map: [],
             },
           }),
         },
@@ -277,7 +277,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-codex',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/codex_comm.py'],
+              source_map: [],
             },
           }),
           execute_audit_b: async (ctx) => ({
@@ -301,7 +301,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-gemini',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: [],
             },
           }),
         },
@@ -359,7 +359,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'superpowers-review-discipline',
-              source_map: ['vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+              source_map: [],
             },
           }),
         },
@@ -387,7 +387,7 @@ describe('nexus review', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-review-pack',
                 absorbed_capability: 'ccb-review-codex',
-                source_map: ['vendor/upstream/claude-code-bridge/lib/codex_comm.py'],
+                source_map: [],
               },
             };
           },
@@ -413,7 +413,7 @@ describe('nexus review', () => {
               traceability: {
                 nexus_stage_pack: 'nexus-review-pack',
                 absorbed_capability: 'ccb-review-gemini',
-                source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+                source_map: [],
               },
             };
           },
@@ -910,7 +910,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'superpowers-review-discipline',
-              source_map: ['vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+              source_map: [],
             },
           }),
         },
@@ -935,7 +935,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-codex',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/codex_comm.py'],
+              source_map: [],
             },
           }),
           execute_audit_b: async (ctx) => ({
@@ -958,7 +958,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-gemini',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: [],
             },
           }),
         },
@@ -1025,7 +1025,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'superpowers-review-discipline',
-              source_map: ['vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+              source_map: [],
             },
           }),
         },
@@ -1050,7 +1050,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-codex',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/codex_comm.py'],
+              source_map: [],
             },
           }),
           execute_audit_b: async (ctx) => ({
@@ -1073,7 +1073,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-gemini',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: [],
             },
           }),
         },
@@ -1154,7 +1154,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'superpowers-review-discipline',
-              source_map: ['vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md'],
+              source_map: [],
             },
           }),
         },
@@ -1179,7 +1179,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-codex',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/codex_comm.py'],
+              source_map: [],
             },
           }),
           execute_audit_b: async (ctx) => ({
@@ -1202,7 +1202,7 @@ describe('nexus review', () => {
             traceability: {
               nexus_stage_pack: 'nexus-review-pack',
               absorbed_capability: 'ccb-review-gemini',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: [],
             },
           }),
         },

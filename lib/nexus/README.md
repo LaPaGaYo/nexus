@@ -135,6 +135,4 @@ ship-pull-request, review-advisories, deploy-contract, command-runner).
   layout
 - `docs/architecture/post-audit-cleanup-plan.md` — known gaps and the phased
   plan to close them
-- `docs/architecture/superpowers-absorption.md` — what was absorbed from
-  Superpowers and what was deliberately left
 - `bin/nexus.ts` — the CLI entrypoint that drives this directory

@@ -225,7 +225,7 @@ bun test test/nexus/skill-manifest-suggest.test.ts
 bun test test/nexus/skill-manifest.test.ts
 bun run skill:check
 bun run repo:inventory:check
-git grep -F "vendor/upstream" -- docs/skill-manifests scripts/skill-manifest-suggest.ts test/nexus/skill-manifest-suggest.test.ts
+git grep -F "retired upstream snapshot" -- docs/skill-manifests scripts/skill-manifest-suggest.ts test/nexus/skill-manifest-suggest.test.ts
 ```
 
 The final grep must return no matches.

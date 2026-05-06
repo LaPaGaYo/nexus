@@ -30,7 +30,7 @@ they are transport / infrastructure, not lifecycle-role adapters.
 
 After D1 lands, the codebase no longer carries names that reference absorbed
 upstream projects (PM Skill, GSD, Superpowers). Together with D2 (delete
-`vendor/upstream/` and `lib/nexus/absorption/`), the absorption thesis is
+the retired upstream snapshot root and `lib/nexus/absorption/`), the absorption thesis is
 complete: PM/GSD/Superpowers concepts are fully native, and nothing in the
 codebase suggests otherwise.
 
@@ -181,7 +181,7 @@ bun run repo:inventory:check       # passes after regeneration
   10 importers updated.
   Symbol names within renamed files updated to match new file purpose.
 
-  Companion to track-d-d2-rfc.md (deletes vendor/upstream/) and
+  Companion to track-d-d2-rfc.md (deletes retired upstream snapshots) and
   track-d-d3-rfc.md (skill ecology v2).
   ```
 

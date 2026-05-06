@@ -1205,7 +1205,7 @@ describe('nexus closeout', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: [],
             },
           }),
         },
@@ -1281,7 +1281,7 @@ describe('nexus closeout', () => {
             traceability: {
               nexus_stage_pack: 'nexus-ship-pack',
               absorbed_capability: 'superpowers-ship-discipline',
-              source_map: ['vendor/upstream/superpowers/skills/finishing-a-development-branch/SKILL.md'],
+              source_map: [],
             },
           }),
         },
@@ -1342,7 +1342,7 @@ describe('nexus closeout', () => {
             traceability: {
               nexus_stage_pack: 'nexus-closeout-pack',
               absorbed_capability: 'gsd-closeout',
-              source_map: ['vendor/upstream/gsd/commands/gsd/complete-milestone.md'],
+              source_map: [],
             },
           }),
         },
@@ -1406,7 +1406,7 @@ describe('nexus closeout', () => {
             traceability: {
               nexus_stage_pack: 'nexus-closeout-pack',
               absorbed_capability: 'gsd-closeout',
-              source_map: ['vendor/upstream/gsd/commands/gsd/complete-milestone.md'],
+              source_map: [],
             },
           }),
         },

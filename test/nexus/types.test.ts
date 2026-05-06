@@ -458,9 +458,7 @@ describe('nexus types', () => {
           output_summary: 'types tests passed',
         },
       ],
-      source_paths: [
-        'vendor/upstream/superpowers/skills/verification-before-completion/SKILL.md',
-      ],
+      source_paths: ['lib/nexus/stage-packs/build.ts'],
       summary: 'Fresh evidence recorded before stage completion.',
     };
     const tddEvidence: BuildTddEvidenceRecord = {

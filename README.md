@@ -16,13 +16,11 @@ It gives Claude one unified system for:
 - release gating
 - closeout and archival
 
-Gstack host architecture, PM Skills, GSD, and Superpowers are absorbed into
-Nexus-owned commands, stage content, and runtime contracts. CCB remains dispatch
-and transport infrastructure only.
+Nexus owns the commands, stage content, runtime contracts, and generated host
+surfaces that define the lifecycle. CCB remains dispatch and transport
+infrastructure only.
 
-Nexus-owned stage packs remain the active internal runtime units. Imported
-upstream repos remain source material only.
-Upstream maintenance is handled by Nexus maintainers.
+Nexus-owned stage packs remain the active internal runtime units.
 Users upgrade Nexus versions, not upstream repos.
 `/nexus-upgrade` and automatic upgrade are the only user-facing update paths.
 Release detection is channel-based through `release_channel` and published
@@ -72,8 +70,7 @@ reviewed before they affect installs.
 The post-taxonomy-v2 layout is documented in
 `docs/architecture/repo-taxonomy-v2.md`. The active roots include
 `runtimes/` (executable browse / design / safety hooks), `references/`
-(lazy-loaded checklists and templates), `vendor/` (absorbed upstream
-snapshots and maintenance metadata), and `hosts/` (tracked host facade
+(lazy-loaded checklists and templates), and `hosts/` (tracked host facade
 sources for Claude / Codex / Gemini CLI / Factory). `hosts/gemini-cli/` and
 `hosts/factory/` currently hold only facade READMEs; tracked host-specific
 assets land there as they are added.
@@ -369,9 +366,9 @@ cd ~/nexus && ./setup --host factory
 
 | Skill | Role | What it does |
 |-------|------|--------------|
-| `/discover` | PM discovery | Clarify the problem, goals, constraints, and missing context. |
-| `/frame` | PM framing | Classify design impact, lock scope, non-goals, success criteria, and the product brief. |
-| `/plan` | GSD planning | Convert approved framing into execution-ready planning artifacts, including the canonical verification matrix, and require a design contract for material UI work. |
+| `/discover` | Discovery | Clarify the problem, goals, constraints, and missing context. |
+| `/frame` | Framing | Classify design impact, lock scope, non-goals, success criteria, and the product brief. |
+| `/plan` | Planning | Convert approved framing into execution-ready planning artifacts, including the canonical verification matrix, and require a design contract for material UI work. |
 | `/handoff` | Governed routing | Record approved provider routing, substrate, provenance intent, and fallback policy. |
 | `/build` | Disciplined execution | Run the bounded implementation contract and persist the build result. |
 | `/review` | Dual audit | Promote provider-authored review receipts into the canonical audit set, synthesis, and reviewed provenance. |
@@ -555,7 +552,7 @@ Claude: verifies archive, provenance, and final work-unit readiness
 | `/qa-only` | Run QA in report-only mode as attached evidence without changing canonical lifecycle state. |
 | `/codex` | Independent second-opinion review through Codex. |
 
-The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable
+The Nexus design runtime under `runtimes/design/` supports five deliverable
 classes: `ui-mockup`, `prototype`, `slides`, `motion`, and `infographic`.
 It also ships internal export and verification pipelines for HTML, PDF,
 editable PPTX, MP4, GIF, and Playwright-based HTML verification without
