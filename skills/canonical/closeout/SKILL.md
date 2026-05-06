@@ -453,6 +453,50 @@ plan's living status.
 
 Nexus-owned closeout guidance for archive verification, provenance consistency, and final readiness.
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/closeout` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/closeout` is where ambiguity from earlier stages becomes permanent; archives that don't actually verify what they claim propagate the looseness into future runs.
+
+### Law 1 — Closeout Integrity Checklist (Five Mandatory Verifications)
+
+`/closeout` cannot mark `CLOSEOUT-RECORD.md` `archived` without ALL of these visible in the advisor record at decision time:
+
+1. **`/review` artifacts present** — `.planning/audits/current/*` contains the dual audit set, `.planning/current/review/status.json` records `pass_round` ≥ 1 with verdict `pass` or `pass_with_advisories`. Missing review artifacts ≡ closeout incomplete.
+2. **`/qa` artifacts present when `/qa` was run** — `.planning/current/qa/qa-report.md` and `.planning/current/qa/status.json` exist with verdict `ready` or `ready_with_findings`. If `/qa` was not run for this run, that fact is recorded explicitly in `CLOSEOUT-RECORD.md` (not silently absent).
+3. **`/ship` handoff complete** — `.planning/current/ship/release-gate-record.md` records the Law 3 outcome (merge / keep alive / discard / split per `/ship` Law 3). The outcome is explicit; "in-flight branch with no recorded decision" blocks closeout.
+4. **Ledger consistent** — the artifact index in `CLOSEOUT-RECORD.md` matches files on disk. Every artifact referenced exists; every artifact on disk in the canonical paths is referenced. Drift between index and disk ≡ closeout incomplete.
+5. **Success criteria from `/frame` actually addressed by the audit set** — each success criterion in `prd.md` (per `/frame` Law 1) is verified by at least one audit finding in `.planning/audits/current/*` or one QA finding in `qa-report.md`. Unaddressed criteria are listed in `CLOSEOUT-RECORD.md`'s "what we did NOT verify" section. Silent omission is rejected.
+
+If any check fails, `/closeout` returns `not_archived` and surfaces which check failed. The operator routes to the owning skill (per Law 3) to address the gap.
+
+This is the place where ambiguity from earlier stages becomes permanent. A loose closeout produces archives that don't actually verify what they claim — future `/discover` runs reading this archive propagate the looseness.
+
+### Law 2 — Stale Evidence Rejection
+
+`/closeout` rejects audit and QA artifacts that are stale relative to the current state of the work:
+
+1. **Stale relative to `/build` head** — if any audit in `.planning/audits/current/*` was generated against a commit older than the latest `/build` head SHA, that audit is stale. Closeout marks the run `stale_audit` and requires `/review` rerun against the current head.
+2. **Stale relative to run_id** — every audit, QA report, and ship artifact carries a `run_id` field. Closeout verifies all artifacts in the run share the same `run_id`. Mismatched run_ids ≡ artifacts from different runs accidentally collated; closeout returns `not_archived`.
+3. **Stale relative to clock** — audits older than 7 days are flagged for review even when run_id and head SHA align. Long-paused runs accumulate context drift; the world a 7-day-old audit described may not match the world the work shipped into.
+
+A stale audit is not a small failure mode. The audit was generated against a tree the user never shipped. Archiving the audit as evidence of "what was verified" produces a record that lies about what was verified.
+
+When `/closeout` flags `stale_audit`, the operator either reruns the relevant stage (`/review`, `/qa`) against the current state or explicitly accepts the staleness with a documented note in `CLOSEOUT-RECORD.md` ("audit is N days old; re-verify before re-shipping any related change"). Silent acceptance is forbidden.
+
+### Law 3 — Closeout Is Read-Only With Respect To Lifecycle Authority
+
+`/closeout` MUST NOT modify any of these from inside `/closeout`:
+
+1. **`.planning/current/*/status.json`** for any owning stage (`/discover`, `/frame`, `/plan`, `/build`, `/review`, `/qa`, `/ship`). These are owned by their respective skills; closeout reads them, never writes them.
+2. **Owning-stage artifacts** — `prd.md`, `idea-brief.md`, `sprint-contract.md`, `qa-report.md`, `release-gate-record.md`, etc. If the artifact is wrong, the owning skill fixes it; closeout does not patch around the wrongness.
+3. **Stage transition history** — the ledger of stage outcomes. Closeout reads this to verify Law 1 + Law 2 checks; if the history shows a problem, closeout reports `not_archived` rather than rewriting the history to make the archive valid.
+
+Closeout writes only to `.planning/current/closeout/*` — its own outputs (CLOSEOUT-RECORD, FOLLOW-ON-SUMMARY, NEXT-RUN, learnings, status). Everything else is read-only.
+
+The reason: lifecycle authority is single-owner. If `/build` says the build is `complete` and the audit says otherwise, the conflict is real and the resolution belongs in `/build` or `/review`, not in `/closeout`. A closeout that "fixes" upstream state silently is not closing out the run; it is laundering the run.
+
+When closeout finds inconsistent state, the answer is to surface it and route back. The operator decides which owning skill to re-enter; closeout records the routing decision in its own status, not by editing upstream artifacts.
+
 ## Operator Checklist
 
 - verify audit completeness
