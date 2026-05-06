@@ -1,9 +1,24 @@
 import type { SkillRecord } from '../skill-registry/types';
 import { scoreSkillForIntent } from './keyword';
+import {
+  getLLMClassifier,
+  isLLMEnabled,
+  mergeLLMOutcome,
+  shouldConsultLLM,
+} from './llm';
 import type { ClassifyOptions, IntentCandidate, IntentOutcome } from './types';
 
 export type { IntentCandidate, IntentOutcome, ClassifyOptions } from './types';
 export { scoreSkillForIntent } from './keyword';
+export {
+  NO_OP_LLM_CLASSIFIER,
+  getLLMClassifier,
+  isLLMEnabled,
+  isLocalProviderMode,
+  registerLLMClassifier,
+  restoreLLMClassifier,
+  type LLMClassifier,
+} from './llm';
 
 const DEFAULT_OPTIONS: Required<ClassifyOptions> = {
   // Tuned for the current Phase 4 manifest keyword density (4-5 keywords/skill).
@@ -77,6 +92,34 @@ export function classifyIntent(
     kind: 'ambiguous',
     candidates: passing.slice(0, opts.candidateLimit),
   };
+}
+
+/**
+ * Async classification: keyword path first, optionally consults the LLM
+ * classifier as a tiebreaker on `ambiguous` outcomes (when LLM is enabled
+ * via `NEXUS_INTENT_LLM=1` and not in `local_provider` mode).
+ *
+ * Returns the same `IntentOutcome` shape as the synchronous classifier.
+ * Callers that don't need LLM should keep using `classifyIntent` directly
+ * (faster, deterministic, no I/O).
+ */
+export async function classifyIntentAsync(
+  intent: string,
+  skills: readonly SkillRecord[],
+  options: ClassifyOptions = {},
+): Promise<IntentOutcome> {
+  const keywordOutcome = classifyIntent(intent, skills, options);
+  if (!isLLMEnabled() || !shouldConsultLLM(keywordOutcome)) {
+    return keywordOutcome;
+  }
+  try {
+    const llmOutcome = await getLLMClassifier().classify(intent, skills);
+    return mergeLLMOutcome(keywordOutcome, llmOutcome);
+  } catch {
+    // Fail closed: if the LLM call throws, fall back to keyword outcome.
+    // The LLM classifier itself is responsible for timeouts and error handling.
+    return keywordOutcome;
+  }
 }
 
 /**

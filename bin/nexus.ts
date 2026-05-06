@@ -69,13 +69,16 @@ try {
   // map to a CanonicalCommandId.
   const argv = process.argv.slice(2);
   if (argv[0] === 'do') {
-    const { runDoCommand } = await import('../lib/nexus/commands/do');
+    const { runDoCommandAsync } = await import('../lib/nexus/commands/do');
     const intentString = argv.slice(1).join(' ').trim();
     if (!intentString) {
       console.error('Usage: nexus do "<intent>"');
       process.exit(1);
     }
-    const result = runDoCommand({ intent: intentString, cwd });
+    // Use async variant so the LLM classifier hook fires when enabled
+    // (NEXUS_INTENT_LLM=1 + non-local_provider mode). Sync path runs when
+    // LLM disabled — same outcome as before.
+    const result = await runDoCommandAsync({ intent: intentString, cwd });
     if (process.env.NEXUS_DO_OUTPUT === 'json' || !process.stdout.isTTY) {
       console.log(JSON.stringify({
         intent: result.intent,

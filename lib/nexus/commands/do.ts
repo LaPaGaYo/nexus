@@ -1,5 +1,5 @@
 import { discoverInstalledSkills } from '../skill-registry/discovery';
-import { classifyIntent, formatOutcomeForTerminal } from '../intent-classifier';
+import { classifyIntent, classifyIntentAsync, formatOutcomeForTerminal, isLLMEnabled } from '../intent-classifier';
 import type { IntentOutcome, ClassifyOptions } from '../intent-classifier/types';
 
 /**
@@ -41,6 +41,30 @@ export function runDoCommand(options: DoCommandOptions): DoCommandResult {
 
   const skills = discoverInstalledSkills({ cwd, home });
   const outcome = classifyIntent(intent, skills, classify);
+  const text = formatOutcomeForTerminal(outcome, intent);
+
+  return {
+    intent,
+    outcome,
+    text,
+  };
+}
+
+/**
+ * Async variant: optionally consults the LLM classifier when enabled
+ * (NEXUS_INTENT_LLM=1 and not in local_provider mode). Falls through to
+ * keyword-only path otherwise.
+ *
+ * Use this when the caller wants the LLM tiebreaker; otherwise prefer the
+ * synchronous `runDoCommand` (faster, deterministic, no I/O).
+ */
+export async function runDoCommandAsync(options: DoCommandOptions): Promise<DoCommandResult> {
+  const { intent, cwd, home, classify } = options;
+
+  const skills = discoverInstalledSkills({ cwd, home });
+  const outcome = isLLMEnabled()
+    ? await classifyIntentAsync(intent, skills, classify)
+    : classifyIntent(intent, skills, classify);
   const text = formatOutcomeForTerminal(outcome, intent);
 
   return {
