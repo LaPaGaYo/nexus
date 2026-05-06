@@ -488,6 +488,43 @@ plan's living status.
 
 Nexus-owned build guidance for disciplined implementation under governed routing.
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/build` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time.
+
+### Law 1 — Evidence Before Claims
+
+Do NOT report `/build` complete unless you ran the verification command in this turn AND attached its output to the advisor record.
+
+Pick the verification appropriate to the change:
+
+- Code change: `bun test` (output attached, exit 0)
+- Library / runtime touch: `bunx tsc --noEmit` (output attached, exit 0) plus relevant focused test suite
+- Skill prose / template change: `bun run skill:check` (output attached, clean) plus `bun run gen:skill-docs --host codex` if `.tmpl` was edited
+- Repo structure / inventory-impacting change: `bun run repo:inventory:check` (regenerated and clean)
+- Pure docs change: `bun run repo:inventory:check` plus a manual reread of the diff for accuracy
+
+Empty output ≠ verified. "Tests passed" without command output attached ≠ verified. The runtime advisor reads what you attached, not what you remember running.
+
+### Law 2 — No Fixes Without Root Cause (3-strike stop)
+
+If your build attempt fails 3 times consecutively on the same root cause:
+
+1. STOP attempting fixes.
+2. Route to `/investigate` — its 4-phase protocol (locate → analyze → hypothesize → fix) is purpose-built for stuckness.
+3. DO NOT continue patching symptoms. Each additional patch makes diagnosis harder.
+
+This is a hard rule, not a guideline. Patching past 3 strikes without confirmed root cause is the most common path to a wrong fix shipped under stage-status `ready`.
+
+### Law 3 — Prior Advisories Are Address-Or-Dispute
+
+If you re-enter `/build` from a prior `/review` with advisories on the advisor record:
+
+- Address EVERY advisory before claiming complete, OR
+- Document explicit dispute with rationale in `build-result.md` (cite the advisory id, state why you disagree, propose alternative resolution)
+
+Silently dropping advisories — even one — is not allowed. The reviewer found something real; you must engage with it on the record. Disputed advisories are visible to `/review` and `/ship` for downstream re-evaluation.
+
 ## Operator Checklist
 
 - run build discipline before transport
