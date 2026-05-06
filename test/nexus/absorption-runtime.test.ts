@@ -10,7 +10,7 @@ import { createQaStagePack, createReviewStagePack, createShipStagePack } from '.
 
 describe('nexus absorbed runtime', () => {
   test.skip('upstream source-map content assertions are retired during Track D-D2 Phase 2.1', () => {
-    // Provenance remains covered by absorption-source-map.test.ts until absorption is deleted in Phase 2.4.
+    // Runtime traceability stays covered below; source-map provenance was retired with the absorption surface.
   });
 
   test('pm adapter reports absorbed capability ids for discover and frame', async () => {

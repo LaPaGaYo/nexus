@@ -27,7 +27,6 @@ its handler.
 | `adapters/` | Provider adapters: `ccb.ts` (governed CCB path), `local.ts` (local provider single-shell path), plus `discovery.ts`, `planning.ts`, `execution.ts` for lifecycle-role integrations. `registry.ts` picks the right adapter; `prompt-contracts.ts` defines shared prompt shapes; `types.ts` is the adapter contract. |
 | `stage-packs/` | One stage pack per canonical stage (`build.ts`, `qa.ts`, etc.) — packaged prompts + context bundles handed to adapters. `source-map.ts` records absorbed-source provenance. |
 | `stage-content/` | Per-stage markdown content (artifact-contract, exit-condition, etc.) loaded at runtime. Mirrors the canonical stage names. |
-| `absorption/` | Records of patterns absorbed from upstream sources (`ccb/`, `gsd/`, `pm/`, `superpowers/`). Supports the maintainer loop's "what did we already pull in?" gate. |
 | `normalizers/` | Per-lifecycle result normalizers — they translate raw external responses into Nexus's canonical record shapes. |
 
 ## Top-level files (grouped by concern)
