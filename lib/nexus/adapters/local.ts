@@ -102,6 +102,10 @@ interface ActiveLocalTopology {
   mode: 'single_agent' | 'claude_subagents' | 'claude_agent_team' | 'codex_subagents' | 'codex_multi_session' | 'gemini_subagents';
 }
 
+type LocalSupportVerification =
+  | { ok: true; verificationCommands: string[]; verificationOutput: string }
+  | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string };
+
 function backendConflict(stage: NexusAdapterContext['stage'], message: string): ConflictRecord {
   return {
     stage,
@@ -932,7 +936,7 @@ function claudeAgentTeamsEnabled(): boolean {
 async function verifyClaudeAgentTeamSupport(
   cwd: string,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
-): Promise<{ ok: true; verificationCommands: string[]; verificationOutput: string } | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string }> {
+): Promise<LocalSupportVerification> {
   const argv = ['claude', '--version'];
   const result = await runCommand({
     argv,
@@ -1210,7 +1214,7 @@ async function runLocalShipPersonas(
 async function verifyClaudeSubagentSupport(
   cwd: string,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
-): Promise<{ ok: true; verificationCommands: string[]; verificationOutput: string } | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string }> {
+): Promise<LocalSupportVerification> {
   const argv = ['claude', '--help'];
   const result = await runCommand({
     argv,
@@ -1244,10 +1248,47 @@ async function verifyClaudeSubagentSupport(
   };
 }
 
+async function verifyCodexSubagentSupport(
+  cwd: string,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<LocalSupportVerification> {
+  const argv = ['codex', '--help'];
+  const result = await runCommand({
+    argv,
+    cwd,
+    timeout_ms: DEFAULT_TIMEOUTS_MS.handoff,
+  });
+
+  const output = `${result.stdout}\n${result.stderr}`.trim();
+  if (result.exit_code !== 0) {
+    return {
+      ok: false,
+      message: output || 'codex --help failed while verifying local subagent support',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  if (!output.includes('exec -')) {
+    return {
+      ok: false,
+      message: 'codex CLI does not support exec - for local_provider subagents',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  return {
+    ok: true,
+    verificationCommands: [describeCommand(argv)],
+    verificationOutput: output,
+  };
+}
+
 async function verifyCodexMultiSessionSupport(
   cwd: string,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
-): Promise<{ ok: true; verificationCommands: string[]; verificationOutput: string } | { ok: false; message: string; verificationCommands: string[]; verificationOutput: string }> {
+): Promise<LocalSupportVerification> {
   const argv = ['codex', '--help'];
   const result = await runCommand({
     argv,
@@ -1279,6 +1320,64 @@ async function verifyCodexMultiSessionSupport(
     verificationCommands: [describeCommand(argv)],
     verificationOutput: output,
   };
+}
+
+async function verifyGeminiSubagentSupport(
+  cwd: string,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<LocalSupportVerification> {
+  const argv = ['gemini', '--help'];
+  const result = await runCommand({
+    argv,
+    cwd,
+    timeout_ms: DEFAULT_TIMEOUTS_MS.handoff,
+  });
+
+  const output = `${result.stdout}\n${result.stderr}`.trim();
+  if (result.exit_code !== 0) {
+    return {
+      ok: false,
+      message: output || 'gemini --help failed while verifying local subagent support',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  if (!output.includes('-p') || !output.includes('--yolo')) {
+    return {
+      ok: false,
+      message: 'gemini CLI does not support -p and --yolo for local_provider subagents',
+      verificationCommands: [describeCommand(argv)],
+      verificationOutput: output,
+    };
+  }
+
+  return {
+    ok: true,
+    verificationCommands: [describeCommand(argv)],
+    verificationOutput: output,
+  };
+}
+
+async function verifyActiveLocalTopologySupport(
+  topology: ActiveLocalTopology,
+  cwd: string,
+  runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
+): Promise<LocalSupportVerification | null> {
+  switch (topology.mode) {
+    case 'claude_subagents':
+      return verifyClaudeSubagentSupport(cwd, runCommand);
+    case 'codex_subagents':
+      return verifyCodexSubagentSupport(cwd, runCommand);
+    case 'gemini_subagents':
+      return verifyGeminiSubagentSupport(cwd, runCommand);
+    case 'claude_agent_team':
+      return verifyClaudeAgentTeamSupport(cwd, runCommand);
+    case 'codex_multi_session':
+      return verifyCodexMultiSessionSupport(cwd, runCommand);
+    case 'single_agent':
+      return null;
+  }
 }
 
 async function runProviderCommand(
@@ -1666,19 +1765,22 @@ export function createRuntimeLocalAdapter(
           );
         }
 
-        if (topology.mode === 'claude_subagents') {
-          const subagentSupport = await verifyClaudeSubagentSupport(executionCwd, runCommand);
-          if (!subagentSupport.ok) {
+        const supportVerification = await verifyActiveLocalTopologySupport(topology, executionCwd, runCommand);
+
+        if (supportVerification) {
+          const verificationOutput = [result.stdout.trim(), supportVerification.verificationOutput].filter(Boolean).join('\n');
+          const verificationCommands = [`which ${providerCommand(provider)}`, ...supportVerification.verificationCommands];
+          if (!supportVerification.ok) {
             return blockedResult(
               ctx.stage,
-              subagentSupport.message,
+              supportVerification.message,
               {
                 available: false,
                 provider,
                 topology: ctx.ledger.execution.provider_topology,
                 verification_command: `which ${providerCommand(provider)}`,
-                verification_output: [result.stdout.trim(), subagentSupport.verificationOutput].filter(Boolean).join('\n'),
-                verification_commands: [`which ${providerCommand(provider)}`, ...subagentSupport.verificationCommands],
+                verification_output: verificationOutput,
+                verification_commands: verificationCommands,
               },
               ctx.requested_route,
               localTraceability('local-provider-routing'),
@@ -1691,76 +1793,8 @@ export function createRuntimeLocalAdapter(
               provider,
               topology: ctx.ledger.execution.provider_topology,
               verification_command: `which ${providerCommand(provider)}`,
-              verification_output: [result.stdout.trim(), subagentSupport.verificationOutput].filter(Boolean).join('\n'),
-              verification_commands: [`which ${providerCommand(provider)}`, ...subagentSupport.verificationCommands],
-            },
-            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'handoff'),
-            ctx.requested_route,
-            localTraceability('local-provider-routing'),
-          );
-        }
-
-        if (topology.mode === 'claude_agent_team') {
-          const agentTeamSupport = await verifyClaudeAgentTeamSupport(executionCwd, runCommand);
-          if (!agentTeamSupport.ok) {
-            return blockedResult(
-              ctx.stage,
-              agentTeamSupport.message,
-              {
-                available: false,
-                provider,
-                topology: ctx.ledger.execution.provider_topology,
-                verification_command: `which ${providerCommand(provider)}`,
-                verification_output: [result.stdout.trim(), agentTeamSupport.verificationOutput].filter(Boolean).join('\n'),
-                verification_commands: [`which ${providerCommand(provider)}`, ...agentTeamSupport.verificationCommands],
-              },
-              ctx.requested_route,
-              localTraceability('local-provider-routing'),
-            );
-          }
-
-          return successResult<LocalResolveRouteRaw>(
-            {
-              available: true,
-              provider,
-              topology: ctx.ledger.execution.provider_topology,
-              verification_command: `which ${providerCommand(provider)}`,
-              verification_output: [result.stdout.trim(), agentTeamSupport.verificationOutput].filter(Boolean).join('\n'),
-              verification_commands: [`which ${providerCommand(provider)}`, ...agentTeamSupport.verificationCommands],
-            },
-            buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'handoff'),
-            ctx.requested_route,
-            localTraceability('local-provider-routing'),
-          );
-        }
-
-        if (topology.mode === 'codex_multi_session') {
-          const multiSessionSupport = await verifyCodexMultiSessionSupport(executionCwd, runCommand);
-          if (!multiSessionSupport.ok) {
-            return blockedResult(
-              ctx.stage,
-              multiSessionSupport.message,
-              {
-                available: false,
-                provider,
-                topology: ctx.ledger.execution.provider_topology,
-                verification_command: `which ${providerCommand(provider)}`,
-                verification_output: [result.stdout.trim(), multiSessionSupport.verificationOutput].filter(Boolean).join('\n'),
-                verification_commands: [`which ${providerCommand(provider)}`, ...multiSessionSupport.verificationCommands],
-              },
-              ctx.requested_route,
-              localTraceability('local-provider-routing'),
-            );
-          }
-
-          return successResult<LocalResolveRouteRaw>(
-            {
-              available: true,
-              provider,
-              topology: ctx.ledger.execution.provider_topology,
-              verification_command: `which ${providerCommand(provider)}`,
-              verification_output: [result.stdout.trim(), multiSessionSupport.verificationOutput].filter(Boolean).join('\n'),
-              verification_commands: [`which ${providerCommand(provider)}`, ...multiSessionSupport.verificationCommands],
+              verification_output: verificationOutput,
+              verification_commands: verificationCommands,
             },
             buildActualRoute(provider, ctx.requested_route?.generator ?? ctx.ledger.execution.requested_path, ctx.requested_route?.substrate ?? 'superpowers-core', 'handoff'),
             ctx.requested_route,
