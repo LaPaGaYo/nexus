@@ -119,7 +119,7 @@ small, opportunistic.
 |---|---|---|---|
 | #82 | ST1+ST9: subdir `lib/nexus/` + mirror `test/nexus/` | M (~3-4h) | **#72 (#41 Phase 3)** |
 | #83 | ST2: decide single-child `lib/` | S (~30 min) | None |
-| #84 | ST3: move `CHANGELOG.md` / `TODOS.md` out of root | M (~2-3h with RFC) | **needs RFC first** |
+| #84 | ST3: ~~move CHANGELOG.md / TODOS.md out of root~~ — **🟢 RFC complete; Decision: Option A (stay in root)**. Implementation = small note in repo-taxonomy-v2.md. | XS (~10 min) | RFC at `track-c-st3-rfc.md` |
 | #85 | ST4: split `bin/` source vs built | S (~1h) | None |
 | #86 | ST7: decide `agents/openai.yaml` single-child | S (~15-30 min) | None |
 | #87 | ST8: decide `skills/root/` single-child | S (~30-60 min) | None — ⚠️ touches host install paths |

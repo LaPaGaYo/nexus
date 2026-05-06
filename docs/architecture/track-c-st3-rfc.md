@@ -1,6 +1,6 @@
 # Track C ST3 RFC: Move `CHANGELOG.md` / `TODOS.md` out of repo root
 
-**Status:** Draft. **Decision pending — user must pick between Options A/B/C/D below before implementation.**
+**Status:** Decision recorded — **Option A (stay in root)** chosen 2026-05-05. Implementation = small documentation note only. See § Decision log at bottom.
 
 **Type:** Documentation + runtime path migration.
 
@@ -339,3 +339,35 @@ The implementation issue (#84) becomes actionable only after the user picks.
 4. **TODO migration support**: If TODOS.md moves (Options B/C), do we need a
    first-run migration that detects pre-move repos and offers to move
    automatically? Or just hard-cut and document?
+
+---
+
+## Decision log
+
+### 2026-05-05 — Option A chosen (stay in root)
+
+**Decision:** `CHANGELOG.md` and `TODOS.md` stay at repo root.
+
+**Rationale (per user, 2026-05-05):**
+- OSS convention strongly favors `CHANGELOG.md` in root; GitHub auto-links to
+  it on release pages and many tools assume the path
+- Cost / benefit clearly favors A: ~15 min vs 2-3h with no functional improvement
+- Repo root creep is real but Phase 4 has bigger fish — closing other ST polish
+  issues (ST2/ST4/ST7/ST8) reduces creep more cleanly without runtime drift
+
+**Implementation scope (post-decision):**
+- Add a paragraph to `docs/architecture/repo-taxonomy-v2.md` noting that
+  `CHANGELOG.md` and `TODOS.md` are intentionally root-level by convention
+  (and that Nexus skill resolvers read them from repo root by design)
+- Mark issue #84 closed-as-resolved
+- Mark `phase-4-plan.md` ST3 as resolved (decision: keep)
+- Mark `phase-4-backlog.md` #84 entry with "🟢 Resolved as Option A"
+
+The RFC body above (Options B/C/D, implementation plan, risks) is preserved
+as the considered-and-rejected record. If a future revisit changes the
+decision, append a new dated entry below this one.
+
+**Open question deferred (revisit if convention pressure changes):**
+- If the project ever publishes a non-trivial `lib/`-style monorepo
+  reorganization (ST1+ST9 work), reconsider whether `CHANGELOG.md` /
+  `TODOS.md` follow that move. Still Option A by default.
