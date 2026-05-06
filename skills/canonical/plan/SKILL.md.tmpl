@@ -4,8 +4,9 @@ preamble-tier: 1
 version: 0.1.0
 description: |
   Canonical Nexus planning command. Writes repo-visible execution readiness artifacts and
-  stage status for the governed Nexus lifecycle. Use when the work is framed and needs to
-  become execution-ready. (nexus)
+  stage status for the governed Nexus lifecycle. Use when the user says "plan this work",
+  "break down the framing into tasks", "make a sprint plan", or when the work is framed
+  and needs to become execution-ready. (nexus)
 allowed-tools:
   - Bash
   - Read
@@ -63,6 +64,78 @@ The reason: the plan is the contract that `/review` and `/qa` evaluate `/build` 
 
 Scope creep is a routing event, not a unilateral decision.
 
+## How to run /plan
+
+These steps execute one `/plan` run. Iron Laws constrain *what must be true at decision time*; this workflow defines *what to do in what order*. Both apply.
+
+### Step 1 — Read upstream framing
+
+Read `.planning/current/frame/prd.md`. Per `/frame` Law 1 it carries seven required sections (problem, hypothesis, success criteria, non-goals, risks, alternatives, decision rationale). The success criteria section is the input to Step 2; the risks section is one input to Step 5.
+
+If `prd.md` does not exist, `/plan` cannot run. Route back to `/frame` instead of synthesizing the framing here.
+
+### Step 2 — Extract success criteria
+
+Per `/frame` Law 1, each success criterion is observable (named command, metric, or artifact — vague criteria like "users love it" were rejected upstream). List them as the seed set for task drafting.
+
+If a success criterion looks vague despite passing `/frame`, treat it as a framing escape and route back to `/frame`. `/plan` does not retroactively sharpen criteria — `/frame` Law 1 owns that contract.
+
+### Step 3 — Draft 1–3 candidate tasks per criterion
+
+For each criterion, draft one to three candidate tasks that, when complete, would satisfy that criterion. Aim for the smallest set that covers the criterion; over-decomposition produces busywork, under-decomposition violates Law 1.
+
+Candidate tasks at this step are drafts. They have not yet been verified against Law 1's three properties — that is Step 4.
+
+### Step 4 — Verify each task is bite-sized
+
+For each candidate task from Step 3, verify all three Law 1 properties:
+
+1. Bounded scope (≤3 sentences, ≤1 day of focused work)
+2. Observable acceptance criterion ("X exists at path Y AND Z is true" form)
+3. Verification command (one specific `bun test ...` / `bunx tsc --noEmit` / `bun run repo:inventory:check` / etc.)
+
+A task that fails any property is rejected here, before the contract is written. The cost of rejection at `/plan` is minutes; the cost downstream is hours per Law 1's own justification.
+
+### Step 5 — Enumerate ≥3 risks
+
+Per Law 2, every plan needs ≥3 specific failure modes, each with failure description, detection signal, and mitigation/recovery routing. Sources to draw from:
+
+- The framing risks section in `prd.md` (don't duplicate — refine for execution)
+- Underestimated-scope risk for any borderline task from Step 4
+- Cross-task coupling risk if multiple tasks touch the same module
+- Dependency risk for any task that assumes infrastructure or library availability
+- Acceptance-criterion-vs-user-value risk for tasks where the verification command passes but the user impact is unclear
+
+If you cannot enumerate three risks, the plan is under-thought (per Law 2). Return to Step 3 and revisit task scope before forcing the count.
+
+### Step 6 — Branching: borderline tasks
+
+If any candidate task from Step 4 is borderline on Law 1 (e.g., "≤1 day if assumptions hold; might be 2 days if X surfaces"), do not silently accept or silently split. Use `AskUserQuestion`:
+
+> "Task `<task-name>` is borderline on Law 1's bite-sized contract — estimated 1 day if `<assumption>` holds, ~2 days otherwise. Should I (a) split into two tasks now, (b) accept as-is and flag the assumption in the risk register, or (c) route back to `/frame` to tighten the success criterion this task serves?"
+
+The operator picks; record the choice in the contract or risk register. The same gate applies if `/build` re-enters `/plan` mid-execution to extend scope (per Law 3) — confirm with the operator whether the discovered work is a contract extension, a split, or a framing reset.
+
+### Step 7 — Write `sprint-contract.md`
+
+Compose the contract with the verified task list (Step 4), the risk register (Step 5), and any operator decisions recorded at Step 6. Each task carries its scope sentence, observable acceptance criterion, and verification command per Law 1. Each risk carries its three Law 2 fields.
+
+The contract is the input `/build`, `/review`, and `/qa` evaluate against. Anything missing here is missing for the rest of the lifecycle.
+
+### Step 8 — Verify the binding-handoff posture
+
+Per Law 3, once the contract is written and `/handoff` records the route, `/build` operates only on the listed tasks. Before writing status, sanity-check:
+
+- Every task has the three Law 1 properties (no exceptions)
+- The risk register has ≥3 entries with Law 2's three fields each
+- The success criteria from Step 2 are each addressed by at least one task
+
+If any fail, return to the relevant step. The contract is binding once written; under-specification at this gate becomes a routing event in `/build`.
+
+### Step 9 — Write status
+
+Run the canonical command (in the Routing section below). It writes `execution-readiness-packet.md`, `sprint-contract.md`, `verification-matrix.json`, `design-contract.md` when present, and `status.json`. The advisor record carries the verdict; `/handoff` reads it next.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
@@ -80,5 +153,29 @@ Run:
 ```bash
 {{NEXUS_RUN_COMMAND:plan}}
 ```
+
+## Typical prompts
+
+These are example user requests `/plan` handles well. The skill is invoked and produces an `execution-readiness-packet.md`, a `sprint-contract.md`, a `verification-matrix.json`, and a `status.json`.
+
+### Prompt 1 — Plan from a fresh PRD
+
+> "Plan the work for the telemetry feature now that /frame is done."
+
+`/plan` walks Step 1–9. Step 1 reads `prd.md` and confirms the seven `/frame` Law 1 sections are present. Step 2 extracts each success criterion. Steps 3–4 draft and verify 1–3 bite-sized tasks per criterion against Law 1. Step 5 builds the risk register from the framing risks plus execution-specific failure modes. Step 7 writes the contract. Verdict `ready` if all gates pass.
+
+### Prompt 2 — Vague task suspected
+
+> "Is 'improve performance' an OK task in the contract?"
+
+Step 4 rejects it: Law 1 explicitly disallows vague acceptance criteria like "code works" or "feature is good." `/plan` proposes a sharpened replacement (e.g., "p95 latency on the search endpoint drops below 300ms, verified by `bun test test/perf/search.test.ts`") or routes back to `/frame` if the underlying success criterion was the source of the vagueness.
+
+### Prompt 3 — Build wants to expand scope mid-run
+
+> "/build hit a 3-strike loop and thinks we need an extra task — should we just add it?"
+
+Law 3 forbids silent scope expansion: stop, route back to `/plan` to extend the contract, then re-enter `/build`. Step 6's AskUserQuestion gate asks whether the discovered work is (a) a contract extension here, (b) a split of an existing task, or (c) a framing reset that needs `/frame` first. The operator's choice is recorded; the contract is updated explicitly, never silently.
+
+These prompts test that `/plan` produces a binding execution contract — bite-sized tasks, enumerated risks, no silent scope drift (Iron Laws 1–3).
 
 {{NEXUS_COMPLETION_ADVISOR:plan}}
