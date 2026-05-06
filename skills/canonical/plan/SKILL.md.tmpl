@@ -18,6 +18,51 @@ allowed-tools:
 
 {{NEXUS_STAGE_OVERVIEW}}
 
+## Iron Laws (mandatory; non-negotiable)
+
+These three rules apply to every `/plan` invocation regardless of provider, topology, or run mode. They are short and absolute on purpose — discipline that lives in qualifiers does not survive contact with the LLM at decision time. `/plan` writes the contract that `/build`, `/review`, and `/qa` evaluate against; ambiguity here compounds downstream.
+
+### Law 1 — Bite-Sized Task Contract
+
+Every task in `sprint-contract.md` MUST satisfy three properties:
+
+1. **Bounded scope** — describable in ≤3 sentences; deliverable in ≤1 day of focused work. If a task takes longer than 1 day to even describe, it is not a task; it is a phase that needs further decomposition.
+2. **Observable acceptance criterion** — written in the form "X exists at path Y AND Z is true" (or equivalent). The criterion must be verifiable WITHOUT running the implementation. Vague criteria like "code works" or "feature is good" are rejected.
+3. **Verification command** — one specific command (`bun test path/to/test.ts`, `bun run repo:inventory:check`, `bunx tsc --noEmit`, etc.) that the operator runs to confirm the task is done. If the task has no verification command, it is too vague to plan.
+
+A task that fails any of these three is rejected before `/plan` writes the contract. The cost of rejecting a vague task at `/plan` time is minutes; the cost of letting it through and discovering the ambiguity in `/build` is hours, and the cost at `/review` is a re-entry through the entire stage chain.
+
+### Law 2 — Hypothesis Before Plan
+
+`sprint-contract.md` MUST contain a `## Risks` section listing ≥3 specific failure modes the plan anticipates, each with:
+
+- **Failure description** — what could go wrong, in concrete terms (not "things might break")
+- **Detection signal** — how the operator would notice this happening (output of which command, which artifact field, which advisor flag)
+- **Mitigation** — what the plan does pre-emptively, OR what the recovery routing is (e.g., "back to `/discover`", "escalate via AskUserQuestion", "split task into two before entering `/build`")
+
+Plans without an explicit risk section are rejected. "I don't see any risks" is itself a risk; if you cannot enumerate ≥3, the plan is under-thought.
+
+Common failure modes worth listing (not exhaustive):
+
+- Underestimated scope of a task that looked bite-sized but isn't
+- Missing dependency the plan assumes is installed/available
+- Acceptance criterion that's measurable but doesn't capture user value
+- Cross-task coupling that wasn't modeled in the task list ordering
+
+The risk section is read by `/build` as predecessor context. When a risk materializes during `/build`, the recovery routing is already known — no scrambling, no unilateral patching.
+
+### Law 3 — Plan→Build Handoff Is Binding
+
+Once `/plan` writes `sprint-contract.md` AND `/handoff` records the route, `/build` operates ONLY on the tasks listed in the contract. Scope expansion mid-`/build` is forbidden:
+
+- If `/build` discovers an additional task is needed → DO NOT add it silently. Stop, route back to `/plan` to extend the contract, then re-enter `/build`.
+- If `/build` discovers a listed task is wrong or impossible → DO NOT skip it silently. Stop, route back to `/plan` with the discovered constraint, then re-enter `/build`.
+- If `/build` finishes faster than expected → leave remaining capacity unused; do not pull in adjacent work that wasn't contracted.
+
+The reason: the plan is the contract that `/review` and `/qa` evaluate `/build` against. Silent scope expansion makes `/review` impossible — there is no agreed acceptance criterion for the expanded work, and the advisor record cannot reconcile drift it never saw.
+
+Scope creep is a routing event, not a unilateral decision.
+
 ## Operator Checklist
 
 {{NEXUS_STAGE_CHECKLIST}}
