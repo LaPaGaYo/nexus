@@ -21,15 +21,26 @@ export type NexusTelemetrySchemaVersion = typeof NEXUS_TELEMETRY_SCHEMA_VERSION;
  * handle unknown kinds gracefully (skip + log to debug stream).
  */
 export type TelemetryEventKind =
+  // Wired chokepoint event:
   | 'stage_advisor_recorded'      // every advisor write (chokepoint)
-  | 'review_pass_round_changed'   // /review Law 2 two-round protocol fired
-  | 'review_advisory_dispatched'  // /review Law 3 advisory disposition chosen
-  | 'ship_branch_outcome_chosen'  // /ship Law 3 branch decision tree
-  | 'qa_cluster_routed'           // /qa Law 3 3-strike → /investigate
-  | 'build_3strike_triggered'     // /build Law 2 3-strike stop fired
-  | 'closeout_stale_evidence'     // /closeout Law 2 stale audit detected
-  | 'frame_readiness_gate_failed' // /frame Law 3 readiness gate verdict not_ready
-  | 'discover_anti_pattern_detected'; // /discover Law 1 anti-pattern stop
+
+  // Iron Law–specific events with runtime emit points:
+  | 'review_advisory_dispatched'  // /review Law 2/3 advisory disposition chosen
+  | 'ship_readiness_gate_verdict' // /ship Law 1 5-check pass/fail (merge_ready)
+  | 'stage_re_entered'            // any stage re-entered with existing status.json
+                                  // (signals Iron Law re-entry — e.g., /build Law 2,
+                                  // /review Law 2 two-round, /closeout Law 2 staleness)
+
+  // Schema-only (no runtime emit yet — operator-side judgments that need
+  // CLI flags or operator self-reporting design work; defined here so
+  // future PRs can wire without schema_version bumps):
+  | 'review_pass_round_changed'   // /review Law 2 two-round protocol — operator-side
+  | 'ship_branch_outcome_chosen'  // /ship Law 3 branch decision tree — operator-side
+  | 'qa_cluster_routed'           // /qa Law 3 3-strike → /investigate — operator-side
+  | 'build_3strike_triggered'     // /build Law 2 3-strike stop — operator-side
+  | 'closeout_stale_evidence'     // /closeout Law 2 stale audit — operator-side
+  | 'frame_readiness_gate_failed' // /frame Law 3 readiness gate not_ready — operator-side
+  | 'discover_anti_pattern_detected'; // /discover Law 1 anti-pattern — operator-side
 
 export interface TelemetryEventBase {
   schema_version: NexusTelemetrySchemaVersion;
@@ -64,6 +75,27 @@ export interface ReviewAdvisoryDispatchedEvent extends TelemetryEventBase {
   kind: 'review_advisory_dispatched';
   stage: 'review';
   advisory_disposition: 'fix_before_qa' | 'continue_to_qa' | 'defer_to_follow_on';
+}
+
+export interface ShipReadinessGateVerdictEvent extends TelemetryEventBase {
+  kind: 'ship_readiness_gate_verdict';
+  stage: 'ship';
+  /**
+   * True if the merge_ready 5-check gate passed (per /ship Law 1).
+   * False if any check failed (Law 2 refusal active).
+   */
+  merge_ready: boolean;
+}
+
+export interface StageReEnteredEvent extends TelemetryEventBase {
+  kind: 'stage_re_entered';
+  /**
+   * True if this stage write found an existing status.json with a matching
+   * run_id (signals /build Law 2 re-entry, /review Law 2 two-round, etc.).
+   * The chokepoint emits this every time, but downstream readers can filter
+   * on this field to count re-entries vs first entries.
+   */
+  is_re_entry: boolean;
 }
 
 export interface ShipBranchOutcomeChosenEvent extends TelemetryEventBase {
@@ -117,8 +149,10 @@ export interface DiscoverAntiPatternDetectedEvent extends TelemetryEventBase {
 
 export type TelemetryEvent =
   | StageAdvisorRecordedEvent
-  | ReviewPassRoundChangedEvent
   | ReviewAdvisoryDispatchedEvent
+  | ShipReadinessGateVerdictEvent
+  | StageReEnteredEvent
+  | ReviewPassRoundChangedEvent
   | ShipBranchOutcomeChosenEvent
   | QaClusterRoutedEvent
   | Build3StrikeTriggeredEvent

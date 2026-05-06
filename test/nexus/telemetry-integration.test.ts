@@ -47,7 +47,7 @@ function fakeAdvisorRecord(stage: 'build' | 'review' | 'ship'): CompletionAdviso
 }
 
 describe('telemetry integration — chokepoint at writer.ts', () => {
-  test('buildCompletionAdvisorWrite emits a stage_advisor_recorded event when telemetry enabled', () => {
+  test('buildCompletionAdvisorWrite emits stage_advisor_recorded + stage_re_entered events when telemetry enabled', () => {
     const home = makeTmpHome();
     const cwd = path.join(home, 'fake-project');
     fs.mkdirSync(cwd, { recursive: true });
@@ -57,13 +57,20 @@ describe('telemetry integration — chokepoint at writer.ts', () => {
     buildCompletionAdvisorWrite(record, { cwd, home, externalSkills: [], installedSkills: [] });
 
     const result = readTelemetryLog({ slug: 'fake-project', home });
-    expect(result.events).toHaveLength(1);
-    const event = result.events[0];
-    expect(event?.kind).toBe('stage_advisor_recorded');
-    expect(event?.stage).toBe('build');
-    if (event?.kind === 'stage_advisor_recorded') {
-      expect(event.stage_outcome).toBe('ready');
-      expect(event.requires_user_choice).toBe(false);
+    // Each advisor write now emits 2 events: stage_advisor_recorded (chokepoint)
+    // + stage_re_entered (Phase H Iron Law re-entry detection).
+    expect(result.events).toHaveLength(2);
+    const advisorEvent = result.events.find((e) => e.kind === 'stage_advisor_recorded');
+    expect(advisorEvent?.stage).toBe('build');
+    if (advisorEvent?.kind === 'stage_advisor_recorded') {
+      expect(advisorEvent.stage_outcome).toBe('ready');
+      expect(advisorEvent.requires_user_choice).toBe(false);
+    }
+    const reentryEvent = result.events.find((e) => e.kind === 'stage_re_entered');
+    expect(reentryEvent?.stage).toBe('build');
+    if (reentryEvent?.kind === 'stage_re_entered') {
+      // First write — no prior status.json on disk, so is_re_entry is false
+      expect(reentryEvent.is_re_entry).toBe(false);
     }
   });
 
@@ -92,8 +99,10 @@ describe('telemetry integration — chokepoint at writer.ts', () => {
     }
 
     const result = readTelemetryLog({ slug: 'fake-project', home });
-    expect(result.events).toHaveLength(3);
-    expect(result.events.map((e) => e.stage).sort()).toEqual(['build', 'review', 'ship']);
+    // 3 stages × 2 events per write (advisor + re-entry) = 6 events
+    expect(result.events).toHaveLength(6);
+    const advisorEvents = result.events.filter((e) => e.kind === 'stage_advisor_recorded');
+    expect(advisorEvents.map((e) => e.stage).sort()).toEqual(['build', 'review', 'ship']);
   });
 });
 
@@ -119,9 +128,10 @@ describe('telemetry CLI — runTelemetryCommand', () => {
     }
 
     const result = runTelemetryCommand({ cwd, home });
-    expect(result.summary.total).toBe(3);
-    expect(result.summary.by_stage).toEqual({ build: 2, review: 1 });
-    expect(result.text).toContain('Events: 3');
+    // 3 writes × 2 events each = 6 total
+    expect(result.summary.total).toBe(6);
+    expect(result.summary.by_stage).toEqual({ build: 4, review: 2 });
+    expect(result.text).toContain('Events: 6');
     expect(result.text).toContain('/build');
     expect(result.text).toContain('/review');
   });
@@ -136,8 +146,9 @@ describe('telemetry CLI — runTelemetryCommand', () => {
     }
 
     const result = runTelemetryCommand({ cwd, home, stage: 'build' });
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0]?.stage).toBe('build');
+    // 1 stage × 2 events = 2
+    expect(result.events).toHaveLength(2);
+    expect(result.events.every((e) => e.stage === 'build')).toBe(true);
   });
 
   test('filters events by kind', () => {
@@ -148,7 +159,11 @@ describe('telemetry CLI — runTelemetryCommand', () => {
     buildCompletionAdvisorWrite(fakeAdvisorRecord('build'), { cwd, home, externalSkills: [], installedSkills: [] });
 
     const result = runTelemetryCommand({ cwd, home, kind: 'stage_advisor_recorded' });
+    // 1 write produces 1 advisor event + 1 re-entry event; filter on kind
+    // returns just the advisor event.
     expect(result.events).toHaveLength(1);
+    const reentryFiltered = runTelemetryCommand({ cwd, home, kind: 'stage_re_entered' });
+    expect(reentryFiltered.events).toHaveLength(1);
     const filteredOut = runTelemetryCommand({ cwd, home, kind: 'ship_branch_outcome_chosen' });
     expect(filteredOut.events).toHaveLength(0);
   });

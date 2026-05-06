@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { discoverExternalInstalledSkills } from '../external-skills';
 import { withLedgerSchemaVersion } from '../ledger-schema';
 import { readVerificationMatrix } from '../verification-matrix';
@@ -7,6 +9,7 @@ import {
   buildTelemetryEvent,
   emitTelemetryEventForCwd,
   type StageAdvisorRecordedEvent,
+  type StageReEnteredEvent,
 } from '../telemetry';
 import type { CompletionAdvisorRecord, InstalledSkillRecord, VerificationMatrixRecord } from '../types';
 import { attachExternalInstalledSkillRecommendations } from './resolver';
@@ -53,10 +56,8 @@ export function buildCompletionAdvisorWrite(
     });
   }
 
-  // Phase H (adoption telemetry — Track D-D3 follow-up): emit a
-  // stage_advisor_recorded event for every advisor write. This is the
-  // chokepoint where every stage's lifecycle outcome flows through —
-  // instrumenting here captures the canonical 9 with one integration.
+  // Phase H (adoption telemetry — Track D-D3 follow-up): emit
+  // stage_advisor_recorded for every advisor write (chokepoint).
   // No-op when NEXUS_TELEMETRY != '1' (zero cost for default users).
   emitTelemetryEventForCwd(
     buildTelemetryEvent<StageAdvisorRecordedEvent>({
@@ -73,9 +74,45 @@ export function buildCompletionAdvisorWrite(
     options.home,
   );
 
+  // Also emit stage_re_entered to capture Iron Law re-entry patterns
+  // (/build Law 2 3-strike re-entry, /review Law 2 two-round, etc).
+  // Detected by checking if a prior advisor record exists for the same
+  // run_id at this stage's canonical path.
+  emitTelemetryEventForCwd(
+    buildTelemetryEvent<StageReEnteredEvent>({
+      run_id: record.run_id,
+      kind: 'stage_re_entered',
+      stage: record.stage,
+      is_re_entry: detectStageReEntry(cwd, record.stage, record.run_id),
+    }),
+    cwd,
+    options.home,
+  );
+
   const versionedRecord = withLedgerSchemaVersion(record);
   return {
     path: `.planning/current/${record.stage}/completion-advisor.json`,
     content: JSON.stringify(versionedRecord, null, 2) + '\n',
   };
+}
+
+/**
+ * Detect whether a stage advisor record write is a re-entry: an advisor
+ * record already exists for this run_id at the same stage's canonical
+ * path. This signals an Iron Law re-entry pattern (e.g., /build Law 2
+ * 3-strike, /review Law 2 two-round).
+ *
+ * Best-effort: returns false on any read error (fail open — we'd rather
+ * miss a re-entry signal than emit a false positive).
+ */
+function detectStageReEntry(cwd: string, stage: string, runId: string): boolean {
+  const path = join(cwd, '.planning', 'current', stage, 'completion-advisor.json');
+  if (!existsSync(path)) return false;
+  try {
+    const content = readFileSync(path, 'utf-8');
+    const parsed = JSON.parse(content) as { run_id?: string };
+    return parsed.run_id === runId;
+  } catch {
+    return false;
+  }
 }
