@@ -196,19 +196,28 @@ one-shot deletion).
 
 **Goal:** Update narrative claims to reflect post-D2 reality.
 
-**Changes:**
+**Changes (revised 2026-05-05 with audit-discovered additions):**
 
 1. `README.md` lines 19-31 — rewrite the "absorbed", "upstream maintenance", "Imported upstream repos" sections. New narrative: PM Skill / GSD / Superpowers concepts are native Nexus capabilities; release flow is independent of any upstream tracking.
 2. `docs/skills.md` lines 1-17 — same rewrite.
 3. `docs/architecture/post-audit-cleanup-plan.md` — add a closing note that D2 has landed, retiring the "Future work" section about deep external-skill cooperation (move that to Track D-D3 RFC).
 4. `docs/architecture/phase-4-plan.md` — mark Phase 4.3 D2 as ☑.
 
+**Audit-discovered additions** (not in original RFC scope; surfaced during the
+pre-D2 audit on 2026-05-05):
+
+5. `docs/superpowers/runbooks/upstream-refresh.md` — **DELETE entirely**. The runbook describes a tool (`scripts/upstream-refresh.ts`) that no longer exists post-2.2.
+6. `docs/superpowers/runbooks/nexus-release-publish.md` — audit for any `vendor/upstream*` references; prune as needed.
+7. `docs/architecture/repo-taxonomy-v2.md` — prune `vendor/upstream*` mentions at lines 51-90 + 223 (audit-identified specific lines).
+8. `setup` script line 746 — remove the `-path "$nexus_dir/vendor/upstream"` find-prune exclusion (becomes dead code post-2.4).
+
 **Verification:**
 - `git grep -i "absorbed from upstream"` returns nothing (or only intentional historical references)
-- `git grep "vendor/upstream"` returns nothing in source
+- `git grep "vendor/upstream"` returns nothing in source code (only intentional references in track-d-d2-rfc.md / phase-4-plan.md as historical record)
+- `git grep "upstream-refresh"` returns nothing in scripts / runbooks (the deleted tool + its runbook are gone)
 - README narrative reads coherently
 
-**Estimated effort:** 2-3 hours (mostly editing).
+**Estimated effort:** ~2-3 hours (mostly editing). +30-45 min for audit-discovered additions = total 2.5-3.5h.
 
 ---
 
@@ -220,8 +229,8 @@ one-shot deletion).
 | 2.2 — Remove maintainer scripts | 2h | Low |
 | 2.3 — Delete absorption surface | 30min | Very low (no importers) |
 | 2.4 — Delete vendor snapshots + tests | 1h | Low |
-| 2.5 — Documentation rewrite | 2-3h | Low (no runtime impact) |
-| **Total** | **~9-11h** | |
+| 2.5 — Documentation rewrite (incl. audit additions) | 2.5-3.5h | Low (no runtime impact) |
+| **Total** | **~9-12h** | |
 
 This is roughly half my earlier estimate of 10-15h because `skill:check`
 doesn't need replacement, `~/.nexus/config.yaml` doesn't need migration, and

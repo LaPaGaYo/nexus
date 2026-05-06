@@ -362,29 +362,44 @@ Each sub-phase ships as one or more PRs that explicitly reference this plan in
 the PR description. Mark items as ☑ here when their PR merges.
 
 ### Phase 4.1 — Polish & unblock
-- [ ] #42 adapter stub safety
-- [ ] #44 `schema_version` field
-- [ ] #43 host scanner asymmetry
-- [ ] #40 three cwd defaults
-- [ ] #38 + #39 deploy-contract follow-ups
-- [x] ST5 hook helper runtime rename to `runtimes/hooks/`
+- [x] #42 adapter stub safety (PR #45 landed)
+- [x] #44 `schema_version` field (PR #47 landed; ledger schema versioning live)
+- [x] #43 host scanner asymmetry (PR #47 landed; `HOST_SKILL_INSTALL_ROOTS` registry)
+- [x] #40 three cwd defaults (PR #55 landed)
+- [x] #38 + #39 deploy-contract follow-ups (PR #55 landed)
+- [x] ST5 hook helper runtime rename to `runtimes/hooks/` (PR #56 landed)
+- [ ] #48 PR #45 follow-up (parameterize stub-rejection test) — assigned glaocon
+- [ ] #49 PR #47 follow-up (schema_version reader symmetry) — assigned glaocon
 
 ### Phase 4.2 — Architecture surgery
-- [ ] #41 completion-advisor split (3 phases)
-- [ ] ST1 lib/nexus/ subdir
-- [ ] ST9 test/nexus/ mirror
-- [ ] ST3 CHANGELOG/TODOS root cleanup (after RFC)
+- [~] #41 completion-advisor split — Phase 1 done (PR #51 — writer extracted); Phase 2 in flight (#63); Phase 3 queued (#72)
+- [ ] ST1 lib/nexus/ subdir — blocked on #41 Phase 3 (#82)
+- [ ] ST9 test/nexus/ mirror — bundled with ST1 (#82)
+- [ ] ST3 CHANGELOG/TODOS root cleanup — needs RFC first (#84)
 
 ### Phase 4.3 — Track D
-- [ ] D1 rename adapters + stage-packs (+ ST6)
-- [ ] D2 RFC written and approved
-- [ ] D2 implementation (delete upstream)
-- [ ] D3 RFC written and approved (+ Decisions 2, 3)
-- [ ] D3 implementation (SkillRegistry + manifest)
-- [ ] D3 optional intent dispatcher (if Decision 2 includes C)
+- [x] D1 rename adapters + stage-packs (+ ST6) — PR #50 landed
+- [x] D2 RFC written and approved (`track-d-d2-rfc.md` v1; revised 2026-05-05 with Phase 2.5 audit additions)
+- [~] D2 implementation — Phase 2.1 done (PR #58); Phase 2.2 in flight (#62 / PR #66); 2.3-2.5 queued (#69-#71)
+- [x] D3 RFC written and approved (`track-d-d3-rfc.md` v1; revised 2026-05-05 v2 with Model γ + Δ1/Δ2 sub-phases)
+- [~] D3 implementation — Phase 1 done (PR #57 + #60); Phase 2.a in flight (#65); 2.b/2.c/2.d/3-7 queued (#74-#81)
+- [ ] D3 optional intent dispatcher (`/nexus do`) — queued as Phase 3.5 (#79)
 
 ### Phase 4.4 — Optional polish
-- [ ] ST2 / ST4 / ST7 / ST8 / ST10 (bundled or individual)
+- [ ] ST1+ST9 bundled (#82) — blocked
+- [ ] ST2 lib/ single-child (#83)
+- [ ] ST3 CHANGELOG/TODOS (#84) — needs RFC
+- [ ] ST4 split bin/ (#85)
+- [ ] ST7 agents/openai.yaml (#86)
+- [ ] ST8 skills/root single-child (#87)
+- [ ] ST10 group scripts/ (#88)
+- [ ] Doc refresh: context-diagram.md (#89) — post-D2
+- [ ] Doc refresh: repo-taxonomy-v2.md (#90) — post-D2
+
+**Legend:** `[x]` done · `[~]` in flight (some sub-tasks done) · `[ ]` not started
+
+**Cross-reference:** See `docs/architecture/phase-4-backlog.md` for the live
+issue tracker view (priorities, dependencies, assignment policy).
 
 ---
 

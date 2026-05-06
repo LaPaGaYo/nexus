@@ -1,7 +1,7 @@
 # Track D-D3 RFC: SkillRegistry, `nexus.skill.yaml`, and Intent-aware skill cooperation
 
-**Status:** Draft for review.
-**Author:** Surfaced from Phase 4 architecture audit on 2026-05-04.
+**Status:** Active. Phase 1 (registry consolidation) landed via PR #57 + #60. Phase 2 (schema + parser) in flight via #65.
+**Author:** Surfaced from Phase 4 architecture audit on 2026-05-04. Last revised 2026-05-05 with Model γ framing + Δ1/Δ2 sub-phases (see Revision history below).
 **Parent plan:** `docs/architecture/phase-4-plan.md` § Phase 4.3.
 **Predecessor:** Track D-D2 (`docs/architecture/track-d-d2-rfc.md`) — independent; can land in any order.
 **Companion:** Issue #43 (host scanner asymmetry) is a precursor — this RFC assumes #43 has unified the host enumeration.
@@ -9,6 +9,10 @@
 **Decisions made (per Phase 4 plan discussion 2026-05-04):**
 - **Routing model:** B + optional C — Router-aware lifecycle as the baseline, with `/nexus do <intent>` as an additional entry-point dispatcher.
 - **Manifest format:** Separate `nexus.skill.yaml` file alongside `SKILL.md` (cleaner schema evolution; skill author manages two files).
+
+**Revision history:**
+- **2026-05-04 v1**: Initial draft.
+- **2026-05-05 v2**: Added "Strategic framing: Model γ" section (skill router, not warehouse) following pre-D3 absorption audit. Restructured Phase 3.2 into 3.2.a (schema + parser, brief landed at `track-d-d3-phase-2-brief.md`) and 3.2.b (registry consumes manifests, brief pending). Added Phase 3.2.c (Δ1 first-party catalog) + 3.2.d (Δ2 installer convenience) per audit recommendations.
 
 ---
 
@@ -50,6 +54,50 @@ Concretely:
   `discover-skills` continue to work as today. They will optionally consume
   `nexus.skill.yaml` for skills that have it (used to inject richer template
   context), but the core pipeline is unchanged.
+- **Bundling user-facing third-party skills inside the Nexus repo**. Per
+  Model γ (added v2), Nexus is a *router* not a *warehouse*; PM Skills /
+  Superpowers / GSD / CCB skills install via their own marketplaces. See
+  Strategic framing below.
+
+---
+
+## Strategic framing: Model γ (added 2026-05-05)
+
+A pre-D3 absorption audit (run on PR #58 head) discovered a critical nuance
+about the absorption thesis. The 9 lifecycle stages are absorbed natively
+(`lib/nexus/stage-content/` + `lib/nexus/stage-packs/` — done via PR #58 and
+predecessors). But the broader *user-facing skill libraries* — 47 PM skills,
+14 Superpowers skills, ~24 GSD agents, 11 CCB skills — are NOT bundled in
+Nexus. They install via independent channels (PM marketplace,
+`claude-plugins-official`, GSD installer, CCB).
+
+This RFC adopts **Model γ** as its strategic frame: Nexus is a *skill router
++ lifecycle harness*, NOT a skill warehouse. External skills installed by
+the user become first-class citizens to Nexus's intent dispatch and advisor
+surface — without ever being copied into the Nexus repo.
+
+This is more humble and more achievable than "absorb every PM skill into
+Nexus's bundle". Key implications:
+
+- `nexus.skill.yaml` (Component 2) is the protocol that lets externally-
+  installed skills participate in Nexus's router. Skill authors (Nexus or
+  third party) write the manifest; Nexus's SkillRegistry reads it.
+- The catalog of template manifests (Phase 3.2.c, Δ1 below) ships *examples*
+  third-party skill authors can use — but Nexus does not own the bits.
+- The optional installer (Phase 3.2.d, Δ2 below) shells out to the host's
+  plugin manager rather than bundling skills inside Nexus.
+
+Rejected alternatives:
+- **Bundle PM/Superpowers/GSD skills into `skills/support/`** (Model α): would
+  create a maintenance trap, contradict D2's deletion premise, and violate
+  the vendor README's "second command surface" red line.
+- **Replace upstream's plugin marketplaces with Nexus**: out of Nexus's scope
+  and identity. Nexus is governance, not distribution.
+- **Keep status quo with no manifest contract** (Model δ): forfeits all the
+  intent-routing leverage that motivates Components 3 + 4.
+
+Model γ is what makes D3 possible without re-creating the upstream-snapshot
+pattern that D2 just removed.
 
 ---
 
@@ -383,21 +431,81 @@ behavior**; just consolidation.
 
 **Effort:** 4-5h. Mechanical move + dedupe + small interface design.
 
-### Phase 3.2 — `nexus.skill.yaml` schema + parser
+### Phase 3.2 — `nexus.skill.yaml` schema + cooperation surface
 
-**Goal:** Define the schema and add parsing without yet wiring to behavior.
+This phase has been **split into 4 sub-phases** (revised 2026-05-05) to keep
+each PR small and reviewable. Each sub-phase has its own brief.
 
-- Create `lib/nexus/skill-registry/manifest-schema.ts` with the
-  `NexusSkillManifest` interface (typed against the YAML structure above)
-- Create `lib/nexus/skill-registry/manifest-parser.ts` with `parseManifest()`
-  that reads + validates `nexus.skill.yaml` files, returning `null` on any
-  error (with WARN log)
-- Update `SkillRegistry.discover()` to also look for `nexus.skill.yaml`
-  alongside each `SKILL.md` and attach the parsed manifest to `SkillRecord`
-- Tests: parser handles valid manifests, malformed YAML, missing fields,
-  unknown schema versions
+#### Phase 3.2.a — schema + parser only
 
-**Effort:** 3-4h. Schema design + YAML parser + tests.
+**Goal:** Define the schema and add parsing. Registry does not yet read manifests.
+
+**Brief:** `docs/architecture/track-d-d3-phase-2-brief.md` (committed)
+**Issue:** #65 (assigned glaocon)
+
+- Create `lib/nexus/skill-registry/manifest-schema.ts` with TypeScript types +
+  `NEXUS_SKILL_MANIFEST_SCHEMA_VERSION = 1`
+- Create `lib/nexus/skill-registry/manifest-parser.ts` with discriminated-union
+  read result (`manifest | missing | invalid | parse_error | unsupported_version`)
+- Tests: 12 enumerated cases (minimal valid, full, missing required, parse error, unknown version, etc.)
+- Documentation: `docs/skill-manifest-schema.md` (human-facing spec for skill authors)
+
+**Effort:** 4-6h. Schema design + parser + tests + docs.
+
+#### Phase 3.2.b — SkillRegistry consumes manifests
+
+**Goal:** Wire the schema into discovery + classification + ranking so Nexus
+actually uses manifests when present.
+
+**Brief:** pending (to be authored by Claude after 3.2.a lands)
+**Issue:** #74
+
+- Update `lib/nexus/skill-registry/discovery.ts` to read `nexus.skill.yaml`
+  alongside `SKILL.md` and attach parsed manifest to `SkillRecord`
+- Update `lib/nexus/skill-registry/classification.ts` to respect
+  `manifest.classification.namespace`
+- Update `lib/nexus/skill-registry/ranking.ts` to use
+  `manifest.ranking.base_score` and `boosts[]`
+- Backwards-compat: skills without manifest fall back to Phase 1 heuristics
+- Tests: manifest present / absent / partial / invalid behavior at registry layer
+
+**Effort:** 3-4h. Registry consumption + tests.
+
+#### Phase 3.2.c — Δ1: first-party manifest catalog (audit recommendation)
+
+**Goal:** Provide examples third-party skill authors can use to declare their
+skills as Nexus-aware. Per Model γ, Nexus does not bundle but does publish
+templates.
+
+**Brief:** pending (to be authored by Claude)
+**Issue:** #75
+
+- Create `docs/skill-manifests/` directory with template `nexus.skill.yaml`
+  files for the 47 PM + 14 Superpowers skills + ~24 GSD agents (starter set)
+- Build `bun run skill:manifest:suggest <skill-name>` script that reads a
+  third-party `SKILL.md` and emits a stub manifest based on heuristics
+- Documentation: how a skill author / marketplace adopts a manifest
+- These are **published examples**, not shipped manifests — Nexus does not
+  ship third-party skill content
+
+**Effort:** 3-4h.
+
+#### Phase 3.2.d — Δ2: opt-in installer convenience (audit recommendation)
+
+**Goal:** Convenience flag on `nexus setup` that delegates to the host's
+plugin manager for installing external skill bundles. Per Model γ, Nexus
+does not host these skills — the installer is a thin shell-out.
+
+**Brief:** pending (to be authored by Claude)
+**Issue:** #76
+
+- Add `--with-pm-skills` / `--with-superpowers` / `--with-gsd` flags to
+  `nexus setup`
+- Per-host plugin manager invocation (claude / codex / gemini-cli)
+- Failure modes: plugin manager absent / install fails / partial install
+- Documentation for users
+
+**Effort:** 3-4h.
 
 ### Phase 3.3 — Stage-aware advisor (B)
 
@@ -477,16 +585,23 @@ compatibility shim.
 
 ## Total effort estimate
 
-| Phase | Effort | Risk |
-|-------|--------|------|
-| 3.1 — SkillRegistry consolidation | 4-5h | Medium (refactors existing scanner) |
-| 3.2 — Manifest schema + parser | 3-4h | Low (additive) |
-| 3.3 — Stage-aware advisor (B) | 3-4h | Medium (changes recommendation behavior) |
-| 3.4 — Built-in skill manifests | 4-6h | Low (per-skill content authoring) |
-| 3.5 — `/nexus do` dispatcher (C) | 5-7h | High (new product surface, LLM integration) |
-| 3.6 — Documentation | 3-4h | Low |
-| 3.7 — Compat shim removal | 30 min | Low |
-| **Total** | **22-30h** | |
+| Phase | Effort | Risk | Status |
+|-------|--------|------|--------|
+| 3.1 — SkillRegistry consolidation | 4-5h | Medium | **✅ Done** (PR #57 + #60) |
+| 3.2.a — Manifest schema + parser | 4-6h | Low | **In flight** (#65) |
+| 3.2.b — Registry consumes manifests | 3-4h | Medium | Brief pending (#74) |
+| 3.2.c — Δ1: first-party manifest catalog | 3-4h | Low | Brief pending (#75) |
+| 3.2.d — Δ2: opt-in installer | 3-4h | Low | Brief pending (#76) |
+| 3.3 — Stage-aware advisor (B) | 3-4h | Medium | Brief pending (#77) |
+| 3.4 — Built-in skill manifests (28) | 4-6h | Low | Brief pending (#78) |
+| 3.5 — `/nexus do` dispatcher (C) | 5-7h | High | Brief pending (#79) |
+| 3.6 — Documentation | 3-4h | Low | Brief pending (#80) |
+| 3.7 — Compat shim removal | 30 min | Low | Brief pending (#81) |
+| **Total (revised)** | **32-44h** | | ~10-15% complete |
+
+**Effort delta vs v1**: +10-14h, driven by (a) schema-only sub-phase 3.2.a vs
+combined "schema + register" in v1, and (b) two new sub-phases 3.2.c (Δ1
+catalog) and 3.2.d (Δ2 installer) added per Model γ recommendation.
 
 ---
 
