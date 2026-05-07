@@ -93,6 +93,14 @@ jobs:
         # surface the same root cause.
         run: bun run build
 
+      - name: Install Playwright Chromium (browse suite only)
+        # The browse runtime tests spin up a real Chromium headless shell.
+        # evals.yml gets this for free via the pre-baked docker image
+        # (PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers); without docker,
+        # we install on the fly. ~30s, only for the browse matrix cell.
+        if: matrix.suite.name == 'browse'
+        run: bunx playwright install --with-deps chromium
+
       - name: Run tests
         # Two-layer failure detection. See file-level header comment for why.
         # Matrix values are loaded into env vars first to avoid any
