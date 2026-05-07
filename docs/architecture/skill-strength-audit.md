@@ -51,9 +51,9 @@ I read the 37 native Nexus SKILL.md files in `skills/canonical/`, `skills/suppor
 `skills/safety/`, and `skills/root/`. I compared each to the closest upstream
 counterpart in:
 
-- **Superpowers** (14 skills): `vendor/upstream/superpowers/skills/`
-- **GSD** (68 commands): `vendor/upstream/gsd/commands/gsd/`
-- **PM Skills** (47 skills): `vendor/upstream/pm-skills/skills/`
+- **Superpowers** (14 skills): pre-D2 local snapshot audit, now retired
+- **GSD** (68 commands): pre-D2 local snapshot audit, now retired
+- **PM Skills** (47 skills): pre-D2 local snapshot audit, now retired
 
 Each Nexus skill is scored 1-5 on five dimensions:
 

@@ -2,8 +2,7 @@
 
 The root `/nexus` source template has moved into the skill taxonomy. The Chrome
 extension source, design runtime, runtime sidecars, and tracked host source
-sidecars, vendor upstream snapshots, and vendor maintenance metadata have moved
-under their taxonomy roots. Remaining generated host output stays in
+sidecars have moved under their taxonomy roots. Remaining generated host output stays in
 compatibility locations until a migration explicitly updates setup, generated
 host surfaces, runtime path rewrites, and tests.
 
@@ -47,10 +46,6 @@ nexus/
     factory/
     kiro/
 
-  vendor/
-    vendor/upstream/
-    vendor/upstream-notes/
-
   bin/
   scripts/
   docs/
@@ -66,9 +61,7 @@ tests. The root `/nexus` source template now lives under
 The Chrome extension source now lives under `runtimes/browse/extension/`, the
 design runtime now lives under `runtimes/design/`, runtime sidecars now live
 under `runtimes/design-html/` and `runtimes/hooks/`, tracked host sidecars now
-live under `hosts/`, and upstream vendor material now lives under `vendor/`,
-while installed hosts and root upstream symlinks keep historical compatibility
-paths.
+live under `hosts/`, while installed host compatibility paths remain stable.
 
 Representative current-to-target mappings:
 
@@ -84,10 +77,6 @@ Representative current-to-target mappings:
 - `review` -> `references/review`
 - `qa` -> `references/qa`
 - `.claude/rules` -> `hosts/claude/rules`
-- `vendor/upstream` -> `vendor/upstream`
-- `vendor/upstream-notes` -> `vendor/upstream-notes`
-- `upstream` -> `vendor/upstream` (compatibility symlink)
-- `upstream-notes` -> `vendor/upstream-notes` (compatibility symlink)
 - `.agents` -> `hosts/codex`
 - `agents/openai.yaml` -> `hosts/codex/openai.yaml`
 - `.factory` -> `hosts/factory`
@@ -108,8 +97,6 @@ installed runtime paths such as:
 - `$NEXUS_ROOT/qa/templates/qa-report-template.md`
 - `.claude/rules/*`
 - `agents/openai.yaml`
-- `upstream`
-- `upstream-notes`
 
 ## Phase 4 First Reference Move
 
@@ -219,8 +206,8 @@ The remaining facade slice is intentionally conservative:
   should not be treated as tracked source-of-truth.
 
 Guarded future paths must stay absent until their migration batch moves assets
-and updates compatibility logic. Remaining examples are host/vendor-focused,
-such as generated host output roots and `vendor/upstream`.
+and updates compatibility logic. Remaining examples are host-focused, such as
+generated host output roots.
 
 ## First-Class Host Targets
 

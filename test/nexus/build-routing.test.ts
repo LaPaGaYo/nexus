@@ -185,7 +185,7 @@ describe('nexus build routing', () => {
             traceability: {
               nexus_stage_pack: 'nexus-handoff-pack',
               absorbed_capability: 'ccb-routing',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/providers.py'],
+              source_map: [],
             },
           }),
         },
@@ -1842,7 +1842,7 @@ describe('nexus build routing', () => {
             traceability: {
               nexus_stage_pack: 'nexus-qa-pack',
               absorbed_capability: 'ccb-qa',
-              source_map: ['vendor/upstream/claude-code-bridge/lib/gemini_comm.py'],
+              source_map: [],
             },
           }),
         },

@@ -742,8 +742,7 @@ find_claude_skill_files() {
        -path "$nexus_dir/.factory" -o \
        -path "$nexus_dir/.gemini" -o \
        -path "$nexus_dir/node_modules" -o \
-       -path "$nexus_dir/dist" -o \
-       -path "$nexus_dir/vendor/upstream" \) -prune -o \
+       -path "$nexus_dir/dist" \) -prune -o \
     -type f -name SKILL.md -print
 }
 

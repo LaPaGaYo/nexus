@@ -627,19 +627,6 @@ export function classifyRepoPath(repoPath: string): RepoPathClassification {
     };
   }
 
-  if (normalized === 'upstream' || normalized === 'upstream-notes') {
-    return {
-      current_path: normalized,
-      category: 'vendor',
-      target_path: `vendor/${normalized}`,
-      move_policy: 'compat_required',
-      risk_level: 'medium',
-      rule: 'tracked-upstream-compat-root',
-      rationale: 'Tracked upstream compatibility roots remain classifiable until Track D-D2 removes the imported snapshots; they are not active runtime sources.',
-      deprecated: true,
-    };
-  }
-
   if (ROOT_FILES.has(normalized)) {
     return {
       current_path: normalized,

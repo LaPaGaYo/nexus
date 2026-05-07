@@ -271,7 +271,7 @@ Brief itself was ~30-45 min to write. Total E.2 (brief + impl): ~2-2.5h.
 - `docs/architecture/skill-strength-audit.md` — `/plan` audit data (1.2/5)
 - `skills/canonical/build/SKILL.md.tmpl` — voice reference (commit `4209cc4`)
 - `skills/canonical/plan/SKILL.md.tmpl` — current state to edit
-- `vendor/upstream/gsd/commands/gsd/plan-phase.md` — concept inspiration (NOT bundled)
-- `vendor/upstream/superpowers/skills/writing-plans/SKILL.md` — concept inspiration (NOT bundled)
-- `vendor/upstream/pm-skills/skills/prd-development/SKILL.md` — hypothesis framing inspiration (NOT bundled)
+- GSD `plan-phase` — concept inspiration (NOT bundled)
+- Superpowers `writing-plans` — concept inspiration (NOT bundled)
+- PM Skills `prd-development` — hypothesis framing inspiration (NOT bundled)
 - Issue #104 — this brief implements
