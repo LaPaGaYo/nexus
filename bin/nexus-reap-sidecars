@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# nexus-reap-sidecars — find and optionally kill orphaned browse sidecar processes.
+#
+# Issue #136: when a worktree gets removed (gstack worktree cleanup, manual
+# `rm -rf`, upgrade-rename), the sidebar-agent.ts process spawned by
+# `/connect-chrome` (or its predecessors) keeps running because Bun has the
+# script in memory and nothing on disk references it. Production builds
+# include a self-watchdog (issue #136 Fix A) that exits within ~60s of the
+# source disappearing, but older sidecars predating that fix can still leak,
+# and this tool gives a one-shot cleanup path.
+#
+# Usage:
+#   nexus-reap-sidecars              # report orphans (default; safe)
+#   nexus-reap-sidecars --kill       # report + kill orphans
+#   nexus-reap-sidecars --all        # list every sidebar-agent process,
+#                                    # not just orphans
+#   nexus-reap-sidecars --json       # machine-readable output
+#   nexus-reap-sidecars --kill --json
+#
+# An orphan is a sidebar-agent.ts process whose source file no longer exists
+# on disk. Live sidecars (with their source still present) are left alone.
+#
+# Exit codes:
+#   0 — clean run; orphans (if any) reported and, with --kill, signaled.
+#   1 — invocation error (bad flag, missing dependency).
+set -euo pipefail
+
+OUTPUT_MODE="text"
+KILL="false"
+INCLUDE_LIVE="false"
+
+print_help() {
+  awk '
+    NR == 1 { next }
+    /^set -euo pipefail$/ { exit }
+    /^# / { sub(/^# /, ""); print; next }
+    /^#$/ { print ""; next }
+  ' "$0"
+}
+
+while [ "${1:-}" != "" ]; do
+  case "${1}" in
+    -h|--help)
+      print_help
+      exit 0
+      ;;
+    --kill)
+      KILL="true"
+      shift
+      ;;
+    --all)
+      INCLUDE_LIVE="true"
+      shift
+      ;;
+    --json)
+      OUTPUT_MODE="json"
+      shift
+      ;;
+    *)
+      echo "Unknown option: ${1}" >&2
+      echo "Run nexus-reap-sidecars --help for usage." >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Find every bun process running a sidebar-agent.ts. The "ps -e -o ..."
+# format is portable across Linux and macOS; we extract pid + the script
+# path argument so we can stat the source file.
+#
+# Match pattern: any invocation whose argv contains an absolute or relative
+# path ending in ".../sidebar-agent.ts" (i.e., includes a slash). We require
+# the slash specifically to avoid matching this script's own awk pattern
+# literal ("sidebar-agent.ts" without a slash) in its ps output, and to
+# avoid false positives from any other tool that happens to mention the
+# bare filename.
+#
+# We deliberately allow the matched path to live anywhere — runtimes/browse/,
+# browse/, .gstack-worktrees/<name>/..., a temp dir — the orphan check is the
+# source-file-on-disk test, not a path prefix match.
+list_sidecars() {
+  ps -e -o pid=,command= |
+    awk '
+      {
+        path = ""
+        for (i = 2; i <= NF; i++) {
+          if ($i ~ /\/sidebar-agent\.ts$/) { path = $i; break }
+        }
+        if (path == "") next
+        printf "%s\t%s\n", $1, path
+      }
+    '
+}
+
+emit_text() {
+  local pid="$1" status="$2" path="$3"
+  printf '%-7s %-10s %s\n' "$pid" "$status" "$path"
+}
+
+emit_json_line() {
+  local pid="$1" status="$2" path="$3"
+  printf '{"pid":%s,"status":"%s","path":%s}' \
+    "$pid" "$status" "$(printf '%s' "$path" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')"
+}
+
+found=0
+killed=0
+orphans=0
+
+if [ "$OUTPUT_MODE" = "text" ]; then
+  printf '%-7s %-10s %s\n' "PID" "STATUS" "SOURCE"
+  printf '%-7s %-10s %s\n' "---" "------" "------"
+fi
+
+if [ "$OUTPUT_MODE" = "json" ]; then
+  printf '['
+fi
+
+first_json=true
+while IFS=$'\t' read -r pid path; do
+  found=$((found + 1))
+  if [ -f "$path" ]; then
+    status="live"
+  else
+    status="orphan"
+    orphans=$((orphans + 1))
+  fi
+
+  if [ "$status" = "live" ] && [ "$INCLUDE_LIVE" != "true" ]; then
+    continue
+  fi
+
+  if [ "$OUTPUT_MODE" = "json" ]; then
+    [ "$first_json" = "false" ] && printf ','
+    emit_json_line "$pid" "$status" "$path"
+    first_json=false
+  else
+    emit_text "$pid" "$status" "$path"
+  fi
+
+  if [ "$status" = "orphan" ] && [ "$KILL" = "true" ]; then
+    if kill "$pid" 2>/dev/null; then
+      killed=$((killed + 1))
+    fi
+  fi
+done < <(list_sidecars)
+
+if [ "$OUTPUT_MODE" = "json" ]; then
+  printf ']\n'
+fi
+
+if [ "$OUTPUT_MODE" = "text" ]; then
+  echo
+  echo "Found ${found} sidebar-agent process(es); ${orphans} orphan(s)."
+  if [ "$KILL" = "true" ]; then
+    echo "Killed ${killed} orphan(s)."
+  elif [ "$orphans" -gt 0 ]; then
+    echo "Re-run with --kill to terminate them."
+  fi
+fi
