@@ -692,7 +692,7 @@ describe('nexus local_provider mode', () => {
           if (spec.argv[0] === 'codex' && spec.argv.includes('--help')) {
             return {
               exit_code: 0,
-              stdout: 'Usage: codex [OPTIONS] [PROMPT]\nCommands:\n  review\n  resume\n',
+              stdout: 'Usage: codex [OPTIONS] [PROMPT]\nDescription: Run `codex exec -` to pipe stdin.\nCommands:\n  review\n  resume\n',
               stderr: '',
             };
           }
@@ -781,7 +781,7 @@ describe('nexus local_provider mode', () => {
           if (spec.argv[0] === 'gemini' && spec.argv.includes('--help')) {
             return {
               exit_code: 0,
-              stdout: 'Usage: gemini [OPTIONS]\n  --output-format <format>\n',
+              stdout: 'Usage: gemini [OPTIONS]\n  --profile <name>\n  --proxy <url>\n  --output-format <format>\n  --yolo\n',
               stderr: '',
             };
           }
@@ -1723,6 +1723,136 @@ describe('nexus local_provider mode', () => {
         },
       });
     });
+  });
+
+  test('accepts codex and gemini subagent support flags emitted on stderr', async () => {
+    const cases = [
+      {
+        provider: 'codex',
+        execution: CODEX_LOCAL_SUBAGENT_EXECUTION,
+        helpStdout: '',
+        helpStderr: 'Usage: codex [OPTIONS] [PROMPT]\nCommands:\n  exec -\n  review\n  resume\n',
+        expectedOutput: 'exec -',
+      },
+      {
+        provider: 'gemini',
+        execution: GEMINI_LOCAL_SUBAGENT_EXECUTION,
+        helpStdout: '',
+        helpStderr: 'Usage: gemini [OPTIONS]\n  -p, --prompt <prompt>\n  --output-format <format>\n  --yolo\n',
+        expectedOutput: '--yolo',
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      await runInTempRepo(async ({ run }) => {
+        const adapters = getDefaultNexusAdapters();
+        adapters.local = createRuntimeLocalAdapter({
+          runCommand: async (spec) => {
+            if (spec.argv[0] === 'which') {
+              return {
+                exit_code: 0,
+                stdout: `/Users/henry/.local/bin/${testCase.provider}\n`,
+                stderr: '',
+              };
+            }
+
+            if (spec.argv[0] === testCase.provider && spec.argv.includes('--help')) {
+              return {
+                exit_code: 0,
+                stdout: testCase.helpStdout,
+                stderr: testCase.helpStderr,
+              };
+            }
+
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          },
+        });
+
+        await run('plan', adapters, testCase.execution);
+        await run('handoff', adapters, testCase.execution);
+
+        expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+          route_validation: {
+            available: true,
+            approved: true,
+          },
+        });
+        expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
+          raw_output: {
+            verification_commands: [
+              `which ${testCase.provider}`,
+              `${testCase.provider} --help`,
+            ],
+            verification_output: expect.stringContaining(testCase.expectedOutput),
+          },
+        });
+      });
+    }
+  });
+
+  test('blocks codex and gemini subagents when help exits non-zero even with supported flags in stdout', async () => {
+    const cases = [
+      {
+        provider: 'codex',
+        execution: CODEX_LOCAL_SUBAGENT_EXECUTION,
+        helpStdout: 'Usage: codex [OPTIONS] [PROMPT]\nCommands:\n  exec -\n  review\n  resume\n',
+        expectedOutput: 'exec -',
+      },
+      {
+        provider: 'gemini',
+        execution: GEMINI_LOCAL_SUBAGENT_EXECUTION,
+        helpStdout: 'Usage: gemini [OPTIONS]\n  -p, --prompt <prompt>\n  --output-format <format>\n  --yolo\n',
+        expectedOutput: '--yolo',
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      await runInTempRepo(async ({ run }) => {
+        const adapters = getDefaultNexusAdapters();
+        adapters.local = createRuntimeLocalAdapter({
+          runCommand: async (spec) => {
+            if (spec.argv[0] === 'which') {
+              return {
+                exit_code: 0,
+                stdout: `/Users/henry/.local/bin/${testCase.provider}\n`,
+                stderr: '',
+              };
+            }
+
+            if (spec.argv[0] === testCase.provider && spec.argv.includes('--help')) {
+              return {
+                exit_code: 1,
+                stdout: testCase.helpStdout,
+                stderr: 'help failed',
+              };
+            }
+
+            throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+          },
+        });
+
+        await run('plan', adapters, testCase.execution);
+        await expect(run('handoff', adapters, testCase.execution)).rejects.toThrow(
+          'Local provider route is not approved by Nexus',
+        );
+
+        expect(await run.readJson('.planning/current/handoff/status.json')).toMatchObject({
+          route_validation: {
+            available: false,
+            approved: false,
+          },
+        });
+        expect(await run.readJson('.planning/current/handoff/adapter-output.json')).toMatchObject({
+          raw_output: {
+            verification_commands: [
+              `which ${testCase.provider}`,
+              `${testCase.provider} --help`,
+            ],
+            verification_output: expect.stringContaining(testCase.expectedOutput),
+          },
+        });
+      });
+    }
   });
 
   test('uses codex role-specific passes for local multi_session execution at runtime', async () => {

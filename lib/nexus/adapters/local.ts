@@ -1248,6 +1248,18 @@ async function verifyClaudeSubagentSupport(
   };
 }
 
+function hasCodexExecStdinSupport(output: string): boolean {
+  return /(?:^|\n)\s*(?:codex\s+)?exec\s+-(?:\s|$)/m.test(output);
+}
+
+function hasGeminiPromptFlag(output: string): boolean {
+  return /(?:^|\n)\s*-p(?:\s|,|$)/m.test(output);
+}
+
+function hasGeminiYoloFlag(output: string): boolean {
+  return /(?:^|\n)\s*--yolo(?:\s|,|$)/m.test(output);
+}
+
 async function verifyCodexSubagentSupport(
   cwd: string,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
@@ -1269,7 +1281,7 @@ async function verifyCodexSubagentSupport(
     };
   }
 
-  if (!output.includes('exec -')) {
+  if (!hasCodexExecStdinSupport(output)) {
     return {
       ok: false,
       message: 'codex CLI does not support exec - for local_provider subagents',
@@ -1343,7 +1355,7 @@ async function verifyGeminiSubagentSupport(
     };
   }
 
-  if (!output.includes('-p') || !output.includes('--yolo')) {
+  if (!hasGeminiPromptFlag(output) || !hasGeminiYoloFlag(output)) {
     return {
       ok: false,
       message: 'gemini CLI does not support -p and --yolo for local_provider subagents',
