@@ -116,13 +116,13 @@ describe('nexus command dispatcher', () => {
     );
   });
 
-  test('treats missing adapter kind as stub-equivalent', async () => {
+  test.each(STUB_REJECTION_CASES)('treats missing $family adapter kind as stub-equivalent', async ({ family }) => {
     const adapters = getRuntimeNexusAdapters();
-    (adapters.discovery as unknown as { kind: unknown }).kind = undefined;
+    (adapters[family] as unknown as { kind: unknown }).kind = undefined;
     const { invocation, ctx } = productionCommandContext(adapters);
 
     await expect(invocation.handler(ctx)).rejects.toThrow(
-      'Refusing to run lifecycle command with non-runtime discovery adapter. Use getRuntimeNexusAdapters() in production.',
+      `Refusing to run lifecycle command with non-runtime ${family} adapter. Use getRuntimeNexusAdapters() in production.`,
     );
   });
 });

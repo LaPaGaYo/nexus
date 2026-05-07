@@ -54,19 +54,25 @@ const GEMINI_LOCAL_SUBAGENT_EXECUTION = {
   requested_execution_path: 'gemini-local-subagents',
 };
 
+const LOCAL_TRACEABILITY_PACK_CASES = [
+  { absorbedCapability: 'local-provider-routing', nexusStagePack: 'nexus-handoff-pack' },
+  { absorbedCapability: 'local-provider-execution', nexusStagePack: 'nexus-build-pack' },
+  { absorbedCapability: 'local-provider-review-a', nexusStagePack: 'nexus-review-pack' },
+  { absorbedCapability: 'local-provider-review-b', nexusStagePack: 'nexus-review-pack' },
+  { absorbedCapability: 'local-provider-qa', nexusStagePack: 'nexus-qa-pack' },
+  { absorbedCapability: 'local-provider-ship-personas', nexusStagePack: 'nexus-ship-pack' },
+] as const;
+
 describe('nexus local_provider mode', () => {
-  test('local traceability maps local capabilities to explicit stage packs', () => {
-    expect(localTraceability('local-provider-routing')).toMatchObject({
-      nexus_stage_pack: 'nexus-handoff-pack',
-      absorbed_capability: 'local-provider-routing',
-      source_map: getStagePackSourceMap('nexus-handoff-pack'),
+  test.each(LOCAL_TRACEABILITY_PACK_CASES)(
+    'local traceability maps $absorbedCapability to $nexusStagePack',
+    ({ absorbedCapability, nexusStagePack }) => {
+      expect(localTraceability(absorbedCapability)).toMatchObject({
+        nexus_stage_pack: nexusStagePack,
+        absorbed_capability: absorbedCapability,
+        source_map: getStagePackSourceMap(nexusStagePack),
+      });
     });
-    expect(localTraceability('local-provider-ship-personas')).toMatchObject({
-      nexus_stage_pack: 'nexus-ship-pack',
-      absorbed_capability: 'local-provider-ship-personas',
-      source_map: getStagePackSourceMap('nexus-ship-pack'),
-    });
-  });
 
   test('local traceability rejects unknown local capabilities instead of falling through', () => {
     expect(() => localTraceability('local-provider-unknown')).toThrow(

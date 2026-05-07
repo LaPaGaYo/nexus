@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
@@ -11,7 +11,10 @@ import {
 import { resolveCliCompletionContext } from '../../lib/nexus/cli-advisor';
 import { buildCompletionAdvisorWrite } from '../../lib/nexus/completion-advisor/writer';
 import { archiveCompletedRunLedger, readLedger, startLedger, writeLedger } from '../../lib/nexus/ledger';
-import { warnOnUnexpectedLedgerSchemaVersion } from '../../lib/nexus/ledger-schema';
+import {
+  __resetMemoizedSchemaWarnings,
+  warnOnUnexpectedLedgerSchemaVersion,
+} from '../../lib/nexus/ledger-schema';
 import {
   buildReviewMetaWrite,
   CURRENT_REVIEW_META_PATH,
@@ -283,6 +286,10 @@ function captureWarnings(fn: () => void): string[] {
 }
 
 describe('ledger schema versioning', () => {
+  afterEach(() => {
+    __resetMemoizedSchemaWarnings();
+  });
+
   test.each(CANONICAL_VERSIONED_WRITERS)('canonical writer $name stamps schema_version first', ({ readWrittenRecord }) => {
     const root = fixtureRoot();
     const record = readWrittenRecord(root);
@@ -329,5 +336,24 @@ describe('ledger schema versioning', () => {
 
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain(artifactPath);
+  });
+
+  test('schema warnings emit once per distinct artifact label', () => {
+    const firstArtifactPath = '.planning/test/first-ledger-schema-warning.json';
+    const secondArtifactPath = '.planning/test/second-ledger-schema-warning.json';
+
+    const warnings = captureWarnings(() => {
+      warnOnUnexpectedLedgerSchemaVersion({ schema_version: 99 }, firstArtifactPath);
+      warnOnUnexpectedLedgerSchemaVersion({ schema_version: 99 }, secondArtifactPath);
+      warnOnUnexpectedLedgerSchemaVersion({ schema_version: 99 }, firstArtifactPath);
+    });
+
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toContain(firstArtifactPath);
+    expect(warnings[1]).toContain(secondArtifactPath);
+  });
+
+  test('readCurrentReviewMeta returns null when the audit meta file is absent', () => {
+    expect(readCurrentReviewMeta(fixtureRoot())).toBeNull();
   });
 });

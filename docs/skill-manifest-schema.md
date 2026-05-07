@@ -30,7 +30,7 @@ Nexus standardizes on `.yaml`. Do not create a parallel `.yml` file.
 | Field | Type | Notes |
 |---|---|---|
 | `lifecycle_stages` | enum array | Any of `discover`, `frame`, `plan`, `handoff`, `build`, `review`, `qa`, `ship`, `closeout`. |
-| `classification.namespace` | enum | `nexus_canonical`, `nexus_support`, or `external_installed`. |
+| `classification.namespace` | enum | One of `nexus_canonical`, `nexus_support`, `nexus_safety`, `nexus_root`, or `external_installed`. |
 | `classification.category` | string | Free-form grouping label. |
 | `applies_to.hosts` | enum array | Any of `claude`, `codex`, `gemini-cli`. Empty or omitted means all hosts. |
 | `applies_to.contexts` | enum array | Any of `solo`, `pair`, `team`. Empty or omitted means all contexts. |
@@ -42,6 +42,8 @@ Nexus standardizes on `.yaml`. Do not create a parallel `.yml` file.
 | `notes[]` | string array | User-facing notes for future advisor surfaces. |
 
 Unknown top-level fields are ignored with a warning so future schema additions do not break v1 readers. Invalid required fields and invalid enum values fail validation.
+
+Use `nexus_canonical` for the nine lifecycle stages, `nexus_support` for Nexus-owned side skills, `nexus_safety` for guardrail skills such as freeze/guard/careful/unfreeze, `nexus_root` for the root `/nexus` entrypoint, and `external_installed` for skills installed from outside Nexus.
 
 ## Minimal Example
 

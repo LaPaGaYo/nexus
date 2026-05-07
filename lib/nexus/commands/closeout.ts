@@ -235,6 +235,9 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
   if (!meta) {
     throw new Error(`Missing required audit artifact: ${metaPath}`);
   }
+  if (!existsSync(join(ctx.cwd, gateDecisionPath))) {
+    throw new Error(`Missing required audit artifact: ${gateDecisionPath}`);
+  }
   const gateDecisionMarkdown = readFileSync(join(ctx.cwd, gateDecisionPath), 'utf8');
   const perfVerificationPath = attachedEvidencePathIfPresent(ctx.cwd, qaPerfVerificationPath());
   const canaryEvidencePath = attachedEvidencePathIfPresent(ctx.cwd, shipCanaryStatusPath());

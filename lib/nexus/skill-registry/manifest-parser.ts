@@ -1,14 +1,16 @@
 import { existsSync, readFileSync } from 'fs';
 import { load as loadYaml } from 'js-yaml';
-import { CANONICAL_COMMANDS, type CanonicalCommandId, type InstalledSkillNamespace } from '../types';
+import { CANONICAL_COMMANDS, type CanonicalCommandId } from '../types';
 import {
   NEXUS_SKILL_MANIFEST_SCHEMA_VERSION,
+  NEXUS_SKILL_NAMESPACES,
   type NexusSkillAppliesTo,
   type NexusSkillClassification,
   type NexusSkillContext,
   type NexusSkillHost,
   type NexusSkillInputDecl,
   type NexusSkillManifest,
+  type NexusSkillManifestNamespace,
   type NexusSkillOutputDecl,
   type NexusSkillProvenance,
   type NexusSkillRankingBoost,
@@ -37,13 +39,6 @@ const TOP_LEVEL_FIELDS = new Set([
   'notes',
 ]);
 
-const NAMESPACES: readonly InstalledSkillNamespace[] = [
-  'nexus_canonical',
-  'nexus_support',
-  'nexus_safety',
-  'nexus_root',
-  'external_installed',
-];
 const HOSTS: readonly NexusSkillHost[] = ['claude', 'codex', 'gemini-cli'];
 const CONTEXTS: readonly NexusSkillContext[] = ['solo', 'pair', 'team'];
 
@@ -127,7 +122,7 @@ function parseClassification(value: unknown): NexusSkillClassification | { reaso
   if (typeof namespace === 'object') {
     return namespace;
   }
-  if (namespace !== undefined && !NAMESPACES.includes(namespace as InstalledSkillNamespace)) {
+  if (namespace !== undefined && !NEXUS_SKILL_NAMESPACES.includes(namespace as NexusSkillManifestNamespace)) {
     return { reason: `classification.namespace contains unsupported value '${namespace}'` };
   }
   const category = optionalString(value.category, 'classification.category');
@@ -135,7 +130,7 @@ function parseClassification(value: unknown): NexusSkillClassification | { reaso
     return category;
   }
   return {
-    ...(namespace !== undefined ? { namespace: namespace as InstalledSkillNamespace } : {}),
+    ...(namespace !== undefined ? { namespace: namespace as NexusSkillManifestNamespace } : {}),
     ...(category !== undefined ? { category } : {}),
   };
 }
