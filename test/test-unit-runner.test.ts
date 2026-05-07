@@ -4,7 +4,9 @@ import { join } from 'path';
 import { spawnSync } from 'child_process';
 import { describe, expect, test } from 'bun:test';
 import {
+  defaultUnitTestArgs,
   hasBunTestFailureMarkers,
+  isDefaultUnitTestFile,
   unitTestArgsFromCli,
 } from '../scripts/test-unit';
 
@@ -18,6 +20,30 @@ describe('unit test runner gate', () => {
 
   test('honors explicit CLI test arguments after the delimiter', () => {
     expect(unitTestArgsFromCli(['--', 'test/example.test.ts'])).toEqual(['test/example.test.ts']);
+  });
+
+  test('enumerates unit tests without loading eval and e2e suites', () => {
+    const repoRoot = join(import.meta.dir, '..');
+    const unitArgs = defaultUnitTestArgs(repoRoot);
+
+    expect(unitArgs).toContain('test/test-unit-runner.test.ts');
+    expect(unitArgs).toContain('runtimes/browse/test/adversarial-security.test.ts');
+    expect(unitArgs).not.toContain('test/skill-e2e.test.ts');
+    expect(unitArgs).not.toContain('test/skill-e2e-review.test.ts');
+    expect(unitArgs).not.toContain('test/skill-llm-eval.test.ts');
+    expect(unitArgs).not.toContain('test/skill-routing-e2e.test.ts');
+    expect(unitArgs).not.toContain('test/codex-e2e.test.ts');
+    expect(unitArgs).not.toContain('test/gemini-e2e.test.ts');
+  });
+
+  test('classifies default unit test files from repo paths', () => {
+    expect(isDefaultUnitTestFile('test/package-scripts.test.ts')).toBe(true);
+    expect(isDefaultUnitTestFile('runtimes/browse/test/adversarial-security.test.ts')).toBe(true);
+    expect(isDefaultUnitTestFile('test\\package-scripts.test.ts')).toBe(true);
+    expect(isDefaultUnitTestFile('test/skill-e2e.test.ts')).toBe(false);
+    expect(isDefaultUnitTestFile('test/skill-e2e-review.test.ts')).toBe(false);
+    expect(isDefaultUnitTestFile('test/skill-llm-eval.test.ts')).toBe(false);
+    expect(isDefaultUnitTestFile('test/fixture.ts')).toBe(false);
   });
 
   test('exits non-zero for a deliberately failing test file', () => {
@@ -49,5 +75,5 @@ describe('unit test runner gate', () => {
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
