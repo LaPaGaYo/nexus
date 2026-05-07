@@ -1,0 +1,121 @@
+name: Unit Tests
+
+# Closes #96 (Problem 2 — no CI gate on `bun run test`) and #134 (test/nexus/
+# not wired into any workflow). Companion to evals.yml, which only gates the
+# eval-only suites (skill-llm-eval, skill-e2e-*, etc.).
+#
+# Matrix design (Track 4 / Phase 1b):
+#   - 3 suites split by test path so each `bun test` invocation operates in
+#     single-path mode. This sidesteps a Bun 1.3.9 quirk where multi-path
+#     invocations can return exit 0 even with failing tests (verified locally
+#     2026-05-06; see #96 Problem 1 + the upstream-bun follow-up issue).
+#   - Each suite runs in parallel; total wall clock ≈ slowest suite (~120s for
+#     test/nexus/).
+#
+# Failure detection is double-gated:
+#   1. `set -o pipefail` + `${PIPESTATUS[0]}` captures bun's real exit code
+#      (most-of-the-time signal).
+#   2. `grep -cE "^\(fail\)"` on the captured log catches the multi-path
+#      false-negative scenario as belt-and-braces. Either failing fails the job.
+#
+# Environment strategy:
+#   - Currently uses `oven-sh/setup-bun@v2` for simplicity (no Chromium /
+#     Playwright / system libs needed for unit tests).
+#   - If a unit test ever needs the same system-level deps as evals (Chromium,
+#     fonts, etc.), migrate to the docker image pattern from evals.yml's
+#     `build-image` + `container:` stanza.
+#
+# Security note:
+#   - Matrix data (`matrix.suite.name` / `matrix.suite.cmd`) is hoisted into
+#     env vars before being referenced in `run:` blocks, even though matrix
+#     values are author-controlled. This keeps the file conformant to the
+#     repo's "no GH-context interpolation directly in shell" pattern.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # github.ref is safe to interpolate (refs/heads/<branch> or refs/pull/N/merge);
+  # avoiding github.head_ref keeps PR-branch-name injection off the table.
+  group: unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.suite.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          # When adding a new suite, prefer single-path invocations so bun's
+          # exit code stays reliable. If a suite must mix paths, lean harder on
+          # the grep safety net below.
+          - name: nexus
+            cmd: bun test test/nexus/
+
+          - name: browse
+            cmd: bun test runtimes/browse/test/
+
+          - name: top-level
+            # Everything in test/ root, excluding the subdirectory test/nexus/
+            # (its own suite) and the eval-only files (run by evals.yml).
+            cmd: |-
+              bun test test/ \
+                --ignore 'test/nexus/**' \
+                --ignore 'test/skill-e2e-*.test.ts' \
+                --ignore test/skill-llm-eval.test.ts \
+                --ignore test/skill-routing-e2e.test.ts \
+                --ignore test/codex-e2e.test.ts \
+                --ignore test/gemini-e2e.test.ts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          # Pin to 1.3 minor; allows patch updates without surprising the suite.
+          # Bump the minor here when package.json engines.bun is bumped.
+          bun-version: '1.3'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        # Some tests reference built artifacts under runtimes/*/dist/. Mirror
+        # the eval workflow's `bun run build` step so failures in either
+        # surface the same root cause.
+        run: bun run build
+
+      - name: Run tests
+        # Two-layer failure detection. See file-level header comment for why.
+        # Matrix values are loaded into env vars first to avoid any
+        # context-templating directly into shell commands.
+        env:
+          SUITE_NAME: ${{ matrix.suite.name }}
+          SUITE_CMD: ${{ matrix.suite.cmd }}
+        run: |
+          set -o pipefail
+          LOG_FILE="/tmp/test-${SUITE_NAME}.log"
+          eval "${SUITE_CMD}" 2>&1 | tee "$LOG_FILE"
+          BUN_EXIT=${PIPESTATUS[0]}
+          FAIL_COUNT=$(grep -cE '^\(fail\)' "$LOG_FILE" || true)
+          if [ "$BUN_EXIT" -ne 0 ] || [ "$FAIL_COUNT" -gt 0 ]; then
+            echo "::error::${SUITE_NAME} suite failed (bun exit=${BUN_EXIT}, fail markers=${FAIL_COUNT})"
+            exit 1
+          fi
+          echo "::notice::${SUITE_NAME} suite passed (bun exit=${BUN_EXIT}, fail markers=${FAIL_COUNT})"
+
+      - name: Upload test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-log-${{ matrix.suite.name }}
+          path: /tmp/test-${{ matrix.suite.name }}.log
+          retention-days: 14
