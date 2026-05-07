@@ -6,6 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   defaultUnitTestArgs,
   hasBunTestFailureMarkers,
+  hasJunitFailures,
   isDefaultUnitTestFile,
   unitTestArgsFromCli,
 } from '../scripts/test-unit';
@@ -16,6 +17,12 @@ describe('unit test runner gate', () => {
     expect(hasBunTestFailureMarkers('18 pass\n3 fail\n')).toBe(true);
     expect(hasBunTestFailureMarkers('18 pass\n0 skipped\n')).toBe(false);
     expect(hasBunTestFailureMarkers('Usage mentions --profile and --proxy flags\n')).toBe(false);
+  });
+
+  test('detects JUnit failure and error counts from the structured report', () => {
+    expect(hasJunitFailures('<testsuites tests="1" failures="0" errors="0" />')).toBe(false);
+    expect(hasJunitFailures('<testsuites tests="1" failures="1" errors="0" />')).toBe(true);
+    expect(hasJunitFailures('<testsuites tests="1" failures="0" errors="2" />')).toBe(true);
   });
 
   test('honors explicit CLI test arguments after the delimiter', () => {

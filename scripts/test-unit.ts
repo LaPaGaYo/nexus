@@ -1,5 +1,6 @@
 import { spawnSync } from 'child_process';
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'fs';
+import { tmpdir } from 'os';
 import { join, relative } from 'path';
 
 export const UNIT_TEST_ROOTS = [
@@ -7,7 +8,6 @@ export const UNIT_TEST_ROOTS = [
   'test',
 ];
 
-const BUN_TEST_OUTPUT_BUFFER_BYTES = 64 * 1024 * 1024;
 const TEST_FILE_SUFFIX = '.test.ts';
 
 const EXCLUDED_UNIT_TEST_FILES = new Set([
@@ -25,6 +25,11 @@ const EXCLUDED_UNIT_TEST_PATTERNS = [
 export function hasBunTestFailureMarkers(output: string): boolean {
   return /^\s*\(fail\)\s+\S+/m.test(output)
     || /^\s*[1-9]\d*\s+fail\b/im.test(output);
+}
+
+export function hasJunitFailures(output: string): boolean {
+  return Array.from(output.matchAll(/\b(?:failures|errors)="([0-9]+)"/g))
+    .some((match) => Number(match[1]) > 0);
 }
 
 function toRepoPath(repoRoot: string, filePath: string): string {
@@ -95,29 +100,43 @@ export function unitTestArgsFromCli(argv: string[], repoRoot = process.cwd()): s
   return argv.length > 0 ? argv : defaultUnitTestArgs(repoRoot);
 }
 
+function junitPath(): string {
+  return join(tmpdir(), `nexus-bun-test-${process.pid}-${Date.now()}.xml`);
+}
+
 export function runUnitTests(args: string[] = defaultUnitTestArgs()): number {
-  const result = spawnSync('bun', ['test', ...args], {
-    encoding: 'utf8',
-    maxBuffer: BUN_TEST_OUTPUT_BUFFER_BYTES,
-    stdio: ['inherit', 'pipe', 'pipe'],
+  const reportPath = junitPath();
+  const result = spawnSync('bun', [
+    'test',
+    ...args,
+    '--reporter',
+    'junit',
+    '--reporter-outfile',
+    reportPath,
+  ], {
+    stdio: 'inherit',
   });
 
-  const stdout = result.stdout ?? '';
-  const stderr = result.stderr ?? '';
-  process.stdout.write(stdout);
-  process.stderr.write(stderr);
-
   if (result.error) {
+    rmSync(reportPath, { force: true });
     process.stderr.write(`${result.error.message}\n`);
     return 1;
   }
 
   const status = typeof result.status === 'number' ? result.status : 1;
   if (status !== 0) {
+    rmSync(reportPath, { force: true });
     return status;
   }
 
-  return hasBunTestFailureMarkers(`${stdout}\n${stderr}`) ? 1 : 0;
+  if (!existsSync(reportPath)) {
+    process.stderr.write(`bun test did not write the expected JUnit report: ${reportPath}\n`);
+    return 1;
+  }
+
+  const report = readFileSync(reportPath, 'utf8');
+  rmSync(reportPath, { force: true });
+  return hasJunitFailures(report) ? 1 : 0;
 }
 
 if (import.meta.main) {
