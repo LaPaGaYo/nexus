@@ -6,9 +6,10 @@ name: Unit Tests
 #
 # Matrix design (Track 4 / Phase 1b):
 #   - 3 suites split by test path so each `bun test` invocation operates in
-#     single-path mode. This sidesteps a Bun 1.3.9 quirk where multi-path
-#     invocations can return exit 0 even with failing tests (verified locally
-#     2026-05-06; see #96 Problem 1 + the upstream-bun follow-up issue).
+#     single-path mode. The top-level suite loops root/helper files one at a
+#     time. This sidesteps a Bun 1.3.9 quirk where multi-path invocations can
+#     return exit 0 even with failing tests (verified locally 2026-05-06; see
+#     #96 Problem 1 + the upstream-bun follow-up issue).
 #   - Each suite runs in parallel; total wall clock ≈ slowest suite (~120s for
 #     test/nexus/).
 #
@@ -19,11 +20,12 @@ name: Unit Tests
 #      false-negative scenario as belt-and-braces. Either failing fails the job.
 #
 # Environment strategy:
-#   - Currently uses `oven-sh/setup-bun@v2` for simplicity (no Chromium /
-#     Playwright / system libs needed for unit tests).
-#   - If a unit test ever needs the same system-level deps as evals (Chromium,
-#     fonts, etc.), migrate to the docker image pattern from evals.yml's
-#     `build-image` + `container:` stanza.
+#   - Uses `oven-sh/setup-bun@v2` for the common unit-test path.
+#   - The browse suite installs Chromium plus Xvfb because the handoff tests
+#     intentionally launch a headed browser.
+#   - If more unit tests need the same system-level deps as evals, migrate to
+#     the docker image pattern from evals.yml's `build-image` + `container:`
+#     stanza.
 #
 # Security note:
 #   - Matrix data (`matrix.suite.name` / `matrix.suite.cmd`) is hoisted into
@@ -48,7 +50,7 @@ jobs:
   test:
     name: ${{ matrix.suite.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -60,19 +62,29 @@ jobs:
             cmd: bun test test/nexus/
 
           - name: browse
-            cmd: bun test runtimes/browse/test/
+            # Keep this lane to browser runtime unit coverage. Full headed
+            # handoff integration remains opt-in because it is environment-
+            # sensitive and belongs in a dedicated browser/eval lane. Run one
+            # file per Bun process to avoid browser-state leakage across files.
+            cmd: |-
+              for test_file in runtimes/browse/test/*.test.ts; do
+                BROWSE_RUN_HANDOFF_INTEGRATION=0 xvfb-run -a bun test "$test_file" || exit $?
+              done
 
           - name: top-level
-            # Everything in test/ root, excluding the subdirectory test/nexus/
-            # (its own suite) and the eval-only files (run by evals.yml).
+            # Root and helper unit tests, excluding eval-only files run by
+            # evals.yml. Keep this as explicit file globs rather than `bun test
+            # test/`: Bun also discovers runtimes/*/test from that invocation,
+            # and those paths have their own suite/dependency setup.
             cmd: |-
-              bun test test/ \
-                --ignore 'test/nexus/**' \
-                --ignore 'test/skill-e2e-*.test.ts' \
-                --ignore test/skill-llm-eval.test.ts \
-                --ignore test/skill-routing-e2e.test.ts \
-                --ignore test/codex-e2e.test.ts \
-                --ignore test/gemini-e2e.test.ts
+              for test_file in test/*.test.ts test/helpers/*.test.ts; do
+                case "$test_file" in
+                  test/skill-e2e-*.test.ts|test/skill-llm-eval.test.ts|test/skill-routing-e2e.test.ts|test/codex-e2e.test.ts|test/gemini-e2e.test.ts)
+                    continue
+                    ;;
+                esac
+                bun test "$test_file" || exit $?
+              done
 
     steps:
       - uses: actions/checkout@v4
@@ -93,13 +105,17 @@ jobs:
         # surface the same root cause.
         run: bun run build
 
-      - name: Install Playwright Chromium (browse suite only)
-        # The browse runtime tests spin up a real Chromium headless shell.
+      - name: Install Playwright Chromium and Xvfb (browse suite only)
+        # The browse runtime tests spin up a headed Chromium shell during
+        # handoff coverage.
         # evals.yml gets this for free via the pre-baked docker image
         # (PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers); without docker,
-        # we install on the fly. ~30s, only for the browse matrix cell.
+        # we install on the fly, only for the browse matrix cell.
         if: matrix.suite.name == 'browse'
-        run: bunx playwright install --with-deps chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          bunx playwright install --with-deps chromium
 
       - name: Run tests
         # Two-layer failure detection. See file-level header comment for why.

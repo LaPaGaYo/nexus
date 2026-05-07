@@ -23,6 +23,7 @@ let baseUrl: string;
 // so the test timeout needs headroom beyond the internal 15s launch timeout
 // plus 15s per restored tab.
 const HANDOFF_INTEGRATION_TIMEOUT_MS = 90_000;
+const describeHandoffIntegration = process.env.BROWSE_RUN_HANDOFF_INTEGRATION === '0' ? describe.skip : describe;
 
 beforeAll(async () => {
   testServer = startTestServer(0);
@@ -211,7 +212,7 @@ describe('handoff edge cases', () => {
 // Each handoff test creates its own BrowserManager since handoff swaps the browser.
 // These tests run sequentially (one browser at a time) to avoid resource issues.
 
-describe('handoff integration', () => {
+describeHandoffIntegration('handoff integration', () => {
   test('full handoff: cookies preserved, headed mode active, commands work', async () => {
     await withIsolatedChromiumProfile(async () => {
       const hbm = new BrowserManager();
