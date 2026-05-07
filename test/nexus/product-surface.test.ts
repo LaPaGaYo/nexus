@@ -44,7 +44,10 @@ describe('nexus product surface contract', () => {
 
     expect(readme).toContain('# Nexus');
     expect(readme).toContain('Nexus is the only command surface.');
-    expect(readme).toContain('Upstream maintenance is handled by Nexus maintainers.');
+    // Track D-D2 Phase 2.4 (PR #126) retired the "Upstream maintenance is
+    // handled by Nexus maintainers." sentence as part of removing absorbed-
+    // upstream framing. The remaining lines below still pin the load-bearing
+    // contract that Nexus is the upgrade path, not upstream repos.
     expect(readme).toContain('Users upgrade Nexus versions, not upstream repos.');
     expect(readme).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(readme).toContain('~/.claude/skills/nexus');
@@ -101,7 +104,9 @@ describe('nexus product surface contract', () => {
 
     expect(skills).toContain('Nexus is the only command surface.');
     expect(skills).toContain('Nexus-owned stage packs');
-    expect(skills).toContain('Upstream maintenance is handled by Nexus maintainers.');
+    // Per Track D-D2 Phase 2.4 (PR #126): "Upstream maintenance is handled
+    // by Nexus maintainers." sentence retired with the absorbed-framing
+    // language. Nexus-as-upgrade-path is still pinned via the next lines.
     expect(skills).toContain('Users upgrade Nexus versions, not upstream repos.');
     expect(skills).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
     expect(skills).toContain('/nexus-upgrade');
@@ -176,7 +181,7 @@ describe('nexus product surface contract', () => {
     expect(readme).toContain('| `/design-consultation` | Create integrated design context and deliverable direction for UI, prototypes, decks, motion, and infographics. |');
     expect(readme).toContain('| `/design-shotgun` | Generate and compare multiple design directions for UI screens, prototypes, decks, motion boards, and infographics. |');
     expect(readme).toContain('| `/design-html` | Turn approved mockups into production HTML while honoring frozen design and brand context. |');
-    expect(readme).toContain('The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable');
+    expect(readme).toContain('The Nexus design runtime under `runtimes/design/` supports five deliverable');
     expect(readme).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
     expect(readme).toContain('Enter `/nexus` once at session start');
     expect(readme).toContain('Bare `/nexus` is the workflow-harness entrypoint, not the browser tool.');
@@ -208,7 +213,7 @@ describe('nexus product surface contract', () => {
     expect(skills).toContain('| `/design-html` | Design-to-implementation handoff support that consumes frozen design and brand context for UI-bearing runs. |');
     expect(skills).toContain('| `/design-review` | Live-site visual audit and polish using an integrated five-lens design critique for UI-bearing runs. |');
     expect(skills).toContain('| `/plan-design-review` | Design-specific plan review support that feeds canonical lifecycle artifacts for UI-bearing runs. |');
-    expect(skills).toContain('The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable');
+    expect(skills).toContain('The Nexus design runtime under `runtimes/design/` supports five deliverable');
     expect(skills).toContain('editable PPTX, MP4, GIF, and Playwright-based HTML verification');
     expect(skills).toContain('## `/nexus` entrypoint');
     expect(skills).toContain('Bare `/nexus` should send the user toward `/discover`, not `/browse`.');
