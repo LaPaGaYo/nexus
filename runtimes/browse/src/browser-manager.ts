@@ -253,6 +253,9 @@ export class BrowserManager {
     // Find the Nexus extension directory for auto-loading
     const extensionPath = this.findExtensionPath();
     const launchArgs = ['--hide-crash-restore-bubble'];
+    if (process.env.CI || process.env.CONTAINER) {
+      launchArgs.push('--no-sandbox');
+    }
     if (extensionPath) {
       launchArgs.push(`--disable-extensions-except=${extensionPath}`);
       launchArgs.push(`--load-extension=${extensionPath}`);
@@ -849,6 +852,9 @@ export class BrowserManager {
       const path = require('path');
       const extensionPath = this.findExtensionPath();
       const launchArgs = ['--hide-crash-restore-bubble'];
+      if (process.env.CI || process.env.CONTAINER) {
+        launchArgs.push('--no-sandbox');
+      }
       if (extensionPath) {
         launchArgs.push(`--disable-extensions-except=${extensionPath}`);
         launchArgs.push(`--load-extension=${extensionPath}`);
