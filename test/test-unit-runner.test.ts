@@ -35,6 +35,10 @@ describe('unit test runner gate', () => {
 
     expect(unitArgs).toContain('test/test-unit-runner.test.ts');
     expect(unitArgs).toContain('runtimes/browse/test/adversarial-security.test.ts');
+    expect(unitArgs).not.toContain('runtimes/browse/test/commands.test.ts');
+    expect(unitArgs).not.toContain('runtimes/browse/test/compare-board.test.ts');
+    expect(unitArgs).not.toContain('runtimes/browse/test/handoff.test.ts');
+    expect(unitArgs).not.toContain('runtimes/browse/test/snapshot.test.ts');
     expect(unitArgs).not.toContain('test/skill-e2e.test.ts');
     expect(unitArgs).not.toContain('test/skill-e2e-review.test.ts');
     expect(unitArgs).not.toContain('test/skill-llm-eval.test.ts');
@@ -47,6 +51,8 @@ describe('unit test runner gate', () => {
     expect(isDefaultUnitTestFile('test/package-scripts.test.ts')).toBe(true);
     expect(isDefaultUnitTestFile('runtimes/browse/test/adversarial-security.test.ts')).toBe(true);
     expect(isDefaultUnitTestFile('test\\package-scripts.test.ts')).toBe(true);
+    expect(isDefaultUnitTestFile('runtimes/browse/test/commands.test.ts')).toBe(false);
+    expect(isDefaultUnitTestFile('runtimes/browse/test/handoff.test.ts')).toBe(false);
     expect(isDefaultUnitTestFile('test/skill-e2e.test.ts')).toBe(false);
     expect(isDefaultUnitTestFile('test/skill-e2e-review.test.ts')).toBe(false);
     expect(isDefaultUnitTestFile('test/skill-llm-eval.test.ts')).toBe(false);

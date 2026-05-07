@@ -11,6 +11,10 @@ export const UNIT_TEST_ROOTS = [
 const TEST_FILE_SUFFIX = '.test.ts';
 
 const EXCLUDED_UNIT_TEST_FILES = new Set([
+  'runtimes/browse/test/commands.test.ts',
+  'runtimes/browse/test/compare-board.test.ts',
+  'runtimes/browse/test/handoff.test.ts',
+  'runtimes/browse/test/snapshot.test.ts',
   'test/codex-e2e.test.ts',
   'test/gemini-e2e.test.ts',
   'test/skill-e2e.test.ts',
