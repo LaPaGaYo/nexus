@@ -412,6 +412,84 @@ async function poll() {
   }
 }
 
+// ─── Self-watchdog ───────────────────────────────────────────────
+// Issue #136: sidecars spawned by `/connect-chrome` (or its predecessors) are
+// detached from their parent (Bun.spawn + .unref()) and adopted by init when
+// the parent exits. If the worktree containing this script later gets
+// removed (gstack worktree cleanup, manual `rm -rf`, upgrade-rename), the
+// sidecar process keeps running for weeks or months — the source it loaded
+// is in memory, but nothing on disk references it anymore. Five orphans
+// accumulating 165+ minutes CPU each is the reality we discovered.
+//
+// The watchdog detects "my source file is gone" and exits cleanly. It is the
+// most universal fix: works regardless of who removed the worktree (gstack,
+// git, manual, even a sloppy human).
+
+export interface SelfWatchdogOptions {
+  /** Absolute path of the script file to watch for removal. */
+  selfPath: string;
+  /** Backup polling interval in ms. */
+  pollIntervalMs: number;
+  /** Called once when the file is detected as missing. */
+  onMissing: () => void;
+  /** Optional fs override for tests. */
+  fsImpl?: Pick<typeof fs, 'existsSync' | 'watch'>;
+}
+
+/**
+ * Start a watchdog that calls `onMissing` once when `selfPath` no longer
+ * exists. Uses `fs.watch` for fast event-driven detection plus a polling
+ * fallback because `fs.watch` for deleted files is platform-quirky (kqueue
+ * on macOS, inotify on Linux behave differently).
+ *
+ * Returns a `stop()` for clean shutdown in tests; production code does not
+ * need to call it because the watchdog should run for the process lifetime.
+ */
+export function startSelfWatchdog(opts: SelfWatchdogOptions): { stop: () => void } {
+  const fsImpl = opts.fsImpl ?? fs;
+  let triggered = false;
+  let watcher: fs.FSWatcher | null = null;
+  let poll: ReturnType<typeof setInterval> | null = null;
+
+  const fire = (): void => {
+    if (triggered) return;
+    if (fsImpl.existsSync(opts.selfPath)) return;
+    triggered = true;
+    if (watcher) {
+      try { watcher.close(); } catch { /* ignore */ }
+      watcher = null;
+    }
+    if (poll) {
+      clearInterval(poll);
+      poll = null;
+    }
+    opts.onMissing();
+  };
+
+  // fs.watch may not be supported on every platform / FS. Polling is the
+  // belt-and-braces guarantee.
+  try {
+    watcher = fsImpl.watch(opts.selfPath, (event) => {
+      if (event === 'rename') fire();
+    });
+  } catch { /* ignore — polling will catch it */ }
+
+  poll = setInterval(fire, opts.pollIntervalMs);
+  return {
+    stop: () => {
+      triggered = true;
+      if (watcher) {
+        try { watcher.close(); } catch { /* ignore */ }
+        watcher = null;
+      }
+      if (poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+    },
+  };
+}
+
 // ─── Main ────────────────────────────────────────────────────────
 
 async function main() {
@@ -425,6 +503,20 @@ async function main() {
   console.log(`[sidebar-agent] Started. Watching ${QUEUE} from line ${lastLine}`);
   console.log(`[sidebar-agent] Server: ${SERVER_URL}`);
   console.log(`[sidebar-agent] Browse binary: ${B}`);
+
+  // Issue #136: exit if my source file disappears (worktree cleanup, etc.).
+  // 60s poll interval balances responsiveness against syscall overhead.
+  const selfPath = typeof __filename !== 'undefined'
+    ? __filename
+    : new URL(import.meta.url).pathname;
+  startSelfWatchdog({
+    selfPath,
+    pollIntervalMs: 60_000,
+    onMissing: () => {
+      console.error(`[sidebar-agent] Source file gone (${selfPath}); exiting cleanly`);
+      process.exit(0);
+    },
+  });
 
   setInterval(poll, POLL_MS);
 }
