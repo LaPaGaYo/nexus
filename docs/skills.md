@@ -256,7 +256,7 @@ These are real Nexus skills, but they are not the governed lifecycle spine.
 | `/connect-chrome`, `/setup-browser-cookies`, `/setup-deploy` | Browser and deploy helpers. `/setup-deploy` authors `.planning/deploy/deploy-contract.json` and `.planning/deploy/DEPLOY-CONTRACT.md`, including primary and secondary deploy surfaces. |
 | `/nexus-upgrade` | Upgrade Nexus itself through the supported release-based update flow. |
 
-The absorbed Nexus design runtime under `runtimes/design/` now supports five deliverable
+The Nexus design runtime under `runtimes/design/` supports five deliverable
 classes: `ui-mockup`, `prototype`, `slides`, `motion`, and `infographic`.
 It also includes internal export and verification pipelines for HTML, PDF,
 editable PPTX, MP4, GIF, and Playwright-based HTML verification without
