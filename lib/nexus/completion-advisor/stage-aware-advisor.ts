@@ -1,4 +1,4 @@
-import type { CanonicalCommandId, RecommendedSkill } from '../types';
+import type { CanonicalCommandId, RecommendedSkill } from '../contracts/types';
 import type { SkillRecord } from '../skill-registry/types';
 
 export interface StageAwareAdvisorOptions {

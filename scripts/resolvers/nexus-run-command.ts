@@ -22,5 +22,5 @@ export function generateNexusRunCommand(ctx: TemplateContext, args?: string[]): 
   return `_REPO_CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 _NEXUS_ROOT="${defaultRuntimeRoot(ctx)}"
 [ -d "$_REPO_CWD/${ctx.paths.localSkillRoot}" ] && _NEXUS_ROOT="$_REPO_CWD/${ctx.paths.localSkillRoot}"
-cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" bun run bin/nexus.ts ${command}`;
+cd "$_NEXUS_ROOT" && NEXUS_PROJECT_CWD="$_REPO_CWD" ./bin/nexus ${command}`;
 }

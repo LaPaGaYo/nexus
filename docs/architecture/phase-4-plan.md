@@ -50,10 +50,10 @@ From `docs/architecture/post-audit-cleanup-plan.md` § Phase 4 code-shaped:
 
 | ID | Item | Notes |
 |----|------|-------|
-| ST1 | Subdir `lib/nexus/` by concern | Blocked on **#41** (completion-advisor split must precede this) |
-| ST2 | Single-child directory `lib/` (only contains `lib/nexus/`) | Drop, fold, or document |
+| ST1 | Subdir `lib/nexus/` by concern | Implemented in Phase 4.4 structure PR (#82) |
+| ST2 | Single-child directory `lib/` (only contains `lib/nexus/`) | Documented: keep `lib/nexus/` as namespace root (#83) |
 | ST3 | Move `CHANGELOG.md` / `TODOS.md` out of repo root | Runtime artifacts; needs RFC for skill prose + resolver updates |
-| ST4 | Split `bin/` source from built artifacts | Move `.ts` entry files to `lib/nexus/cli/` or `runtimes/cli/` |
+| ST4 | Split `bin/` source from built artifacts | Implemented: TypeScript sources live in `lib/nexus/cli/`; `bin/` keeps shims/binaries (#85) |
 | ST5 | Rename hook helper runtime directory to `runtimes/hooks/` | Coordinated migration; install-path implications |
 | ST6 | Standardize `hosts/*` naming | Tied to Track D D1 |
 | ST7 | Decide on `agents/openai.yaml` (single-child) | Done: documented compatibility surface in `agents/README.md` |
@@ -375,8 +375,8 @@ the PR description. Mark items as ☑ here when their PR merges.
 
 ### Phase 4.2 — Architecture surgery
 - [~] #41 completion-advisor split — Phase 1 done (PR #51 — writer extracted); Phase 2 in flight (#63); Phase 3 queued (#72)
-- [ ] ST1 lib/nexus/ subdir — blocked on #41 Phase 3 (#82)
-- [ ] ST9 test/nexus/ mirror — bundled with ST1 (#82)
+- [x] ST1 lib/nexus/ subdir — concern buckets documented in `phase-4-structure-brief.md` (#82)
+- [x] ST9 test/nexus/ mirror — concern buckets mirror runtime layout (#82)
 - [x] ST3 CHANGELOG/TODOS root cleanup (#84) — RFC done; decision: stay in root
 
 ### Phase 4.3 — Track D
@@ -388,10 +388,10 @@ the PR description. Mark items as ☑ here when their PR merges.
 - [ ] D3 optional intent dispatcher (`/nexus do`) — queued as Phase 3.5 (#79)
 
 ### Phase 4.4 — Optional polish
-- [ ] ST1+ST9 bundled (#82) — blocked
-- [ ] ST2 lib/ single-child (#83)
+- [x] ST1+ST9 bundled (#82) — concern split + test mirror complete
+- [x] ST2 lib/ single-child (#83) — documented keep decision
 - [x] ST3 CHANGELOG/TODOS (#84) — RFC done; **decision: stay in root** (`track-c-st3-rfc.md`); doc note added to `repo-taxonomy-v2.md`
-- [ ] ST4 split bin/ (#85)
+- [x] ST4 split bin/ (#85) — TypeScript sources moved to `lib/nexus/cli/`
 - [x] ST7 agents/openai.yaml (#86) - documented compatibility-only surface
 - [x] ST8 skills/root single-child (#87) - documented root-entrypoint taxonomy
 - [x] ST10 group scripts/ (#88) - grouped active script entrypoints

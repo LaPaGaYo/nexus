@@ -1,4 +1,4 @@
-import type { InstalledSkillRecord } from '../types';
+import type { InstalledSkillRecord } from '../contracts/types';
 import type { NexusSkillManifest } from './manifest-schema';
 
 export interface SkillRecord extends InstalledSkillRecord {

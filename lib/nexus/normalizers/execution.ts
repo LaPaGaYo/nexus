@@ -2,10 +2,10 @@ import {
   stageAdapterOutputPath,
   stageAdapterRequestPath,
   stageNormalizationPath,
-} from '../artifacts';
+} from '../io/artifacts';
 import type { AdapterResult } from '../adapters/types';
 import type { ExecutionBuildDisciplineRaw } from '../adapters/execution';
-import type { RequestedRouteRecord, WorkspaceRecord } from '../types';
+import type { RequestedRouteRecord, WorkspaceRecord } from '../contracts/types';
 
 interface ArtifactWrite {
   path: string;

@@ -1,4 +1,4 @@
-import type { NexusStagePackId } from '../types';
+import type { NexusStagePackId } from '../contracts/types';
 import type { NexusStagePackSourceBinding } from './types';
 
 const STAGE_PACK_SOURCE_MAP: Record<NexusStagePackId, NexusStagePackSourceBinding> = {

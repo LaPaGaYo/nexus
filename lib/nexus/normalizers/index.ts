@@ -1,10 +1,10 @@
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { writeConflictArtifacts } from '../conflicts';
-import { writeLedger } from '../ledger';
-import { writeStageStatus } from '../status';
-import { syncRunWorkspaceArtifacts } from '../workspace-substrate';
-import type { CanonicalCommandId, ConflictRecord, RunLedger, StageStatus, WorkspaceRecord } from '../types';
+import { writeConflictArtifacts } from '../runtime/conflicts';
+import { writeLedger } from '../governance/ledger';
+import { writeStageStatus } from '../io/status';
+import { syncRunWorkspaceArtifacts } from '../runtime/workspace-substrate';
+import type { CanonicalCommandId, ConflictRecord, RunLedger, StageStatus, WorkspaceRecord } from '../contracts/types';
 
 function writeRepoFile(cwd: string, relativePath: string, content: string): void {
   const absolutePath = join(cwd, relativePath);

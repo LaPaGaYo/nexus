@@ -1,5 +1,5 @@
 import { createBuildStagePack, createReviewStagePack, createShipStagePack } from '../stage-packs';
-import type { LearningCandidate } from '../types';
+import type { LearningCandidate } from '../contracts/types';
 import type { AdapterKind, AdapterResult, AdapterTraceability, ExecutionAdapter } from './types';
 
 export interface ExecutionBuildDisciplineRaw {

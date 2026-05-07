@@ -12,8 +12,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawnSync } from 'child_process';
-import { getPrimaryStatePath } from '../../lib/nexus/host-roots';
-import { getPrimaryDevRoot } from '../../lib/nexus/support-surface';
+import { getPrimaryStatePath } from '../../lib/nexus/io/host-roots';
+import { getPrimaryDevRoot } from '../../lib/nexus/observability/support-surface';
 
 const SCHEMA_VERSION = 1;
 const HOME_DIR = os.homedir();

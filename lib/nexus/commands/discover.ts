@@ -5,9 +5,9 @@ import {
   readLedger,
   startLedger,
   writeLedger,
-} from '../ledger';
-import { CANONICAL_MANIFEST } from '../command-manifest';
-import { executionFieldsFromLedger } from '../execution-topology';
+} from '../governance/ledger';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
+import { executionFieldsFromLedger } from '../runtime/execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   discoverBootstrapJsonPath,
@@ -17,32 +17,32 @@ import {
   discoverSessionContinuationAdvicePath,
   discoverSessionContinuationMarkdownPath,
   stageStatusPath,
-} from '../artifacts';
+} from '../io/artifacts';
 import { canonicalNextStages, normalizeDiscoveryDiscover, buildDiscoveryTraceabilityPayloads } from '../normalizers/discovery';
 import {
   discoverBootstrapSupportingContextArtifacts,
   resolveContinuationModeFromBootstrap,
   resetCurrentPlanningStateForFreshRun,
   seedDiscoverBootstrapFromArchivedRun,
-} from '../run-bootstrap';
+} from '../runtime/run-bootstrap';
 import {
   buildSessionContinuationAdvice,
   findLatestContextTransferArtifact,
   renderSessionContinuationMarkdown,
-} from '../session-continuation-advice';
+} from '../observability/session-continuation-advice';
 import {
   buildDiscoverRetroContinuity,
   renderDiscoverRetroContinuityMarkdown,
-} from '../retro-archive';
+} from '../observability/retro-archive';
 import {
   allocateFreshRunWorkspace,
   cleanupRetiredRunWorkspace,
   resolveRepositoryRoot,
   resolveSessionRootRecord,
-} from '../workspace-substrate';
-import { readStageStatus, writeStageStatus } from '../status';
+} from '../runtime/workspace-substrate';
+import { readStageStatus, writeStageStatus } from '../io/status';
 import type { DiscoveryDiscoverRaw } from '../adapters/discovery';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
+import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {

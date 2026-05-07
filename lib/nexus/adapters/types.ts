@@ -7,8 +7,8 @@ import type {
   ReviewScopeRecord,
   RunLedger,
   WorkspaceRecord,
-} from '../types';
-import type { CommandContract } from '../command-manifest';
+} from '../contracts/types';
+import type { CommandContract } from '../contracts/command-manifest';
 import type { StagePackTraceability } from '../stage-packs/types';
 
 export type AdapterActivationState = 'inactive' | 'reserved_future' | 'active';

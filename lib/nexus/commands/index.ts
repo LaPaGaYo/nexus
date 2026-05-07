@@ -1,16 +1,16 @@
 import type { NexusAdapters } from '../adapters/types';
-import type { NexusCommandRunner } from '../command-runner';
-import { CANONICAL_MANIFEST, resolveCommandName } from '../command-manifest';
-import type { ExecutionSelection } from '../execution-topology';
-import { assertCanonicalLifecycleEntrypoint } from '../migration-safety';
+import type { NexusCommandRunner } from '../runtime/command-runner';
+import { CANONICAL_MANIFEST, resolveCommandName } from '../contracts/command-manifest';
+import type { ExecutionSelection } from '../runtime/execution-topology';
+import { assertCanonicalLifecycleEntrypoint } from '../io/migration-safety';
 import type {
   CanonicalCommandId,
   CompletionAdvisorRecord,
   ContinuationMode,
   ReviewAdvisoryDisposition,
   StageStatus,
-} from '../types';
-import { resolveRepositoryRoot } from '../workspace-substrate';
+} from '../contracts/types';
+import { resolveRepositoryRoot } from '../runtime/workspace-substrate';
 import { runBuild } from './build';
 import { runCloseout } from './closeout';
 import { runDiscover } from './discover';

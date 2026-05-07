@@ -3,7 +3,7 @@ import type {
   CompletionAdvisorActionRecord,
   VerificationChecklistCategory,
   VerificationMatrixRecord,
-} from '../types';
+} from '../contracts/types';
 import type { SkillRecord } from './types';
 
 const STAGE_INTENT_TAGS: Record<CanonicalCommandId, string[]> = {

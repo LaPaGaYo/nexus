@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { basename, dirname, join, resolve } from 'path';
-import { hostSkillInstallRootPaths } from '../host-roots';
+import { hostSkillInstallRootPaths } from '../io/host-roots';
 import { classifyInstalledSkill } from './classification';
 import { readNexusSkillManifest } from './manifest-parser';
 import type { DiscoverInstalledSkillsOptions, SkillRecord } from './types';

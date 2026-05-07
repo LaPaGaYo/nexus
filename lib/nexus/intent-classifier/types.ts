@@ -1,4 +1,4 @@
-import type { InstalledSkillNamespace } from '../types';
+import type { InstalledSkillNamespace } from '../contracts/types';
 
 /**
  * Phase 5 (Track D-D3): intent classification for `nexus do <intent>`.

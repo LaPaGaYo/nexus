@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { withLedgerSchemaVersion } from '../ledger-schema';
-import { readVerificationMatrix } from '../verification-matrix';
+import { withLedgerSchemaVersion } from '../governance/ledger-schema';
+import { readVerificationMatrix } from '../review/verification-matrix';
 import { discoverInstalledSkills, type SkillRecord } from '../skill-registry';
 import {
   buildTelemetryEvent,
@@ -9,7 +9,7 @@ import {
   type StageAdvisorRecordedEvent,
   type StageReEnteredEvent,
 } from '../telemetry';
-import type { CompletionAdvisorRecord, InstalledSkillRecord, VerificationMatrixRecord } from '../types';
+import type { CompletionAdvisorRecord, InstalledSkillRecord, VerificationMatrixRecord } from '../contracts/types';
 import { attachExternalInstalledSkillRecommendations } from './resolver';
 import { stageAwareAdvisor } from './stage-aware-advisor';
 

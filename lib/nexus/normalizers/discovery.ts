@@ -3,9 +3,9 @@ import {
   stageAdapterRequestPath,
   frameDesignIntentPath,
   stageNormalizationPath,
-} from '../artifacts';
+} from '../io/artifacts';
 import type { AdapterResult } from '../adapters/types';
-import { DESIGN_IMPACTS, type CanonicalCommandId, type DesignIntentRecord } from '../types';
+import { DESIGN_IMPACTS, type CanonicalCommandId, type DesignIntentRecord } from '../contracts/types';
 import type { DiscoveryDiscoverRaw, DiscoveryFrameRaw } from '../adapters/discovery';
 
 interface ArtifactWrite {

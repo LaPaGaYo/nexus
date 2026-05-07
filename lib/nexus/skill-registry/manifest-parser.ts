@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { load as loadYaml } from 'js-yaml';
-import { CANONICAL_COMMANDS, type CanonicalCommandId } from '../types';
+import { CANONICAL_COMMANDS, type CanonicalCommandId } from '../contracts/types';
 import {
   NEXUS_SKILL_MANIFEST_SCHEMA_VERSION,
   NEXUS_SKILL_NAMESPACES,

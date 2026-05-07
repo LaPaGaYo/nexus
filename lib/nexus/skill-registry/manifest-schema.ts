@@ -1,4 +1,4 @@
-import type { CanonicalCommandId, InstalledSkillNamespace } from '../types';
+import type { CanonicalCommandId, InstalledSkillNamespace } from '../contracts/types';
 
 export const NEXUS_SKILL_MANIFEST_SCHEMA_VERSION = 1 as const;
 

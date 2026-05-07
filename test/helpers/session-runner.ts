@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { getProjectEvalDir } from './eval-store';
-import { getPrimaryDevRoot } from '../../lib/nexus/support-surface';
+import { getPrimaryDevRoot } from '../../lib/nexus/observability/support-surface';
 
 const NEXUS_DEV_DIR = getPrimaryDevRoot(os.homedir());
 const HEARTBEAT_PATH = path.join(NEXUS_DEV_DIR, 'e2e-live.json'); // heartbeat stays global

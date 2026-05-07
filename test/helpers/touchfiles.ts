@@ -11,7 +11,7 @@ import {
   currentSkillArtifactPathForName,
   skillSourceCategoryForName,
   targetSkillArtifactPathForName,
-} from '../../lib/nexus/skill-structure';
+} from '../../lib/nexus/skills/structure';
 
 // --- Glob matching ---
 

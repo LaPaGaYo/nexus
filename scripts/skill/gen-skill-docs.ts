@@ -154,6 +154,36 @@ policy:
 `;
 }
 
+function isGitSymlinkPlaceholder(path: string, target: string): boolean {
+  if (!fs.existsSync(path) || fs.lstatSync(path).isSymbolicLink()) {
+    return false;
+  }
+
+  const existing = fs.readFileSync(path, 'utf-8').trim().replace(/\\/g, '/');
+  return existing === target.replace(/\\/g, '/');
+}
+
+function writeCodexRootOpenAIMetadata(metadata: string): void {
+  const rootAgentsDir = path.join(ROOT, 'agents');
+  const hostCodexDir = path.join(ROOT, 'hosts', 'codex');
+  const rootMetadataPath = path.join(rootAgentsDir, 'openai.yaml');
+  const hostMetadataPath = path.join(hostCodexDir, 'openai.yaml');
+
+  fs.mkdirSync(rootAgentsDir, { recursive: true });
+  fs.mkdirSync(hostCodexDir, { recursive: true });
+  fs.writeFileSync(hostMetadataPath, metadata);
+
+  if (isGitSymlinkPlaceholder(rootMetadataPath, '../hosts/codex/openai.yaml')) {
+    return;
+  }
+
+  if (fs.existsSync(rootMetadataPath) && fs.lstatSync(rootMetadataPath).isSymbolicLink()) {
+    return;
+  }
+
+  fs.writeFileSync(rootMetadataPath, metadata);
+}
+
 /**
  * Transform frontmatter for external hosts.
  * Claude: strips `sensitive:` field (only Factory uses it).
@@ -329,12 +359,7 @@ function processExternalHost(
     const metadata = generateOpenAIYaml(name, shortDescription);
     fs.writeFileSync(path.join(agentsDir, 'openai.yaml'), metadata);
     if (host === 'codex' && name === 'nexus') {
-      const rootAgentsDir = path.join(ROOT, 'agents');
-      fs.mkdirSync(rootAgentsDir, { recursive: true });
-      fs.writeFileSync(path.join(rootAgentsDir, 'openai.yaml'), metadata);
-      const futureCodexHostDir = path.join(ROOT, 'hosts', 'codex');
-      fs.mkdirSync(futureCodexHostDir, { recursive: true });
-      fs.writeFileSync(path.join(futureCodexHostDir, 'openai.yaml'), metadata);
+      writeCodexRootOpenAIMetadata(metadata);
     }
   }
 
@@ -444,6 +469,14 @@ function findTemplates(): string[] {
   return discoverTemplates(ROOT).map(t => path.join(ROOT, t.tmpl));
 }
 
+function repoRelativePath(filePath: string): string {
+  return path.relative(ROOT, filePath).replace(/\\/g, '/');
+}
+
+function normalizeGeneratedContent(content: string): string {
+  return content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
 function cleanupLegacyExternalHostOutputs(host: Host): void {
   if (DRY_RUN || host === 'claude') return;
 
@@ -483,13 +516,16 @@ for (const currentHost of hostsToRun) {
       const primaryOutput = processTemplate(tmplPath, currentHost);
       const outputs = [primaryOutput, ...compatibilityOutputsForTemplate(tmplPath, currentHost, primaryOutput)];
 
-      for (const { outputPath, content, symlinkLoop } of outputs) {
-        const relOutput = path.relative(ROOT, outputPath);
+      for (const { outputPath, content: rawContent, symlinkLoop } of outputs) {
+        const content = normalizeGeneratedContent(rawContent);
+        const relOutput = repoRelativePath(outputPath);
 
         if (symlinkLoop) {
           console.log(`SKIPPED (symlink loop): ${relOutput}`);
         } else if (DRY_RUN) {
-          const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
+          const existing = fs.existsSync(outputPath)
+            ? normalizeGeneratedContent(fs.readFileSync(outputPath, 'utf-8'))
+            : '';
           if (existing !== content) {
             console.log(`STALE: ${relOutput}`);
             hasChanges = true;

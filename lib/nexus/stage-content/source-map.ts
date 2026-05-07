@@ -1,4 +1,4 @@
-import type { NexusStageContentId } from '../types';
+import type { NexusStageContentId } from '../contracts/types';
 import type { NexusStageContentSourceBinding } from './types';
 
 const STAGE_CONTENT_SOURCE_MAP: Record<NexusStageContentId, NexusStageContentSourceBinding> = {

@@ -1,4 +1,4 @@
-import type { CanonicalCommandId, CompletionAdvisorOutcome } from '../types';
+import type { CanonicalCommandId, CompletionAdvisorOutcome } from '../contracts/types';
 
 /**
  * Phase H (adoption telemetry — Track D-D3 follow-up):

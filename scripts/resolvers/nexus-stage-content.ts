@@ -1,5 +1,5 @@
 import { getStageContentForStage } from '../../lib/nexus/stage-content';
-import { CANONICAL_COMMANDS, type CanonicalCommandId } from '../../lib/nexus/types';
+import { CANONICAL_COMMANDS, type CanonicalCommandId } from '../../lib/nexus/contracts/types';
 import type { TemplateContext } from './types';
 
 function resolveCanonicalStage(ctx: TemplateContext): CanonicalCommandId {

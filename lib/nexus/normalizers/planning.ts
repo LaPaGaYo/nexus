@@ -3,7 +3,7 @@ import {
   stageAdapterRequestPath,
   planDesignContractPath,
   stageNormalizationPath,
-} from '../artifacts';
+} from '../io/artifacts';
 import type { AdapterResult } from '../adapters/types';
 import type { PlanningCloseoutRaw, PlanningPlanRaw } from '../adapters/planning';
 

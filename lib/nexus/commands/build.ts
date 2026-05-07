@@ -1,4 +1,4 @@
-import { CANONICAL_MANIFEST } from '../command-manifest';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
   artifactPointerFor,
   dedupeArtifactPointers,
@@ -6,7 +6,7 @@ import {
   HANDOFF_STATUS_PATH,
   QA_STATUS_PATH,
   REVIEW_STATUS_PATH,
-} from '../contract-artifacts';
+} from '../contracts/artifacts';
 import {
   reviewAdvisoriesPath,
   reviewAdvisoryDispositionPath,
@@ -15,15 +15,15 @@ import {
   stageAdapterRequestPath,
   stageNormalizationPath,
   stageStatusPath,
-} from '../artifacts';
+} from '../io/artifacts';
 import {
   executionFieldsFromLedger,
   withActualExecutionPath,
   withExecutionSessionRoot,
   withExecutionWorkspace,
-} from '../execution-topology';
+} from '../runtime/execution-topology';
 import { assertSameRunId } from '../governance';
-import { readLedger } from '../ledger';
+import { readLedger } from '../governance/ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   buildBuildResultMarkdown,
@@ -37,7 +37,7 @@ import {
   normalizeReviewScopeRecord,
   resolveAdvisoryFixReviewScope,
   resolveFixCycleReviewScope,
-} from '../review-scope';
+} from '../review/scope';
 import { buildBuildStageTraceabilityPayloads, normalizeBuildDiscipline } from '../normalizers/execution';
 import {
   advisoryDispositionPermitsStage,
@@ -46,21 +46,21 @@ import {
   readReviewAdvisories,
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
-} from '../review-advisories';
-import { readStageStatus } from '../status';
-import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+} from '../review/advisories';
+import { readStageStatus } from '../io/status';
+import { assertLegalTransition, getAllowedNextStages } from '../governance/transitions';
 import {
   ensureFreshRunWorkspaceBaseline,
   resolveExecutionWorkspace,
   resolveSessionRootRecord,
   syncRunWorkspaceArtifacts,
-} from '../workspace-substrate';
+} from '../runtime/workspace-substrate';
 import type { CcbExecuteGeneratorRaw } from '../adapters/ccb';
 import type { LocalExecuteGeneratorRaw } from '../adapters/local';
 import type { ExecutionBuildDisciplineRaw } from '../adapters/execution';
-import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
-import { readVerificationMatrix } from '../verification-matrix';
+import { readVerificationMatrix } from '../review/verification-matrix';
 import { buildBuildCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 

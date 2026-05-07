@@ -14,7 +14,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { getPrimaryDevRoot, getPrimaryWorktreeRoot } from './nexus/support-surface';
+import { getPrimaryDevRoot, getPrimaryWorktreeRoot } from './nexus/observability/support-surface';
 
 // --- Interfaces ---
 

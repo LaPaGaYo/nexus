@@ -2,9 +2,9 @@ import {
   stageAdapterOutputPath,
   stageAdapterRequestPath,
   stageNormalizationPath,
-} from '../artifacts';
-import type { CcbDispatchLatencySummary } from '../ccb-runtime-state';
-import { localExecutionPath } from '../execution-topology';
+} from '../io/artifacts';
+import type { CcbDispatchLatencySummary } from '../runtime/ccb-runtime-state';
+import { localExecutionPath } from '../runtime/execution-topology';
 import type { AdapterResult } from '../adapters/types';
 import type { CcbExecuteAuditRaw, CcbExecuteGeneratorRaw, CcbExecuteQaRaw, CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalExecuteAuditRaw, LocalExecuteQaRaw, LocalResolveRouteRaw } from '../adapters/local';
@@ -17,7 +17,7 @@ import type {
   RouteValidationRecord,
   RunLedger,
   WorkspaceRecord,
-} from '../types';
+} from '../contracts/types';
 
 interface ArtifactWrite {
   path: string;
