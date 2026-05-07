@@ -36,6 +36,10 @@ nexus/
 
   lib/
     nexus/
+      commands/
+      completion-advisor/
+      intent-classifier/
+      skill-registry/
 
   hosts/
     claude/
@@ -62,6 +66,12 @@ The Chrome extension source now lives under `runtimes/browse/extension/`, the
 design runtime now lives under `runtimes/design/`, runtime sidecars now live
 under `runtimes/design-html/` and `runtimes/hooks/`, tracked host sidecars now
 live under `hosts/`, while installed host compatibility paths remain stable.
+
+Inside `lib/nexus/`, `skill-registry/` is the active home for installed skill
+discovery, manifest loading, classification, and ranking. `intent-classifier/`
+is the active home for `/nexus do` routing. Generated host output may carry
+`nexus.skill.yaml` manifests, but the registry and dispatcher own the runtime
+interpretation of those manifests.
 
 Representative current-to-target mappings:
 

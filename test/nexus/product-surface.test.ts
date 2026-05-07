@@ -102,13 +102,25 @@ describe('nexus product surface contract', () => {
     expect(readme).not.toContain('published Nexus releases');
     expect(readme).not.toContain('compatibility shims');
 
-    expect(skills).toContain('Nexus is the only command surface.');
-    expect(skills).toContain('Nexus-owned stage packs');
+    // PR #130 (Track D-D3 closeout) rewrote the skills.md opening to combine
+    // "only command surface" with "lifecycle authority" in a single sentence.
+    // The Model γ invariant (Nexus is the only command surface) is preserved
+    // across the intro and the Historical Lineage Note at the file's tail.
+    expect(skills).toContain('Nexus is the only command surface and the lifecycle authority for governed');
+    expect(skills).toContain('Nexus remains\nthe only command surface and the only lifecycle authority.');
+    // PR #130 split the original "Nexus-owned stage packs" claim into separate
+    // stage-content and stage-packs lineage so SkillRegistry can describe them
+    // independently. The Model γ invariant (Nexus owns the runtime units) is
+    // preserved via the parallel "Nexus-owned ... stage packs under
+    // `lib/nexus/stage-packs/`" structure.
+    expect(skills).toContain('Nexus-owned stage content under');
+    expect(skills).toContain('stage packs under `lib/nexus/stage-packs/`');
     // Per Track D-D2 Phase 2.4 (PR #126): "Upstream maintenance is handled
     // by Nexus maintainers." sentence retired with the absorbed-framing
     // language. Nexus-as-upgrade-path is still pinned via the next lines.
-    expect(skills).toContain('Users upgrade Nexus versions, not upstream repos.');
-    expect(skills).toContain('`/nexus-upgrade` and automatic upgrade are the only user-facing update paths.');
+    // PR #130 markdown source wraps these sentences at ~72 chars; rendered output is identical.
+    expect(skills).toContain('Users upgrade Nexus versions,\nnot upstream repos.');
+    expect(skills).toContain('`/nexus-upgrade` and automatic upgrade are the only\nuser-facing update paths.');
     expect(skills).toContain('/nexus-upgrade');
     expect(skills).toContain('Upgrade Nexus itself through the supported release-based update flow.');
     expect(skills).toContain('Fresh-run discover may emit session continuation advice at phase boundaries.');

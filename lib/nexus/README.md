@@ -28,6 +28,9 @@ its handler.
 | `stage-packs/` | One stage pack per canonical stage (`build.ts`, `qa.ts`, etc.) — packaged prompts + context bundles handed to adapters. `source-map.ts` records absorbed-source provenance. |
 | `stage-content/` | Per-stage markdown content (artifact-contract, exit-condition, etc.) loaded at runtime. Mirrors the canonical stage names. |
 | `normalizers/` | Per-lifecycle result normalizers — they translate raw external responses into Nexus's canonical record shapes. |
+| `completion-advisor/` | Stage-completion advisor writer and resolver, including manifest-aware support skill recommendations. |
+| `intent-classifier/` | `/nexus do` free-form intent classifier and dispatcher support. |
+| `skill-registry/` | Installed skill discovery, `nexus.skill.yaml` manifest loading, classification, and ranking. |
 
 ## Top-level files (grouped by concern)
 
@@ -76,7 +79,7 @@ structure. Phase 4 / ST1 plans to subdir these.
 
 ### Host / install
 - `host-roots.ts` — per-host install path resolution
-- `external-skills.ts` — runtime scan of user-installed skills (Claude / Codex / Gemini CLI / Factory)
+- `skill-registry/` — runtime scan of user-installed skills and routing manifests (Claude / Codex / Gemini CLI / Factory)
 - `install-metadata.ts` — `.nexus-install.json` install record
 - `update-state.ts` — `~/.nexus/update-state/` files
 - `repo-paths.ts` — canonical repo-relative path constants

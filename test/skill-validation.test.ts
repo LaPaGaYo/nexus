@@ -479,7 +479,10 @@ describe('Nexus wrapper skill validation', () => {
     const content = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
 
     expect(content).toContain('Nexus is the only command surface.');
-    expect(content).toContain('Nexus is a single-package AI engineering operating system.');
+    // PR #126/#130 (Track D-D2/D-D3): README opening expanded to acknowledge the
+    // skill-router role alongside the operating-system framing. The Model γ
+    // invariant (single-package, command surface) is preserved in both clauses.
+    expect(content).toContain('Nexus is a single-package AI engineering operating system');
     expect(content).toContain('Claude remains the only interactive front door.');
     expect(content).not.toContain('**gstack is my answer.**');
     expect(content).toContain('/discover');
@@ -489,9 +492,16 @@ describe('Nexus wrapper skill validation', () => {
   test('docs/skills.md presents absorbed systems as internal sources, not primary front doors', () => {
     const content = fs.readFileSync(path.join(ROOT, 'docs', 'skills.md'), 'utf-8');
 
-    expect(content).toContain('Nexus is the only command surface.');
-    expect(content).toContain('PM Skills, GSD, Superpowers, and CCB are absorbed internal capability sources or infrastructure.');
-    expect(content).toContain('Legacy aliases and host utilities remain secondary compatibility surface only.');
+    // PR #130 (Track D-D3 closeout) rewrote the skills.md opening to combine
+    // "only command surface" with "lifecycle authority" in a single sentence;
+    // the standalone "Nexus is the only command surface." pin moved to the
+    // Historical Lineage Note tail. Track D-D2 (PR #126) also retired the
+    // "absorbed" framing and the "secondary compatibility surface" sentence
+    // because Nexus is a router, not a warehouse — Model γ.
+    expect(content).toContain('Nexus is the only command surface and the lifecycle authority for governed');
+    expect(content).toContain('Nexus remains\nthe only command surface and the only lifecycle authority.');
+    expect(content).toContain('Imported upstream repos and historical skill families remain source material');
+    expect(content).toContain('Legacy aliases and host utilities remain documented below for migration,');
     expect(content).not.toMatch(/PM-native command|GSD-native command|Superpowers-native command/i);
   });
 });
