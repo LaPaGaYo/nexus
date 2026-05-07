@@ -40,6 +40,7 @@ graph TB
             Cmds["commands/<br/>9 lifecycle handlers"]
             Intent["intent-classifier/<br/>/nexus do"]
             SkillReg["skill-registry/<br/>manifest discovery + ranking"]
+            Native["stage-content/ + stage-packs/<br/>native lifecycle prompts + builders"]
             Adapt["adapters/<br/>governed_ccb + local_provider"]
             State["ledger.ts + governance.ts + artifacts.ts<br/>state machine"]
             Norm["normalizers/<br/>adapter to canonical records"]
@@ -85,6 +86,7 @@ graph TB
     CLI --> Cmds
     CLI --> Intent
     Intent --> SkillReg
+    Cmds -->|"loads native packs"| Native
     Cmds --> Adapt
     Cmds --> State
     Cmds --> Norm
@@ -141,6 +143,9 @@ meta-command handlers such as `/nexus do`, or support surfaces.
 
 - `commands/` implements the nine lifecycle handlers and writes governed
   artifacts.
+- `stage-content/` and `stage-packs/` provide Nexus-native lifecycle content,
+  prompt contracts, and builders. There is no active external source snapshot
+  dependency in the runtime architecture.
 - `intent-classifier/` powers `/nexus do` by matching free-form intent against
   SkillRegistry records.
 - `skill-registry/` scans installed `SKILL.md` files, loads adjacent
@@ -206,6 +211,8 @@ artifacts.
    can replace repo-visible artifacts.
 3. SkillRegistry routes to installed skills; it does not make Nexus a warehouse
    for external skill implementations.
+4. Stage packs and stage content are native Nexus sources. Historical upstream
+   provenance is documentation only, not a runtime dependency.
 
 ---
 
