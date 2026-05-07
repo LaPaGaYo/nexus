@@ -15,6 +15,8 @@ export const UNIT_TEST_ARGS = [
   'test/gemini-e2e.test.ts',
 ];
 
+const BUN_TEST_OUTPUT_BUFFER_BYTES = 64 * 1024 * 1024;
+
 export function hasBunTestFailureMarkers(output: string): boolean {
   return /^\s*\(fail\)\s+\S+/m.test(output)
     || /^\s*[1-9]\d*\s+fail\b/im.test(output);
@@ -33,6 +35,7 @@ export function unitTestArgsFromCli(argv: string[]): string[] {
 export function runUnitTests(args: string[] = UNIT_TEST_ARGS): number {
   const result = spawnSync('bun', ['test', ...args], {
     encoding: 'utf8',
+    maxBuffer: BUN_TEST_OUTPUT_BUFFER_BYTES,
     stdio: ['inherit', 'pipe', 'pipe'],
   });
 
