@@ -1,7 +1,7 @@
-import { stageAdapterOutputPath } from '../artifacts';
+import { stageAdapterOutputPath } from '../io/artifacts';
 import type { NexusAdapterContext } from '../adapters/types';
 import { getStageContentForStage } from '../stage-content';
-import type { CanonicalCommandId } from '../types';
+import type { CanonicalCommandId } from '../contracts/types';
 
 type DefaultReviewAuditSlot = 'codex' | 'gemini' | 'local_a' | 'local_b';
 

@@ -16,7 +16,7 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { browseRuntimeBinPath } from '../../lib/nexus/repo-paths';
+import { browseRuntimeBinPath } from '../../lib/nexus/io/repo-paths';
 
 export const ROOT = path.resolve(import.meta.dir, '..', '..');
 

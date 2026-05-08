@@ -1,6 +1,6 @@
 import { createDiscoverStagePack, createFrameStagePack } from '../stage-packs';
 import type { AdapterKind, AdapterResult, AdapterTraceability, DiscoveryAdapter } from './types';
-import type { DesignIntentRecord } from '../types';
+import type { DesignIntentRecord } from '../contracts/types';
 
 export interface DiscoveryDiscoverRaw {
   idea_brief_markdown: string;

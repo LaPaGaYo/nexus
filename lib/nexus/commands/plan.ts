@@ -1,22 +1,22 @@
-import { CANONICAL_MANIFEST } from '../command-manifest';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
   planDesignContractPath,
   planVerificationMatrixPath,
   stageCompletionAdvisorPath,
   stageStatusPath,
-} from '../artifacts';
-import { executionFieldsFromLedger } from '../execution-topology';
+} from '../io/artifacts';
+import { executionFieldsFromLedger } from '../runtime/execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildPlanningTraceabilityPayloads, normalizePlanningPlan } from '../normalizers/planning';
-import { makeRunId, readLedger, startLedger } from '../ledger';
+import { makeRunId, readLedger, startLedger } from '../governance/ledger';
 import type { PlanningPlanRaw } from '../adapters/planning';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../types';
+import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
-import { readStageStatus } from '../status';
-import { buildVerificationMatrix } from '../verification-matrix';
+import { readStageStatus } from '../io/status';
+import { buildVerificationMatrix } from '../review/verification-matrix';
 import { buildPlanCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
-import { synthesizePlanDesignContractFromRepoContext } from '../design-contract';
+import { synthesizePlanDesignContractFromRepoContext } from '../contracts/design';
 
 function artifactPointerFor(path: string): ArtifactPointer {
   return {

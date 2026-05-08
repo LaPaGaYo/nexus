@@ -4,7 +4,7 @@ import {
   candidateSkillArtifactPathsForName,
   skillNameFromSourcePath,
   type SkillArtifactFileName,
-} from '../../lib/nexus/skill-structure';
+} from '../../lib/nexus/skills/structure';
 import { discoverSkillFiles } from '../../scripts/skill/discover-skills';
 
 function fallbackArtifactPath(nameOrDir: string, fileName: SkillArtifactFileName): string {

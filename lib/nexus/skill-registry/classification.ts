@@ -1,4 +1,4 @@
-import { CANONICAL_COMMANDS, type InstalledSkillNamespace } from '../types';
+import { CANONICAL_COMMANDS, type InstalledSkillNamespace } from '../contracts/types';
 import type { SkillRecord } from './types';
 import { NEXUS_SUPPORT_SKILL_NAMES } from './support-skills';
 

@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { classifyRepoPath, type RepoPathClassification } from '../../lib/nexus/repo-taxonomy';
+import { classifyRepoPath, type RepoPathClassification } from '../../lib/nexus/io/repo-taxonomy';
 
 const ROOT = join(import.meta.dir, '..', '..');
 const OUTPUT_PATH = 'docs/architecture/repo-path-inventory.md';

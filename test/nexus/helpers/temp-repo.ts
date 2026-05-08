@@ -5,9 +5,9 @@ import { getDefaultNexusAdapters } from '../../../lib/nexus/adapters/registry';
 import type { NexusAdapters } from '../../../lib/nexus/adapters/types';
 import { resolveInvocation } from '../../../lib/nexus/commands/index';
 import type { CommandResult } from '../../../lib/nexus/commands/index';
-import type { ExecutionSelection } from '../../../lib/nexus/execution-topology';
-import type { ReviewAdvisoryDisposition } from '../../../lib/nexus/types';
-import { resolveRepositoryRoot } from '../../../lib/nexus/workspace-substrate';
+import type { ExecutionSelection } from '../../../lib/nexus/runtime/execution-topology';
+import type { ReviewAdvisoryDisposition } from '../../../lib/nexus/contracts/types';
+import { resolveRepositoryRoot } from '../../../lib/nexus/runtime/workspace-substrate';
 
 function normalizePathForComparison(path: string): string {
   return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();

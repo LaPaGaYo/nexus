@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { CANONICAL_MANIFEST } from '../command-manifest';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
   closeoutFollowOnSummaryJsonPath,
   closeoutFollowOnSummaryMarkdownPath,
@@ -17,8 +17,8 @@ import {
   shipLearningCandidatesPath,
   stageCompletionAdvisorPath,
   stageStatusPath,
-} from '../artifacts';
-import { executionFieldsFromLedger, withExecutionWorkspace } from '../execution-topology';
+} from '../io/artifacts';
+import { executionFieldsFromLedger, withExecutionWorkspace } from '../runtime/execution-topology';
 import {
   archiveAuditWorkspace,
   archiveExists,
@@ -34,12 +34,12 @@ import {
   collectRunLearnings,
   collectValidLearningCandidates,
   renderRunLearningsMarkdown,
-} from '../learnings';
-import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '../follow-on-evidence';
-import { readLedger } from '../ledger';
+} from '../observability/learnings';
+import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '../observability/follow-on-evidence';
+import { readLedger } from '../governance/ledger';
 import { buildPlanningTraceabilityPayloads, normalizePlanningCloseout } from '../normalizers/planning';
 import { applyNormalizationPlan } from '../normalizers';
-import { CURRENT_REVIEW_META_PATH, readCurrentReviewMeta } from '../review-meta';
+import { CURRENT_REVIEW_META_PATH, readCurrentReviewMeta } from '../review/meta';
 import {
   advisoryDispositionPermitsStage,
   buildReviewAdvisoryDispositionRecord,
@@ -47,19 +47,19 @@ import {
   persistReviewAdvisoryDisposition,
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
-} from '../review-advisories';
+} from '../review/advisories';
 import {
   buildNextRunBootstrap,
   persistCloseoutBootstrap,
-} from '../run-bootstrap';
-import { readStageStatus } from '../status';
-import { assertLegalTransition } from '../transitions';
-import { retireRunWorkspace } from '../workspace-substrate';
+} from '../runtime/run-bootstrap';
+import { readStageStatus } from '../io/status';
+import { assertLegalTransition } from '../governance/transitions';
+import { retireRunWorkspace } from '../runtime/workspace-substrate';
 import {
   enrichFollowOnEvidenceSummary,
   readLandingReentryGuidance,
   renderLandingReentryMarkdown,
-} from '../closeout-follow-on-refresh';
+} from '../observability/closeout-follow-on-refresh';
 import type { PlanningCloseoutRaw } from '../adapters/planning';
 import type {
   ArtifactPointer,
@@ -68,7 +68,7 @@ import type {
   RunLearningsRecord,
   StageLearningCandidatesRecord,
   StageStatus,
-} from '../types';
+} from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
 import { buildCloseoutCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';

@@ -215,10 +215,10 @@ build-script rewrite).
 
 | # | Severity | Issue | Suggested fix |
 |---|---|---|---|
-| ST1 | High | `lib/nexus/` has 53 files at one level (with 6 subdirs that cover only some concerns). `release-*` (4 files), `review-*` (4), `ledger-*` (2), `runtime-*` (2), `follow-on-*` (2), `host-*` (3) all stay flat. | Subdir by concern: `release/`, `review/`, `ledger/`, `paths/`, `host/`, `follow-on/`. |
-| ST2 | Medium | `lib/` only contains `lib/nexus/`. Unused indirection layer. | Either populate `lib/` (e.g., `lib/shared/`) or drop the layer. |
+| ST1 | High | `lib/nexus/` flat-file runtime concern clusters. | Addressed by Phase 4.4 structure work: flat files moved into `cli/`, `contracts/`, `governance/`, `io/`, `runtime/`, `observability/`, `release/`, `review/`, and `skills/`. |
+| ST2 | Medium | `lib/` only contains `lib/nexus/`. | Decision: document and keep `lib/` as the package namespace root. |
 | ST3 | Medium | Root has ~24 files including 7 large markdown docs (~5,000 lines). `SKILL.md` (580 lines), `CHANGELOG.md` (1799), `TODOS.md` (715), `BROWSER.md` (399) at root. | **NOT a doc-only move**: `TODOS.md` is the unified backlog read/written by `/ship`, `/qa`, planning/review/retro skills (CONTRIBUTING:316, `scripts/resolvers/preamble.ts:580-581`, `scripts/resolvers/utility.ts:196`). `CHANGELOG.md` is read by `document-release` (`scripts/resolvers/utility.ts:449`). Both are runtime artifacts referenced by relative path in skill prose. Moving requires updating ~12 SKILL.md.tmpl + 12 generated SKILL.md + 3 resolver files + `lib/nexus/repo-taxonomy.ts:597,604` ROOT_FILES + regen + agent-behavior tests. **Code-shaped, not doc-shaped** — must wait for Phase 3 high-risk module test coverage. |
-| ST4 | Medium | `bin/` mixes TypeScript source (`nexus.ts`, `nexus-global-discover.ts`) and built binaries. | Move `.ts` sources to `lib/nexus/cli/` and build into `bin/`. |
+| ST4 | Medium | `bin/` mixed TypeScript source and built binaries. | Addressed: `.ts` sources moved to `lib/nexus/cli/`; `bin/` keeps shims and built binaries. |
 | ST5 | Medium | Hook helper runtime naming collides with `skills/safety/` (skill defs). | Rename to `runtimes/hooks/`. |
 | ST6 | Low | `hosts/claude/` vs `hosts/gemini-cli/` inconsistent suffix. | Standardize on suffix or no-suffix across hosts. |
 | ST7 | Low | `agents/` at root is a directory of one (`openai.yaml`). | **Addressed**: documented as a Codex/OpenAI metadata compatibility surface in `agents/README.md`; active source remains `hosts/codex/openai.yaml`. |
@@ -367,8 +367,8 @@ These change runtime paths or contracts. Do not start until the Phase 3
 high-risk module tests (closeout-follow-on-refresh, ship-pull-request,
 review-advisories, deploy-contract, command-runner) are in main.
 
-1. Subdir `lib/nexus/` by concern (ST1) — 50+ import paths change
-2. Mirror in `test/nexus/` (ST9) — moves alongside ST1
+1. Subdir `lib/nexus/` by concern (ST1) — completed by Phase 4.4 structure work
+2. Mirror in `test/nexus/` (ST9) — completed alongside ST1
 3. **Move `CHANGELOG.md` / `TODOS.md` out of repo root (ST3) — NOT a doc-only
    move**. Both are runtime artifacts referenced by skill prose and resolvers
    (see Findings §5 ST3 row for the full reference list). Moving requires

@@ -18,8 +18,8 @@ import type {
   NexusStagePackId,
   PrimaryProvider,
   ProviderTopology,
-} from '../types';
-import { reviewPersonaAuditPath, shipPersonaGatePath } from '../artifacts';
+} from '../contracts/types';
+import { reviewPersonaAuditPath, shipPersonaGatePath } from '../io/artifacts';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
 export interface LocalResolveRouteRaw {

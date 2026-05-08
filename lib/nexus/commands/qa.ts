@@ -1,4 +1,4 @@
-import { CANONICAL_MANIFEST } from '../command-manifest';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
   planVerificationMatrixPath,
   reviewAdvisoryDispositionPath,
@@ -7,10 +7,10 @@ import {
   qaReportPath,
   stageCompletionAdvisorPath,
   stageStatusPath,
-} from '../artifacts';
-import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
+} from '../io/artifacts';
+import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../runtime/execution-topology';
 import { assertCanonicalTailLedger, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
-import { readLedger } from '../ledger';
+import { readLedger } from '../governance/ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   buildQaTraceabilityPayloads,
@@ -18,12 +18,12 @@ import {
   requestedAndActualRouteMatch,
   requestedQaRouteFromLedger,
 } from '../normalizers/ccb';
-import { readStageStatus } from '../status';
-import { assertLegalTransition } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
+import { readStageStatus } from '../io/status';
+import { assertLegalTransition } from '../governance/transitions';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../runtime/workspace-substrate';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
-import { LEARNING_SOURCES, LEARNING_TYPES } from '../types';
+import { LEARNING_SOURCES, LEARNING_TYPES } from '../contracts/types';
 import type {
   ArtifactPointer,
   ConflictRecord,
@@ -31,17 +31,17 @@ import type {
   RunLedger,
   StageLearningCandidatesRecord,
   StageStatus,
-} from '../types';
+} from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
-import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
-import { boundedFixCycleReviewScopeFromQaFindings } from '../review-scope';
+import { readVerificationMatrix, resolveVerificationMatrix } from '../review/verification-matrix';
+import { boundedFixCycleReviewScopeFromQaFindings } from '../review/scope';
 import {
   advisoryDispositionPermitsStage,
   buildReviewAdvisoryDispositionRecord,
   effectiveReviewAdvisoryDisposition,
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
-} from '../review-advisories';
+} from '../review/advisories';
 import { buildQaCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 

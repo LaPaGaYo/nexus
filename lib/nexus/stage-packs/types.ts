@@ -1,4 +1,4 @@
-import type { CanonicalCommandId, NexusStagePackId } from '../types';
+import type { CanonicalCommandId, NexusStagePackId } from '../contracts/types';
 
 export interface StagePackTraceability {
   nexus_stage_pack: NexusStagePackId;

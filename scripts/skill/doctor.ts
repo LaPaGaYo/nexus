@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 import * as fs from 'fs';
 import * as path from 'path';
-import { CANONICAL_MANIFEST } from '../../lib/nexus/command-manifest';
+import { CANONICAL_MANIFEST } from '../../lib/nexus/contracts/command-manifest';
 import {
   skillNameFromSourcePath,
   skillSourceCategoryForName,
   type SkillStructureCategory,
-} from '../../lib/nexus/skill-structure';
+} from '../../lib/nexus/skills/structure';
 import {
   analyzeSkillAnatomy,
   type SkillAnatomyCategory,

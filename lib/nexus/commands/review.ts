@@ -1,10 +1,10 @@
-import { CANONICAL_MANIFEST } from '../command-manifest';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
   artifactPointerFor,
   BUILD_STATUS_PATH,
   dedupeArtifactPointers,
   executionContractArtifacts,
-} from '../contract-artifacts';
+} from '../contracts/artifacts';
 import {
   currentAuditArtifactPaths,
   currentAuditPointer,
@@ -14,11 +14,11 @@ import {
   reviewPersonaAuditPaths,
   stageCompletionAdvisorPath,
   stageStatusPath,
-} from '../artifacts';
-import { reviewAdvisoriesPath, reviewAdvisoryDispositionPath } from '../artifacts';
-import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
+} from '../io/artifacts';
+import { reviewAdvisoriesPath, reviewAdvisoryDispositionPath } from '../io/artifacts';
+import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../runtime/execution-topology';
 import { assertSameRunId, gateRequiresArchive } from '../governance';
-import { readLedger } from '../ledger';
+import { readLedger } from '../governance/ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   buildReviewGateDecisionMarkdown,
@@ -34,15 +34,15 @@ import {
   fullAcceptanceReviewScope,
   normalizeReviewScopeRecord,
   resolveFixCycleReviewScope,
-} from '../review-scope';
+} from '../review/scope';
 import {
   buildReviewAdvisoriesRecord,
   buildReviewAdvisoryDispositionRecord,
-} from '../review-advisories';
-import { buildReviewMetaWrite, CURRENT_REVIEW_META_PATH } from '../review-meta';
-import { readStageStatus } from '../status';
-import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
+} from '../review/advisories';
+import { buildReviewMetaWrite, CURRENT_REVIEW_META_PATH } from '../review/meta';
+import { readStageStatus } from '../io/status';
+import { assertLegalTransition, getAllowedNextStages } from '../governance/transitions';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../runtime/workspace-substrate';
 import type { CcbExecuteAuditRaw } from '../adapters/ccb';
 import type { LocalExecuteAuditRaw } from '../adapters/local';
 import type { ExecutionReviewDisciplineRaw } from '../adapters/execution';
@@ -56,10 +56,10 @@ import type {
   ReviewMetaRecord,
   RunLedger,
   StageStatus,
-} from '../types';
-import { LEARNING_SOURCES, LEARNING_TYPES, NEXUS_LEDGER_SCHEMA_VERSION } from '../types';
+} from '../contracts/types';
+import { LEARNING_SOURCES, LEARNING_TYPES, NEXUS_LEDGER_SCHEMA_VERSION } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
-import { readVerificationMatrix } from '../verification-matrix';
+import { readVerificationMatrix } from '../review/verification-matrix';
 import { buildReviewCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 import {
@@ -71,7 +71,7 @@ import {
   buildReviewAuditReceiptRecord,
   persistReviewAuditReceipt,
   readReviewAuditReceipt,
-} from '../review-receipts';
+} from '../review/receipts';
 
 type AtomicWriteFile = (cwd: string, relativePath: string, content: string) => void;
 const HANDOFF_STATUS_PATH = stageStatusPath('handoff');

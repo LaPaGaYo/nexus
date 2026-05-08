@@ -1,4 +1,4 @@
-import type { CanonicalCommandId, NexusStageContentId } from '../types';
+import type { CanonicalCommandId, NexusStageContentId } from '../contracts/types';
 
 export interface NexusStageContentSections {
   overview: string;

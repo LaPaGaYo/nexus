@@ -1,4 +1,4 @@
-import { NEXUS_STAGE_CONTENT, type CanonicalCommandId, type NexusStageContentId } from '../types';
+import { NEXUS_STAGE_CONTENT, type CanonicalCommandId, type NexusStageContentId } from '../contracts/types';
 import { createDiscoverStageContent } from './discover';
 import { createFrameStageContent } from './frame';
 import { createHandoffStageContent } from './handoff';
@@ -23,7 +23,7 @@ const STAGE_CONTENT: Record<NexusStageContentId, NexusStageContentPack> = {
   'nexus-closeout-content': createCloseoutStageContent(),
 };
 
-export { NEXUS_STAGE_CONTENT } from '../types';
+export { NEXUS_STAGE_CONTENT } from '../contracts/types';
 export * from './types';
 export * from './source-map';
 

@@ -1,4 +1,4 @@
-import { stageAdapterOutputPath } from '../artifacts';
+import { stageAdapterOutputPath } from '../io/artifacts';
 import type { AdapterTraceability, NexusAdapterContext } from '../adapters/types';
 import { getStagePackSourceBinding, getStagePackSourceMap } from './source-map';
 

@@ -52,7 +52,7 @@ Nexus generates host-specific skill output for four hosts: Claude
 (`.gemini/skills/`), and Factory (`.factory/skills/`). The four generated
 trees are gitignored — they are produced by `bun run gen:skill-docs --host
 <host>` from a single set of templates governed by a stricter taxonomy in
-`lib/nexus/skill-structure.ts`:
+`lib/nexus/skills/structure.ts`:
 
 - root entrypoint source: `skills/root/nexus/SKILL.md.tmpl`
 - root entrypoint compatibility mirror: `SKILL.md`
@@ -473,7 +473,7 @@ Fresh `/discover` also accepts an explicit continuation hint when you are
 starting the next run:
 
 ```bash
-bun run bin/nexus.ts discover --continuation-mode task
+./bin/nexus discover --continuation-mode task
 ```
 
 Supported values are `task`, `phase`, and `project_reset`. Automation can use

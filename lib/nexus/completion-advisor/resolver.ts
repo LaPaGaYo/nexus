@@ -11,10 +11,10 @@ import type {
   VerificationMatrixRecord,
   InstalledSkillRecord,
   VerificationChecklistCategory,
-} from '../types';
-import { NEXUS_LEDGER_SCHEMA_VERSION } from '../types';
+} from '../contracts/types';
+import { NEXUS_LEDGER_SCHEMA_VERSION } from '../contracts/types';
 import { rankInstalledSkillsForAdvisor } from '../skill-registry';
-import { shellQuotePosix } from '../shell-quote';
+import { shellQuotePosix } from '../io/shell-quote';
 
 const HIDDEN_COMPAT_ALIASES = ['/office-hours', '/autoplan', '/plan-ceo-review', '/plan-eng-review'] as const;
 const HIDDEN_UTILITY_SKILLS = ['/careful', '/freeze', '/guard', '/unfreeze', '/nexus-upgrade'] as const;

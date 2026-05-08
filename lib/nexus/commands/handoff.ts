@@ -1,8 +1,8 @@
-import { CANONICAL_MANIFEST } from '../command-manifest';
-import { planVerificationMatrixPath, stageCompletionAdvisorPath, stageStatusPath } from '../artifacts';
-import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
+import { planVerificationMatrixPath, stageCompletionAdvisorPath, stageStatusPath } from '../io/artifacts';
+import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../runtime/execution-topology';
 import { assertSameRunId } from '../governance';
-import { readLedger } from '../ledger';
+import { readLedger } from '../governance/ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import {
   buildRunLevelRouteCheck,
@@ -12,20 +12,20 @@ import {
   normalizeHandoffRouteValidation,
   requestedBuildRouteFromLedger,
 } from '../normalizers/ccb';
-import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review-scope';
-import { readStageStatus } from '../status';
-import { assertLegalTransition, getAllowedNextStages } from '../transitions';
+import { fullAcceptanceReviewScope, normalizeReviewScopeRecord, resolveFixCycleReviewScope } from '../review/scope';
+import { readStageStatus } from '../io/status';
+import { assertLegalTransition, getAllowedNextStages } from '../governance/transitions';
 import {
   ensureFreshRunWorkspaceBaseline,
   resolveExecutionWorkspace,
   resolveSessionRootRecord,
   syncRunWorkspaceArtifacts,
-} from '../workspace-substrate';
+} from '../runtime/workspace-substrate';
 import type { CcbResolveRouteRaw } from '../adapters/ccb';
 import type { LocalResolveRouteRaw } from '../adapters/local';
-import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
-import { readVerificationMatrix } from '../verification-matrix';
+import { readVerificationMatrix } from '../review/verification-matrix';
 import { buildHandoffCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 

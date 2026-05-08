@@ -2,7 +2,7 @@ import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join, dirname, resolve } from 'path';
 import { spawn } from 'child_process';
-import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath } from '../artifacts';
+import { stageAdapterOutputPath, stageAdapterRequestPath, stageNormalizationPath } from '../io/artifacts';
 import {
   createCcbDispatchId,
   readActiveCcbDispatchState,
@@ -11,9 +11,9 @@ import {
   recordCcbMountedProviderState,
   recordCcbPingProviderState,
   startCcbDispatchState,
-} from '../ccb-runtime-state';
-import type { CcbDispatchLatencySummary } from '../ccb-runtime-state';
-import type { CcbDispatchRetryProvenance } from '../ccb-runtime-state';
+} from '../runtime/ccb-runtime-state';
+import type { CcbDispatchLatencySummary } from '../runtime/ccb-runtime-state';
+import type { CcbDispatchRetryProvenance } from '../runtime/ccb-runtime-state';
 import {
   buildBuildExecutionPrompt,
   buildPromptContextPreamble,
@@ -22,16 +22,16 @@ import {
   buildReviewFinalizePrompt,
 } from './prompt-contracts';
 import { createBuildStagePack, createHandoffStagePack, createQaStagePack, createReviewStagePack } from '../stage-packs';
-import { resolveRepositoryRoot } from '../workspace-substrate';
-import type { ActualRouteRecord, ConflictRecord, LearningCandidate } from '../types';
+import { resolveRepositoryRoot } from '../runtime/workspace-substrate';
+import type { ActualRouteRecord, ConflictRecord, LearningCandidate } from '../contracts/types';
 import type { AdapterResult, AdapterTraceability, CcbAdapter, NexusAdapterContext } from './types';
 import {
   buildReviewAuditReceiptRecord,
   persistReviewAuditReceipt,
   readReviewAuditReceipt,
-} from '../review-receipts';
-import { reviewAttemptAuditMarkdownPath } from '../artifacts';
-import { isRecord } from '../validation-helpers';
+} from '../review/receipts';
+import { reviewAttemptAuditMarkdownPath } from '../io/artifacts';
+import { isRecord } from '../io/validation-helpers';
 
 export interface CcbResolveRouteRaw {
   available: boolean;

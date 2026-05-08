@@ -33,7 +33,7 @@ graph TB
 
     subgraph Nexus["Nexus - single-package AI engineering OS"]
         direction TB
-        CLI["bin/nexus.ts<br/>CLI dispatch"]
+        CLI["bin/nexus<br/>executable shim"]
 
         subgraph Substrate["lib/nexus/ runtime substrate"]
             direction TB
@@ -128,12 +128,12 @@ graph TB
 
 Claude, Codex, Gemini CLI, and Factory load generated Nexus skill prose from
 host-specific install roots. The host is the interactive shell; it reads
-`SKILL.md` and invokes `bun run bin/nexus.ts <command>`. Hosts do not own
+`SKILL.md` and invokes `./bin/nexus <command>`. Hosts do not own
 lifecycle behavior.
 
 ### 2. CLI Entry
 
-`bin/nexus.ts` resolves the runtime cwd, reads `~/.nexus/config.yaml` to choose
+`bin/nexus` is the executable shim; `lib/nexus/cli/nexus.ts` resolves the runtime cwd, reads `~/.nexus/config.yaml` to choose
 `governed_ccb` or `local_provider`, and dispatches to lifecycle handlers,
 meta-command handlers such as `/nexus do`, or support surfaces.
 

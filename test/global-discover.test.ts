@@ -6,7 +6,7 @@ import { spawnSync } from "child_process";
 
 // Import normalizeRemoteUrl for unit testing
 // We test the script end-to-end via CLI and normalizeRemoteUrl via import
-const scriptPath = join(import.meta.dir, "..", "bin", "nexus-global-discover.ts");
+const scriptPath = join(import.meta.dir, "..", "lib", "nexus", "cli", "global-discover.ts");
 
 describe("nexus-global-discover", () => {
   describe("normalizeRemoteUrl", () => {
@@ -14,7 +14,7 @@ describe("nexus-global-discover", () => {
     let normalizeRemoteUrl: (url: string) => string;
 
     beforeEach(async () => {
-      const mod = await import("../bin/nexus-global-discover.ts");
+      const mod = await import("../lib/nexus/cli/global-discover.ts");
       normalizeRemoteUrl = mod.normalizeRemoteUrl;
     });
 

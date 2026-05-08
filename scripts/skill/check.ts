@@ -15,8 +15,8 @@ import { buildSkillDoctorReport, readSkillDoctorTargets, renderSkillDoctorReport
 import {
   describeSkillSourcePath,
   type SkillStructureCategory,
-} from '../../lib/nexus/skill-structure';
-import { projectHostSkillInstallRoot } from '../../lib/nexus/host-roots';
+} from '../../lib/nexus/skills/structure';
+import { projectHostSkillInstallRoot } from '../../lib/nexus/io/host-roots';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';

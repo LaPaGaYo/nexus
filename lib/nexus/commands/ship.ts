@@ -1,6 +1,6 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { CANONICAL_MANIFEST } from '../command-manifest';
+import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
   planVerificationMatrixPath,
   qaPerfVerificationPath,
@@ -14,17 +14,17 @@ import {
   shipReleaseGateRecordPath,
   stageCompletionAdvisorPath,
   stageStatusPath,
-} from '../artifacts';
-import { resolveDeployReadiness } from '../deploy-contract';
-import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../execution-topology';
+} from '../io/artifacts';
+import { resolveDeployReadiness } from '../contracts/deploy';
+import { executionFieldsFromLedger, withExecutionSessionRoot, withExecutionWorkspace } from '../runtime/execution-topology';
 import { assertCanonicalTailLedger, assertQaReadyForCloseout, assertReviewReadyForCloseout, assertSameRunId } from '../governance';
-import { readLedger } from '../ledger';
+import { readLedger } from '../governance/ledger';
 import { applyNormalizationPlan } from '../normalizers';
 import { buildShipStageTraceabilityPayloads } from '../normalizers/execution';
-import { resolveShipPullRequest } from '../ship-pull-request';
-import { readStageStatus } from '../status';
-import { assertLegalTransition, getAllowedNextStages } from '../transitions';
-import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../workspace-substrate';
+import { resolveShipPullRequest } from '../release/ship-pull-request';
+import { readStageStatus } from '../io/status';
+import { assertLegalTransition, getAllowedNextStages } from '../governance/transitions';
+import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../runtime/workspace-substrate';
 import {
   advisoryDispositionPermitsStage,
   buildReviewAdvisoryDispositionRecord,
@@ -32,10 +32,10 @@ import {
   persistReviewAdvisoryDisposition,
   requiredReviewAdvisoryDispositionError,
   reviewHasAdvisories,
-} from '../review-advisories';
+} from '../review/advisories';
 import type { ExecutionShipDisciplineRaw } from '../adapters/execution';
 import type { LocalExecuteShipPersonasRaw } from '../adapters/local';
-import { LEARNING_SOURCES, LEARNING_TYPES, LOCAL_SHIP_PERSONA_ROLES } from '../types';
+import { LEARNING_SOURCES, LEARNING_TYPES, LOCAL_SHIP_PERSONA_ROLES } from '../contracts/types';
 import type {
   ArtifactPointer,
   ConflictRecord,
@@ -46,9 +46,9 @@ import type {
   RunLedger,
   StageLearningCandidatesRecord,
   StageStatus,
-} from '../types';
+} from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
-import { readVerificationMatrix, resolveVerificationMatrix } from '../verification-matrix';
+import { readVerificationMatrix, resolveVerificationMatrix } from '../review/verification-matrix';
 import { buildShipCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
 import {
