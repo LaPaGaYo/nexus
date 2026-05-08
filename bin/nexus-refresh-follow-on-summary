@@ -43,5 +43,5 @@ EOF
 )"
 
 NEXUS_DIR="$NEXUS_DIR" \
-NEXUS_REFRESH_FOLLOW_ON_PATH="$SCRIPT_ROOT/lib/nexus/closeout-follow-on-refresh.ts" \
+NEXUS_REFRESH_FOLLOW_ON_PATH="$SCRIPT_ROOT/lib/nexus/observability/closeout-follow-on-refresh.ts" \
 bun -e "$CORE_JS"
