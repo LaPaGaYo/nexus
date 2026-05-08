@@ -9,17 +9,17 @@
  * Used by skill:check and CI freshness checks.
  */
 
-import { COMMAND_DESCRIPTIONS } from '../runtimes/browse/src/commands';
-import { SNAPSHOT_FLAGS } from '../runtimes/browse/src/snapshot';
+import { COMMAND_DESCRIPTIONS } from '../../runtimes/browse/src/commands';
+import { SNAPSHOT_FLAGS } from '../../runtimes/browse/src/snapshot';
 import { discoverTemplates } from './discover-skills';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Host, TemplateContext } from './resolvers/types';
-import { HOST_PATHS } from './resolvers/types';
-import { RESOLVERS } from './resolvers/index';
-import { generatePlanCompletionAuditShip, generatePlanCompletionAuditReview, generatePlanVerificationExec } from './resolvers/review';
+import type { Host, TemplateContext } from '../resolvers/types';
+import { HOST_PATHS } from '../resolvers/types';
+import { RESOLVERS } from '../resolvers/index';
+import { generatePlanCompletionAuditShip, generatePlanCompletionAuditReview, generatePlanVerificationExec } from '../resolvers/review';
 
-const ROOT = path.resolve(import.meta.dir, '..');
+const ROOT = path.resolve(import.meta.dir, '..', '..');
 const DRY_RUN = process.argv.includes('--dry-run');
 
 // ─── Host Detection ─────────────────────────────────────────
@@ -40,7 +40,7 @@ const HOST_ARG_VAL: HostArg = (() => {
 // For single-host mode, HOST is the host. For --host all, it's set per iteration below.
 let HOST: Host = HOST_ARG_VAL === 'all' ? 'claude' : HOST_ARG_VAL;
 
-// HostPaths, HOST_PATHS, and TemplateContext imported from ./resolvers/types (line 7-8)
+// HostPaths, HOST_PATHS, and TemplateContext imported from ../resolvers/types.
 
 // ─── Shared Design Constants ────────────────────────────────
 

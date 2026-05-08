@@ -3,7 +3,7 @@ import { validateSkill, extractRemoteSlugPatterns, extractWeightsFromTable } fro
 import { readSkill, skillArtifactPath } from './helpers/skill-paths';
 import { ALL_COMMANDS, COMMAND_DESCRIPTIONS, READ_COMMANDS, WRITE_COMMANDS, META_COMMANDS } from '../runtimes/browse/src/commands';
 import { SNAPSHOT_FLAGS } from '../runtimes/browse/src/snapshot';
-import { discoverTemplates } from '../scripts/discover-skills';
+import { discoverTemplates } from '../scripts/skill/discover-skills';
 import { skillNameFromSourcePath } from '../lib/nexus/skill-structure';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -1564,7 +1564,7 @@ describe('Codex skill', () => {
 
   test('codex-host ship/review do NOT contain adversarial review step', () => {
     // .agents/ is gitignored — generate on demand
-    Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'codex'], {
+    Bun.spawnSync(['bun', 'run', 'scripts/skill/gen-skill-docs.ts', '--host', 'codex'], {
       cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
     });
     const shipContent = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'nexus-ship', 'SKILL.md'), 'utf-8');
@@ -1678,7 +1678,7 @@ describe('Codex skill validation', () => {
   const AGENTS_DIR = path.join(ROOT, '.agents', 'skills');
 
   // .agents/ is gitignored (v0.11.2.0) — generate on demand for tests
-  Bun.spawnSync(['bun', 'run', 'scripts/gen-skill-docs.ts', '--host', 'codex'], {
+  Bun.spawnSync(['bun', 'run', 'scripts/skill/gen-skill-docs.ts', '--host', 'codex'], {
     cwd: ROOT, stdout: 'pipe', stderr: 'pipe',
   });
 
