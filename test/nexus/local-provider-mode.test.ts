@@ -72,7 +72,7 @@ describe('nexus local_provider mode', () => {
         absorbed_capability: absorbedCapability,
         source_map: getStagePackSourceMap(nexusStagePack),
       });
-    });
+  });
 
   test('local traceability rejects unknown local capabilities instead of falling through', () => {
     expect(() => localTraceability('local-provider-unknown')).toThrow(

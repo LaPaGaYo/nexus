@@ -59,8 +59,7 @@ find_claude_skill_files() {
        -path "$INSTALL_DIR/.agents" -o \
        -path "$INSTALL_DIR/.factory" -o \
        -path "$INSTALL_DIR/node_modules" -o \
-       -path "$INSTALL_DIR/dist" -o \
-       -path "$INSTALL_DIR/upstream" \) -prune -o \
+       -path "$INSTALL_DIR/dist" \) -prune -o \
     -type f -name SKILL.md -print
 }
 
