@@ -24,33 +24,10 @@ import type {
 } from '../../lib/nexus/types';
 import { makeFakeAdapters } from './helpers/fake-adapters';
 import { runInTempRepo } from './helpers/temp-repo';
-
-function readyStatus(stage: StageStatus['stage']): StageStatus {
-  return {
-    run_id: 'run-1',
-    stage,
-    state: 'completed',
-    decision: stage === 'review'
-      ? 'audit_recorded'
-      : stage === 'qa'
-        ? 'qa_recorded'
-        : stage === 'ship'
-          ? 'ship_recorded'
-          : stage === 'closeout'
-            ? 'closeout_recorded'
-            : stage === 'handoff'
-              ? 'route_recorded'
-              : stage === 'build'
-                ? 'build_recorded'
-                : 'ready',
-    ready: true,
-    inputs: [],
-    outputs: [],
-    started_at: '2026-04-20T00:00:00.000Z',
-    completed_at: '2026-04-20T00:00:00.000Z',
-    errors: [],
-  };
-}
+// Issue #102: shared readyStatus helper. Both this file and
+// resolver.test.ts previously had their own copy; the resolver version
+// was missing the handoff arm. Unified in completion-advisor/helpers.ts.
+import { readyStatus } from './completion-advisor/helpers';
 
 const CHECKLISTS: Record<VerificationChecklistCategory, VerificationMatrixChecklistRecord> = {
   testing: {
