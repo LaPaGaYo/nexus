@@ -1,46 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 import { resolveStageAdvisor } from '../../../lib/nexus/completion-advisor/resolver';
 import type {
-  DeployReadinessRecord,
-  PullRequestRecord,
   StageStatus,
   VerificationMatrixRecord,
 } from '../../../lib/nexus/types';
-
-const GENERATED_AT = '2026-04-20T00:00:00.000Z';
-
-function readyStatus(stage: StageStatus['stage']): StageStatus {
-  return {
-    run_id: 'run-1',
-    stage,
-    state: 'completed',
-    decision: stage === 'review'
-      ? 'audit_recorded'
-      : stage === 'qa'
-        ? 'qa_recorded'
-        : stage === 'ship'
-          ? 'ship_recorded'
-          : stage === 'closeout'
-            ? 'closeout_recorded'
-            : stage === 'build'
-              ? 'build_recorded'
-              : 'ready',
-    ready: true,
-    inputs: [],
-    outputs: [],
-    started_at: GENERATED_AT,
-    completed_at: GENERATED_AT,
-    errors: [],
-  };
-}
-
-function signal(suggested = false) {
-  return {
-    suggested,
-    reason: suggested ? 'Resolver test support signal.' : null,
-    checklist_rationale: [],
-  };
-}
+import {
+  DEPLOY_READINESS,
+  GENERATED_AT,
+  PULL_REQUEST,
+  readyStatus,
+  signal,
+} from './helpers';
 
 function verificationMatrix(): VerificationMatrixRecord {
   const checklist = {
@@ -111,50 +81,31 @@ function verificationMatrix(): VerificationMatrixRecord {
   };
 }
 
-const pullRequest: PullRequestRecord = {
-  provider: 'github',
-  status: 'created',
-  number: 72,
-  url: 'https://example.com/pr/72',
-  state: 'OPEN',
-  head_branch: 'codex/run-1',
-  head_sha: 'abc123',
-  base_branch: 'main',
-};
-
-const deployReadiness: DeployReadinessRecord = {
-  schema_version: 1,
-  run_id: 'run-1',
-  generated_at: GENERATED_AT,
-  configured: true,
-  source: 'canonical_contract',
-  contract_path: '.planning/current/ship/deploy-readiness.json',
-  primary_surface_label: 'web',
-  platform: 'github_actions',
-  project_type: 'web_app',
-  production_url: 'https://example.com',
-  health_check: 'https://example.com/healthz',
-  deploy_status_kind: 'github_actions',
-  deploy_status_command: null,
-  deploy_workflow: '.github/workflows/deploy.yml',
-  staging_detected: false,
-  secondary_surfaces: [],
-  notes: [],
-};
+// pullRequest + deployReadiness fixtures are imported from ./helpers.
+// Local aliases keep the rest of the file readable.
+const pullRequest = PULL_REQUEST;
+const deployReadiness = DEPLOY_READINESS;
 
 describe('completion advisor resolver', () => {
   test('resolves happy-path advisors for governed tail stages', () => {
     const matrix = verificationMatrix();
+    // Issue #102: pin specific default_action_id per stage. The pre-PR
+    // assertion used `expect.any(String)`, which would not have caught a
+    // regression where (e.g.) the build resolver suddenly returned
+    // `'run_qa'` instead of `'run_review'`. Pinning the IDs gives the
+    // happy-path loop teeth without losing its concision.
     const cases: Array<{
       stage: StageStatus['stage'];
       status: StageStatus;
       expectedPrimarySurface: string;
+      expectedActionId: string;
       options?: Parameters<typeof resolveStageAdvisor>[2];
     }> = [
       {
         stage: 'build',
         status: readyStatus('build'),
         expectedPrimarySurface: '/review',
+        expectedActionId: 'run_review',
         options: { verification_matrix: matrix },
       },
       {
@@ -169,12 +120,14 @@ describe('completion advisor resolver', () => {
           provenance_consistent: true,
         },
         expectedPrimarySurface: '/qa',
+        expectedActionId: 'run_qa',
         options: { verification_matrix: matrix },
       },
       {
         stage: 'qa',
         status: readyStatus('qa'),
         expectedPrimarySurface: '/ship',
+        expectedActionId: 'run_ship',
         options: { verification_matrix: matrix },
       },
       {
@@ -184,6 +137,7 @@ describe('completion advisor resolver', () => {
           pull_request: pullRequest,
         },
         expectedPrimarySurface: '/land',
+        expectedActionId: 'run_land',
         options: { verification_matrix: matrix, deploy_readiness: deployReadiness },
       },
       {
@@ -196,6 +150,7 @@ describe('completion advisor resolver', () => {
           learnings_recorded: true,
         },
         expectedPrimarySurface: '/discover',
+        expectedActionId: 'run_discover',
         options: {
           ship_pull_request: pullRequest,
           deploy_result: null,
@@ -205,7 +160,7 @@ describe('completion advisor resolver', () => {
       },
     ];
 
-    for (const { stage, status, expectedPrimarySurface, options } of cases) {
+    for (const { stage, status, expectedPrimarySurface, expectedActionId, options } of cases) {
       const advisor = resolveStageAdvisor(status, GENERATED_AT, options);
 
       expect(advisor).toMatchObject({
@@ -213,7 +168,7 @@ describe('completion advisor resolver', () => {
         run_id: 'run-1',
         stage,
         stage_outcome: 'ready',
-        default_action_id: expect.any(String),
+        default_action_id: expectedActionId,
       });
       expect(advisor.primary_next_actions.map((action) => action.surface)).toContain(expectedPrimarySurface);
       expect(advisor.hidden_utility_skills).toContain('/nexus-upgrade');
@@ -318,5 +273,37 @@ describe('completion advisor resolver', () => {
         expect.objectContaining({ surface: '/build' }),
       ],
     });
+  });
+
+  test('multi-provider review with conflicting verdicts requires advisory disposition', () => {
+    // Issue #102 spec: "review advisor sees both Codex and Gemini reports
+    // with different verdicts" — the resolver doesn't see the per-provider
+    // receipts directly (those are synthesized upstream into gate_decision
+    // + advisory_count), but the realistic post-synthesis shape for a
+    // conflict is: gate_decision='pass' (the run is not blocked) with
+    // advisory_count > 0 (the dissenting provider raised concerns) and no
+    // disposition recorded yet. The resolver must then surface the
+    // disposition choice rather than auto-advance to /qa.
+    const conflictAfterSynthesis = resolveStageAdvisor({
+      ...readyStatus('review'),
+      gate_decision: 'pass',
+      advisory_count: 2,
+      advisory_disposition: null,
+      review_complete: true,
+      audit_set_complete: true,
+      provenance_consistent: true,
+    }, GENERATED_AT, { verification_matrix: verificationMatrix() });
+
+    expect(conflictAfterSynthesis).toMatchObject({
+      stage: 'review',
+      stage_outcome: 'requires_choice',
+      interaction_mode: 'required_choice',
+      requires_user_choice: true,
+    });
+    // Disposition is the chooser, not auto-advance — the surface set
+    // must include the disposition action paths, not bare /qa.
+    const actionIds = conflictAfterSynthesis.primary_next_actions.map((action) => action.id);
+    expect(actionIds.length).toBeGreaterThan(0);
+    expect(conflictAfterSynthesis.default_action_id).not.toBe('run_qa');
   });
 });
