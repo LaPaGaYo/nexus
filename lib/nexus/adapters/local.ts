@@ -1269,7 +1269,12 @@ async function verifyCodexSubagentSupport(
     };
   }
 
-  if (!output.includes('exec -')) {
+  // Issue #103: tightened from `output.includes('exec -')` to a word-
+  // boundary regex so descriptive text like "Run codex exec -i to ..."
+  // can no longer be mistaken for the literal `exec -` subcommand-stdin
+  // form. The fixture text "Commands:\n  exec -\n  review\n" still
+  // matches because the dash is followed by whitespace.
+  if (!/(?:^|\s)exec\s+-(?:\s|$)/m.test(output)) {
     return {
       ok: false,
       message: 'codex CLI does not support exec - for local_provider subagents',
@@ -1343,7 +1348,14 @@ async function verifyGeminiSubagentSupport(
     };
   }
 
-  if (!output.includes('-p') || !output.includes('--yolo')) {
+  // Issue #103: tightened from substring includes() to word-boundary
+  // regex. Gemini's --help lists many flags whose names start with -p
+  // (--print, --proxy, --profile, ...) — a substring `-p` match would
+  // accept even a build of gemini that lacks the actual `-p <prompt>`
+  // short form. Same defense for --yolo against any --yolo-* variant.
+  const hasPromptFlag = /(?:^|\s)-p(?:\s|$|,)/m.test(output);
+  const hasYoloFlag = /(?:^|\s)--yolo(?:\s|$)/m.test(output);
+  if (!hasPromptFlag || !hasYoloFlag) {
     return {
       ok: false,
       message: 'gemini CLI does not support -p and --yolo for local_provider subagents',
