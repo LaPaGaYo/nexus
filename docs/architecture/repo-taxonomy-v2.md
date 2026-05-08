@@ -26,7 +26,7 @@ nexus/
       extension/
     design/
     design-html/
-    safety/
+    hooks/
 
   references/
     review/
@@ -40,6 +40,8 @@ nexus/
       completion-advisor/
       intent-classifier/
       skill-registry/
+      stage-content/
+      stage-packs/
 
   hosts/
     claude/
@@ -73,6 +75,12 @@ is the active home for `/nexus do` routing. Generated host output may carry
 `nexus.skill.yaml` manifests, but the registry and dispatcher own the runtime
 interpretation of those manifests.
 
+`stage-content/` and `stage-packs/` are native Nexus sources after D2. Stage
+packs are no longer modeled as imported external content; `stage-packs/` owns
+the lifecycle pack factories, `stage-packs/native-builders.ts` owns native
+builder helpers, and `stage-content/` owns source bindings for canonical stage
+guidance.
+
 Representative current-to-target mappings:
 
 - `skills/root/nexus/SKILL.md.tmpl` -> `skills/root/nexus/SKILL.md.tmpl`
@@ -83,6 +91,9 @@ Representative current-to-target mappings:
 - `runtimes/design-html` -> `runtimes/design-html`
 - `runtimes/hooks/careful` -> `runtimes/hooks/careful`
 - `runtimes/hooks/freeze` -> `runtimes/hooks/freeze`
+- `lib/nexus/skill-registry/` -> `lib/nexus/skill-registry/`
+- `lib/nexus/stage-content/` -> `lib/nexus/stage-content/`
+- `lib/nexus/stage-packs/native-builders.ts` -> `lib/nexus/stage-packs/native-builders.ts`
 - `design/references` -> `references/design`
 - `review` -> `references/review`
 - `qa` -> `references/qa`
