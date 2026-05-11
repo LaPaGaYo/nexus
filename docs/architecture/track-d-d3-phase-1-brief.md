@@ -1,6 +1,13 @@
 # Track D-D3 Phase 1 Brief: SkillRegistry consolidation
 
 **Status:** Ready for implementation.
+
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
 **Type:** Refactor + dedupe. **No new behavior**; consolidates two parallel registries into one.
 **Parent RFC:** `docs/architecture/track-d-d3-rfc.md` § Phase 3.1.
 **Phase:** Phase 4.3 D3 Phase 1 (first of 7 phases in D3).

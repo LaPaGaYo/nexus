@@ -2,6 +2,13 @@
 
 Tracks issues #82, #83, and #85.
 
+> **Historical context note (issue #148):** This brief was authored against
+> an earlier repository layout. Some commands and file paths below reference
+> the pre-#142 flat `scripts/` layout — current paths live under
+> `scripts/{build,skill,eval,repo,resolvers}/`. The contents are kept verbatim
+> for provenance; substitute current paths when running commands from this
+> document today.
+
 ## Decisions
 
 1. Keep `lib/nexus/` as the runtime namespace root.

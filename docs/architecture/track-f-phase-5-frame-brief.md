@@ -1,6 +1,13 @@
 # Track F Phase 5 Brief: Darwin upgrade for `/frame` SKILL.md
 
 **Status:** Ready for manual authoring. **Manual track — NOT for Codex auto-pickup.**
+
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
 **Darwin baseline:** 73.5/100 (per audit-v3 § "/frame (canonical)").
 **Darwin target:** 84–86/100.
 **Audit anchor:** `docs/architecture/skill-strength-audit-v3-darwin.md` § "/frame (canonical)" (lines 205–235).

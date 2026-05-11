@@ -2,6 +2,13 @@
 
 **Status:** Ready for implementation. Scope: query SkillRegistry by lifecycle stage and surface relevant skills in completion-advisor records. Schema (Phase 2.a, PR #91) and registry consumption (Phase 2.b, #74) must land first; built-in manifests (Phase 4, #78) recommended but not strictly required.
 
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
+
 **Type:** New module + writer integration. Behavioral change: completion records grow a `recommended_skills` array.
 
 **Parent plan:** `docs/architecture/track-d-d3-rfc.md` § Phase 3.3 (Component 3: stage-aware advisor (B)).

@@ -1,6 +1,13 @@
 # Track D-D3 RFC: SkillRegistry, `nexus.skill.yaml`, and Intent-aware skill cooperation
 
 **Status:** Active. Phase 1 (registry consolidation) landed via PR #57 + #60. Phase 3.2.a (schema + parser) landed via #91. Phase 3.2.b / 3.2.c / 3.2.d now have implementation briefs.
+
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
 **Author:** Surfaced from Phase 4 architecture audit on 2026-05-04. Last revised 2026-05-05 with Model γ framing + Δ1/Δ2 sub-phases (see Revision history below).
 **Parent plan:** `docs/architecture/phase-4-plan.md` § Phase 4.3.
 **Predecessor:** Track D-D2 (`docs/architecture/track-d-d2-rfc.md`) — independent; can land in any order.
