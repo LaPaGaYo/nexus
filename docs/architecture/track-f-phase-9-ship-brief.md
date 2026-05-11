@@ -1,6 +1,13 @@
 # Track F Phase 9 Brief: Darwin upgrade for `/ship` SKILL.md
 
 **Status:** Ready for manual authoring. **Manual track — NOT for Codex auto-pickup.**
+
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
 **Darwin baseline:** 75.2/100 (top of canonical 9 in v3 audit, tied with `/review`).
 **Darwin target:** 86–88/100.
 **Audit anchor:** `docs/architecture/skill-strength-audit-v3-darwin.md` § "/ship (canonical)" (lines 273–303).

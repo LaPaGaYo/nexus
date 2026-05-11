@@ -2,6 +2,13 @@
 
 **Status:** Ready for implementation. Scope is the schema + parser/validator only — NOT registry consumption, NOT manifest authoring for built-in skills, NOT external installers. Those land in Phase 2.2/2.3/2.4 separately.
 
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
+
 **Type:** Greenfield design. No existing manifest schema; this is the first.
 
 **Parent plan:** `docs/architecture/track-d-d3-rfc.md` § Phase 3.2.

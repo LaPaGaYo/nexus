@@ -2,6 +2,13 @@
 
 **Status:** Ready for implementation. Largest D3 sub-phase by user-impact: introduces a NEW top-level command. Schema (Phase 2.a, PR #91 ✅), registry consumption (Phase 2.b, #74), advisor (Phase 3, #77), and built-in manifests (Phase 4, #78) should land first.
 
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
+
 **Type:** New product surface. Adds `nexus do <intent>` as a meta-command alongside the existing canonical lifecycle.
 
 **Parent plan:** `docs/architecture/track-d-d3-rfc.md` § Phase 3.5 (Component 4: `/nexus do <intent>` dispatcher (C)).

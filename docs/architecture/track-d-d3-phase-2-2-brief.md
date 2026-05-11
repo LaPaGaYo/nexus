@@ -2,6 +2,13 @@
 
 **Status:** Ready for implementation. Scope: registry reads + consumes manifests. Schema + parser already exist (Phase 2.a, brief at `track-d-d3-phase-2-brief.md`).
 
+> **Historical context note (issue #148):** This document was authored
+> against an earlier repository layout. Some commands and file paths
+> below reference the pre-#142 flat `scripts/` layout — current paths
+> live under `scripts/{build,skill,eval,repo,resolvers}/`. The contents
+> are kept verbatim for provenance; substitute current paths when
+> running commands from this document today.
+
 **Type:** Wire-up. The schema landed in Phase 2.a; this phase makes Nexus actually use it.
 
 **Parent plan:** `docs/architecture/track-d-d3-rfc.md` § Phase 3.2.b.
