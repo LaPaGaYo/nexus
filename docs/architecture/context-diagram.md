@@ -42,7 +42,7 @@ graph TB
             SkillReg["skill-registry/<br/>manifest discovery + ranking"]
             Native["stage-content/ + stage-packs/<br/>native lifecycle prompts + builders"]
             Adapt["adapters/<br/>governed_ccb + local_provider"]
-            State["ledger.ts + governance.ts + artifacts.ts<br/>state machine"]
+            State["governance/ + contracts/artifacts.ts<br/>state machine + artifact contracts"]
             Norm["normalizers/<br/>adapter to canonical records"]
             Adv["completion-advisor/<br/>stage-aware recommendations"]
         end
@@ -153,7 +153,7 @@ meta-command handlers such as `/nexus do`, or support surfaces.
   candidates for dispatch or advisor recommendations.
 - `completion-advisor/` writes stage-completion records, including
   `recommended_skills` and `recommended_external_skills`.
-- `adapters/`, `normalizers/`, `ledger.ts`, `governance.ts`, and `artifacts.ts`
+- `adapters/`, `normalizers/`, `governance/`, and `contracts/artifacts.ts`
   preserve Nexus's transport-independent truth model.
 
 ### 4. Sidecar Runtimes
