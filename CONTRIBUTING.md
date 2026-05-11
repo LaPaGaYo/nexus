@@ -124,6 +124,21 @@ bun run build
 bin/dev-teardown
 ```
 
+## Coordination before issue work
+
+Before starting non-trivial issue work, claim the issue in GitHub so parallel
+contributors can see ownership before opening competing PRs:
+
+```bash
+gh pr list --repo LaPaGaYo/nexus --state open
+gh issue edit <issue-number> --repo LaPaGaYo/nexus --add-assignee @me
+```
+
+If assignment is unavailable for your account, leave a short issue comment such
+as `I'll take this` before you start. For work that spans multiple files or may
+take more than one session, open a draft PR early so the branch is visible in
+`gh pr list`.
+
 ## Testing & evals
 
 ### Setup
@@ -143,20 +158,25 @@ Bun auto-loads `.env` — no extra config. Conductor workspaces inherit `.env` f
 
 | Tier | Command | Cost | What it tests |
 |------|---------|------|---------------|
-| 1 — Static | `bun test` | Free | Command validation, snapshot flags, SKILL.md correctness, TODOS-format.md refs, observability unit tests |
+| 1 — Static | `bun run test` | Free | Command validation, snapshot flags, SKILL.md correctness, TODOS-format.md refs, observability unit tests |
 | 2 — E2E | `bun run test:e2e` | ~$3.85 | Full skill execution via `claude -p` subprocess |
 | 3 — LLM eval | `bun run test:evals` | ~$0.15 standalone | LLM-as-judge scoring of generated SKILL.md docs |
 | 2+3 | `bun run test:evals` | ~$4 combined | E2E + LLM-as-judge (runs both) |
 
 ```bash
-bun test                     # Tier 1 only (runs on every commit, <5s)
+bun run test                 # Tier 1 only; includes the local fail-marker gate
 bun run test:e2e             # Tier 2: E2E only (needs EVALS=1, can't run inside Claude Code)
 bun run test:evals           # Tier 2 + 3 combined (~$4/run)
 ```
 
+Prefer `bun run test` over raw `bun test` for the default local unit sweep. The
+wrapper preserves the existing test scope but also fails if Bun emits anchored
+`(fail)` markers while returning exit 0, matching the CI safety net for the
+Bun multi-path runner issue tracked in #139.
+
 ### Tier 1: Static validation (free)
 
-Runs automatically with `bun test`. No API keys needed.
+Runs automatically with `bun run test`. No API keys needed.
 
 - **Skill parser tests** (`test/skill-parser.test.ts`) — Extracts every `$B` command from SKILL.md bash code blocks and validates against the command registry in `browse/src/commands.ts`. Catches typos, removed commands, and invalid snapshot flags.
 - **Skill validation tests** (`test/skill-validation.test.ts`) — Validates that SKILL.md files reference only real commands and flags, and that command descriptions meet quality thresholds.
@@ -292,7 +312,7 @@ bun run build
 
 ```bash
 # Run all static tests (includes Codex validation)
-bun test
+bun run test
 
 # Check freshness for both hosts
 bun run gen:skill-docs --dry-run
@@ -412,7 +432,7 @@ When community PRs accumulate, batch them into themed waves:
 2. **Deduplicate** — if two PRs fix the same thing, pick the one that
    changes fewer lines. Close the other with a note pointing to the winner.
 3. **Collector branch** — create `pr-wave-N`, merge clean PRs, resolve
-   conflicts for dirty ones, verify with `bun test && bun run build`
+   conflicts for dirty ones, verify with `bun run test && bun run build`
 4. **Close with context** — every closed PR gets a comment explaining
    why and what (if anything) supersedes it. Contributors did real work;
    respect that with clear communication.
