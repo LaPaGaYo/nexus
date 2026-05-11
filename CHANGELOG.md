@@ -9,6 +9,13 @@ patch releases ship as standalone release notes under `docs/releases/`; this
 index gives the quick user-facing delta without forcing users to hunt through
 tags.
 
+- **[v1.0.53](docs/releases/2026-04-27-nexus-v1.0.53.md)** — Nexus skill source taxonomy migration completes (`skills/canonical/`, `skills/support/`, `skills/safety/`, `skills/aliases/`) and `/land` is split from `/land-and-deploy` so PR landing and deployment become separate flows.
+- **[v1.0.52](docs/releases/2026-04-27-nexus-v1.0.52.md)** — `/ship` now treats an unpushed work branch as an explicit ship blocker rather than allowing `/closeout` to continue after GitHub PR creation fails.
+- **[v1.0.51](docs/releases/2026-04-27-nexus-v1.0.51.md)** — `/cso` security reports stay out of project worktrees by default; full reports now go to local Nexus state to avoid surprise `.gitignore` prompts and accidental commits.
+- **[v1.0.50](docs/releases/2026-04-27-nexus-v1.0.50.md)** — a blocked `/qa` in local-provider mode can now retry `/qa` directly instead of being trapped by lifecycle validation or misrouted into a build fix cycle.
+- **[v1.0.49](docs/releases/2026-04-27-nexus-v1.0.49.md)** — Claude local-provider mode is more capable and fixes the runtime regressions surfaced while dogfooding a single-provider Nexus run.
+- **[v1.0.48](docs/releases/2026-04-27-nexus-v1.0.48.md)** — canonical Nexus lifecycle commands can no longer be silently overridden by legacy global skills in Claude or shared agent skill directories during installation.
+- **[v1.0.47](docs/releases/2026-04-27-nexus-v1.0.47.md)** — local-provider execution, completion advisor interactions, support skill quality checks, and maintainer release diagnostics tightened, and generated design skill body length shrinks by moving dense design knowledge into lazy-loaded references.
 - **[v1.0.46](docs/releases/2026-04-26-nexus-v1.0.46.md)** — fresh `/discover` run worktrees now use provider-neutral `branch/run-*` branch names while retaining compatibility with older `codex/run-*` run workspaces.
 - **[v1.0.45](docs/releases/2026-04-26-nexus-v1.0.45.md)** — `/nexus` now stops on a saved `governed_ccb` preference that is not runnable in the current session and asks whether to switch this host to `local_provider` or keep governed CCB and mount the missing providers.
 - **[v1.0.44](docs/releases/2026-04-26-nexus-v1.0.44.md)** — completion advisors now keep verification-matrix context when surfacing external installed skills, `/build` elevates design/browser follow-ons into `recommended_choice`, and `--output interactive` renders a host-independent terminal chooser for stage-completion decisions.
