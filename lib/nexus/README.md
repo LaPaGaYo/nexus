@@ -39,6 +39,33 @@ and it keeps every runtime import visibly Nexus-owned.
 - `package.json` keeps `bun run nexus` pointed at `lib/nexus/cli/nexus.ts` for
   development.
 
+## Public API barrel (`lib/nexus/index.ts`)
+
+A curated re-export surface for consumers who want a single import path
+(external integrations, test harnesses, future SDK clients). It exposes the
+stable, cross-boundary symbols that current callers actually use — the
+shared types, canonical identifiers, adapter factories, skill-registry
+discovery, and stage taxonomy.
+
+```ts
+// External consumer style:
+import { CANONICAL_COMMANDS, getDefaultNexusAdapters } from 'lib/nexus';
+
+// Internal style remains preferred for precision:
+import { CANONICAL_COMMANDS } from '../../lib/nexus/contracts/types';
+import { getDefaultNexusAdapters } from '../../lib/nexus/adapters/registry';
+```
+
+Selection rule: a symbol earns a slot in the barrel only when it has ≥1
+real cross-subdirectory caller in this tree. Internal helpers
+(validation-helpers, normalizers, host-roots, install-metadata, CLI entry
+points, observability/release/review internals) are intentionally NOT
+re-exported. Reach them via the specific subdirectory if you need them.
+
+When adding a new export, also add it to
+`test/nexus/barrel-surface.test.ts` so the surface stays auditable.
+See issue #151 for design notes.
+
 ## Conventions
 
 - Keep command behavior in `commands/`; the CLI should parse, dispatch, and

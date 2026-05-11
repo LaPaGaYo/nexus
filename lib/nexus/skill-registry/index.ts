@@ -5,9 +5,22 @@ import type { SkillRegistryDiscoveryOptions } from './types';
 
 export type {
   DiscoverInstalledSkillsOptions,
+  InstalledSkillRecord,
   SkillRecord,
   SkillRegistryDiscoveryOptions,
 } from './types';
+// Issue #151: re-export the manifest schema surface so this directory's
+// index.ts is the complete public API for the skill-registry concern.
+// External consumers (the lib/nexus barrel + any future SDK clients)
+// should not have to drill into ./manifest-schema directly.
+export {
+  NEXUS_SKILL_MANIFEST_SCHEMA_VERSION,
+  NEXUS_SKILL_NAMESPACES,
+} from './manifest-schema';
+export type {
+  NexusSkillManifest,
+  NexusSkillClassification,
+} from './manifest-schema';
 export {
   NEXUS_SAFETY_SKILL_NAMES,
   NEXUS_STRUCTURED_SUPPORT_SKILL_NAMES,
