@@ -40,6 +40,18 @@ describe('nexus repo taxonomy v2', () => {
       'factory',
       'kiro',
     ]);
+
+    // Issue #147: lock in the post-#142 scripts/ bucket structure. Without
+    // this assertion, adding scripts/foo/ (a new bucket) or dropping one of
+    // the existing buckets would not be caught by the taxonomy contract test
+    // — the same gap that hosts.children above closes for that side.
+    expect(REPO_TAXONOMY_CATEGORIES.scripts.children).toEqual([
+      'build',
+      'skill',
+      'repo',
+      'eval',
+      'resolvers',
+    ]);
   });
 
   test('keeps current paths as the active source of truth while recording future target paths', () => {

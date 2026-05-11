@@ -222,7 +222,7 @@ build-script rewrite).
 | ST5 | Medium | Hook helper runtime naming collides with `skills/safety/` (skill defs). | Rename to `runtimes/hooks/`. |
 | ST6 | Low | `hosts/claude/` vs `hosts/gemini-cli/` inconsistent suffix. | Standardize on suffix or no-suffix across hosts. |
 | ST7 | Low | `agents/` at root is a directory of one (`openai.yaml`). | **Addressed**: documented as a Codex/OpenAI metadata compatibility surface in `agents/README.md`; active source remains `hosts/codex/openai.yaml`. |
-| ST8 | Low | `skills/root/` has exactly one subdir. | **Addressed**: documented as an intentional root-entrypoint taxonomy bucket in `skills/root/README.md`. |
+| ST8 | Low | `skills/root/` has exactly one subdir. | **Addressed (#87)**: documented as an intentional root-entrypoint taxonomy bucket in `skills/root/README.md`; the single-child shape is pinned by `test/nexus/skills/root-shape.test.ts` so any second sibling trips a CI gate and must revisit the decision. |
 | ST9 | Low | `test/nexus/` is also flat (117 tests). | Mirror the eventual `lib/nexus/` subdirs. |
 | ST10 | Low | `scripts/` has `eval-*` (5), `skill-*` (3), `upstream-*` (2) prefix clusters. | **Addressed**: grouped active script entrypoints under `scripts/build/`, `scripts/skill/`, `scripts/repo/`, and `scripts/eval/`; kept shared resolvers in `scripts/resolvers/`. |
 
