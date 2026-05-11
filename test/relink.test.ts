@@ -124,7 +124,7 @@ describe('nexus-relink', () => {
 
     expect(fs.existsSync(path.join(skillsDir, 'qa'))).toBe(true);
     expect(fs.existsSync(path.join(skillsDir, 'nexus-qa'))).toBe(false);
-  });
+  }, 30_000); // #139: this test runs ~5 spawnSync calls of bash scripts; default 5s timeout is too tight.
 
   test('prints an error when the install dir is missing', () => {
     const output = run(`${BIN}/nexus-relink`, {
@@ -239,7 +239,7 @@ describe('nexus-patch-names', () => {
 
     expect(readSkillName(path.join(installDir, 'qa'))).toBe('qa');
     expect(readSkillName(path.join(installDir, 'ship'))).toBe('ship');
-  });
+  }, 30_000); // #139: this test runs ~5 spawnSync calls of bash scripts; default 5s timeout is too tight.
 
   test('prefix=false preserves inherently prefixed nexus-upgrade', () => {
     setupMockInstall(['nexus-upgrade']);
