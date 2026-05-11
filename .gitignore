@@ -8,6 +8,7 @@ bin/gstack-global-discover
 .gstack/
 .claude/skills/
 .claude/scheduled_tasks.lock
+.claude/worktrees/
 .agents/
 .factory/
 .gemini/
