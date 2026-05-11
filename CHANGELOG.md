@@ -9,6 +9,7 @@ patch releases ship as standalone release notes under `docs/releases/`; this
 index gives the quick user-facing delta without forcing users to hunt through
 tags.
 
+- **[v1.1.0](docs/releases/2026-05-11-nexus-v1.1.0.md)** — Phase 4 close + first minor since v1.0.0: `lib/nexus/` organized by concern (18 buckets), `/nexus do "<intent>"` ships with SkillRegistry + LLM tiebreaker, 9 canonical lifecycle skills lifted under the Track F darwin framework (73.1 → 86.0 mean score), Iron Law adoption telemetry wired (Track H), and Track D-D2 upstream snapshot fully retired.
 - **[v1.0.53](docs/releases/2026-04-27-nexus-v1.0.53.md)** — Nexus skill source taxonomy migration completes (`skills/canonical/`, `skills/support/`, `skills/safety/`, `skills/aliases/`) and `/land` is split from `/land-and-deploy` so PR landing and deployment become separate flows.
 - **[v1.0.52](docs/releases/2026-04-27-nexus-v1.0.52.md)** — `/ship` now treats an unpushed work branch as an explicit ship blocker rather than allowing `/closeout` to continue after GitHub PR creation fails.
 - **[v1.0.51](docs/releases/2026-04-27-nexus-v1.0.51.md)** — `/cso` security reports stay out of project worktrees by default; full reports now go to local Nexus state to avoid surprise `.gitignore` prompts and accidental commits.

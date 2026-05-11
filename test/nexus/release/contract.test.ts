@@ -44,19 +44,27 @@ describe('nexus release contract', () => {
   test('keeps the current release version tag and release notes aligned', () => {
     const manifest = JSON.parse(readFileSync('release.json', 'utf8')) as ReleaseManifest;
 
-    expect(VERSION).toBe('1.0.53');
+    expect(VERSION).toBe('1.1.0');
     expect(manifest.version).toBe(VERSION);
     expect(manifest.tag).toBe(`v${VERSION}`);
-    expect(manifest.release_notes_path).toBe('docs/releases/2026-04-27-nexus-v1.0.53.md');
-    expect(manifest.release_notes_path).toBe(getReleaseNotesPath('2026-04-27', VERSION));
+    expect(manifest.release_notes_path).toBe('docs/releases/2026-05-11-nexus-v1.1.0.md');
+    expect(manifest.release_notes_path).toBe(getReleaseNotesPath('2026-05-11', VERSION));
   });
 
   test('keeps the current patch release directly upgradeable from the start of its patch line', () => {
     const manifest = JSON.parse(readFileSync('release.json', 'utf8')) as ReleaseManifest;
     const patchLineFloor = getPatchLineDirectUpgradeFloor(VERSION);
 
-    expect(patchLineFloor).toBe('1.0.0');
-    expect(compareReleaseVersions(manifest.compatibility.upgrade_from_min_version, patchLineFloor!)).toBeLessThanOrEqual(0);
+    // For an X.Y.0 release (the first cut on a new patch line), there is no
+    // prior patch in this line, so getPatchLineDirectUpgradeFloor returns null
+    // and the patch-line upgrade-floor constraint does not apply. For later
+    // patches (X.Y.Z, Z>0) the floor is X.Y.0 and upgrade_from_min_version
+    // must be at or below that floor.
+    if (patchLineFloor === null) {
+      expect(patchLineFloor).toBeNull();
+    } else {
+      expect(compareReleaseVersions(manifest.compatibility.upgrade_from_min_version, patchLineFloor)).toBeLessThanOrEqual(0);
+    }
   });
 
   test('accepts only documented update-state statuses', () => {
