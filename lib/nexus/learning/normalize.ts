@@ -1,6 +1,6 @@
 // lib/nexus/learning/normalize.ts
 import type { LearningEntry } from './schema';
-import { LEARNING_TYPES, LEARNING_SOURCES } from './schema';
+import { LEARNING_TYPES, LEARNING_SOURCES, assertSchemaV2 } from './schema';
 import { deriveLegacyId } from './id';
 
 /** Loose v1 entry shape as it appears in legacy learnings.jsonl. */
@@ -30,7 +30,12 @@ export function normalizeLearningLine(line: string): NormalizedEntry | null {
 
   // Already v2 — pass through with minimal sanity.
   if (obj.schema_version === 2) {
-    if (typeof obj.id !== 'string' || typeof obj.key !== 'string' || typeof obj.type !== 'string' || typeof obj.insight !== 'string') {
+    // Use the full schema validator; reject malformed v2 entries softly
+    // so the read path (nexus-learnings-search) never surfaces corrupted data
+    // to downstream consumers (strength derivation, decay, ranking).
+    try {
+      assertSchemaV2(obj);
+    } catch {
       return null;
     }
     return obj as unknown as NormalizedEntry;

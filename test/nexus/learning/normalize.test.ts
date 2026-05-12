@@ -49,4 +49,33 @@ describe('normalizeLearningLine', () => {
     const b = normalizeLearningLine(v1)!;
     expect(a.id).toBe(b.id);
   });
+
+  test('v2 entry with malformed fields returns null (no silent passthrough)', () => {
+    // schema_version is 2 but confidence is a string — must reject
+    const malformedV2 = JSON.stringify({
+      id: 'lrn_01HK8R9P5T7Z3X4N2M1Q8V6W5Y',
+      schema_version: 2,
+      ts: '2026-05-12T00:00:00Z',
+      writer_skill: 'investigate', subject_skill: 'build', subject_stage: 'build',
+      type: 'pitfall', key: 'k', insight: 'i',
+      confidence: 'high',                              // INVALID: should be number 1-10
+      evidence_type: 'test-output', source: 'observed', files: [],
+      cluster_id: null, supersedes: [], supersedes_reason: null,
+      derived_from: [], last_applied_at: null, mirror: null,
+    });
+    expect(normalizeLearningLine(malformedV2)).toBeNull();
+
+    // schema_version is 2 but files is null instead of array — must reject
+    const badFiles = JSON.stringify({
+      id: 'lrn_01HK8R9P5T7Z3X4N2M1Q8V6W5Y',
+      schema_version: 2,
+      ts: '2026-05-12T00:00:00Z',
+      writer_skill: 'x', subject_skill: 'y', subject_stage: 'build',
+      type: 'pitfall', key: 'k', insight: 'i', confidence: 7,
+      evidence_type: 'test-output', source: 'observed', files: null,  // INVALID
+      cluster_id: null, supersedes: [], supersedes_reason: null,
+      derived_from: [], last_applied_at: null, mirror: null,
+    });
+    expect(normalizeLearningLine(badFiles)).toBeNull();
+  });
 });
