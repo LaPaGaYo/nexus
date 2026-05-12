@@ -1,6 +1,6 @@
 {
   "name": "nexus",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Nexus — single-package AI engineering operating system for governed discovery, planning, build, review, QA, ship, and closeout.",
   "license": "MIT",
   "type": "module",
@@ -11,7 +11,7 @@
     "build": "bun run scripts/build/index.ts",
     "build:compile": "bun build --compile runtimes/browse/src/cli.ts --outfile runtimes/browse/dist/browse && bun build --compile runtimes/browse/src/find-browse.ts --outfile runtimes/browse/dist/find-browse && bun build --compile runtimes/design/src/cli.ts --outfile runtimes/design/dist/design && bun build --compile lib/nexus/cli/global-discover.ts --outfile bin/nexus-global-discover",
     "build:server": "bash runtimes/browse/scripts/build-node-server.sh",
-    "build:versions": "git rev-parse HEAD > runtimes/browse/dist/.version && git rev-parse HEAD > runtimes/design/dist/.version",
+    "build:versions": "bun run scripts/build/versions.ts",
     "build:chmod": "chmod +x runtimes/browse/dist/browse runtimes/browse/dist/find-browse runtimes/design/dist/design bin/nexus-global-discover",
     "build:cleanup": "bun run scripts/build/cleanup.ts",
     "dev:design": "bun run runtimes/design/src/cli.ts",

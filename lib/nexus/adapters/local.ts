@@ -77,6 +77,14 @@ interface LocalCommandSpec {
   cwd: string;
   stdin_text?: string;
   timeout_ms?: number;
+  /**
+   * When true, stream child stdout/stderr chunks to the controller's TTY in
+   * real time, in addition to accumulating them for the returned result. Use
+   * for long-running provider invocations (claude/codex/gemini) so the user
+   * sees progress instead of mistaking the call for a hang. Default false
+   * keeps internal health-check / discovery commands quiet.
+   */
+  stream_to_tty?: boolean;
 }
 
 interface LocalCommandResult {
@@ -232,9 +240,15 @@ function defaultRunCommand(spec: LocalCommandSpec): Promise<LocalCommandResult> 
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk) => {
       stdout += chunk;
+      if (spec.stream_to_tty) {
+        process.stdout.write(chunk);
+      }
     });
     child.stderr.on('data', (chunk) => {
       stderr += chunk;
+      if (spec.stream_to_tty) {
+        process.stderr.write(chunk);
+      }
     });
     child.on('error', (error) => {
       if (timeoutHandle) {
@@ -1399,6 +1413,14 @@ async function runProviderCommand(
   timeoutMs: number,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  // Long-running provider calls (build/review/qa) tee output to TTY so the user
+  // sees progress and does not mistake a working subprocess for a hang. Default
+  // off everywhere else (health checks, version probes, capability discovery).
+  const minutes = Math.max(1, Math.round(timeoutMs / 60_000));
+  process.stderr.write(
+    `\n[nexus/local-provider] dispatching ${provider} (timeout: up to ${minutes} min) — streaming below:\n`,
+  );
+
   if (provider === 'claude') {
     const argv = [
       'claude',
@@ -1407,7 +1429,13 @@ async function runProviderCommand(
       'text',
       '--dangerously-skip-permissions',
     ];
-    const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+    const result = await runCommand({
+      argv,
+      cwd,
+      stdin_text: prompt,
+      timeout_ms: timeoutMs,
+      stream_to_tty: true,
+    });
     if (result.exit_code !== 0) {
       throw new Error(localCommandFailureMessage('claude local command', result));
     }
@@ -1428,7 +1456,13 @@ async function runProviderCommand(
       'workspace-write',
     ];
     try {
-      const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+      const result = await runCommand({
+        argv,
+        cwd,
+        stdin_text: prompt,
+        timeout_ms: timeoutMs,
+        stream_to_tty: true,
+      });
       if (result.exit_code !== 0) {
         throw new Error(localCommandFailureMessage('codex local command', result));
       }
@@ -1450,7 +1484,12 @@ async function runProviderCommand(
     'text',
     '--yolo',
   ];
-  const result = await runCommand({ argv, cwd, timeout_ms: timeoutMs });
+  const result = await runCommand({
+    argv,
+    cwd,
+    timeout_ms: timeoutMs,
+    stream_to_tty: true,
+  });
   if (result.exit_code !== 0) {
     throw new Error(localCommandFailureMessage('gemini local command', result));
   }
