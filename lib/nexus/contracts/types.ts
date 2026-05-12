@@ -543,12 +543,24 @@ export interface ReviewScopeRecord {
 }
 
 export interface LearningCandidate {
+  // v1 fields (required):
   type: LearningType;
   key: string;
   insight: string;
   confidence: number;
   source: LearningSource;
   files: string[];
+  // v2 fields (optional for backward compat):
+  id?: string;
+  writer_skill?: string;
+  subject_skill?: string;
+  subject_stage?: string | null;
+  evidence_type?: string;
+  cluster_id?: string | null;
+  supersedes?: string[];
+  supersedes_reason?: string | null;
+  derived_from?: string[];
+  last_applied_at?: string | null;
 }
 
 export interface DeploySecondarySurfaceRecord {
@@ -684,7 +696,7 @@ export interface FollowOnEvidenceSummaryRecord {
 }
 
 export interface StageLearningCandidatesRecord {
-  schema_version: 1;
+  schema_version: 1 | 2;
   run_id: string;
   stage: 'review' | 'qa' | 'ship';
   generated_at: string;
@@ -692,7 +704,7 @@ export interface StageLearningCandidatesRecord {
 }
 
 export interface RunLearningsRecord {
-  schema_version: 1;
+  schema_version: 1 | 2;
   run_id: string;
   generated_at: string;
   source_candidates: string[];

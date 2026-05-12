@@ -35,7 +35,7 @@ function normalizeLearningCandidate(candidate: unknown): LearningCandidate | nul
     return null;
   }
 
-  const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown };
+  const rawCandidate = candidate as Partial<LearningCandidate> & { files?: unknown; [key: string]: unknown };
   const type = typeof rawCandidate.type === 'string' ? rawCandidate.type.trim() : '';
   const key = typeof rawCandidate.key === 'string' ? rawCandidate.key.trim() : '';
   const insight = typeof rawCandidate.insight === 'string' ? rawCandidate.insight.trim() : '';
@@ -63,6 +63,29 @@ function normalizeLearningCandidate(candidate: unknown): LearningCandidate | nul
     files: rawCandidate.files
       .map((file) => file.trim())
       .filter((file) => file.length > 0),
+    // pass through v2 fields when present:
+    ...(typeof rawCandidate.id === 'string' ? { id: rawCandidate.id } : {}),
+    ...(typeof rawCandidate.writer_skill === 'string' ? { writer_skill: rawCandidate.writer_skill } : {}),
+    ...(typeof rawCandidate.subject_skill === 'string' ? { subject_skill: rawCandidate.subject_skill } : {}),
+    ...(typeof rawCandidate.subject_stage === 'string' || rawCandidate.subject_stage === null
+      ? { subject_stage: rawCandidate.subject_stage ?? null }
+      : {}),
+    ...(typeof rawCandidate.evidence_type === 'string' ? { evidence_type: rawCandidate.evidence_type } : {}),
+    ...(typeof rawCandidate.cluster_id === 'string' || rawCandidate.cluster_id === null
+      ? { cluster_id: rawCandidate.cluster_id ?? null }
+      : {}),
+    ...(Array.isArray(rawCandidate.supersedes)
+      ? { supersedes: (rawCandidate.supersedes as unknown[]).map(String) }
+      : {}),
+    ...(typeof rawCandidate.supersedes_reason === 'string' || rawCandidate.supersedes_reason === null
+      ? { supersedes_reason: rawCandidate.supersedes_reason ?? null }
+      : {}),
+    ...(Array.isArray(rawCandidate.derived_from)
+      ? { derived_from: (rawCandidate.derived_from as unknown[]).map(String) }
+      : {}),
+    ...(typeof rawCandidate.last_applied_at === 'string' || rawCandidate.last_applied_at === null
+      ? { last_applied_at: rawCandidate.last_applied_at ?? null }
+      : {}),
   };
 }
 
