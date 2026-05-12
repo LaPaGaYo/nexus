@@ -9,6 +9,7 @@
 # Exit 0 silently if no learnings file exists.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 eval "$("$SCRIPT_DIR/nexus-slug" 2>/dev/null)"
 STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -78,6 +79,9 @@ fi
 
 # Process all files through bun for JSON parsing, decay, dedup, filtering
 cat "${FILES[@]}" 2>/dev/null | bun -e "
+const { normalizeLearningLine } = await import('${SCRIPT_ROOT}/lib/nexus/learning/normalize.ts');
+const { computeStrength } = await import('${SCRIPT_ROOT}/lib/nexus/learning/strength.ts');
+
 const lines = (await Bun.stdin.text()).trim().split('\n').filter(Boolean);
 const now = Date.now();
 const type = '${TYPE}';
@@ -87,24 +91,25 @@ const slug = '${SLUG}';
 
 const entries = [];
 for (const line of lines) {
-  try {
-    const e = JSON.parse(line);
-    if (!e.key || !e.type) continue;
+  const e = normalizeLearningLine(line);
+  if (!e) continue;
 
-    // Apply confidence decay: observed/inferred lose 1pt per 30 days
-    let conf = e.confidence || 5;
-    if (e.source === 'observed' || e.source === 'inferred') {
-      const days = Math.floor((now - new Date(e.ts).getTime()) / 86400000);
-      conf = Math.max(0, conf - Math.floor(days / 30));
-    }
-    e._effectiveConfidence = conf;
+  // Apply confidence decay: observed/inferred lose 1pt per 30 days
+  let conf = e.confidence || 5;
+  if (e.source === 'observed' || e.source === 'inferred') {
+    const days = Math.floor((now - new Date(e.ts).getTime()) / 86400000);
+    conf = Math.max(0, conf - Math.floor(days / 30));
+  }
+  e._effectiveConfidence = conf;
 
-    // Determine if this is from the current project or cross-project
-    // Cross-project entries are tagged for display
-    e._crossProject = !line.includes(slug) && '${CROSS_PROJECT}' === 'true';
+  // Determine if this is from the current project or cross-project
+  // Cross-project entries are tagged for display
+  e._crossProject = !line.includes(slug) && '${CROSS_PROJECT}' === 'true';
 
-    entries.push(e);
-  } catch {}
+  // Compute derived strength
+  e._strength = computeStrength(e);
+
+  entries.push(e);
 }
 
 // Dedup: latest winner per key+type
@@ -157,7 +162,7 @@ for (const [t, arr] of Object.entries(byType)) {
   for (const e of arr) {
     const cross = e._crossProject ? ' [cross-project]' : '';
     const files = e.files?.length ? ' (files: ' + e.files.join(', ') + ')' : '';
-    console.log('- [' + e.key + '] (confidence: ' + e._effectiveConfidence + '/10, ' + e.source + ', ' + (e.ts || '').split('T')[0] + ')' + cross);
+    console.log('- [' + e.key + '] (confidence: ' + e._effectiveConfidence + '/10, strength: ' + e._strength + '/10, ' + e.source + ', ' + (e.ts || '').split('T')[0] + ')' + cross);
     console.log('  ' + e.insight + files);
   }
   console.log('');
