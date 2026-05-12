@@ -314,6 +314,43 @@ describe('nexus-learnings-search edge cases', () => {
     expect(output).toContain('confidence: 0/10');
   });
 
+  test('nexus-learnings-log injects id and schema_version when missing', () => {
+    const input = JSON.stringify({
+      writer_skill: 'test',
+      subject_skill: 'x',
+      subject_stage: null,
+      type: 'pattern',
+      key: 'inject-defaults-test',
+      insight: 'defaults injection test insight',
+      confidence: 5,
+      evidence_type: 'unknown',
+      source: 'observed',
+      files: [],
+      cluster_id: null,
+      supersedes: [],
+      supersedes_reason: null,
+      derived_from: [],
+      last_applied_at: null,
+      mirror: null,
+    });
+    runLog(input);
+
+    const f = findLearningsFile();
+    expect(f).not.toBeNull();
+    const parsed = JSON.parse(fs.readFileSync(f!, 'utf-8').trim());
+
+    // id should be injected with ULID format
+    expect(parsed.id).toBeDefined();
+    expect(parsed.id).toMatch(/^lrn_[0-9A-HJKMNP-TV-Z]{26}$/);
+
+    // schema_version should be injected as 2
+    expect(parsed.schema_version).toBe(2);
+
+    // ts should be injected as ISO-8601
+    expect(parsed.ts).toBeDefined();
+    expect(new Date(parsed.ts).getTime()).toBeGreaterThan(0);
+  });
+
   test('nexus-learnings-search surfaces both v1 and v2 entries via normalizer', () => {
     // Write a mixed jsonl: one v1 entry + one v2 entry directly to the state file
     // First log a v1 entry via nexus-learnings-log so the slug dir is created

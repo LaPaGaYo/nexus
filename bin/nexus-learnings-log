@@ -6,6 +6,7 @@
 # by nexus-learnings-search ("latest winner" per key+type).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 eval "$("$SCRIPT_DIR/nexus-slug" 2>/dev/null)"
 STATE_DIR="${NEXUS_STATE_DIR:-$HOME/.nexus}"
 mkdir -p "$STATE_DIR/projects/$SLUG"
@@ -18,13 +19,20 @@ if ! printf '%s' "$INPUT" | bun -e "JSON.parse(await Bun.stdin.text())" 2>/dev/n
   exit 1
 fi
 
-# Inject timestamp if not present
-if ! printf '%s' "$INPUT" | bun -e "const j=JSON.parse(await Bun.stdin.text()); if(!j.ts) process.exit(1)" 2>/dev/null; then
-  INPUT=$(printf '%s' "$INPUT" | bun -e "
-    const j = JSON.parse(await Bun.stdin.text());
-    j.ts = new Date().toISOString();
-    console.log(JSON.stringify(j));
-  " 2>/dev/null) || true
-fi
+# Inject defaults (schema_version, ts, id) if not present.
+# schema_version and id are only injected for v2-shaped entries (writer_skill present).
+# Legacy v1 entries (skill field, no writer_skill) are left as-is so the
+# read-time normalizer can route them correctly.
+INPUT=$(printf '%s' "$INPUT" | bun -e "
+  const j = JSON.parse(await Bun.stdin.text());
+  const isV2Shape = typeof j.writer_skill === 'string';
+  if (isV2Shape && !j.schema_version) j.schema_version = 2;
+  if (!j.ts) j.ts = new Date().toISOString();
+  if (isV2Shape && !j.id) {
+    const { generateLearningId } = await import('$SCRIPT_ROOT/lib/nexus/learning/id.ts');
+    j.id = generateLearningId();
+  }
+  console.log(JSON.stringify(j));
+" 2>/dev/null) || true
 
 echo "$INPUT" >> "$STATE_DIR/projects/$SLUG/learnings.jsonl"
