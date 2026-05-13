@@ -190,6 +190,24 @@ describe('nexus-relink', () => {
     expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
   });
 
+  test('nexus-config defaults Claude topology to subagents inside Claude Code hosts', () => {
+    setupMockInstall([]);
+    const mockCliDir = path.join(tmpDir, 'mock-cli');
+    fs.mkdirSync(mockCliDir, { recursive: true });
+    const claudePath = path.join(mockCliDir, 'claude');
+    fs.writeFileSync(claudePath, '#!/usr/bin/env bash\nexit 0\n');
+    fs.chmodSync(claudePath, 0o755);
+
+    const output = run(`${path.join(installDir, 'bin', 'nexus-config')} effective-execution`, {
+      PATH: `${mockCliDir}${path.delimiter}${process.env.PATH ?? ''}`,
+      CLAUDECODE: '1',
+    });
+
+    expect(output).toContain('effective_primary_provider: claude');
+    expect(output).toContain('effective_provider_topology: subagents');
+    expect(output).toContain('effective_requested_execution_path: claude-local-subagents');
+  });
+
   test('legacy relink helper binaries are gone from the active surface', () => {
     expect(fs.existsSync(path.join(BIN, 'nexus-patch-names'))).toBe(true);
     expect(fs.existsSync(path.join(BIN, 'gstack-patch-names'))).toBe(false);

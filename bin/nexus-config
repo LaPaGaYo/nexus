@@ -107,6 +107,23 @@ default_local_provider() {
   fi
 }
 
+inside_claude_code_host() {
+  [ "${CLAUDECODE:-}" = "1" ] && return 0
+  case "${AI_AGENT:-}" in
+    claude-code*) return 0 ;;
+  esac
+  [ -n "${CLAUDE_CODE_EXECPATH:-}" ]
+}
+
+default_local_topology() {
+  local provider="$1"
+  if [ "$provider" = "claude" ] && inside_claude_code_host; then
+    printf 'subagents'
+  else
+    printf 'single_agent'
+  fi
+}
+
 help_has_flag() {
   local output="$1"
   local flag="$2"
@@ -282,7 +299,7 @@ print_effective_execution() {
   if [ -n "$configured_topology" ]; then
     local_provider_topology="$configured_topology"
   else
-    local_provider_topology="single_agent"
+    local_provider_topology="$(default_local_topology "$local_provider")"
   fi
   local_provider_requested_execution_path="${local_provider}-local-${local_provider_topology}"
   local_provider_readiness="$(resolve_local_provider_readiness "$local_provider" "$local_provider_topology")"

@@ -310,6 +310,14 @@ supports_local_claude_subagents() {
   printf '%s' "$_claude_help" | grep -q -- '--agent' || return 1
 }
 
+inside_claude_code_host() {
+  [ "${CLAUDECODE:-}" = "1" ] && return 0
+  case "${AI_AGENT:-}" in
+    claude-code*) return 0 ;;
+  esac
+  [ -n "${CLAUDE_CODE_EXECPATH:-}" ]
+}
+
 version_at_least() {
   _current="$1"
   _required="$2"
@@ -401,6 +409,11 @@ maybe_offer_local_topology_choice() {
     return 0
   fi
 
+  _default_topology_choice="1"
+  if [ "$_provider" = "claude" ] && inside_claude_code_host; then
+    _default_topology_choice="2"
+  fi
+
   echo ""
   if [ "$_provider" = "codex" ]; then
     echo "Local Codex topology: how should Nexus run without CCB?"
@@ -412,7 +425,7 @@ maybe_offer_local_topology_choice() {
   if [ "$_provider" = "codex" ]; then
     echo "     One Codex local execution path. Lowest friction."
   else
-    echo "     One Claude local execution path. Lowest friction."
+    echo "     One Claude local execution path. Use from direct terminal sessions; inside Claude Code, prefer subagents."
   fi
   echo ""
   echo "  2) subagents"
@@ -436,13 +449,14 @@ maybe_offer_local_topology_choice() {
   fi
   echo ""
   if [ "$_provider" = "codex" ] && supports_local_codex_multi_session; then
-    printf "Choice [1/2/3] (default: 1, auto-selects in 10s): "
+    printf "Choice [1/2/3] (default: $_default_topology_choice, auto-selects in 10s): "
   elif [ "$_provider" = "claude" ] && supports_local_claude_agent_team; then
-    printf "Choice [1/2/3] (default: 1, auto-selects in 10s): "
+    printf "Choice [1/2/3] (default: $_default_topology_choice, auto-selects in 10s): "
   else
-    printf "Choice [1/2] (default: 1, auto-selects in 10s): "
+    printf "Choice [1/2] (default: $_default_topology_choice, auto-selects in 10s): "
   fi
   read -t 10 -r _topology_choice </dev/tty 2>/dev/null || _topology_choice=""
+  _topology_choice="${_topology_choice:-$_default_topology_choice}"
 
   case "$_topology_choice" in
     3)

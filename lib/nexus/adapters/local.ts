@@ -20,6 +20,7 @@ import type {
   ProviderTopology,
 } from '../contracts/types';
 import { reviewPersonaAuditPath, shipPersonaGatePath } from '../io/artifacts';
+import { isInsideClaudeCodeHost } from '../runtime/execution-topology';
 import type { AdapterResult, AdapterTraceability, LocalAdapter, NexusAdapterContext } from './types';
 
 export interface LocalResolveRouteRaw {
@@ -1413,6 +1414,19 @@ async function runProviderCommand(
   timeoutMs: number,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  if (
+    provider === 'claude'
+    && isInsideClaudeCodeHost()
+    && process.env.NEXUS_ALLOW_NESTED_CLAUDE !== '1'
+  ) {
+    throw new Error(
+      'claude/single_agent requires direct terminal invocation. Detected running inside Claude Code; '
+      + 'nested claude -p subprocesses are blocked because Claude Code host Bash tools can buffer output and time out. '
+      + 'Rerun /handoff with provider_topology=subagents, invoke /build from a terminal outside Claude Code, '
+      + 'or set NEXUS_ALLOW_NESTED_CLAUDE=1 to override.',
+    );
+  }
+
   // Long-running provider calls (build/review/qa) tee output to TTY so the user
   // sees progress and does not mistake a working subprocess for a hang. Default
   // off everywhere else (health checks, version probes, capability discovery).
