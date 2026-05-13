@@ -107,6 +107,12 @@ function commandExists(command: string): boolean {
   return resolveCommandPath(command) !== null;
 }
 
+export function isInsideClaudeCodeHost(env: Record<string, string | undefined> = process.env): boolean {
+  return env.CLAUDECODE === '1'
+    || env.AI_AGENT?.startsWith('claude-code') === true
+    || (typeof env.CLAUDE_CODE_EXECPATH === 'string' && env.CLAUDE_CODE_EXECPATH.length > 0);
+}
+
 function mountedCcbProviders(): PrimaryProvider[] {
   const mountedCommand = resolveCommandPath('ccb-mounted');
   if (!mountedCommand) {
@@ -150,6 +156,12 @@ function defaultLocalProvider(): PrimaryProvider {
     ?? 'claude';
 }
 
+function defaultLocalTopology(provider: PrimaryProvider): ProviderTopology {
+  return provider === 'claude' && isInsideClaudeCodeHost()
+    ? 'subagents'
+    : 'single_agent';
+}
+
 export function localExecutionPath(
   provider: PrimaryProvider,
   topology: ProviderTopology,
@@ -182,7 +194,7 @@ export function defaultExecutionSelection(): ExecutionSelection {
 
   const primaryProvider = configuredProvider
     ?? defaultLocalProvider();
-  const topology = configuredTopology ?? 'single_agent';
+  const topology = configuredTopology ?? defaultLocalTopology(primaryProvider);
 
   return {
     mode,
