@@ -753,29 +753,48 @@ For teammates, write 2-3 sentences plus:
 If only one contributor, skip team breakdown. Parse `Co-Authored-By:` trailers;
 track AI-assisted commits separately and do not treat AI as a teammate.
 
-## Capture Learnings
+### Step 5b: Capture Learnings
 
-If you discovered a non-obvious pattern, pitfall, or architectural insight during
-this session, log it for future sessions:
+If this retrospective surfaced a non-obvious pattern, pitfall, or team-consensus
+preference worth preserving, log it for future sessions.
+
+The fields below use v2 schema shape. `id`, `schema_version`, and `ts` are injected
+automatically by the helper — do not include them in the payload.
+
+Field guide for the LLM operator:
+- `writer_skill` — always `"retro"` for this skill; identifies which skill wrote the entry
+- `subject_skill` — the skill or area this learning most applies to (e.g., `"build"`, `"qa"`, `"plan"`); use `"unknown"` if it is cross-cutting or not tied to a specific skill
+- `subject_stage` — always `null` for retro; retro is reflective and not attached to a lifecycle stage
+- `type` — `"pattern"` for a reusable process that worked well, `"pitfall"` for a process bug or recurring mistake, `"preference"` for a team-consensus operational choice
+- `evidence_type` — kind of evidence: `"team-consensus"` if the team agreed, `"single-run-observation"` for a one-time observation, `"multi-run-observation"` if it has appeared across multiple retros
+- `source` — how the learning was acquired: `"team-consensus"` (team agreed), `"observed"` (found in commit/session data), `"user-stated"` (user told you), or `"inferred"` (AI deduction from patterns)
 
 ```bash
-~/.claude/skills/nexus/bin/nexus-learnings-log '{"skill":"retro","type":"TYPE","key":"SHORT_KEY","insight":"DESCRIPTION","confidence":N,"source":"SOURCE","files":["path/to/relevant/file"]}'
+~/.claude/skills/nexus/bin/nexus-learnings-log "$(cat <<'JSON'
+{
+  "writer_skill": "retro",
+  "subject_skill": "<SKILL_OR_AREA_OR_unknown>",
+  "subject_stage": null,
+  "type": "<pattern|pitfall|preference>",
+  "key": "<KEBAB_KEY_2_TO_5_WORDS>",
+  "insight": "<ONE_SENTENCE_ACTIONABLE>",
+  "confidence": <1_TO_10>,
+  "evidence_type": "<team-consensus|multi-run-observation|single-run-observation|observed|unknown>",
+  "source": "<team-consensus|observed|user-stated|inferred|unknown>",
+  "files": []
+}
+JSON
+)"
 ```
 
-**Types:** `pattern` (reusable approach), `pitfall` (what NOT to do), `preference`
-(user stated), `architecture` (structural decision), `tool` (library/framework insight).
+**Confidence:** 1-10. Be honest. A pattern observed across multiple retros is 8-9.
+A team preference explicitly stated this session is 10. A one-time observation is 4-6.
 
-**Sources:** `observed` (you found this in the code), `user-stated` (user told you),
-`inferred` (AI deduction), `cross-model` (both Claude and Codex agree).
+**files:** Include file paths only when the learning is tied to a specific file or module.
+Process learnings typically leave this empty (`[]`).
 
-**Confidence:** 1-10. Be honest. An observed pattern you verified in the code is 8-9.
-An inference you're not sure about is 4-5. A user preference they explicitly stated is 10.
-
-**files:** Include the specific file paths this learning references. This enables
-staleness detection: if those files are later deleted, the learning can be flagged.
-
-**Only log genuine discoveries.** Don't log obvious things. Don't log things the user
-already knows. A good test: would this insight save time in a future session? If yes, log it.
+**Only log genuine discoveries.** Don't log obvious things or things the team already
+knows. A good test: would this insight change how the team operates next sprint? If yes, log it.
 
 ### Step 6: Compare and Streaks
 
