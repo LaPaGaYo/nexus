@@ -305,8 +305,11 @@ function captureThreeStrikeLearning(
         mirror: null,
       },
     });
-  } catch {
-    // Capture is best-effort. Failure must not propagate to the build process.
+  } catch (error) {
+    // Capture is best-effort. Failure must not propagate to the build process,
+    // but emit a breadcrumb so operators can spot silent capture loss.
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[build] 3-strike learning-candidate capture failed (best-effort): ${message}`);
   }
 }
 
