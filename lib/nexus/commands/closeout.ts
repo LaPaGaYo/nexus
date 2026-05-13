@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
 import {
+  buildLearningCandidatesPath,
   closeoutFollowOnSummaryJsonPath,
   closeoutFollowOnSummaryMarkdownPath,
   closeoutDocumentationSyncPath,
@@ -18,6 +19,9 @@ import {
   stageCompletionAdvisorPath,
   stageStatusPath,
 } from '../io/artifacts';
+import { isMirrorEnabled } from '../learning/config';
+import { mirrorCanonicalToJsonl } from '../learning/mirror';
+import { projectSlugFromCwd } from '../telemetry';
 import { executionFieldsFromLedger, withExecutionWorkspace } from '../runtime/execution-topology';
 import {
   archiveAuditWorkspace,
@@ -82,7 +86,7 @@ function artifactPointerFor(path: string): ArtifactPointer {
 
 type CloseoutLearningSource = {
   path: string;
-  stage: 'review' | 'qa' | 'ship';
+  stage: 'build' | 'review' | 'qa' | 'ship';
   candidates: StageLearningCandidatesRecord['candidates'];
 };
 
@@ -101,7 +105,7 @@ function readLearningCandidatesSource(
     const record = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<StageLearningCandidatesRecord>;
     const candidates = collectValidLearningCandidates(record.candidates);
     if (
-      record.schema_version !== 1
+      (record.schema_version !== 1 && record.schema_version !== 2)
       || record.run_id !== runId
       || record.stage !== stage
       || candidates.length === 0
@@ -121,6 +125,7 @@ function readLearningCandidatesSource(
 
 function collectCloseoutLearningSources(cwd: string, runId: string): CloseoutLearningSource[] {
   return [
+    readLearningCandidatesSource(cwd, runId, buildLearningCandidatesPath(), 'build'),
     readLearningCandidatesSource(cwd, runId, reviewLearningCandidatesPath(), 'review'),
     readLearningCandidatesSource(cwd, runId, qaLearningCandidatesPath(), 'qa'),
     readLearningCandidatesSource(cwd, runId, shipLearningCandidatesPath(), 'ship'),
@@ -307,6 +312,7 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
     : null;
   const closeoutLearningInputs = closeoutLearningSources.map((source) => artifactPointerFor(source.path));
   const predecessorArtifacts = [
+    ...closeoutLearningInputs.filter((artifact) => artifact.path === buildLearningCandidatesPath()),
     artifactPointerFor(reviewStatusPath),
     ...closeoutLearningInputs.filter((artifact) => artifact.path === reviewLearningCandidatesPath()),
     ...(qaStatus ? [artifactPointerFor(qaStatusPath)] : []),
@@ -565,6 +571,26 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       status,
       ledger: nextLedger,
     });
+
+    if (closeoutLearningRecord && isMirrorEnabled()) {
+      try {
+        const stateDir = process.env.NEXUS_STATE_DIR ?? `${process.env.HOME}/.nexus`;
+        const slug = projectSlugFromCwd(ctx.cwd);
+        const mirrorableEntries = closeoutLearningRecord.learnings.filter(
+          (entry): entry is typeof entry & { id: string } => typeof entry.id === 'string',
+        );
+        mirrorCanonicalToJsonl({
+          stateDir,
+          slug,
+          runId: ledger.run_id,
+          sourcePath: closeoutLearningsJsonPath(),
+          canonical: mirrorableEntries as Parameters<typeof mirrorCanonicalToJsonl>[0]['canonical'],
+        });
+      } catch (mirrorError) {
+        const message = mirrorError instanceof Error ? mirrorError.message : String(mirrorError);
+        console.warn(`[closeout] canonical→jsonl mirror failed (best-effort): ${message}`);
+      }
+    }
 
     return { command: 'closeout', status, completion_advisor: completionAdvisor };
   } catch (error) {

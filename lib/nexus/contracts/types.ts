@@ -698,7 +698,7 @@ export interface FollowOnEvidenceSummaryRecord {
 export interface StageLearningCandidatesRecord {
   schema_version: 1 | 2;
   run_id: string;
-  stage: 'review' | 'qa' | 'ship';
+  stage: 'build' | 'review' | 'qa' | 'ship';
   generated_at: string;
   candidates: LearningCandidate[];
 }
@@ -708,7 +708,7 @@ export interface RunLearningsRecord {
   run_id: string;
   generated_at: string;
   source_candidates: string[];
-  learnings: Array<LearningCandidate & { origin_stage: 'review' | 'qa' | 'ship' }>;
+  learnings: Array<LearningCandidate & { origin_stage: 'build' | 'review' | 'qa' | 'ship' }>;
 }
 
 export interface RepoRetroArchiveRecord {

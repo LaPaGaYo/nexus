@@ -5,7 +5,7 @@ import type {
 } from '../contracts/types';
 import { LEARNING_SOURCES, LEARNING_TYPES } from '../contracts/types';
 
-type LearningStage = 'review' | 'qa' | 'ship';
+type LearningStage = 'build' | 'review' | 'qa' | 'ship';
 
 type CandidateInput = {
   path: string;
@@ -21,9 +21,10 @@ type WinnerCandidate = LearningCandidate & {
 };
 
 const STAGE_ORDER: Record<LearningStage, number> = {
-  review: 0,
-  qa: 1,
-  ship: 2,
+  build: 0,
+  review: 1,
+  qa: 2,
+  ship: 3,
 };
 
 function isOneOf<T extends string>(value: string, allowed: readonly T[]): value is T {
