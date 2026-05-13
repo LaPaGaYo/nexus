@@ -16,6 +16,8 @@ import {
   stageNormalizationPath,
   stageStatusPath,
 } from '../io/artifacts';
+import { writeLearningCandidate } from '../learning/candidates';
+import { generateLearningId } from '../learning/id';
 import {
   executionFieldsFromLedger,
   withActualExecutionPath,
@@ -211,6 +213,103 @@ function buildSummaryReliesOnStageOutputs(summary: ParsedBuildExecutionSummary):
   return reliancePatterns.some((pattern) => pattern.test(evidenceText));
 }
 
+// ─── 3-strike capture helpers ────────────────────────────────────────────────
+
+/**
+ * Count the number of fix-cycle build invocations already recorded in the
+ * ledger's command_history. Used to detect the 3-strike condition per
+ * /build Iron Law 2.
+ */
+export function countFixCycleStrikes(
+  commandHistory: Array<{ command: string; via: string | null }>,
+): number {
+  return commandHistory.filter(
+    (entry) => entry.command === 'build' && entry.via === 'fix-cycle',
+  ).length;
+}
+
+/**
+ * Derive a kebab-case key from the strike context. Uses the first blocking
+ * item (the primary target being fixed) to create a stable, readable key.
+ * Max ~40 chars, lowercase, hyphen-separated, no special chars except `-`.
+ */
+export function deriveStrikeKey(blockingItems: string[], sourceStage: string): string {
+  const prefix = 'three-strike';
+  const stagePart = sourceStage === 'qa' ? 'qa' : 'review';
+  if (blockingItems.length === 0) {
+    return `${prefix}-${stagePart}-fix-cycle`;
+  }
+  const target = blockingItems[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 28);
+  return `${prefix}-${target}`.slice(0, 40);
+}
+
+/**
+ * Compose a one-sentence insight describing the 3-strike pattern.
+ */
+export function composeStrikeInsight(blockingItems: string[], sourceStage: string): string {
+  const source = sourceStage === 'qa' ? 'qa-fix-cycle' : 'review-fix-cycle';
+  if (blockingItems.length === 0) {
+    return `Three consecutive ${source} strikes with no specific target; pattern indicates the underlying issue is not addressable by surface fixes.`;
+  }
+  const target = blockingItems[0].slice(0, 120);
+  return `Three consecutive ${source} strikes on the same target ("${target}"); root cause likely outside the current touch surface.`;
+}
+
+/**
+ * Collect relative file paths involved in the strike pattern. Currently
+ * returns an empty array — file tracking is not available at this decision
+ * point in build.ts. Phase 8 capture sites can extend this.
+ */
+export function collectStrikeFiles(_blockingItems: string[]): string[] {
+  return [];
+}
+
+/**
+ * Emit a learning candidate when /build Iron Law 2's 3-strike condition fires.
+ * Best-effort: capture failure must not break the build process.
+ */
+function captureThreeStrikeLearning(
+  cwd: string,
+  runId: string,
+  blockingItems: string[],
+  sourceStage: string,
+): void {
+  try {
+    writeLearningCandidate({
+      cwd,
+      stage: 'build',
+      run_id: runId,
+      entry: {
+        id: generateLearningId(),
+        schema_version: 2,
+        ts: new Date().toISOString(),
+        writer_skill: 'build',
+        subject_skill: 'build',
+        subject_stage: 'build',
+        type: 'pitfall',
+        key: deriveStrikeKey(blockingItems, sourceStage),
+        insight: composeStrikeInsight(blockingItems, sourceStage),
+        confidence: 8,
+        evidence_type: 'multi-run-observation',
+        source: 'observed',
+        files: collectStrikeFiles(blockingItems),
+        cluster_id: null,
+        supersedes: [],
+        supersedes_reason: null,
+        derived_from: [],
+        last_applied_at: null,
+        mirror: null,
+      },
+    });
+  } catch {
+    // Capture is best-effort. Failure must not propagate to the build process.
+  }
+}
+
 export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const ledger = readLedger(ctx.cwd);
   const handoffStatusPath = stageStatusPath('handoff');
@@ -304,6 +403,26 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
         ? resolveAdvisoryFixReviewScope(ctx.cwd)
         : resolveFixCycleReviewScope(ctx.cwd, reviewStatus)
     : normalizeReviewScopeRecord(handoffStatus.review_scope ?? fullAcceptanceReviewScope());
+
+  // ── /build Iron Law 2: 3-strike capture ────────────────────────────────────
+  // Count how many fix-cycle build invocations have already been recorded for
+  // this run. If this is the 3rd (or later) strike, capture a learning
+  // candidate BEFORE proceeding. The capture is best-effort (see
+  // captureThreeStrikeLearning) and does not affect the build outcome.
+  if (fixCycle) {
+    const strikeCount = countFixCycleStrikes(ledger.command_history) + 1; // +1 for this invocation
+    if (strikeCount >= 3) {
+      const strikeSourceStage = ledger.current_stage === 'qa' ? 'qa' : 'review';
+      captureThreeStrikeLearning(
+        ctx.cwd,
+        ledger.run_id,
+        reviewScope.blocking_items,
+        strikeSourceStage,
+      );
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   const reviewAdvisoryDispositionRecord = reviewAdvisoryFixCycle
     ? buildReviewAdvisoryDispositionRecord(
         ledger.run_id,
