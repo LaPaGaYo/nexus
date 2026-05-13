@@ -60,16 +60,25 @@ export function assertSchemaV2(value: unknown): asserts value is LearningEntry {
   if (e.schema_version !== 2) throw new Error('learning entry schema_version must be 2');
   if (typeof e.id !== 'string' || e.id.length === 0) throw new Error('learning entry missing id');
   if (typeof e.ts !== 'string') throw new Error('learning entry missing ts');
-  if (typeof e.writer_skill !== 'string') throw new Error('learning entry missing writer_skill');
-  if (typeof e.subject_skill !== 'string') throw new Error('learning entry missing subject_skill');
+  if (typeof e.writer_skill !== 'string' || e.writer_skill.length === 0) {
+    throw new Error('learning entry missing writer_skill');
+  }
+  if (typeof e.subject_skill !== 'string' || e.subject_skill.length === 0) {
+    throw new Error('learning entry missing subject_skill');
+  }
   if (e.subject_stage !== null && !SUBJECT_STAGES.includes(e.subject_stage as SubjectStage)) {
     throw new Error('learning entry has invalid subject_stage');
   }
   if (!LEARNING_TYPES.includes(e.type as LearningType)) throw new Error('learning entry has invalid type');
   if (typeof e.key !== 'string' || e.key.length === 0) throw new Error('learning entry missing key');
   if (typeof e.insight !== 'string' || e.insight.length === 0) throw new Error('learning entry missing insight');
-  if (typeof e.confidence !== 'number' || e.confidence < 1 || e.confidence > 10) {
-    throw new Error('learning entry confidence out of range');
+  if (
+    typeof e.confidence !== 'number'
+    || !Number.isInteger(e.confidence)
+    || e.confidence < 1
+    || e.confidence > 10
+  ) {
+    throw new Error('learning entry confidence must be integer in [1, 10]');
   }
   if (!EVIDENCE_TYPES.includes(e.evidence_type as EvidenceType)) {
     throw new Error('learning entry has invalid evidence_type');
