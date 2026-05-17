@@ -1098,8 +1098,11 @@ Write findings to `$REPORT_DIR/{date}-{HHMMSS}.json`. Top-level keys: `version`
 (sha256 of category+file+title), `title`, `file`, `line`, `commit`, `description`,
 `exploit_scenario`, `impact`, `recommendation`, `playbook`, `verification`.
 
-Repo-local exception: only write to `.nexus/security-reports/` when the user
-explicitly asks. Verify `.nexus/` is gitignored first; if not, pause and ask.
+Repo-local exception: only write full reports to project-local `.nexus/security-reports/` when the user explicitly asks; verify `.nexus/` is gitignored first:
+
+```bash
+grep -Eq '(^|/)\.nexus(/|$)' .gitignore 2>/dev/null || echo "pause and ask to add `.nexus/` before writing project-local security reports"
+```
 
 Keep the JSON machine-readable; do not put markdown prose inside enum fields.
 
