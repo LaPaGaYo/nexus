@@ -81,6 +81,7 @@ fi
 cat "${FILES[@]}" 2>/dev/null | bun -e "
 const { normalizeLearningLine } = await import('${SCRIPT_ROOT}/lib/nexus/learning/normalize.ts');
 const { computeStrength } = await import('${SCRIPT_ROOT}/lib/nexus/learning/strength.ts');
+const { computeEffectiveConfidence } = await import('${SCRIPT_ROOT}/lib/nexus/learning/decay.ts');
 
 const lines = (await Bun.stdin.text()).trim().split('\n').filter(Boolean);
 const now = Date.now();
@@ -94,13 +95,7 @@ for (const line of lines) {
   const e = normalizeLearningLine(line);
   if (!e) continue;
 
-  // Apply confidence decay: observed/inferred lose 1pt per 30 days
-  let conf = e.confidence || 5;
-  if (e.source === 'observed' || e.source === 'inferred') {
-    const days = Math.floor((now - new Date(e.ts).getTime()) / 86400000);
-    conf = Math.max(0, conf - Math.floor(days / 30));
-  }
-  e._effectiveConfidence = conf;
+  e._effectiveConfidence = computeEffectiveConfidence(e, now);
 
   // Determine if this is from the current project or cross-project
   // Cross-project entries are tagged for display
