@@ -277,7 +277,7 @@ describe('execution topology selection', () => {
     });
   });
 
-  test('defaults claude local_provider to subagents inside Claude Code when topology is unset', () => {
+  test('keeps claude local_provider default at single_agent inside Claude Code when topology is unset', () => {
     const selection = runSelectionWithPath(
       (binDir) => {
         writeStubCommand(binDir, 'claude', process.platform === 'win32' ? 'exit /b 0' : 'exit 0');
@@ -291,8 +291,8 @@ describe('execution topology selection', () => {
     expect(selection).toEqual({
       mode: 'local_provider',
       primary_provider: 'claude',
-      provider_topology: 'subagents',
-      requested_execution_path: 'claude-local-subagents',
+      provider_topology: 'single_agent',
+      requested_execution_path: 'claude-local-single_agent',
     });
   });
 
