@@ -90,6 +90,18 @@ describe('walkArchiveRunLearnings', () => {
     expect(recs.map(r => r.run_id).sort()).toEqual(['a', 'b']);
   });
 
+  test('ignores stray top-level files (not directories)', () => {
+    const a = join(dir, '.planning/archive/runs/run-a/closeout');
+    const b = join(dir, '.planning/archive/runs/run-b/closeout');
+    mkdirSync(a, { recursive: true });
+    mkdirSync(b, { recursive: true });
+    writeFileSync(join(a, 'learnings.json'), JSON.stringify({ schema_version: 2, run_id: 'a', generated_at: 't', source_candidates: [], learnings: [] }));
+    writeFileSync(join(b, 'learnings.json'), JSON.stringify({ schema_version: 2, run_id: 'b', generated_at: 't', source_candidates: [], learnings: [] }));
+    writeFileSync(join(dir, '.planning/archive/runs/stray.txt'), 'stray');
+    const recs = walkArchiveRunLearnings(dir);
+    expect(recs.map(r => r.run_id).sort()).toEqual(['a', 'b']);
+  });
+
   test('no archive dir → []', () => {
     expect(walkArchiveRunLearnings(join(dir, 'empty'))).toEqual([]);
   });

@@ -64,8 +64,9 @@ export function walkArchiveRunLearnings(repoRoot: string): RunLearningsRecord[] 
   const runsDir = join(repoRoot, '.planning', 'archive', 'runs');
   if (!existsSync(runsDir)) return [];
   const out: RunLearningsRecord[] = [];
-  for (const runName of readdirSync(runsDir)) {
-    const rec = readCanonicalLearningsFile(join(runsDir, runName, 'closeout', 'learnings.json'));
+  for (const entry of readdirSync(runsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const rec = readCanonicalLearningsFile(join(runsDir, entry.name, 'closeout', 'learnings.json'));
     if (rec) out.push(rec);
   }
   return out;
