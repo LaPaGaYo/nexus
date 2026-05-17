@@ -103,7 +103,17 @@ Consequence for PR #160 as written:
 | `subagents` (PR's new default) | 2× (builder + verifier, [local.ts:1921-1957](lib/nexus/adapters/local.ts:1921)) | yes | ❌ no |
 | `agent_team` | 1× (`--teammate-mode in-process`, still spawned) | yes | ❌ no |
 
-PR #160's F3 backstop appears only inside `runProviderCommand` (verified: `NEXUS_ALLOW_NESTED_CLAUDE` occurs 4× in the diff, all under `@@ runProviderCommand`). The F1 default-switch routes the common case to `subagents`, which is **unguarded by F3 and spawns twice**. F3 is a sound defensive fix; F1 rests on an incorrect premise and, as written, relocates the hang to a worse, unguarded path.
+PR #160's original F3 backstop appeared only inside `runProviderCommand` (verified: `NEXUS_ALLOW_NESTED_CLAUDE` occurred 4× in that diff, all under `@@ runProviderCommand`). The original F1 default-switch routed the common case to `subagents`, which was **unguarded by F3 and spawned twice**. F3 was a sound defensive fix; F1 rested on an incorrect premise and, as written, relocated the hang to a worse, unguarded path.
+
+**Resolution (2026-05-17)**: after this premise contradiction was raised on PR #160 (comment + this brief's Source 5), glaocon re-scoped the PR:
+
+- F1 dropped entirely — `defaultLocalTopology()` removed from `execution-topology.ts`; unset Claude local topology stays `single_agent`.
+- F3 centralized as `assertNestedClaudeAllowed(topology)` and called before spawn in all three paths: `runProviderCommand` (single_agent), `runClaudeNamedAgentCommand` (subagents), `runClaudeAgentTeamCommand` (agent_team). Verified against PR diff lines 169/177/186.
+- The guard's error message is honest ("Nexus local Claude topologies spawn nested claude -p subprocesses") — the false Task-tool claim was removed from setup, `nexus-config`, preambles, and generated skills.
+- A consistency fix was added: `nexus-config effective-execution` now reports `current_session_ready: no` inside Claude Code unless `NEXUS_ALLOW_NESTED_CLAUDE=1`, with `test/relink.test.ts` asserting both sides.
+- Regression coverage for all three topologies blocking + override added.
+
+PR #160 is now correctly scoped as a fail-fast hotfix. It does not (and should not) deliver the structural fix; that remains this brief's `/frame` target.
 
 ---
 
@@ -149,7 +159,7 @@ The streaming gap in `agent_team` and `subagents` is a related but bounded sub-p
 4. **Topology coverage**: if "early-exit when this session IS the worker" is the structural answer for single_agent, what does it mean for agent_team and subagents? Those topologies *want* to spawn (agent_team for parallel teammate coordination, subagents for builder+verifier 2-pass) — but they still spawn from inside the calling Claude Code session, so the Bash tool pipe wall still applies. Is the fix "always early-exit when in Claude Code, regardless of topology" or "topology-aware"?
 5. **Contract change surface**: does SKILL.md Step 9 wording need to change (read by humans + operating Claudes) or only the runtime behavior (read by bin)? Today's Step 9 says "run canonical command to write status." If the bin now early-exits and tells the operator to author artifacts, SKILL.md needs new instructions for that branch.
 6. **Stop-the-bleeding question**: even before v1.1.2 lands, should there be an env var or config flag operators can set today (`NEXUS_OPERATOR_IS_GENERATOR=1`) that makes the bin early-exit? Bounded, ~30-min change, prevents the 4th occurrence while design proceeds.
-7. **PR #160 disposition**: glaocon's PR implements F1 + F3 against issue #159. F3 (fail-fast backstop) is sound. F1 (default to `subagents` inside Claude Code) rests on the incorrect premise that `subagents` avoids the subprocess. Does `/frame` (a) extend F3 to all three topologies and keep `single_agent` default with a clearer error, (b) accept F1 only if the F3 backstop is also extended to `runClaudeNamedAgentCommand` and `runClaudeAgentTeamCommand`, or (c) treat the structural fix (operator-attested early-exit, per the April 27 contributor log) as the real target and reduce #160 to its F3 portion?
+7. **PR #160 disposition** — **RESOLVED 2026-05-17**: outcome (c). glaocon dropped F1 and reduced #160 to the F3 portion, generalized to all three claude spawn sites (`single_agent`, `subagents`, `agent_team`) plus a `nexus-config` readiness consistency fix and regression coverage. PR #160 verified and approved as a fail-fast hotfix. The structural fix (operator-attested early-exit per the 2026-04-27 contributor log) is unchanged as this brief's `/frame` target — it is explicitly out of #160's scope.
 
 ---
 
@@ -162,7 +172,7 @@ The streaming gap in `agent_team` and `subagents` is a related but bounded sub-p
 | `dispatch_command` and `receipt` fields are trustworthy provenance | Both fields are operator-writable in the artifact-write fallback path; no schema field distinguishes spawned-provider from operator-attested provenance |
 | The 2026-05-12 SP2 hang was a one-off | Same pattern reported 2026-04-27 with note "second occurrence" plus today = third recorded occurrence across two projects |
 | Operators have a clean recovery path | Operators must improvise artifact authoring with schema-conformant lies to advance the ledger |
-| Switching default to `subagents` (PR #160 F1) fixes the hang | `subagents` spawns the same nested `claude -p` via `defaultRunCommand`, twice; F1's premise that subagents use the Task tool is contradicted by [local.ts:830-843](lib/nexus/adapters/local.ts:830) |
+| Switching default to `subagents` (PR #160 F1) fixes the hang | `subagents` spawns the same nested `claude -p` via `defaultRunCommand`, twice; F1's premise that subagents use the Task tool is contradicted by [local.ts:830-843](lib/nexus/adapters/local.ts:830). **Resolved 2026-05-17**: F1 dropped, F3 generalized to all three spawn sites in PR #160. |
 
 The Reframe matters because **v1.1.2 framed as "three bug fixes" would patch symptoms while leaving the structural cause intact**. Framed as "the canonical bin needs to recognize when it IS the named worker and exit early with operator-attested provenance", the same fix surface emerges (streaming completeness + early-exit guard + provenance field), but ordered so the next occurrence doesn't return as silent.
 
