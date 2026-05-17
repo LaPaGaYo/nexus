@@ -104,6 +104,10 @@ function readLearningCandidatesSource(
   try {
     const record = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<StageLearningCandidatesRecord>;
     const candidates = collectValidLearningCandidates(record.candidates);
+    // Accepted: v1 (legacy auditor-sourced review/qa/ship) + v2 (SP1 chain
+    // template). TODO(schema-v3): when a future schema bump lands, extend this
+    // allowlist — an unrecognized schema_version silently drops the whole
+    // candidate source here, so this check must be updated in lockstep.
     if (
       (record.schema_version !== 1 && record.schema_version !== 2)
       || record.run_id !== runId

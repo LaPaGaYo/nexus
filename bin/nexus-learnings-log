@@ -21,8 +21,17 @@ fi
 
 # Inject defaults (schema_version, ts, id) if not present.
 # schema_version and id are only injected for v2-shaped entries (writer_skill present).
-# Legacy v1 entries (skill field, no writer_skill) are left as-is so the
-# read-time normalizer can route them correctly.
+#
+# This writer_skill gate is a PERMANENT backward-compat boundary, NOT a
+# transitional shim — do not "clean it up" assuming all callers are v2.
+# v1-shape callers that intentionally remain (use `skill`, no `writer_skill`):
+#   - /learn manual-add path (skills/support/learn/SKILL.md.tmpl)
+#   - scripts/resolvers/learnings.ts generated example
+#   - any external / third-party caller of this bin
+# Their v1 entries are left as-is; the read-time normalizer (lib/nexus/
+# learning/normalize.ts) lazily upgrades them to virtual v2 at search time.
+# Forcing schema_version:2 onto them would make the read-side assertSchemaV2
+# gate reject them as malformed v2 — silent data loss. Keep the gate.
 INPUT=$(printf '%s' "$INPUT" | bun -e "
   const j = JSON.parse(await Bun.stdin.text());
   const isV2Shape = typeof j.writer_skill === 'string';
