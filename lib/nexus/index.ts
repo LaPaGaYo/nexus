@@ -80,3 +80,29 @@ export type {
 // ─── Stage taxonomy and packs ───
 export { NEXUS_STAGE_CONTENT } from './stage-content';
 export { getStagePackSourceMap } from './stage-packs';
+
+// ─── Learning (SP1) — schema and write/read helpers for cross-boundary callers ───
+// Note: LEARNING_TYPES, LEARNING_SOURCES, LearningType, LearningSource are
+// already re-exported above from ./contracts/types — omitted here to avoid
+// duplicate identifier errors.
+// Config reader (isMirrorEnabled) + mirror helper (mirrorCanonicalToJsonl) stay
+// private to lib/nexus/learning/ — closeout-internal only, NOT re-exported here.
+export type {
+  LearningEntry,
+  MirrorMetadata,
+  EvidenceType,
+  SubjectStage,
+  SupersedesReason,
+} from './learning/schema';
+export { assertSchemaV2 } from './learning/schema';
+export type { ParsedLearningId, LegacyEntryInput } from './learning/id';
+export {
+  generateLearningId,
+  parseLearningId,
+  deriveLegacyId,
+} from './learning/id';
+export { computeStrength } from './learning/strength';
+export { normalizeLearningLine } from './learning/normalize';
+export type { NormalizedEntry } from './learning/normalize';
+export { writeLearningCandidate } from './learning/candidates';
+export type { WriteLearningCandidateInput } from './learning/candidates';
