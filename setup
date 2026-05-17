@@ -412,7 +412,7 @@ maybe_offer_local_topology_choice() {
   if [ "$_provider" = "codex" ]; then
     echo "     One Codex local execution path. Lowest friction."
   else
-    echo "     One Claude local execution path. Lowest friction."
+    echo "     One Claude local execution path. Use from direct terminal sessions; inside Claude Code, nested Claude is guarded."
   fi
   echo ""
   echo "  2) subagents"
@@ -424,7 +424,7 @@ maybe_offer_local_topology_choice() {
       echo "     Codex independent local sessions for build, review, and QA."
     fi
   else
-    echo "     Claude local subagents for build, review, and QA."
+    echo "     Claude CLI subagents for build, review, and QA. Use from direct terminal sessions; inside Claude Code, nested Claude is guarded."
     if supports_local_claude_agent_team; then
       echo ""
       echo "  3) agent_team"

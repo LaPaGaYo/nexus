@@ -54,6 +54,32 @@ const GEMINI_LOCAL_SUBAGENT_EXECUTION = {
   requested_execution_path: 'gemini-local-subagents',
 };
 
+async function withEnv<T>(
+  env: Record<string, string | undefined>,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const previous = new Map(Object.keys(env).map((key) => [key, process.env[key]] as const));
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return await fn();
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 const LOCAL_TRACEABILITY_PACK_CASES = [
   { absorbedCapability: 'local-provider-routing', nexusStagePack: 'nexus-handoff-pack' },
   { absorbedCapability: 'local-provider-execution', nexusStagePack: 'nexus-build-pack' },
@@ -1960,6 +1986,261 @@ describe('nexus local_provider mode', () => {
         },
       });
     });
+  });
+
+  test('blocks nested claude single_agent execution inside Claude Code before spawning claude -p', async () => {
+    await withEnv(
+      {
+        CLAUDECODE: '1',
+        AI_AGENT: undefined,
+        CLAUDE_CODE_EXECPATH: undefined,
+        NEXUS_ALLOW_NESTED_CLAUDE: undefined,
+      },
+      async () => {
+        await runInTempRepo(async ({ run }) => {
+          const calls: string[] = [];
+          const adapters = getDefaultNexusAdapters();
+          adapters.local = createRuntimeLocalAdapter({
+            runCommand: async (spec) => {
+              calls.push(spec.argv.join(' '));
+
+              if (spec.argv[0] === 'which') {
+                return {
+                  exit_code: 0,
+                  stdout: '/Users/henry/.local/bin/claude\n',
+                  stderr: '',
+                };
+              }
+
+              throw new Error(`unexpected nested command: ${spec.argv.join(' ')}`);
+            },
+          });
+
+          await run('plan', adapters, LOCAL_EXECUTION);
+          await run('handoff', adapters, LOCAL_EXECUTION);
+          await expect(run('build', adapters, LOCAL_EXECUTION)).rejects.toThrow(
+            'Local provider generator execution blocked',
+          );
+
+          expect(calls).toEqual(['which claude']);
+          expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+            stage: 'build',
+            execution_mode: 'local_provider',
+            primary_provider: 'claude',
+            provider_topology: 'single_agent',
+            state: 'blocked',
+            ready: false,
+            actual_route: null,
+            errors: ['Local provider generator execution blocked'],
+          });
+          expect(await run.readJson('.planning/current/build/adapter-output.json')).toMatchObject({
+            transport: {
+              adapter_id: 'local',
+              outcome: 'blocked',
+              notices: [
+                expect.stringContaining('claude local_provider/single_agent requires direct terminal invocation'),
+              ],
+            },
+          });
+        });
+      },
+    );
+  });
+
+  test('blocks nested claude subagents inside Claude Code before spawning claude -p', async () => {
+    await withEnv(
+      {
+        CLAUDECODE: '1',
+        AI_AGENT: undefined,
+        CLAUDE_CODE_EXECPATH: undefined,
+        NEXUS_ALLOW_NESTED_CLAUDE: undefined,
+      },
+      async () => {
+        await runInTempRepo(async ({ run }) => {
+          const calls: string[] = [];
+          const adapters = getDefaultNexusAdapters();
+          adapters.local = createRuntimeLocalAdapter({
+            runCommand: async (spec) => {
+              calls.push(spec.argv.join(' '));
+
+              if (spec.argv[0] === 'which') {
+                return {
+                  exit_code: 0,
+                  stdout: '/Users/henry/.local/bin/claude\n',
+                  stderr: '',
+                };
+              }
+
+              if (spec.argv[0] === 'claude' && spec.argv.includes('--help')) {
+                return {
+                  exit_code: 0,
+                  stdout: 'Usage: claude [options]\n  --agent <agent>\n  --agents <json>\n',
+                  stderr: '',
+                };
+              }
+
+              throw new Error(`unexpected nested command: ${spec.argv.join(' ')}`);
+            },
+          });
+
+          await run('plan', adapters, LOCAL_SUBAGENT_EXECUTION);
+          await run('handoff', adapters, LOCAL_SUBAGENT_EXECUTION);
+          await expect(run('build', adapters, LOCAL_SUBAGENT_EXECUTION)).rejects.toThrow(
+            'Local provider generator execution blocked',
+          );
+
+          expect(calls).toEqual(['which claude', 'claude --help']);
+          expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+            stage: 'build',
+            execution_mode: 'local_provider',
+            primary_provider: 'claude',
+            provider_topology: 'subagents',
+            state: 'blocked',
+            ready: false,
+            actual_route: null,
+            errors: ['Local provider generator execution blocked'],
+          });
+          expect(await run.readJson('.planning/current/build/adapter-output.json')).toMatchObject({
+            transport: {
+              adapter_id: 'local',
+              outcome: 'blocked',
+              notices: [
+                expect.stringContaining('claude local_provider/subagents requires direct terminal invocation'),
+              ],
+            },
+          });
+        });
+      },
+    );
+  });
+
+  test('blocks nested claude agent_team inside Claude Code before spawning claude -p', async () => {
+    await withEnv(
+      {
+        CLAUDECODE: '1',
+        AI_AGENT: undefined,
+        CLAUDE_CODE_EXECPATH: undefined,
+        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+        NEXUS_ALLOW_NESTED_CLAUDE: undefined,
+      },
+      async () => {
+        await runInTempRepo(async ({ run }) => {
+          const calls: string[] = [];
+          const adapters = getDefaultNexusAdapters();
+          adapters.local = createRuntimeLocalAdapter({
+            runCommand: async (spec) => {
+              calls.push(spec.argv.join(' '));
+
+              if (spec.argv[0] === 'which') {
+                return {
+                  exit_code: 0,
+                  stdout: '/Users/henry/.local/bin/claude\n',
+                  stderr: '',
+                };
+              }
+
+              if (spec.argv[0] === 'claude' && spec.argv.includes('--version')) {
+                return {
+                  exit_code: 0,
+                  stdout: '2.1.32 (Claude Code)\n',
+                  stderr: '',
+                };
+              }
+
+              throw new Error(`unexpected nested command: ${spec.argv.join(' ')}`);
+            },
+          });
+
+          await run('plan', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+          await run('handoff', adapters, LOCAL_AGENT_TEAM_EXECUTION);
+          await expect(run('build', adapters, LOCAL_AGENT_TEAM_EXECUTION)).rejects.toThrow(
+            'Local provider generator execution blocked',
+          );
+
+          expect(calls).toEqual(['which claude', 'claude --version']);
+          expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+            stage: 'build',
+            execution_mode: 'local_provider',
+            primary_provider: 'claude',
+            provider_topology: 'agent_team',
+            state: 'blocked',
+            ready: false,
+            actual_route: null,
+            errors: ['Local provider generator execution blocked'],
+          });
+          expect(await run.readJson('.planning/current/build/adapter-output.json')).toMatchObject({
+            transport: {
+              adapter_id: 'local',
+              outcome: 'blocked',
+              notices: [
+                expect.stringContaining('claude local_provider/agent_team requires direct terminal invocation'),
+              ],
+            },
+          });
+        });
+      },
+    );
+  });
+
+  test('allows nested claude single_agent execution when explicitly overridden', async () => {
+    await withEnv(
+      {
+        CLAUDECODE: '1',
+        AI_AGENT: undefined,
+        CLAUDE_CODE_EXECPATH: undefined,
+        NEXUS_ALLOW_NESTED_CLAUDE: '1',
+      },
+      async () => {
+        await runInTempRepo(async ({ run }) => {
+          const calls: string[] = [];
+          const adapters = getDefaultNexusAdapters();
+          adapters.local = createRuntimeLocalAdapter({
+            now: () => '2026-04-11T00:00:00.000Z',
+            runCommand: async (spec) => {
+              calls.push(spec.argv.join(' '));
+
+              if (spec.argv[0] === 'which') {
+                return {
+                  exit_code: 0,
+                  stdout: '/Users/henry/.local/bin/claude\n',
+                  stderr: '',
+                };
+              }
+
+              if (spec.argv[0] === 'claude') {
+                return {
+                  exit_code: 0,
+                  stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: honored override\n- Files touched: README.md\n- Verification: pending\n',
+                  stderr: '',
+                };
+              }
+
+              throw new Error(`unexpected command: ${spec.argv.join(' ')}`);
+            },
+          });
+
+          await run('plan', adapters, LOCAL_EXECUTION);
+          await run('handoff', adapters, LOCAL_EXECUTION);
+          await run('build', adapters, LOCAL_EXECUTION);
+
+          expect(calls).toEqual([
+            'which claude',
+            'claude -p --output-format text --dangerously-skip-permissions',
+          ]);
+          expect(await run.readJson('.planning/current/build/status.json')).toMatchObject({
+            stage: 'build',
+            execution_mode: 'local_provider',
+            primary_provider: 'claude',
+            provider_topology: 'single_agent',
+            actual_route: {
+              provider: 'claude',
+              route: 'claude-local-single_agent',
+              transport: 'local',
+            },
+          });
+        });
+      },
+    );
   });
 
   test('blocks build when a claude local subagent exits non-zero even if it prints markdown', async () => {

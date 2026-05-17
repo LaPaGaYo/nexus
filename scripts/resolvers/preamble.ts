@@ -266,7 +266,7 @@ If A:
 ${ctx.paths.binDir}/nexus-config set execution_mode local_provider
 ${ctx.paths.binDir}/nexus-config set primary_provider claude
 \`\`\`
-Then explain that the current session can continue with \`local_provider\`, and if \`PROVIDER_TOPOLOGY\` is empty the default local topology is \`single_agent\`.
+Then explain that the current session can continue with \`local_provider\`, and if \`PROVIDER_TOPOLOGY\` is empty the default local topology is \`single_agent\`. Claude local-provider topologies invoke the local Claude CLI; inside Claude Code they are guarded unless \`NEXUS_ALLOW_NESTED_CLAUDE=1\` is set.
 
 If B:
 \`\`\`bash
@@ -349,8 +349,8 @@ If \`EXECUTION_MODE=local_provider\` and \`PRIMARY_PROVIDER=claude\`, ask the us
 ${stageTopologyRecommendation(ctx.skillName)}
 
 Use AskUserQuestion with these options:
-- A) \`single_agent\` — One Claude session. Lowest coordination overhead and safest for sequential work.
-- B) \`subagents\` — Focused local Claude subagents. Good for quick parallel checks whose results return to the lead.
+- A) \`single_agent\` - One Claude subprocess for direct terminal sessions. Lowest coordination overhead and safest for sequential work.
+- B) \`subagents\` - Focused local Claude CLI subagents. Good for quick parallel checks whose results return to the lead.
 - C) \`agent_team\` — Claude Code Agent Teams. Best when teammates should coordinate, challenge each other, or work from independent perspectives.
 
 If \`LOCAL_CLAUDE_AGENT_TEAM_READY\` is not \`yes\`, still show option C but mark it unavailable and include \`LOCAL_CLAUDE_AGENT_TEAM_REASON\`. Do not set \`agent_team\` unless the user explicitly chooses to configure Claude Code first.
