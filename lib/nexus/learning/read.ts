@@ -26,6 +26,11 @@ export function readStageCandidatesFile(absPath: string): StageLearningCandidate
   if (!existsSync(absPath)) return null;
   try {
     const raw = JSON.parse(readFileSync(absPath, 'utf8')) as Partial<StageLearningCandidatesRecord>;
+    // Accepted: v1 (legacy auditor-sourced review/qa/ship) + v2 (SP1 chain
+    // template). TODO(schema-v3): when a future schema bump lands, extend this
+    // allowlist — an unrecognized schema_version silently drops the whole
+    // candidate source here, so this check must be updated in lockstep. This
+    // is now the single enforcement point for all stage-candidate readers.
     if (raw.schema_version !== 1 && raw.schema_version !== 2) return null;
     if (typeof raw.run_id !== 'string' || typeof raw.stage !== 'string') return null;
     return {
