@@ -68,6 +68,14 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+is_inside_claude_code_host() {
+  [ "${CLAUDECODE:-}" = "1" ] && return 0
+  case "${AI_AGENT:-}" in
+    claude-code*) return 0 ;;
+  esac
+  [ -n "${CLAUDE_CODE_EXECPATH:-}" ]
+}
+
 csv_contains() {
   local csv="$1"
   local needle="$2"
@@ -178,6 +186,15 @@ resolve_local_provider_readiness() {
   if ! command_exists "$provider"; then
     printf 'no|provider CLI is not available'
     return 0
+  fi
+
+  if [ "$provider" = "claude" ] && is_inside_claude_code_host && [ "${NEXUS_ALLOW_NESTED_CLAUDE:-}" != "1" ]; then
+    case "$topology" in
+      single_agent|subagents|agent_team)
+        printf 'no|claude local_provider/%s requires direct terminal invocation inside Claude Code; set NEXUS_ALLOW_NESTED_CLAUDE=1 to override' "$topology"
+        return 0
+        ;;
+    esac
   fi
 
   case "$topology" in

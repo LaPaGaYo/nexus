@@ -206,6 +206,31 @@ describe('nexus-relink', () => {
     expect(output).toContain('effective_primary_provider: claude');
     expect(output).toContain('effective_provider_topology: single_agent');
     expect(output).toContain('effective_requested_execution_path: claude-local-single_agent');
+    expect(output).toContain('current_session_ready: no');
+    expect(output).toContain('local_provider_ready: no');
+    expect(output).toContain('local_provider_readiness_reason: claude local_provider/single_agent requires direct terminal invocation inside Claude Code');
+  });
+
+  test('nexus-config treats nested Claude override as local-provider ready', () => {
+    setupMockInstall([]);
+    const mockCliDir = path.join(tmpDir, 'mock-cli');
+    fs.mkdirSync(mockCliDir, { recursive: true });
+    const claudePath = path.join(mockCliDir, 'claude');
+    fs.writeFileSync(claudePath, '#!/usr/bin/env bash\nexit 0\n');
+    fs.chmodSync(claudePath, 0o755);
+
+    const output = run(`${path.join(installDir, 'bin', 'nexus-config')} effective-execution`, {
+      PATH: `${mockCliDir}${path.delimiter}${process.env.PATH ?? ''}`,
+      CLAUDECODE: '1',
+      NEXUS_ALLOW_NESTED_CLAUDE: '1',
+    });
+
+    expect(output).toContain('effective_primary_provider: claude');
+    expect(output).toContain('effective_provider_topology: single_agent');
+    expect(output).toContain('effective_requested_execution_path: claude-local-single_agent');
+    expect(output).toContain('current_session_ready: yes');
+    expect(output).toContain('local_provider_ready: yes');
+    expect(output).toContain('local_provider_readiness_reason: provider CLI is available');
   });
 
   test('legacy relink helper binaries are gone from the active surface', () => {
