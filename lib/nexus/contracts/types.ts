@@ -229,6 +229,7 @@ export const DEPLOY_RESULT_NEXT_ACTIONS = [
 ] as const;
 export type DeployResultNextAction = (typeof DEPLOY_RESULT_NEXT_ACTIONS)[number];
 
+// Canonical learning enum (SP1). lib/nexus/learning/schema.ts re-exports these.
 export const LEARNING_TYPES = [
   'pattern',
   'pitfall',
@@ -238,11 +239,16 @@ export const LEARNING_TYPES = [
 ] as const;
 export type LearningType = (typeof LEARNING_TYPES)[number];
 
+// Canonical learning enum (SP1). lib/nexus/learning/schema.ts re-exports these.
 export const LEARNING_SOURCES = [
   'observed',
-  'user-stated',
   'inferred',
   'cross-model',
+  'user-stated',
+  'team-consensus',
+  'external-reference',
+  'speculation',
+  'unknown',
 ] as const;
 export type LearningSource = (typeof LEARNING_SOURCES)[number];
 

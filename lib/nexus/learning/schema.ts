@@ -1,6 +1,12 @@
 // lib/nexus/learning/schema.ts
-export const LEARNING_TYPES = ['pattern', 'pitfall', 'preference', 'architecture', 'tool'] as const;
-export type LearningType = typeof LEARNING_TYPES[number];
+
+// Canonical learning enums live in contracts/types (the foundation layer).
+// Imported here for use in assertSchemaV2 and re-exported so SP1 modules can
+// import the schema surface from one place.
+import { LEARNING_SOURCES, LEARNING_TYPES } from '../contracts/types';
+import type { LearningSource, LearningType } from '../contracts/types';
+export { LEARNING_SOURCES, LEARNING_TYPES };
+export type { LearningSource, LearningType };
 
 export const EVIDENCE_TYPES = [
   'test-output', 'code-pattern', 'profile-data',
@@ -8,12 +14,6 @@ export const EVIDENCE_TYPES = [
   'team-consensus', 'external-reference', 'speculation', 'unknown',
 ] as const;
 export type EvidenceType = typeof EVIDENCE_TYPES[number];
-
-export const LEARNING_SOURCES = [
-  'observed', 'inferred', 'cross-model', 'user-stated',
-  'team-consensus', 'external-reference', 'speculation', 'unknown',
-] as const;
-export type LearningSource = typeof LEARNING_SOURCES[number];
 
 export const SUBJECT_STAGES = [
   'discover', 'frame', 'plan', 'handoff',

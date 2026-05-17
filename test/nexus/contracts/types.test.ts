@@ -604,11 +604,17 @@ describe('nexus types', () => {
       'architecture',
       'tool',
     ]);
+    // Updated for SP1 E3: was pinning stale-narrow 4-member set; now reflects
+    // the canonical 8-member set owned by contracts/types (Concern E fix).
     expect(LEARNING_SOURCES).toEqual([
       'observed',
-      'user-stated',
       'inferred',
       'cross-model',
+      'user-stated',
+      'team-consensus',
+      'external-reference',
+      'speculation',
+      'unknown',
     ]);
     expect(reviewLearningCandidatesPath()).toBe(
       '.planning/current/review/learning-candidates.json',
