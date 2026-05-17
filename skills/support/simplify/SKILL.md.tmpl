@@ -112,3 +112,46 @@ Completion requires:
 - a focused diff limited to the stated scope
 - `.planning/current/review/simplification-pass.md` written
 - any uncertain deletion or public behavior change was explicitly approved first
+
+## Capture Learnings
+
+If this simplification pass revealed a non-obvious codebase pattern, structural
+anti-pattern, or reusable cleanup heuristic, log it for future sessions.
+
+The fields below use v2 schema shape. `id`, `schema_version`, and `ts` are injected
+automatically by the helper — do not include them in the payload.
+
+Field guide for the LLM operator:
+- `writer_skill` — always `"simplify"` for this skill; identifies which skill wrote the entry
+- `subject_skill` — the skill or module area that was simplified (e.g., `"build"`, `"qa"`); use `null` if not tied to a specific skill
+- `subject_stage` — always `null` for simplify; simplify is a support skill and not attached to a lifecycle stage
+- `type` — `"pattern"` for a reusable simplification heuristic or clean structure you confirmed works; `"pitfall"` if the simplification removed a genuine anti-pattern that had been causing problems
+- `evidence_type` — `"code-pattern"` is the primary suggestion (the simplified code itself is the evidence); use `"test-output"` if a test failure guided the simplification
+- `source` — how the learning was acquired: `"observed"` (found directly in code), `"inferred"` (AI deduction from the diff), `"user-stated"` (user directed the cleanup)
+
+```bash
+~/.claude/skills/nexus/bin/nexus-learnings-log "$(cat <<'JSON'
+{
+  "writer_skill": "simplify",
+  "subject_skill": "<MODULE_OR_FILE_AREA_OR_NULL>",
+  "subject_stage": null,
+  "type": "<pattern|pitfall>",
+  "key": "<KEBAB_KEY_2_TO_5_WORDS>",
+  "insight": "<ONE_SENTENCE_ACTIONABLE>",
+  "confidence": <1_TO_10>,
+  "evidence_type": "<code-pattern|test-output|multi-run-observation|single-run-observation|unknown>",
+  "source": "<observed|inferred|user-stated|unknown>",
+  "files": ["<simplified/file.ts>"]
+}
+JSON
+)"
+```
+
+**Confidence:** 1-10. Be honest. A confirmed simplification with passing tests before and after is 7-9.
+A pattern you inferred but did not fully verify is 4-6.
+
+**files:** Include the specific file paths that were simplified. This enables
+staleness detection: if those files are later deleted, the learning can be flagged.
+
+**Only log genuine discoveries.** Don't log obvious cleanups. Don't log things the user
+already knows. A good test: would this insight guide a simpler design decision in a future session? If yes, log it.

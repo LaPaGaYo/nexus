@@ -229,6 +229,7 @@ export const DEPLOY_RESULT_NEXT_ACTIONS = [
 ] as const;
 export type DeployResultNextAction = (typeof DEPLOY_RESULT_NEXT_ACTIONS)[number];
 
+// Canonical learning enum (SP1). lib/nexus/learning/schema.ts re-exports these.
 export const LEARNING_TYPES = [
   'pattern',
   'pitfall',
@@ -238,11 +239,16 @@ export const LEARNING_TYPES = [
 ] as const;
 export type LearningType = (typeof LEARNING_TYPES)[number];
 
+// Canonical learning enum (SP1). lib/nexus/learning/schema.ts re-exports these.
 export const LEARNING_SOURCES = [
   'observed',
-  'user-stated',
   'inferred',
   'cross-model',
+  'user-stated',
+  'team-consensus',
+  'external-reference',
+  'speculation',
+  'unknown',
 ] as const;
 export type LearningSource = (typeof LEARNING_SOURCES)[number];
 
@@ -543,12 +549,24 @@ export interface ReviewScopeRecord {
 }
 
 export interface LearningCandidate {
+  // v1 fields (required):
   type: LearningType;
   key: string;
   insight: string;
   confidence: number;
   source: LearningSource;
   files: string[];
+  // v2 fields (optional for backward compat):
+  id?: string;
+  writer_skill?: string;
+  subject_skill?: string;
+  subject_stage?: string | null;
+  evidence_type?: string;
+  cluster_id?: string | null;
+  supersedes?: string[];
+  supersedes_reason?: string | null;
+  derived_from?: string[];
+  last_applied_at?: string | null;
 }
 
 export interface DeploySecondarySurfaceRecord {
@@ -684,19 +702,19 @@ export interface FollowOnEvidenceSummaryRecord {
 }
 
 export interface StageLearningCandidatesRecord {
-  schema_version: 1;
+  schema_version: 1 | 2;
   run_id: string;
-  stage: 'review' | 'qa' | 'ship';
+  stage: 'build' | 'review' | 'qa' | 'ship';
   generated_at: string;
   candidates: LearningCandidate[];
 }
 
 export interface RunLearningsRecord {
-  schema_version: 1;
+  schema_version: 1 | 2;
   run_id: string;
   generated_at: string;
   source_candidates: string[];
-  learnings: Array<LearningCandidate & { origin_stage: 'review' | 'qa' | 'ship' }>;
+  learnings: Array<LearningCandidate & { origin_stage: 'build' | 'review' | 'qa' | 'ship' }>;
 }
 
 export interface RepoRetroArchiveRecord {

@@ -21,6 +21,8 @@ import {
 import { readStageStatus } from '../io/status';
 import { assertLegalTransition } from '../governance/transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../runtime/workspace-substrate';
+import { writeLearningCandidate } from '../learning/candidates';
+import { generateLearningId } from '../learning/id';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
 import { LEARNING_SOURCES, LEARNING_TYPES } from '../contracts/types';
@@ -176,6 +178,82 @@ function qaStatusTracePayload(
 
 const QA_READY_NEXT_STAGES: RunLedger['allowed_next_stages'] = ['ship', 'closeout'];
 const QA_RETRY_NEXT_STAGES: RunLedger['allowed_next_stages'] = ['qa'];
+
+// ─── Ship-blocking cluster capture helpers ────────────────────────────────────
+
+/**
+ * Derive a kebab-case key from the QA finding context. Uses the first defect
+ * finding (if present) to create a stable, readable key.
+ * Max ~40 chars, lowercase, hyphen-separated, no special chars except `-`.
+ */
+export function deriveQaKey(findings: string[]): string {
+  const prefix = 'qa-defect';
+  if (findings.length === 0) {
+    return `${prefix}-cluster`;
+  }
+  const target = findings[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 28);
+  return `${prefix}-${target}`.slice(0, 40);
+}
+
+/**
+ * Compose a one-sentence insight describing the ship-blocking QA defect cluster.
+ */
+export function composeQaInsight(findings: string[]): string {
+  if (findings.length === 0) {
+    return 'QA found ship-blocking defects with no extractable finding text; review the QA report for details before retrying the build cycle.';
+  }
+  const target = findings[0].slice(0, 120);
+  const total = findings.length;
+  const suffix = total > 1 ? ` (${total} defects total)` : '';
+  return `QA found ship-blocking defect: "${target}"${suffix} — a fix cycle is required before proceeding to ship.`;
+}
+
+/**
+ * Emit a learning candidate when /qa produces a ship-blocking verdict.
+ * Captures the highest-information event: QA found defects the build cycle
+ * did not address. Best-effort — failure must not break the QA result.
+ */
+export function captureQaShipBlockingLearning(
+  cwd: string,
+  runId: string,
+  findings: string[],
+): void {
+  try {
+    writeLearningCandidate({
+      cwd,
+      stage: 'qa',
+      run_id: runId,
+      entry: {
+        id: generateLearningId(),
+        schema_version: 2,
+        ts: new Date().toISOString(),
+        writer_skill: 'qa',
+        subject_skill: 'qa',
+        subject_stage: 'qa',
+        type: 'pitfall',
+        key: deriveQaKey(findings),
+        insight: composeQaInsight(findings),
+        confidence: 8,
+        evidence_type: 'multi-run-observation',
+        source: 'observed',
+        files: [],
+        cluster_id: null,
+        supersedes: [],
+        supersedes_reason: null,
+        derived_from: [],
+        last_applied_at: null,
+        mirror: null,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[qa] learning-candidate capture failed (best-effort): ${message}`);
+  }
+}
 
 function nextLedger(
   ledger: RunLedger,
@@ -676,6 +754,19 @@ export async function runQa(ctx: CommandContext): Promise<CommandResult> {
     mirrorWorkspace: workspace,
     ledger: next,
   });
+
+  // ── /qa ship-blocking cluster capture (SP1 Task 22) ────────────────────────
+  // When QA finds defects (ready === false), capture a learning candidate.
+  // Run AFTER applyNormalizationPlan so the normalization removeWrites pass
+  // does not delete the file we write here (success-path removeWrites includes
+  // learningCandidatesPath when no auditor-sourced record exists; chain-template
+  // captures are written independently after normalization).
+  // Placement is load-bearing: must come after applyNormalizationPlan.
+  // Best-effort — failure must not break the QA result.
+  if (!ready) {
+    captureQaShipBlockingLearning(ctx.cwd, ledger.run_id, findings);
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   return { command: 'qa', status, completion_advisor: completionAdvisor };
 }

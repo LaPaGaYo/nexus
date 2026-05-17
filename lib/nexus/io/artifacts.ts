@@ -67,6 +67,10 @@ export function buildTddEvidencePath(): string {
   return `${CURRENT_ROOT}/build/tdd-evidence.json`;
 }
 
+export function buildLearningCandidatesPath(): string {
+  return `${CURRENT_ROOT}/build/learning-candidates.json`;
+}
+
 export function reviewLearningCandidatesPath(): string {
   return `${CURRENT_ROOT}/review/learning-candidates.json`;
 }

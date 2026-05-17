@@ -801,17 +801,35 @@ Status:          DONE | DONE_WITH_CONCERNS | BLOCKED
 ## Capture Learnings
 
 If you discovered a non-obvious pattern, pitfall, or architectural insight during
-this session, log it for future sessions:
+this session, log it for future sessions.
+
+The fields below use v2 schema shape. `id`, `schema_version`, and `ts` are injected
+automatically by the helper — do not include them in the payload.
+
+Field guide for the LLM operator:
+- `writer_skill` — always `"investigate"` for this skill; identifies which skill wrote the entry
+- `subject_skill` — the skill that produced or owns the issue being investigated (e.g., `"build"`, `"qa"`); use `null` if the issue is not tied to a specific skill
+- `subject_stage` — the lifecycle stage the issue attaches to (e.g., `"build"`, `"ship"`); use `null` for support-skill or cross-cutting issues
+- `evidence_type` — kind of evidence that supports this learning: `test-output`, `code-pattern`, `profile-data`, `multi-run-observation`, `single-run-observation`, `team-consensus`, `external-reference`, `speculation`, or `unknown`
+- `source` — how the learning was acquired: `observed` (found in code/output), `inferred` (AI deduction), `cross-model` (Claude + Codex agree), `user-stated`, `team-consensus`, `external-reference`, `speculation`, or `unknown`
 
 ```bash
-~/.claude/skills/nexus/bin/nexus-learnings-log '{"skill":"investigate","type":"TYPE","key":"SHORT_KEY","insight":"DESCRIPTION","confidence":N,"source":"SOURCE","files":["path/to/relevant/file"]}'
+~/.claude/skills/nexus/bin/nexus-learnings-log "$(cat <<'JSON'
+{
+  "writer_skill": "investigate",
+  "subject_skill": "<SKILL_BEING_INVESTIGATED_OR_NULL>",
+  "subject_stage": "<STAGE_IF_KNOWN_OR_NULL>",
+  "type": "<pattern|pitfall|preference|architecture|tool>",
+  "key": "<KEBAB_KEY_2_TO_5_WORDS>",
+  "insight": "<ONE_SENTENCE_ACTIONABLE>",
+  "confidence": <1_TO_10>,
+  "evidence_type": "<test-output|code-pattern|profile-data|multi-run-observation|single-run-observation|team-consensus|external-reference|speculation|unknown>",
+  "source": "<observed|inferred|cross-model|user-stated|team-consensus|external-reference|speculation|unknown>",
+  "files": ["<relevant/file.ts>"]
+}
+JSON
+)"
 ```
-
-**Types:** `pattern` (reusable approach), `pitfall` (what NOT to do), `preference`
-(user stated), `architecture` (structural decision), `tool` (library/framework insight).
-
-**Sources:** `observed` (you found this in the code), `user-stated` (user told you),
-`inferred` (AI deduction), `cross-model` (both Claude and Codex agree).
 
 **Confidence:** 1-10. Be honest. An observed pattern you verified in the code is 8-9.
 An inference you're not sure about is 4-5. A user preference they explicitly stated is 10.

@@ -43,6 +43,14 @@ const EXPECTED_VALUE_EXPORTS = [
   // ── Stage taxonomy and packs ──
   'NEXUS_STAGE_CONTENT',
   'getStagePackSourceMap',
+  // ── Learning surface (SP1) ──
+  'assertSchemaV2',
+  'generateLearningId',
+  'parseLearningId',
+  'deriveLegacyId',
+  'computeStrength',
+  'normalizeLearningLine',
+  'writeLearningCandidate',
 ] as const;
 
 describe('lib/nexus barrel surface (#151)', () => {
@@ -82,10 +90,13 @@ describe('lib/nexus barrel surface (#151)', () => {
     // off the barrel. If a future contributor adds them, that's a real
     // architectural shift that should require a deliberate decision.
     const shouldNotBePresent = [
-      'readJsonStrict',     // io/validation-helpers
-      'getPrimaryStatePath', // io/host-roots
+      'readJsonStrict',       // io/validation-helpers
+      'getPrimaryStatePath',  // io/host-roots
       'normalizeBuildResult', // normalizers
-      'runCommand',          // runtime
+      'runCommand',           // runtime
+      // SP1 learning internals — closeout-only, must not leak through barrel
+      'isMirrorEnabled',         // learning/config.ts
+      'mirrorCanonicalToJsonl',  // learning/mirror.ts
     ];
     const leaked = shouldNotBePresent.filter((key) => key in nexus);
     expect(leaked).toEqual([]);

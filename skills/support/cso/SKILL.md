@@ -1089,52 +1089,22 @@ mkdir -p "$REPORT_DIR"
 echo "Security report directory: $REPORT_DIR"
 ```
 
-Write findings to `$REPORT_DIR/{date}-{HHMMSS}.json` using the schema below.
+Write findings to `$REPORT_DIR/{date}-{HHMMSS}.json`. Top-level keys: `version`
+(`"2.0.0"`), `date` (ISO-8601), `mode` (`"daily"|"comprehensive"`), `scope`,
+`diff_mode`, `phases_run` (array), `attack_surface`, `findings` (array),
+`supply_chain_summary`, `filter_stats`, `totals` (`{critical,high,medium,tentative}`),
+`trend` (`{direction}`). Each finding: `id`, `severity`, `confidence`, `status`
+(`VERIFIED|UNVERIFIED|TENTATIVE`), `phase`, `phase_name`, `category`, `fingerprint`
+(sha256 of category+file+title), `title`, `file`, `line`, `commit`, `description`,
+`exploit_scenario`, `impact`, `recommendation`, `playbook`, `verification`.
 
-Repo-local exception: only write full reports to project-local
-`.nexus/security-reports/` when the user explicitly asks. Before doing so,
-verify `.nexus/` is ignored with `grep -Eq '(^|/)\.nexus(/|$)' .gitignore`; if
-missing, pause and ask to add `.nexus/` before writing.
+Repo-local exception: only write full reports to project-local `.nexus/security-reports/` when the user explicitly asks; verify `.nexus/` is gitignored first:
 
-```json
-{
-  "version": "2.0.0",
-  "date": "ISO-8601-datetime",
-  "mode": "daily | comprehensive",
-  "scope": "full | infra | code | skills | supply-chain | owasp",
-  "diff_mode": false,
-  "phases_run": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-  "attack_surface": { "code": {}, "infrastructure": {} },
-  "findings": [{
-    "id": 1,
-    "severity": "CRITICAL",
-    "confidence": 9,
-    "status": "VERIFIED",
-    "phase": 2,
-    "phase_name": "Secrets Archaeology",
-    "category": "Secrets",
-    "fingerprint": "sha256-of-category-file-title",
-    "title": "...",
-    "file": "...",
-    "line": 0,
-    "commit": "...",
-    "description": "...",
-    "exploit_scenario": "...",
-    "impact": "...",
-    "recommendation": "...",
-    "playbook": "...",
-    "verification": "independently verified | self-verified"
-  }],
-  "supply_chain_summary": {},
-  "filter_stats": {},
-  "totals": { "critical": 0, "high": 0, "medium": 0, "tentative": 0 },
-  "trend": { "direction": "first_run" }
-}
+```bash
+grep -Eq '(^|/)\.nexus(/|$)' .gitignore 2>/dev/null || echo "pause and ask to add `.nexus/` before writing project-local security reports"
 ```
 
-Populate the collapsed objects with the fields gathered in Phases 1, 3, 12, and
-13. Keep the JSON machine-readable; do not put markdown prose inside fields that
-are meant for counts or enums.
+Keep the JSON machine-readable; do not put markdown prose inside enum fields.
 
 ## Important Rules
 
@@ -1154,3 +1124,32 @@ are meant for counts or enums.
 **This tool is not a substitute for a professional security audit.** /cso is an AI-assisted scan for common vulnerability patterns. It is not comprehensive, guaranteed, or a replacement for a qualified security firm, especially for systems handling sensitive data, payments, or PII.
 
 **Always include this disclaimer at the end of every /cso report output.**
+
+## Capture Learnings
+
+Per `/learn` Iron Law 2, log a learning for every finding that reaches the report.
+`subject_stage: null`. `type: "pitfall"` for vuln classes (primary); `"pattern"` for
+correct security designs. `evidence_type: "code-pattern"` primary; `"external-reference"`
+for CVE-backed findings. Confidence from severity: CRITICAL/HIGH verified → 9-10;
+HIGH unverified or MEDIUM → 6-8; LOW/TENTATIVE → 3-5. One entry per vuln class.
+
+```bash
+~/.claude/skills/nexus/bin/nexus-learnings-log "$(cat <<'JSON'
+{
+  "writer_skill": "cso",
+  "subject_skill": "<MODULE_COMPONENT_OR_NULL>",
+  "subject_stage": null,
+  "type": "<pitfall|pattern>",
+  "key": "<VULN_CLASS_KEBAB>",
+  "insight": "<ONE_SENTENCE_FINDING_AND_REMEDIATION>",
+  "confidence": <1_TO_10>,
+  "evidence_type": "<code-pattern|external-reference|multi-run-observation|single-run-observation|unknown>",
+  "source": "<observed|inferred|user-stated|unknown>",
+  "files": ["<file/with/finding.ts>"]
+}
+JSON
+)"
+```
+
+Only log genuine findings that passed the confidence gate. Skip filtered FPs.
+`files` enables staleness detection if those paths are later deleted or renamed.
