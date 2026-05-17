@@ -36,16 +36,32 @@ export function writeLearningCandidate(params: WriteLearningCandidateInput): voi
   mkdirSync(dirname(path), { recursive: true });
 
   // If an existing file matches the current run_id + stage, append; otherwise start fresh.
+  //
+  // MERGE CONDITION: accept schema_version 1 OR 2.
+  //
+  // Why: within a single run, applyNormalizationPlan may write auditor-sourced
+  // candidates as schema_version: 1 (the legacy auditor-sourced path that pre-dates
+  // SP1). Later in the same run, captureReviewFailingVerdictLearning (Task 21) and
+  // the equivalent /qa capture (Task 22) call writeLearningCandidate with a v2 entry
+  // for the same run_id + stage. Both sets of candidates target the same per-stage
+  // file and MUST be preserved — discarding either causes silent data loss that
+  // /closeout never recovers. The merged record is schema_version: 2 (it now
+  // contains at least one v2 entry). Do NOT upgrade/normalize v1-shaped candidates
+  // inside this writer — read-time normalization is SP1's design (lazy migration);
+  // /closeout Task 15 already accepts schema_version 1 or 2 and normalizes at read,
+  // and the mirror already filters to id-bearing entries.
   let record: StageRecord;
   if (existsSync(path)) {
     try {
-      const existing = JSON.parse(readFileSync(path, 'utf8')) as Partial<StageRecord>;
+      const existing = JSON.parse(readFileSync(path, 'utf8')) as Partial<StageRecord & { schema_version: 1 | 2 }>;
       if (
-        existing.schema_version === 2
+        (existing.schema_version === 1 || existing.schema_version === 2)
         && existing.stage === params.stage
         && existing.run_id === params.run_id
         && Array.isArray(existing.candidates)
       ) {
+        // Same-run file (v1 or v2): merge — preserve existing candidates and append the new v2 entry.
+        // The merged output is schema_version: 2 regardless of the input version.
         record = {
           schema_version: 2,
           stage: params.stage,

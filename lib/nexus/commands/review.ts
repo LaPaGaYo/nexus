@@ -457,8 +457,10 @@ export function composeReviewInsight(advisories: string[]): string {
  * Emit a learning candidate when /review produces a failing gate verdict.
  * Captures the highest-information event: the synthesis found something the
  * implementation didn't address. Best-effort — failure must not break review.
+ *
+ * Exported for testing (SP1 Task 21 fix regression guard).
  */
-function captureReviewFailingVerdictLearning(
+export function captureReviewFailingVerdictLearning(
   cwd: string,
   runId: string,
   advisories: string[],

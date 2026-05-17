@@ -1,7 +1,7 @@
 // test/nexus/learning/candidates.test.ts
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { writeLearningCandidate } from '../../../lib/nexus/learning/candidates';
 import { generateLearningId } from '../../../lib/nexus/learning/id';
@@ -69,5 +69,80 @@ describe('writeLearningCandidate', () => {
     writeLearningCandidate({ cwd, stage: 'build', run_id: 'r1', entry: makeEntry() });
     const content = readFileSync(join(cwd, '.planning/current/build/learning-candidates.json'), 'utf8');
     expect(() => JSON.parse(content)).not.toThrow();
+  });
+
+  // ── SP1 Task 21 fix: same-run v1 candidates must be merged, not overwritten ──
+  //
+  // Scenario: applyNormalizationPlan writes auditor-sourced candidates as
+  // schema_version: 1. Then captureReviewFailingVerdictLearning calls
+  // writeLearningCandidate (schema_version: 2 entry) for the same run_id and
+  // stage. Without the fix the v1 file fails the old `=== 2` guard, the
+  // fresh-record branch fires, and the auditor candidates are silently lost.
+
+  test('same-run v1 file is merged (not overwritten) when a v2 entry is appended', () => {
+    const path = join(cwd, '.planning/current/review/learning-candidates.json');
+    mkdirSync(dirname(path), { recursive: true });
+
+    // Pre-existing auditor-sourced schema_version: 1 record (mimics applyNormalizationPlan output)
+    const v1Record = {
+      schema_version: 1,
+      stage: 'review',
+      run_id: 'shared-run',
+      generated_at: '2026-05-12T00:00:00Z',
+      candidates: [
+        { type: 'pitfall', key: 'auditor-found-x', insight: 'auditor insight', confidence: 7, source: 'observed', files: [] },
+      ],
+    };
+    writeFileSync(path, JSON.stringify(v1Record, null, 2));
+
+    // Append a v2 entry (mimics captureReviewFailingVerdictLearning)
+    const v2Entry = makeEntry();
+    writeLearningCandidate({ cwd, stage: 'review', run_id: 'shared-run', entry: v2Entry });
+
+    const result = JSON.parse(readFileSync(path, 'utf8'));
+
+    // Merged record is schema_version 2
+    expect(result.schema_version).toBe(2);
+    expect(result.stage).toBe('review');
+    expect(result.run_id).toBe('shared-run');
+
+    // Both candidates present — original v1 + new v2
+    expect(result.candidates).toHaveLength(2);
+
+    // Original auditor candidate preserved intact (not mutated)
+    const auditorCand = result.candidates.find((c: { key: string }) => c.key === 'auditor-found-x');
+    expect(auditorCand).toBeDefined();
+    expect(auditorCand.type).toBe('pitfall');
+    expect(auditorCand.insight).toBe('auditor insight');
+
+    // New v2 entry present
+    const v2Cand = result.candidates.find((c: { id: string }) => c.id === v2Entry.id);
+    expect(v2Cand).toBeDefined();
+    expect(v2Cand.schema_version).toBe(2);
+  });
+
+  test('same-run v1 file with different run_id is NOT merged (starts fresh)', () => {
+    const path = join(cwd, '.planning/current/review/learning-candidates.json');
+    mkdirSync(dirname(path), { recursive: true });
+
+    const v1Record = {
+      schema_version: 1,
+      stage: 'review',
+      run_id: 'old-run',
+      generated_at: '2026-05-12T00:00:00Z',
+      candidates: [
+        { type: 'pitfall', key: 'stale-candidate', insight: 'stale', confidence: 5, source: 'observed', files: [] },
+      ],
+    };
+    writeFileSync(path, JSON.stringify(v1Record, null, 2));
+
+    const v2Entry = makeEntry();
+    writeLearningCandidate({ cwd, stage: 'review', run_id: 'new-run', entry: v2Entry });
+
+    const result = JSON.parse(readFileSync(path, 'utf8'));
+    expect(result.run_id).toBe('new-run');
+    // Only the new entry — stale v1 candidates discarded as expected
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].id).toBe(v2Entry.id);
   });
 });

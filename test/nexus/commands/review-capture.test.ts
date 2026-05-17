@@ -9,6 +9,8 @@
 // expected schema_v2 shape.
 
 import { describe, test, expect } from 'bun:test';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { deriveReviewKey, composeReviewInsight } from '../../../lib/nexus/commands/review';
 import { makeFakeAdapters } from '../helpers/fake-adapters';
 import { runInTempRepo } from '../helpers/temp-repo';
@@ -287,6 +289,73 @@ describe('/review failing-verdict capture integration', () => {
 
       // And the learning candidate is present
       expect(run.exists('.planning/current/review/learning-candidates.json')).toBe(true);
+    });
+  });
+});
+
+// ─── SP1 Task 21 fix: auditor-sourced v1 candidates must survive Task 21 capture ─
+//
+// Regression guard for the data-loss bug: when applyNormalizationPlan writes a
+// schema_version: 1 auditor record THEN captureReviewFailingVerdictLearning calls
+// writeLearningCandidate, the old `=== 2` guard discarded the v1 file and
+// overwrote it. The fix extends the guard to `=== 1 || === 2` so both are merged.
+//
+// We use the "manual v1 file + direct helper call" form because wiring
+// learning_candidates into the fake-adapter raw_output would require extending
+// the CCB adapter interface shapes, which is disproportionate for this guard.
+
+describe('/review v1-merge integration: auditor candidates survive Task 21 capture', () => {
+  test('pre-existing v1 auditor candidates are preserved after Task 21 capture call', async () => {
+    // ORDERING NOTE: This test replicates the real execution order inside
+    // runReviewWithWriteAtomicFile — applyNormalizationPlan runs first (writes
+    // the v1 auditor record), then captureReviewFailingVerdictLearning calls
+    // writeLearningCandidate. The capture MUST run after normalization; if the
+    // order were reversed, normalization's removeWrites pass would delete the file.
+    //
+    // This is a focused integration test verifying the merge behavior that
+    // guards against the overwrite bug, using the exported capture helper directly.
+    const { captureReviewFailingVerdictLearning } = await import('../../../lib/nexus/commands/review');
+
+    await runInTempRepo(async ({ cwd }) => {
+      // Step 1: simulate applyNormalizationPlan writing a v1 auditor record
+      const candidatesPath = join(cwd, '.planning/current/review/learning-candidates.json');
+      mkdirSync(dirname(candidatesPath), { recursive: true });
+      const v1Record = {
+        schema_version: 1,
+        stage: 'review',
+        run_id: 'integ-run',
+        generated_at: '2026-05-12T00:00:00Z',
+        candidates: [
+          { type: 'pitfall', key: 'auditor-integ-candidate', insight: 'auditor-sourced insight', confidence: 8, source: 'observed', files: [] },
+        ],
+      };
+      writeFileSync(candidatesPath, JSON.stringify(v1Record, null, 2) + '\n');
+
+      // Step 2: Task 21 capture fires (same run_id, same stage)
+      captureReviewFailingVerdictLearning(cwd, 'integ-run', ['Test coverage missing'], 'governed_ccb');
+
+      // Step 3: assert both candidates survive in the merged record
+      const merged = JSON.parse(require('fs').readFileSync(candidatesPath, 'utf8'));
+      expect(merged.schema_version).toBe(2);
+      expect(merged.stage).toBe('review');
+      expect(merged.run_id).toBe('integ-run');
+      expect(Array.isArray(merged.candidates)).toBe(true);
+      // Both the auditor candidate and the Task 21 capture entry must be present
+      expect(merged.candidates.length).toBeGreaterThanOrEqual(2);
+
+      // Auditor candidate not discarded
+      const auditorCand = merged.candidates.find((c: { key: string }) => c.key === 'auditor-integ-candidate');
+      expect(auditorCand).toBeDefined();
+      expect(auditorCand.insight).toBe('auditor-sourced insight');
+
+      // Task 21 capture entry present
+      const captureCand = merged.candidates.find(
+        (c: { writer_skill: string }) => c.writer_skill === 'review',
+      );
+      expect(captureCand).toBeDefined();
+      expect(captureCand.schema_version).toBe(2);
+      expect(captureCand.type).toBe('pitfall');
+      expect(captureCand.key).toMatch(/^review-finding-/);
     });
   });
 });
