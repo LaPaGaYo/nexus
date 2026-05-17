@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "run_label": "nexus-v1.1.2-operator-attested-early-exit",
+  "hypothesis": {
+    "action": "make the canonical bin detect (before entering the adapter stack) that the resolved route's generator IS the calling session and early-exit with exit 0 plus a structured operator_attested contract instead of spawning a nested claude -p",
+    "users": "operators running /build from inside an active Claude Code session with execution_mode=local_provider, primary_provider=claude, provider_topology=single_agent",
+    "outcome": "they complete the governed build in-session with zero silent hang and zero fabricated provenance fields (dispatch_command/receipt null, provenance_kind=operator_attested)",
+    "evidence": "three recorded occurrences across two projects on a ~15-day cadence (idea-brief Sources 1-2-4) plus PR #160's merged diff proving the nested spawn is structurally pointless when the caller is the worker; the in-session Claude already produces verifiable test output and a git diff"
+  },
+  "success_criteria": [
+    "Running /build inside Claude Code with local_provider/claude/single_agent yields adapter-output.json provenance_kind=operator_attested, exit 0, <5s, zero claude -p spawn (process audit shows no defaultRunCommand spawn).",
+    "status.json + adapter-output.json have dispatch_command/receipt/actual_route absent or null when provenance_kind=operator_attested; schema accepts the attested variant without fabrication.",
+    "/review reading the artifact surfaces provenance_kind as an observable value in its review input JSON; it does not silently treat operator_attested as spawned_provider.",
+    "An operator_attested build with empty git log base..HEAD does not produce ready:true (empty-diff guardrail).",
+    "With NEXUS_ALLOW_NESTED_CLAUDE=1 set, early-exit is skipped and the existing spawn path runs; regression test asserts both branches."
+  ],
+  "non_goals": [
+    "Not a v1.2 provenance schema redesign; only the minimal optional provenance_kind field plus the early-exit.",
+    "Not closing the v1.1.1 topology-partial streaming gap (agent_team/subagents missing stream_to_tty + banner).",
+    "Not changing governed_ccb or any non-claude / non-single-host dispatch.",
+    "Not auto-committing the worktree; the empty-diff sibling bug is only detected as a guardrail.",
+    "Not /review //qa //ship early-exit in this slice; /build is the recurrence surface."
+  ],
+  "out_of_scope": [
+    "Retroactive migration/annotation of historical operator-attested artifacts (novelWriter SP2 + prior); a separate ungated one-time pass.",
+    "SKILL.md human-facing restructuring beyond the minimal Step 9 early-exit branch.",
+    "/review re-grading logic that acts on provenance_kind (v1.2; this fix only makes the signal present and observable).",
+    "Re-running or re-validating the novelWriter SP2 run itself."
+  ],
+  "acceptance_criteria": [
+    "Given an operator in a Claude Code session with local_provider/claude/single_agent at SKILL.md Step 9, when they run ./bin/nexus build, then the bin exits 0 in <5s without spawning claude -p, emits an operator_attested contract JSON naming artifact paths, and adapter-output.json carries provenance_kind=operator_attested with null dispatch_command/receipt.",
+    "Given the same session with NEXUS_ALLOW_NESTED_CLAUDE=1 set, when they run ./bin/nexus build, then the early-exit is skipped and the existing spawn path runs unchanged.",
+    "Given an operator_attested build whose worktree has an empty git log base..HEAD, when /review consumes the artifact, then it does not report ready:true for that build."
+  ],
+  "open_questions_to_plan": [
+    "Exact insertion seam in lib/nexus/cli/nexus.ts (engineering perspective suggested ~line 139, before invocation.handler); is route resolution available that early or partially computed in the CLI?",
+    "Does the bin write a skeleton status.json so the ledger advances atomically, or does the operator author all 7 files; how are git-SHA + verbatim-test-output guardrails enforced (schema-required vs /review-side).",
+    "Exact v1.1.2 boundary for /review: surface provenance_kind (in) vs act on it (v1.2, out).",
+    "Confirm subagents/agent_team stay deferred and the predicate excludes them from early-exit."
+  ],
+  "provenance": {
+    "upstream_idea_brief": "docs/product/idea-brief.md",
+    "framing_topology": "agent_team",
+    "perspectives_synthesized": ["engineering-feasibility", "risk-backward-compat", "product-scope-sequencing"],
+    "related_pr": 160,
+    "related_issue": 159
+  }
+}
