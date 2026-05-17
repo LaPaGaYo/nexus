@@ -21,6 +21,7 @@ import {
 } from '../io/artifacts';
 import { isMirrorEnabled } from '../learning/config';
 import { mirrorCanonicalToJsonl } from '../learning/mirror';
+import { readStageCandidatesFile } from '../learning/read';
 import { projectSlugFromCwd } from '../telemetry';
 import { executionFieldsFromLedger, withExecutionWorkspace } from '../runtime/execution-topology';
 import {
@@ -36,7 +37,6 @@ import {
 } from '../governance';
 import {
   collectRunLearnings,
-  collectValidLearningCandidates,
   renderRunLearningsMarkdown,
 } from '../observability/learnings';
 import { buildFollowOnEvidenceSummary, renderFollowOnEvidenceMarkdown } from '../observability/follow-on-evidence';
@@ -96,35 +96,16 @@ function readLearningCandidatesSource(
   path: string,
   stage: CloseoutLearningSource['stage'],
 ): CloseoutLearningSource | null {
-  const absolutePath = join(cwd, path);
-  if (!existsSync(absolutePath)) {
+  const record = readStageCandidatesFile(join(cwd, path));
+  if (
+    record === null
+    || record.run_id !== runId
+    || record.stage !== stage
+    || record.candidates.length === 0
+  ) {
     return null;
   }
-
-  try {
-    const record = JSON.parse(readFileSync(absolutePath, 'utf8')) as Partial<StageLearningCandidatesRecord>;
-    const candidates = collectValidLearningCandidates(record.candidates);
-    // Accepted: v1 (legacy auditor-sourced review/qa/ship) + v2 (SP1 chain
-    // template). TODO(schema-v3): when a future schema bump lands, extend this
-    // allowlist — an unrecognized schema_version silently drops the whole
-    // candidate source here, so this check must be updated in lockstep.
-    if (
-      (record.schema_version !== 1 && record.schema_version !== 2)
-      || record.run_id !== runId
-      || record.stage !== stage
-      || candidates.length === 0
-    ) {
-      return null;
-    }
-
-    return {
-      path,
-      stage,
-      candidates,
-    };
-  } catch {
-    return null;
-  }
+  return { path, stage, candidates: record.candidates };
 }
 
 function collectCloseoutLearningSources(cwd: string, runId: string): CloseoutLearningSource[] {
