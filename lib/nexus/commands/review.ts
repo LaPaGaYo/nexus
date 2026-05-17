@@ -40,6 +40,8 @@ import {
   buildReviewAdvisoryDispositionRecord,
 } from '../review/advisories';
 import { buildReviewMetaWrite, CURRENT_REVIEW_META_PATH } from '../review/meta';
+import { writeLearningCandidate } from '../learning/candidates';
+import { generateLearningId } from '../learning/id';
 import { readStageStatus } from '../io/status';
 import { assertLegalTransition, getAllowedNextStages } from '../governance/transitions';
 import { resolveExecutionWorkspace, resolveSessionRootRecord, syncRunWorkspaceArtifacts } from '../runtime/workspace-substrate';
@@ -416,6 +418,83 @@ function reviewDesignFields(
     design_contract_path: designContractPath,
     design_verified: designVerified,
   };
+}
+
+// ─── Failing-verdict capture helpers ─────────────────────────────────────────
+
+/**
+ * Derive a kebab-case key from the review finding context. Uses the first
+ * advisory text (if present) to create a stable, readable key.
+ * Max ~40 chars, lowercase, hyphen-separated, no special chars except `-`.
+ */
+export function deriveReviewKey(advisories: string[]): string {
+  const prefix = 'review-finding';
+  if (advisories.length === 0) {
+    return `${prefix}-gate-fail`;
+  }
+  const target = advisories[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 28);
+  return `${prefix}-${target}`.slice(0, 40);
+}
+
+/**
+ * Compose a one-sentence insight describing the failing review finding.
+ */
+export function composeReviewInsight(advisories: string[]): string {
+  if (advisories.length === 0) {
+    return 'Review gate failed with no extracted advisories; synthesis flagged issues that blocked the gate without producing extractable advisory text.';
+  }
+  const target = advisories[0].slice(0, 120);
+  const total = advisories.length;
+  const suffix = total > 1 ? ` (${total} advisories total)` : '';
+  return `Review gate failed; auditors flagged "${target}"${suffix} as a blocking finding requiring a fix cycle.`;
+}
+
+/**
+ * Emit a learning candidate when /review produces a failing gate verdict.
+ * Captures the highest-information event: the synthesis found something the
+ * implementation didn't address. Best-effort — failure must not break review.
+ */
+function captureReviewFailingVerdictLearning(
+  cwd: string,
+  runId: string,
+  advisories: string[],
+  executionMode: string,
+): void {
+  try {
+    writeLearningCandidate({
+      cwd,
+      stage: 'review',
+      run_id: runId,
+      entry: {
+        id: generateLearningId(),
+        schema_version: 2,
+        ts: new Date().toISOString(),
+        writer_skill: 'review',
+        subject_skill: 'review',
+        subject_stage: 'review',
+        type: 'pitfall',
+        key: deriveReviewKey(advisories),
+        insight: composeReviewInsight(advisories),
+        confidence: 7,
+        evidence_type: 'team-consensus',
+        source: executionMode === 'local_provider' ? 'observed' : 'cross-model',
+        files: [],
+        cluster_id: null,
+        supersedes: [],
+        supersedes_reason: null,
+        derived_from: [],
+        last_applied_at: null,
+        mirror: null,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[review] learning-candidate capture failed (best-effort): ${message}`);
+  }
 }
 
 export async function runReviewWithWriteAtomicFile(
@@ -1230,6 +1309,22 @@ export async function runReviewWithWriteAtomicFile(
     ledger: next,
     writeAtomicFile,
   });
+
+  // ── /review failing-verdict capture (SP1 Task 21) ──────────────────────────
+  // When the review gate fails, capture a learning candidate. Run AFTER
+  // applyNormalizationPlan so the normalization removeWrites pass does not
+  // delete the file we write here (the normalization plan only tracks auditor-
+  // sourced candidates; chain-template captures are written independently).
+  // Best-effort — failure must not break the review result.
+  if (gateDecision === 'fail') {
+    captureReviewFailingVerdictLearning(
+      ctx.cwd,
+      ledger.run_id,
+      advisoriesRecord?.advisories ?? [],
+      ledger.execution.mode,
+    );
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   return { command: 'review', status, completion_advisor: completionAdvisor };
 }
