@@ -804,6 +804,19 @@ function buildClaudeNamedAgentCommand(agent: LocalRoleAgent): string[] {
   ];
 }
 
+function assertNestedClaudeAllowed(topology: ProviderTopology): void {
+  if (!isInsideClaudeCodeHost() || process.env.NEXUS_ALLOW_NESTED_CLAUDE === '1') {
+    return;
+  }
+
+  throw new Error(
+    `claude local_provider/${topology} requires direct terminal invocation. Detected running inside Claude Code; `
+    + 'Nexus local Claude topologies spawn nested claude -p subprocesses, which can buffer output and time out under Claude Code host tools. '
+    + 'Invoke the lifecycle command from a terminal outside Claude Code, switch to governed_ccb with mounted providers, '
+    + 'or set NEXUS_ALLOW_NESTED_CLAUDE=1 to override.',
+  );
+}
+
 function buildClaudeBuilderAgent(): LocalRoleAgent {
   return {
     name: 'nexus_builder',
@@ -835,6 +848,7 @@ async function runClaudeNamedAgentCommand(
   timeoutMs: number,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  assertNestedClaudeAllowed('subagents');
   const argv = buildClaudeNamedAgentCommand(agent);
   const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
   if (result.exit_code !== 0) {
@@ -1014,6 +1028,7 @@ async function runClaudeAgentTeamCommand(
   timeoutMs: number,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
+  assertNestedClaudeAllowed('agent_team');
   const argv = buildClaudeAgentTeamCommand();
   const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
   if (result.exit_code !== 0) {
@@ -1414,17 +1429,8 @@ async function runProviderCommand(
   timeoutMs: number,
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
-  if (
-    provider === 'claude'
-    && isInsideClaudeCodeHost()
-    && process.env.NEXUS_ALLOW_NESTED_CLAUDE !== '1'
-  ) {
-    throw new Error(
-      'claude/single_agent requires direct terminal invocation. Detected running inside Claude Code; '
-      + 'nested claude -p subprocesses are blocked because Claude Code host Bash tools can buffer output and time out. '
-      + 'Rerun /handoff with provider_topology=subagents, invoke /build from a terminal outside Claude Code, '
-      + 'or set NEXUS_ALLOW_NESTED_CLAUDE=1 to override.',
-    );
+  if (provider === 'claude') {
+    assertNestedClaudeAllowed('single_agent');
   }
 
   // Long-running provider calls (build/review/qa) tee output to TTY so the user

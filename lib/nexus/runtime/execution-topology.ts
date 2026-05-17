@@ -156,12 +156,6 @@ function defaultLocalProvider(): PrimaryProvider {
     ?? 'claude';
 }
 
-function defaultLocalTopology(provider: PrimaryProvider): ProviderTopology {
-  return provider === 'claude' && isInsideClaudeCodeHost()
-    ? 'subagents'
-    : 'single_agent';
-}
-
 export function localExecutionPath(
   provider: PrimaryProvider,
   topology: ProviderTopology,
@@ -194,7 +188,7 @@ export function defaultExecutionSelection(): ExecutionSelection {
 
   const primaryProvider = configuredProvider
     ?? defaultLocalProvider();
-  const topology = configuredTopology ?? defaultLocalTopology(primaryProvider);
+  const topology = configuredTopology ?? 'single_agent';
 
   return {
     mode,

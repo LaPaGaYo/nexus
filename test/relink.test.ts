@@ -190,7 +190,7 @@ describe('nexus-relink', () => {
     expect(fs.existsSync(path.join(skillsDir, 'nexus-ship'))).toBe(true);
   });
 
-  test('nexus-config defaults Claude topology to subagents inside Claude Code hosts', () => {
+  test('nexus-config keeps the Claude topology default single_agent inside Claude Code hosts', () => {
     setupMockInstall([]);
     const mockCliDir = path.join(tmpDir, 'mock-cli');
     fs.mkdirSync(mockCliDir, { recursive: true });
@@ -204,8 +204,8 @@ describe('nexus-relink', () => {
     });
 
     expect(output).toContain('effective_primary_provider: claude');
-    expect(output).toContain('effective_provider_topology: subagents');
-    expect(output).toContain('effective_requested_execution_path: claude-local-subagents');
+    expect(output).toContain('effective_provider_topology: single_agent');
+    expect(output).toContain('effective_requested_execution_path: claude-local-single_agent');
   });
 
   test('legacy relink helper binaries are gone from the active surface', () => {

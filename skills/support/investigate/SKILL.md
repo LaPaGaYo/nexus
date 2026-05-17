@@ -76,12 +76,6 @@ if [ "$_EXECUTION_MODE" = "governed_ccb" ]; then
   _PRIMARY_PROVIDER="codex"
   _PROVIDER_TOPOLOGY="multi_session"
 else
-  _INSIDE_CLAUDE_CODE="no"
-  [ "${CLAUDECODE:-}" = "1" ] && _INSIDE_CLAUDE_CODE="yes"
-  case "${AI_AGENT:-}" in
-    claude-code*) _INSIDE_CLAUDE_CODE="yes" ;;
-  esac
-  [ -n "${CLAUDE_CODE_EXECPATH:-}" ] && _INSIDE_CLAUDE_CODE="yes"
   if [ -n "$_PRIMARY_PROVIDER_CONFIG" ]; then
     _PRIMARY_PROVIDER="$_PRIMARY_PROVIDER_CONFIG"
   elif command -v claude >/dev/null 2>&1; then
@@ -95,8 +89,6 @@ else
   fi
   if [ -n "$_TOPOLOGY_CONFIG" ]; then
     _PROVIDER_TOPOLOGY="$_TOPOLOGY_CONFIG"
-  elif [ "$_PRIMARY_PROVIDER" = "claude" ] && [ "$_INSIDE_CLAUDE_CODE" = "yes" ]; then
-    _PROVIDER_TOPOLOGY="subagents"
   else
     _PROVIDER_TOPOLOGY="single_agent"
   fi
@@ -282,7 +274,7 @@ If A:
 ~/.claude/skills/nexus/bin/nexus-config set execution_mode local_provider
 ~/.claude/skills/nexus/bin/nexus-config set primary_provider claude
 ```
-Then explain that the current session can continue with `local_provider`, and if `PROVIDER_TOPOLOGY` is empty the default local topology comes from `~/.claude/skills/nexus/bin/nexus-config effective-execution` (Claude Code hosts default Claude to `subagents`; direct terminals default to `single_agent`).
+Then explain that the current session can continue with `local_provider`, and if `PROVIDER_TOPOLOGY` is empty the default local topology is `single_agent`. Claude local-provider topologies invoke the local Claude CLI; inside Claude Code they are guarded unless `NEXUS_ALLOW_NESTED_CLAUDE=1` is set.
 
 If B:
 ```bash
@@ -487,8 +479,8 @@ If `EXECUTION_MODE=local_provider` and `PRIMARY_PROVIDER=claude`, ask the user w
 RECOMMENDATION: Choose C when available because investigation benefits from competing root-cause hypotheses and adversarial falsification. Completeness: 10/10.
 
 Use AskUserQuestion with these options:
-- A) `single_agent` - One Claude subprocess for direct terminal sessions. Lowest coordination overhead and safest for sequential work outside Claude Code.
-- B) `subagents` - Focused local Claude subagents. Recommended inside Claude Code because work stays in the host framework.
+- A) `single_agent` - One Claude subprocess for direct terminal sessions. Lowest coordination overhead and safest for sequential work.
+- B) `subagents` - Focused local Claude CLI subagents. Good for quick parallel checks whose results return to the lead.
 - C) `agent_team` — Claude Code Agent Teams. Best when teammates should coordinate, challenge each other, or work from independent perspectives.
 
 If `LOCAL_CLAUDE_AGENT_TEAM_READY` is not `yes`, still show option C but mark it unavailable and include `LOCAL_CLAUDE_AGENT_TEAM_REASON`. Do not set `agent_team` unless the user explicitly chooses to configure Claude Code first.
@@ -497,7 +489,7 @@ Stage-specific guidance:
 - `/review`: `agent_team` maps naturally to code / security / test / performance / design reviewers.
 - `/investigate`: `agent_team` maps naturally to competing root-cause hypotheses.
 - `/frame` and `/plan`: `agent_team` maps naturally to CEO / engineering / design / risk perspectives.
-- `/build`: prefer `single_agent` for same-file edits or tightly coupled implementation outside Claude Code; inside Claude Code, prefer `subagents` unless a saved topology says otherwise.
+- `/build`: prefer `single_agent` for same-file edits or tightly coupled implementation; only choose team modes when file ownership can be split.
 - `/ship`: `subagents` or `agent_team` can cover release / QA / security / docs-deploy gates.
 
 If the user chooses A:
