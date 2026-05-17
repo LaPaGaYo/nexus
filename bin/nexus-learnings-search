@@ -42,19 +42,30 @@ if [ "$CROSS_PROJECT" = true ]; then
   done
 fi
 
-CANONICAL_TMP=""
-while IFS= read -r canonical_file; do
-  [ -n "$canonical_file" ] || continue
-  if [ -z "$CANONICAL_TMP" ]; then
-    CANONICAL_TMP="$(mktemp)"
-    trap 'rm -f "$CANONICAL_TMP"' EXIT
-  fi
-  bun -e '
-try {
-  const file = process.argv[1];
-  const record = JSON.parse(await Bun.file(file).text());
+if [ ${#FILES[@]} -eq 0 ] && ! [ -d "$REPO_ROOT/.planning/archive/runs" ]; then
+  exit 0
+fi
+
+# Process all files through bun for JSON parsing, decay, dedup, filtering
+# When no JSONL FILES exist, feed /dev/null so cat doesn't block on stdin;
+# archive learnings are injected directly by walkArchiveRunLearnings below.
+INPUT_FILES=("${FILES[@]+${FILES[@]}}")
+[ ${#INPUT_FILES[@]} -eq 0 ] && INPUT_FILES=(/dev/null)
+cat "${INPUT_FILES[@]}" 2>/dev/null | bun -e "
+const { normalizeLearningLine } = await import('${SCRIPT_ROOT}/lib/nexus/learning/normalize.ts');
+const { computeStrength } = await import('${SCRIPT_ROOT}/lib/nexus/learning/strength.ts');
+const { computeEffectiveConfidence } = await import('${SCRIPT_ROOT}/lib/nexus/learning/decay.ts');
+const { walkArchiveRunLearnings } = await import('${SCRIPT_ROOT}/lib/nexus/learning/read.ts');
+
+const lines = (await Bun.stdin.text()).trim().split('\n').filter(Boolean);
+
+// Inject archived closeout learnings (replaces inline bash find+read).
+// Sort records by run_id to match the original 'find | sort' path ordering.
+const archiveRecords = walkArchiveRunLearnings('${REPO_ROOT}');
+archiveRecords.sort((a, b) => a.run_id < b.run_id ? -1 : a.run_id > b.run_id ? 1 : 0);
+for (const record of archiveRecords) {
   for (const learning of record.learnings || []) {
-    console.log(JSON.stringify({
+    lines.push(JSON.stringify({
       ts: record.generated_at || new Date().toISOString(),
       key: learning.key,
       type: learning.type,
@@ -65,25 +76,7 @@ try {
       origin_stage: learning.origin_stage,
     }));
   }
-} catch {}
-' "$canonical_file" >> "$CANONICAL_TMP"
-done < <(find "$REPO_ROOT/.planning/archive/runs" -path "*/closeout/learnings.json" -type f 2>/dev/null | sort)
-
-if [ -n "$CANONICAL_TMP" ] && [ -s "$CANONICAL_TMP" ]; then
-  FILES+=("$CANONICAL_TMP")
-fi
-
-if [ ${#FILES[@]} -eq 0 ]; then
-  exit 0
-fi
-
-# Process all files through bun for JSON parsing, decay, dedup, filtering
-cat "${FILES[@]}" 2>/dev/null | bun -e "
-const { normalizeLearningLine } = await import('${SCRIPT_ROOT}/lib/nexus/learning/normalize.ts');
-const { computeStrength } = await import('${SCRIPT_ROOT}/lib/nexus/learning/strength.ts');
-const { computeEffectiveConfidence } = await import('${SCRIPT_ROOT}/lib/nexus/learning/decay.ts');
-
-const lines = (await Bun.stdin.text()).trim().split('\n').filter(Boolean);
+}
 const now = Date.now();
 const type = '${TYPE}';
 const query = '${QUERY}'.toLowerCase();
