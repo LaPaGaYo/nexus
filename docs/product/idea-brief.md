@@ -432,3 +432,43 @@ Do not attempt a seventh frame revision in this form. Six reviews establish the 
 3. **Accept Problem A is a research problem, not a delivery problem.** It needs a different methodology (prototype-to-learn) before any lifecycle stage applies. Route to a spike/research track, not `/frame`→`/plan`.
 
 The v1.1.x-hotfix, v1.2-single-concept, decomposition-then-milestone-frame artifacts all remain on-branch as the disproven-framing record. The decomposition (Problems A/B/C as independent) survived review and stands. Only Problem A's *vehicle* (milestone frame) is disproven; B and C are unaffected and bounded.
+
+---
+
+## Source 9 — Representability spike: partial empirical finding + refutation of codex MAJOR 6
+
+Ran the codex-recommended representability spike (a probe, NOT a frame; deliverable = "what the type model forces", no design proposed). Scratch at merged origin/main `891055c`.
+
+### Instrument limitation (honestly recorded; itself the recurring bug class at measurement level)
+
+`tsc --noEmit` is NOT runnable in any available worktree: none has `node_modules`, `package.json` has no `typecheck`/`tsc` script (only `build`). Verified by sanity check: a deliberate type error (`const _SP: number = 'x'`) produced **0 tsc errors** in both scratch and main worktree — proving tsc never type-checked. The initial "probe compiles clean, 0 errors" result was therefore an **artifact, not a finding**, and was caught only by sanity-checking the instrument before trusting it. (This is the session's invariant bug class — treat-unverified-as-verified — recurring at the spike-measurement layer; recording it because it is itself evidence.)
+
+The tsc half of the spike requires `bun install` first. Exact reproducible procedure for a working-env rerun:
+```
+git worktree add --detach /tmp/spike origin/main && cd /tmp/spike && bun install
+# probe: add 'session_attested' to EXECUTION_MODES (types.ts:53) and
+#        'attested' to the two transport unions (types.ts:470,518) + the
+#        ActualRouteRecord 'ccb'|'local'|null union
+bunx tsc --noEmit 2>&1 | grep "error TS"   # the constraint map
+```
+
+### Structural finding (instrument-independent, solid — plain text search)
+
+`lib/nexus` non-test code contains **~55 binary branch sites** that assume the closed unions:
+- **28** `execution.mode === 'local_provider'` / `=== 'governed_ccb'` branches (ternaries/ifs in ccb.ts, ship.ts, qa.ts, build.ts, execution-topology.ts, ...)
+- **27** `transport === 'ccb'` / `'local'` (and `transport: 'ccb'|'local'` literal) sites
+
+None are exhaustive `switch` statements with compiler-enforced exhaustiveness — they are `===` ternaries/ifs. Adding a third variant compiles (TS does not error on non-exhaustive ternaries) and **silently routes the new variant to the existing else-branch at every one of the ~55 sites**.
+
+### What this refines (and refutes) about codex MAJOR 6
+
+codex MAJOR 6 claimed "representability precedes ownership; the type system cannot express session-is-worker." The spike refutes the literal claim and sharpens the real one:
+
+- **Refuted:** representability is *trivially cheap* — `EXECUTION_MODES` is a `[...] as const` value list; adding `'session_attested'` is one token and (modulo the broken instrument) almost certainly compiles, because nothing exhaustively switches on it.
+- **The real constraint is the inverse, and worse:** there is **zero exhaustiveness safety net**. The ~55 sites that would need session-aware handling are *invisible to the compiler*. The unbounded surface is not "make the type expressible" — it is "find and correctly re-branch ~55 silent binary forks, with no tool telling you which ones matter, several of which (`build.ts` adapter selection ~794, `review.ts` provenance gate ~541/1188, `qa.ts`/`ship.ts` adapter selection) are exactly the BLOCKER sites every prior framing tripped on."
+
+This is the genuine empirical constraint discovery the spike was for: Problem A's hard core is not type expressibility, it is **un-compiler-checked branch propagation across ~55 sites** — which is precisely why every bounded-frame attempt collapsed (you cannot scope "touch ~55 silent forks correctly" as a hotfix, and you cannot enumerate them without a working exhaustiveness check the codebase does not currently have).
+
+### Disposition
+
+The spike did its job: it converted "Problem A is structurally deep" from assertion into a measured surface (~55 uncheckable branch sites, instrument-independent) plus an honest gap (tsc sweep needs `bun install`, procedure recorded). It proposes no design. Whether to (a) run the working-env tsc sweep to get the exact site list, (b) treat "introduce exhaustiveness enforcement first" as the true Phase 1 (a bounded, solution-neutral enabling step — add discriminated-union exhaustiveness so the ~55 sites become compiler-visible), or (c) adopt codex's bounded steelman given the measured cost, is the next decision. Decomposition (A/B/C independent) and B/C boundedness remain unaffected.
