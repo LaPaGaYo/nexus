@@ -8,7 +8,7 @@ const LIFECYCLE_ORDER: LearningContextStage[] = [
 ];
 
 /** |changedFiles ∩ entry.files| / |entry.files|, 0 when entry.files empty. */
-export function fileOverlap(changedFiles: string[], entryFiles: string[]): number {
+export function fileOverlap(entryFiles: string[], changedFiles: string[]): number {
   if (!entryFiles || entryFiles.length === 0) return 0;
   const changed = new Set(changedFiles);
   let hit = 0;
@@ -23,7 +23,7 @@ export function stageMatch(ctxStage: LearningContextStage, subjectStage: string 
   const ci = LIFECYCLE_ORDER.indexOf(ctxStage);
   const si = LIFECYCLE_ORDER.indexOf(subjectStage as LearningContextStage);
   if (ci < 0 || si < 0) return 0;
-  return Math.abs(ci - si) <= 2 ? 0.5 : 0;
+  return Math.abs(ci - si) === 1 ? 0.5 : 0;
 }
 
 function tokens(s: string): Set<string> {

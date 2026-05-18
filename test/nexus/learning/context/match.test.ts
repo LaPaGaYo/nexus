@@ -14,20 +14,22 @@ function e(over: Partial<NormalizedEntry> = {}): NormalizedEntry {
 }
 
 describe('fileOverlap', () => {
-  test('intersection over entry.files size', () => {
-    expect(fileOverlap(['lib/net/socket.ts', 'a.ts'], ['lib/net/socket.ts'])).toBe(1);
-    expect(fileOverlap(['x.ts'], ['lib/net/socket.ts', 'y.ts'])).toBe(0);
+  test('intersection over entry.files size (denominator = entry.files)', () => {
+    expect(fileOverlap(['lib/net/socket.ts'], ['lib/net/socket.ts', 'a.ts'])).toBe(1);            // 1/1
+    expect(fileOverlap(['lib/net/socket.ts', 'a.ts'], ['lib/net/socket.ts'])).toBe(0.5);          // 1/2
+    expect(fileOverlap(['x.ts'], ['lib/net/socket.ts', 'y.ts'])).toBe(0);                          // 0/1
   });
   test('empty entry.files → 0', () => {
-    expect(fileOverlap(['x.ts'], [])).toBe(0);
+    expect(fileOverlap([], ['x.ts'])).toBe(0);
   });
 });
 
 describe('stageMatch', () => {
-  test('exact = 1, adjacent = 0.5, distant = 0', () => {
+  test('exact = 1, immediately-adjacent = 0.5, distant = 0', () => {
     expect(stageMatch('build', 'build')).toBe(1);
-    expect(stageMatch('build', 'review')).toBe(0.5); // adjacent
-    expect(stageMatch('build', 'plan')).toBe(0.5);   // adjacent
+    expect(stageMatch('build', 'handoff')).toBe(0.5); // idx3, adjacent to build idx4
+    expect(stageMatch('build', 'review')).toBe(0.5);  // idx5, adjacent
+    expect(stageMatch('build', 'plan')).toBe(0);      // idx2, 2 hops — NOT adjacent
     expect(stageMatch('build', 'closeout')).toBe(0);
     expect(stageMatch('build', undefined)).toBe(0);
   });
