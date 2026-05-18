@@ -29,6 +29,7 @@ export function capPacket(scored: ScoredEntry[], limits: PacketLimits): CappedPa
 
   const packet: ScoredEntry[] = [];
   let tokens = 0;
+  // Greedy: the first entry that would exceed token_budget terminates the loop (NOT a knapsack — do not "optimize" into skip-and-continue; that changes packet contents).
   for (const s of sorted) {
     if (packet.length >= limits.max_entries) break;
     const t = estimateEntryTokens(s);

@@ -29,13 +29,15 @@ describe('capPacket', () => {
   test('token_budget binds before max_entries when entries are large', () => {
     const big = Array.from({ length: 12 }, (_, i) => s(`b${i}`, 0.9, 4000));
     const out = capPacket(big, { score_floor: 0.15, max_entries: 12, token_budget: 1500 });
-    expect(out.packet.length).toBeLessThan(12);
-    expect(out.dropped.over_cap).toBeGreaterThan(0);
+    expect(out.packet).toHaveLength(1);
+    expect(out.packet[0].entry.id).toBe('b0');
+    expect(out.dropped.over_cap).toBe(11);
   });
 });
 
 describe('estimateEntryTokens', () => {
-  test('is ceil(serialized key+insight length / 4) and > 0', () => {
-    expect(estimateEntryTokens(s('k', 0.5, 16))).toBeGreaterThan(0);
+  test('is ceil(serialized key+insight length / 4), deterministic and floored at 1', () => {
+    expect(estimateEntryTokens(s('k', 0.5, 16))).toBe(10); // {"key":"k","insight":"xxxxxxxxxxxxxxxx"} = 40 chars → ceil(40/4)
+    expect(estimateEntryTokens(s('', 0.5, 0))).toBeGreaterThanOrEqual(1); // floor-at-1
   });
 });
