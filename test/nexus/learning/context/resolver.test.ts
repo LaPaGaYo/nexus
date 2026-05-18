@@ -44,11 +44,16 @@ describe('resolveLearningContext', () => {
     expect(rec.boosts.some((b: { skill: string }) => b.skill === 'investigate')).toBe(true);
   });
 
-  test('malformed jsonl line → degraded status + warning + still returns ranking', () => {
+  test('malformed jsonl line is silently skipped (no crash) → status ok, natural ranking returned', () => {
     const dir = join(home, '.nexus', 'projects', 'demo'); mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'learnings.jsonl'), 'not json\n');
     const r = resolveLearningContext({ cwd, home, stage: 'build', runId: 'r1', changedFiles: [], naturalRanking: natural, projectSlug: 'demo' });
-    expect(['ok', 'degraded']).toContain(r.status);
+    // readLearningsJsonl drops unparseable lines without throwing, so this is the
+    // skip path (status 'ok'), not the reader-threw degrade path (that is test 4's
+    // catastrophic case). AC#3 "does not crash + still returns" is what's proven here.
+    expect(r.status).toBe('ok');
+    expect(r.warnings).toEqual([]);
+    expect(r.packet).toEqual([]);
     expect(r.boostedRanking.map((s) => s.name)).toEqual(natural.map((s) => s.name));
   });
 
