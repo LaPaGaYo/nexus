@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join as pjoin } from 'path';
 import { describe, expect, test } from 'bun:test';
 import { stageAwareAdvisor } from '../../../lib/nexus/completion-advisor/stage-aware-advisor';
+import { buildCompletionAdvisorWrite } from '../../../lib/nexus/completion-advisor/writer';
 import type { SkillRecord } from '../../../lib/nexus/skill-registry/types';
 import type { NexusSkillManifest } from '../../../lib/nexus/skill-registry/manifest-schema';
 import type { CanonicalCommandId } from '../../../lib/nexus/contracts/types';
@@ -232,4 +236,24 @@ describe('stageAwareAdvisor — Phase 3', () => {
       expect(result[0]?.namespace).toBe('nexus_canonical');
     }
   });
+});
+
+test('SP6 wiring is additive: empty learning store ⇒ recommended_skills unchanged vs stageAwareAdvisor', () => {
+  const cwd = mkdtempSync(pjoin(tmpdir(), 'sp6-wire-'));
+  const home = mkdtempSync(pjoin(tmpdir(), 'sp6-wire-h-'));
+  try {
+    const skills = [
+      { name: 'investigate', surface: '/investigate', namespace: 'external_installed', tags: [], path: '/x', description: 'build debugging', manifest: undefined },
+    ] as unknown as Parameters<typeof buildCompletionAdvisorWrite>[1]['installedSkills'];
+    const record = {
+      run_id: 'r1', stage: 'build', stage_outcome: 'ok', interaction_mode: 'interactive',
+      requires_user_choice: false, primary_next_actions: [],
+    } as unknown as Parameters<typeof buildCompletionAdvisorWrite>[0];
+    const natural = stageAwareAdvisor({ skills: skills as never, stage: 'build' });
+    buildCompletionAdvisorWrite(record, { cwd, home, installedSkills: skills });
+    expect((record as { recommended_skills?: unknown[] }).recommended_skills).toEqual(natural);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
 });

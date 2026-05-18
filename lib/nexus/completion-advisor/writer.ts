@@ -1,11 +1,14 @@
+import { execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { withLedgerSchemaVersion } from '../governance/ledger-schema';
+import { resolveLearningContext } from '../learning/context';
 import { readVerificationMatrix } from '../review/verification-matrix';
 import { discoverInstalledSkills, type SkillRecord } from '../skill-registry';
 import {
   buildTelemetryEvent,
   emitTelemetryEventForCwd,
+  projectSlugFromCwd,
   type StageAdvisorRecordedEvent,
   type StageReEnteredEvent,
 } from '../telemetry';
@@ -45,10 +48,20 @@ export function buildCompletionAdvisorWrite(
   // Uses the same discovery roots as external skills, but loads the full
   // SkillRecord including manifests.
   if (installedSkills.length > 0) {
-    record.recommended_skills = stageAwareAdvisor({
+    const naturalRanking = stageAwareAdvisor({
       skills: installedSkills,
       stage: record.stage,
     });
+    const lc = resolveLearningContext({
+      cwd,
+      stage: record.stage,
+      runId: record.run_id,
+      changedFiles: changedFilesForRun(cwd),
+      naturalRanking,
+      projectSlug: projectSlugFromCwd(cwd),
+      home: options.home,
+    });
+    record.recommended_skills = lc.boostedRanking;
   }
 
   // Phase H (adoption telemetry — Track D-D3 follow-up): emit
@@ -109,5 +122,17 @@ function detectStageReEntry(cwd: string, stage: string, runId: string): boolean 
     return parsed.run_id === runId;
   } catch {
     return false;
+  }
+}
+
+/** Best-effort changed-file list for relevance/file-overlap. [] on any failure. */
+function changedFilesForRun(cwd: string): string[] {
+  try {
+    const out = execFileSync('git', ['-C', cwd, 'diff', '--name-only', 'HEAD'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return out.split('\n').map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
   }
 }
