@@ -1,5 +1,5 @@
 import { writeFileSync } from 'fs';
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { getDefaultNexusAdapters } from '../../../lib/nexus/adapters/registry';
 import { createRuntimeLocalAdapter, localTraceability } from '../../../lib/nexus/adapters/local';
 import { getStagePackSourceMap } from '../../../lib/nexus/stage-packs';
@@ -90,6 +90,35 @@ const LOCAL_TRACEABILITY_PACK_CASES = [
 ] as const;
 
 describe('nexus local_provider mode', () => {
+  // Isolate every test in this file from the host's Claude-Code identity.
+  // #160's assertNestedClaudeAllowed throws when isInsideClaudeCodeHost()
+  // (CLAUDECODE / AI_AGENT / CLAUDE_CODE_EXECPATH). When `bun test` runs
+  // inside a Claude Code session these are inherited ambiently, making the
+  // claude subagent/agent-team dispatch tests pass or fail based on WHERE
+  // the runner is rather than on the code under test. Clearing them gives
+  // every test a deterministic non-host default; the guard-assertion tests
+  // re-set CLAUDECODE explicitly via withEnv inside their own bodies and are
+  // unaffected.
+  const _CLAUDE_HOST_ENV_KEYS = ['CLAUDECODE', 'AI_AGENT', 'CLAUDE_CODE_EXECPATH'] as const;
+  let _savedClaudeHostEnv: Map<string, string | undefined>;
+  beforeEach(() => {
+    _savedClaudeHostEnv = new Map(
+      _CLAUDE_HOST_ENV_KEYS.map((key) => [key, process.env[key]] as const),
+    );
+    for (const key of _CLAUDE_HOST_ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+  afterEach(() => {
+    for (const [key, value] of _savedClaudeHostEnv.entries()) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
   test.each(LOCAL_TRACEABILITY_PACK_CASES)(
     'local traceability maps $absorbedCapability to $nexusStagePack',
     ({ absorbedCapability, nexusStagePack }) => {
