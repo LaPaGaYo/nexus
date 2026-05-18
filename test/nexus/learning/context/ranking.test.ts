@@ -1,6 +1,8 @@
 // test/nexus/learning/context/ranking.test.ts
 import { describe, test, expect } from 'bun:test';
-import { STRENGTH_MAX, scoreEntry } from '../../../../lib/nexus/learning/context/ranking';
+import { STRENGTH_MAX, scoreEntry, computeBoostDeltas, applyBoost } from '../../../../lib/nexus/learning/context/ranking';
+import type { ScoredEntry } from '../../../../lib/nexus/learning/context/types';
+import type { RecommendedSkill } from '../../../../lib/nexus/contracts/types';
 import { DEFAULT_LEARNING_CONTEXT_CONFIG } from '../../../../lib/nexus/learning/context/types';
 import type { NormalizedEntry } from '../../../../lib/nexus/learning/normalize';
 
@@ -56,5 +58,55 @@ describe('scoreEntry', () => {
     const b = e({ id: 'lrn_b', supersedes: ['lrn_a'] } as Partial<NormalizedEntry>);
     const r = scoreEntry(a, [a, b], { ...ctx, changedFiles: [], skillNames: [] }, DEFAULT_LEARNING_CONTEXT_CONFIG);
     expect(r.score).toBe(0);
+  });
+});
+
+function packetEntry(id: string, subjectSkill: string, score: number): ScoredEntry {
+  return {
+    entry: { id, key: id, insight: id, subject_skill: subjectSkill } as ScoredEntry['entry'],
+    score,
+    factors: {} as ScoredEntry['factors'],
+  };
+}
+function rs(name: string, score: number): RecommendedSkill {
+  return { name, surface: `/${name}`, namespace: 'external_installed', summary: '', why_relevant: '', score, manifest_backed: false } as RecommendedSkill;
+}
+
+describe('computeBoostDeltas', () => {
+  test('sums packet entry scores per subject_skill, scaled, capped at boost_cap', () => {
+    const deltas = computeBoostDeltas(
+      [packetEntry('l1', 'investigate', 0.8), packetEntry('l2', 'investigate', 0.9), packetEntry('l3', 'simplify', 0.2)],
+      { boost_cap: 5, boost_scale: 1.0 },
+    );
+    const inv = deltas.find((d) => d.skill === 'investigate')!;
+    expect(inv.delta).toBeCloseTo(1.7, 10);
+    expect(inv.from_entries.sort()).toEqual(['l1', 'l2']);
+    expect(deltas.find((d) => d.skill === 'simplify')!.delta).toBeCloseTo(0.2, 10);
+  });
+  test('caps the per-skill delta at boost_cap', () => {
+    const deltas = computeBoostDeltas(
+      Array.from({ length: 10 }, (_, i) => packetEntry(`x${i}`, 'investigate', 1)),
+      { boost_cap: 5, boost_scale: 1.0 },
+    );
+    expect(deltas[0].delta).toBe(5);
+  });
+});
+
+describe('applyBoost', () => {
+  test('adds delta to matching RecommendedSkill score and re-sorts (stable, name tiebreak)', () => {
+    const natural = [rs('design', 5), rs('investigate', 4), rs('simplify', 4)];
+    const { boosted, disagreements } = applyBoost(natural, [{ skill: 'investigate', delta: 2, from_entries: ['l1'] }]);
+    expect(boosted[0].name).toBe('investigate'); // 4+2=6 > 5
+    expect(boosted[0].score).toBe(6);
+    expect(disagreements.length).toBeGreaterThan(0);
+    expect(disagreements[0].skill).toBe('investigate');
+    expect(disagreements[0].natural_rank).toBe(1);
+    expect(disagreements[0].boosted_rank).toBe(0);
+  });
+  test('no delta application leaves order identical and yields zero disagreements', () => {
+    const natural = [rs('a', 5), rs('b', 3)];
+    const { boosted, disagreements } = applyBoost(natural, []);
+    expect(boosted.map((s) => s.name)).toEqual(['a', 'b']);
+    expect(disagreements).toEqual([]);
   });
 });
