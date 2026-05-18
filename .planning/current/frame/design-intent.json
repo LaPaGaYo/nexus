@@ -1,52 +1,52 @@
 {
   "schema_version": 1,
-  "run_label": "nexus-v1.1.2-operator-attested-early-exit",
+  "run_label": "problem-a-execution-provenance-milestone-frame",
+  "scope_class": "milestone-multi-phase-not-point-release",
   "hypothesis": {
-    "action": "make the canonical bin detect at the CLI seam (lift defaultExecutionSelection() to a const before await invocation.handler at nexus.ts:~139, gate with isInsideClaudeCodeHost()) that the resolved route's generator IS the calling session, and early-exit with exit 0 plus a structured operator_attested contract instead of letting the run reach the nested claude -p spawn",
-    "users": "operators running /build from inside an active Claude Code session with execution_mode=local_provider, primary_provider=claude, provider_topology=single_agent",
-    "outcome": "they complete the governed build in-session with zero silent hang and zero fabricated provenance fields (dispatch_command/receipt null, provenance_kind=operator_attested)",
-    "evidence": "three recorded occurrences across two projects on a ~15-day cadence (idea-brief Sources 1-2-4) plus PR #160's merged diff proving the nested spawn is structurally pointless when the caller is the worker; the in-session Claude already produces verifiable test output and a git diff"
+    "action": "introduce a first-class third execution-provenance for 'the calling session is the named worker', decomposed into bounded phases whose solution shapes are decided per-phase (frame does NOT pick the solution)",
+    "users": "operators running Nexus local_provider + primary_provider=claude from inside an active Claude Code session (the majority Nexus environment)",
+    "outcome": "complete the governed lifecycle in-session without fabricating provenance; /review and /ship can distinguish attested from spawned execution",
+    "evidence": "idea-brief Sources 1/2/4/6 show fabrication is forced by the absent concept (not operator error); three grounded independent reviews established the concept must be modeled across schema+ownership+review-contract, not patched"
   },
   "success_criteria": [
-    "Running /build inside Claude Code with local_provider/claude/single_agent yields adapter-output.json provenance_kind=operator_attested, exit 0, <5s, zero claude -p spawn (process audit shows no defaultRunCommand spawn).",
-    "status.json + adapter-output.json have dispatch_command/receipt/actual_route absent or null when provenance_kind=operator_attested; schema accepts the attested variant without fabrication.",
-    "/review reading the artifact surfaces provenance_kind as an observable value in its review input JSON; it does not silently treat operator_attested as spawned_provider.",
-    "operator_attested artifact embeds verbatim git diff --stat HEAD; /review does not set ready:true when that embedded diff-stat is empty (operator-capturable, no ledger base-ref needed).",
-    "With NEXUS_ALLOW_NESTED_CLAUDE=1 set, assertNestedClaudeAllowed (merged local.ts:807) returns early, spawn path runs, CLI early-exit skipped; regression test asserts both branches.",
-    "review.ts:540-546 does not throw on null actual_route when provenance_kind=operator_attested; sets provenance_consistent from the attested contract; /review completes with a verdict (B3 survival branch)."
+    "Session-is-worker /build produces an artifact whose execution provenance is a schema-enforced discriminator (not an operator-typed string); schema rejects an attested artifact missing it; attested vs spawned distinguishable by one typed field, not prose.",
+    "Completing a session-is-worker /build requires zero hand-fabrication of dispatch_command/receipt/actual_route; the attested path has a defined writer such that those are legitimately absent and schema still validates.",
+    "/review over an attested build neither crashes (review.ts:541 null actual_route, :1084 null deref) nor silently passes the provenance gate it should not (review.ts:1188 / build.ts:107 fix-cycle eligibility); it yields a defined non-degraded verdict.",
+    "The trust anchor references something the attesting session did not author; forging/removing it causes /review or /ship to reject or downgrade.",
+    "The milestone roadmap decomposes Problem A into >=3 dependency-ordered phases, each independently frame-able; no phase is 'design the whole model'; order justified by dependency not convenience."
   ],
   "non_goals": [
-    "Not a v1.2 provenance schema redesign; only the minimal optional provenance_kind field, the CLI-seam early-exit, and the single review.ts:540-546 B3 survival branch.",
-    "Not closing the v1.1.1 topology-partial streaming gap (agent_team/subagents missing stream_to_tty + banner).",
-    "Not changing governed_ccb or any non-claude / non-single-host dispatch.",
-    "Not auto-committing the worktree; the empty-diff sibling bug is only detected as a guardrail.",
-    "Not /review //qa //ship early-exit in this slice; /build is the recurrence surface."
+    "NOT picking the solution in this frame (no operator_attested-as-schema, no trust-anchor mechanism, no specific review.ts edits) - per-phase decisions; pre-deciding repeats the verified v1.2 failure.",
+    "NOT Problems B (streaming parity) or C (lifecycle re-entry) - independent, separately routed.",
+    "NOT changing governed_ccb or non-claude/non-single-host dispatch.",
+    "NOT retroactively re-running historical fabricated artifacts (novelWriter SP2 + prior); migration is a phase question, not a precondition.",
+    "NOT a point release - explicitly not packageable as a hotfix."
   ],
   "out_of_scope": [
-    "Retroactive migration/annotation of historical operator-attested artifacts (novelWriter SP2 + prior); a separate ungated one-time pass.",
-    "SKILL.md human-facing restructuring beyond the minimal Step 9 early-exit branch.",
-    "/review re-grading logic that acts on provenance_kind — weighting/advisory/verdict-change (v1.2). v1.1.2 includes only the B3 survival branch (don't crash, set provenance_consistent).",
-    "Re-running or re-validating the novelWriter SP2 run itself."
+    "Problem B and Problem C (separately routed; operator might assume the silent agent_team gap or frame->discover rejection are included - they are not).",
+    "The novelWriter SP2 historical run (stays committed/disclosed; not retroactively fixed or re-graded).",
+    "governed_ccb provenance records (CCB dispatch is out).",
+    "A specific provenance_kind field name/schema (deliberately NOT specified - the disproven solutioning-in-disguise)."
   ],
   "acceptance_criteria": [
-    "Given an operator in a Claude Code session with local_provider/claude/single_agent at SKILL.md Step 9, when they run ./bin/nexus build, then the bin exits 0 in <5s without spawning claude -p, emits an operator_attested contract JSON naming artifact paths, and adapter-output.json carries provenance_kind=operator_attested with null dispatch_command/receipt.",
-    "Given the same session with NEXUS_ALLOW_NESTED_CLAUDE=1 set, when they run ./bin/nexus build, then the early-exit is skipped and the existing spawn path runs unchanged.",
-    "Given an operator_attested build whose embedded git diff --stat HEAD capture is empty, when /review consumes the artifact, then it does not report ready:true for that build.",
-    "Given an operator_attested build with null actual_route, when /review runs, then review.ts:540-546 does not throw and records a verdict (B3 survival branch)."
+    "Given an operator in a Claude Code session local_provider/claude who did the implementation in-session, when they complete the governed /build, then the artifact carries a schema-enforced session-attested provenance discriminator, no fabricated dispatch/receipt fields, schema passes.",
+    "Given a session-attested build artifact (discriminator set, actual_route legitimately absent), when /review runs, then it neither throws on the null route nor records provenance_consistent in a way that silently grants undue fix-cycle eligibility; it produces a defined verdict appropriate to attested provenance.",
+    "Given this milestone frame is approved, when the roadmap is created, then Problem A is decomposed into >=3 dependency-ordered phases, the first being the ownership-model question (status.json/ledger writer when nothing spawns), and no phase's scope is 'design the entire model'."
   ],
   "open_questions_to_plan": [
-    "B2 RESOLVED: seam confirmed at lib/nexus/cli/nexus.ts ~139 — lift defaultExecutionSelection() (already imported, line 10; called at ~144) to a const before await invocation.handler({...}) and gate with isInsideClaudeCodeHost(). /plan confirms exact line post-#160-merge offsets.",
-    "Does the bin write a skeleton status.json so the ledger advances atomically, or does the operator author all 7 files; how is the embedded git diff --stat HEAD capture enforced (schema-required field vs /review-side check).",
-    "B3 scope line: /plan confirms the review.ts:540-546 branch is survival-only (no throw, set provenance_consistent) and does NOT alter the pass/fail verdict.",
-    "Confirm subagents/agent_team stay deferred and the predicate excludes them from early-exit (assertNestedClaudeAllowed still throws for them, which is acceptable interim)."
+    "Phase 1 boundary: is it scoped as 'frame the ownership model and decide if it is bounded' (a decision-gate phase) rather than 'implement it'? /plan sequences, does not answer the ownership question here.",
+    "Phase count and dependency spine: ownership model -> provenance carrier -> /review contract -> trust anchor -> (optional) migration. /plan proposes; each phase gets its own /frame.",
+    "Milestone gate: commit to phases 2+ only after Phase 1's frame proves bounded (Risk 5).",
+    "Independent-review gate placement: after this milestone frame (before /plan) and after each phase frame - recorded, not skipped.",
+    "Hard deferral (must NOT leak into planning as pre-decided): provenance field shape, trust-anchor mechanism, exact review.ts edits, migration policy - the codex-flagged relapse vector."
   ],
   "provenance": {
-    "upstream_idea_brief": "docs/product/idea-brief.md",
-    "framing_topology": "agent_team",
-    "perspectives_synthesized": ["engineering-feasibility", "risk-backward-compat", "product-scope-sequencing"],
-    "related_pr": 160,
-    "related_pr_status": "merged origin/main @ 857253cc8 (2026-05-18)",
-    "related_issue": 159,
-    "red_team_disposition": "B1 resolved by merge; B2 resolved by re-grounding on merged main; B3 confirmed, folded into scope as review.ts:540-546 survival branch"
+    "upstream_idea_brief": "docs/product/idea-brief.md (DECOMPOSITION + Vehicle Decision sections)",
+    "supersedes": "v1.1.x-hotfix and v1.2-single-concept framings (disproven records, retained on-branch)",
+    "decomposition_source": "codex 0.130 grounded on merged origin/main, 2026-05-18",
+    "problem": "A (session-is-worker has no execution provenance)",
+    "siblings_out_of_scope": ["B: streaming parity (Source 3)", "C: lifecycle re-entry (Source 7)"],
+    "scope_class": "milestone; not point release; solution explicitly deferred to per-phase frames",
+    "review_gate": "requires independent grounded review before /plan (session iron rule: 3x applied, 3x caught a blocker)"
   }
 }

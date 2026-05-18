@@ -1,105 +1,106 @@
-# PRD — Operator-Attested Early-Exit for Self-Dispatch (`/build` v1.1.2)
+# PRD — Problem A: honest execution-provenance for "the calling session is the worker" (milestone frame)
 
 | | |
 |---|---|
-| **Run** | Nexus v1.1.2 framing |
+| **Run** | Nexus Problem-A milestone frame (Nexus-native, not GSD — see idea-brief Vehicle Decision) |
 | **Worktree** | `claude/jovial-jang-9618ea` |
-| **Date** | 2026-05-17 |
-| **Upstream** | `docs/product/idea-brief.md` (5 evidence sources, 3 recorded occurrences, Source 5 = PR #160 resolution) |
-| **Framing topology** | `agent_team` — engineering / risk / product perspectives synthesized below |
-| **Status** | **REVISED post-#160-merge (2026-05-18). Red-team B1 + B2 resolved by merge + re-grounding; B3 confirmed and folded into scope. Re-passed /frame Law 3 gate. Ready for /plan.** |
-
----
-
-## Revision log — red-team disposition (2026-05-18, grounded on merged `origin/main` @ `857253cc8`)
-
-An independent adversarial review (2026-05-17) raised three blockers. After PR #160 merged to main (`857253cc8`), each was re-verified by direct inspection of the real merged tree:
-
-- **B1 — RESOLVED by merge.** `assertNestedClaudeAllowed` is on `origin/main`: `local.ts:807` (def), guarded at `:851` (subagents), `:1031` (agent_team), `:1433` (single_agent); `isInsideClaudeCodeHost` at `execution-topology.ts:110`. The original B1 was real (the PRD treated #160 as merged when it was not); it is now true. All `#160` references in this PRD are re-baselined to the merged code.
-- **B2 — RESOLVED by re-grounding.** The red-team graded B2 on the pre-#160 branch where `defaultExecutionSelection` was not wired into the CLI. On merged main, `lib/nexus/cli/nexus.ts` imports `defaultExecutionSelection` (line 10) and calls it at the handler dispatch (`execution: defaultExecutionSelection()`, ~line 144). `defaultExecutionSelection()` returns `{mode, primary_provider, provider_topology}` and `isInsideClaudeCodeHost()` is in the same module. The predicate IS evaluable at the CLI seam. Section 7's CLI-layer design is implementable: lift `defaultExecutionSelection()` to a `const` immediately before the `await invocation.handler({...})` call (~nexus.ts:139) and gate there. No adapter relocation required.
-- **B3 — CONFIRMED, folded into scope.** `lib/nexus/commands/review.ts:540-541` hard-throws `'Build must record requested and actual route before review'` when `actual_route` is null. An `operator_attested` build emits null `actual_route` by design, so `/review` crashes before any provenance logic. `:544` keys on `requested_route.generator === actual_route.route`; `provenance_consistent` exists (`:268`, `:1188`) but there is no `provenance_kind` branch. The v1.1.2 slice now explicitly includes a `review.ts:540-546` attested-variant branch. Old Non-goal 5 / Out-of-scope 3 ("no /review changes") are revised below accordingly.
-
-Net effect of the revision: scope grows by one bounded change (the `review.ts:540-546` attested branch) and the detection-seam wording is made precise. The "~30-line CLI-layer early-exit" framing holds; B3 adds a second small, bounded edit. Re-ran the `/frame` Law 3 gate after revision — all five conditions pass.
+| **Date** | 2026-05-18 |
+| **Upstream** | `docs/product/idea-brief.md` — DECOMPOSITION + Vehicle Decision sections (supersede all prior framings; v1.1.x-hotfix and v1.2-single-concept framings above them are disproven records) |
+| **Scope class** | **Milestone (multi-phase). Explicitly NOT a point release.** Per Completeness Principle this is flagged as a model change requiring phase decomposition; this frame bounds and phases it, it does NOT pick the solution. |
+| **Discipline** | This frame MUST NOT pre-decide the solution shape (operator_attested-as-schema, trust-anchor mechanism, specific `/review` edits). Solutioning-in-disguise is the verified reason the v1.2 framing was disproven (codex 0.130, idea-brief Source 6). Solution decisions belong to each phase's own `/frame`/`/plan`. |
 
 ---
 
 ## 1. Problem statement
 
-Operators running Nexus in `local_provider` mode with `primary_provider=claude` invoke canonical `/build` from inside an active Claude Code session — the most common Nexus environment, because `governed_ccb` has higher setup friction. At SKILL.md Step 9, the canonical bin spawns a nested `claude -p` peer to "do the build" even though the calling session already IS the named generator and already did the work in-session. That nested spawn hangs forever at the Claude Code Bash-tool pipe boundary (output buffered until exit, host timeout < the 30-min provider timeout). The operator burns ~20 minutes recognizing the recursion, kills the subprocess, and hand-writes 7 artifacts with **fabricated** `dispatch_command`/`receipt`/`actual_route` fields to pass schema validation. This has recurred ≥3 times across 2 projects on a ~15-day cadence (novelWriter SP2 2026-05-12 being the third). PR #160 (merged to `main` at `857253cc8`, 2026-05-18) converts the silent hang into an immediate hard error across all 3 claude topologies via `assertNestedClaudeAllowed`, but does not let the operator complete `/build` from their primary environment — it stops the bleeding without restoring the workflow.
+Operators running Nexus `local_provider` + `primary_provider=claude` from inside an active Claude Code session (the majority Nexus environment) cannot complete the governed lifecycle in-session: the canonical bin's execution model represents only two provenances — *spawned local provider* and *governed CCB dispatch* — and has no first-class representation for "the calling session itself did the work." Post-#160 the lifecycle is runnable (the `assertNestedClaudeAllowed` throw at `local.ts:812` tells the operator to use a terminal, CCB, or `NEXUS_ALLOW_NESTED_CLAUDE=1`), so the cost is not "cannot run" — it is: every governed stage forces a context-switch out of the working session, and when operators route around that by hand-authoring artifacts there is no honest provenance value, so they fabricate `dispatch_command`/`receipt`/`actual_route` (idea-brief Source 1) which `/review`'s provenance gate (`review.ts:541`, `:1188`, `build.ts:107`) cannot distinguish from real dispatch. ≥3 recorded occurrences across 2 projects on a ~15-day cadence (Sources 1, 2, 4), plus a structural disproof (Source 6) that no bounded patch closes it.
 
 ## 2. Hypothesis
 
-**If we** make the canonical bin detect, at the CLI seam (lift `defaultExecutionSelection()` to a const immediately before the `await invocation.handler({...})` call at `nexus.ts:~139`, gate on it + `isInsideClaudeCodeHost()`), that the resolved route's generator IS the calling session (`local_provider` + `primary_provider=claude` + same-host claude topology + inside Claude Code + no explicit `NEXUS_ALLOW_NESTED_CLAUDE=1` override) and early-exit with exit 0 plus a structured `operator_attested` contract instead of letting the run reach the nested `claude -p` spawn (where `assertNestedClaudeAllowed` would now throw), **then** operators running `/build` from inside Claude Code **will** complete the governed build in-session with zero silent hang and zero fabricated provenance fields, **because** three recorded occurrences plus PR #160's merged guard prove the spawn is structurally pointless when the caller is the worker, and the in-session Claude already produces verifiable evidence (test output, git diff) that an honest `provenance_kind` field can carry to `/review`.
+**If we** introduce a first-class third execution-provenance into Nexus's governed-execution model — representing "the calling session is the named worker" as an enforced, distinguishable artifact state with a defined writer for `status.json`/ledger advancement and a non-circular trust anchor — decomposed into bounded phases whose individual solution shapes are decided per-phase, **then** operators in the majority `local_provider/claude`-inside-Claude-Code environment **will** complete the full governed lifecycle in-session without fabricating provenance and `/review`/`/ship` **will** be able to tell attested execution from spawned execution, **because** idea-brief Sources 1/2/4/6 show the fabrication is forced by the absent concept (not by operator error), and three independent grounded reviews established the concept must be modeled across schema + ownership + review-contract, not patched.
 
-## 3. Success criteria
+## 3. Success criteria (milestone-level, observable, falsifiable; per-phase criteria deferred to phase frames)
 
-Observable, falsifiable:
-
-1. **No spawn, fast exit**: running `/build` inside Claude Code with `local_provider/claude/single_agent` produces `adapter-output.json` with `provenance_kind="operator_attested"`, exit code 0, in <5s, with **zero** `claude -p` subprocess spawned. Verify: process audit shows no `defaultRunCommand` spawn; `time` on the bin call < 5s.
-2. **No fabricated provenance**: `grep` of the resulting `status.json` + `adapter-output.json` shows `dispatch_command`, `receipt`, `actual_route` are absent or `null` when `provenance_kind=operator_attested` (schema permits the attested variant; fabrication is no longer needed to pass it).
-3. **Distinguishable downstream**: `/review` reading that artifact surfaces `provenance_kind` as an observable signal in its review input (it does not silently treat operator-attested as spawned-provider). Verify: `/review` adapter-request or review input JSON contains the `provenance_kind` value.
-4. **Guardrail enforced (operator-capturable, no ledger schema change)**: the `operator_attested` artifact must embed the verbatim `git diff --stat HEAD` output (changed-file list) captured by the operator at author time. `/review` rejects (does not set `ready: true`) any `operator_attested` build whose embedded diff-stat is empty. This avoids the `ledger.ts` `WorkspaceRecord` having no base-ref (red-team M2): the anchor is the operator-captured working-tree diff, not an unknown `<base>..HEAD`. Verify: a forced no-op attested run with empty `git diff --stat HEAD` does not produce `ready: true`.
-5. **#160 backstop intact**: with `NEXUS_ALLOW_NESTED_CLAUDE=1` explicitly set, `assertNestedClaudeAllowed` (merged, `local.ts:807`) returns early and the existing spawn path runs; the CLI early-exit is also skipped under the same env. Verify: regression test asserts both branches (mirrors the `test/relink.test.ts` two-sided assertion shipped in #160).
-6. **`/review` survives an attested build (B3)**: `review.ts:540-546` does not throw on null `actual_route` when `provenance_kind=operator_attested`; it sets `provenance_consistent` from the attested contract instead. Verify: `/review` run against an `operator_attested` build with null `actual_route` completes (no `'Build must record requested and actual route before review'` throw) and records a verdict.
+1. **Honest provenance exists and is enforced**: a governed `/build` performed by the calling session produces an artifact whose execution provenance is a distinct, schema-enforced value (not an operator-typed string in a free field). Falsifiable: schema validation rejects an attested artifact that omits the provenance discriminator; a spawned artifact and an attested artifact are distinguishable by a single typed field, not by prose.
+2. **No fabrication required**: completing a session-is-worker `/build` requires zero hand-fabrication of `dispatch_command`/`receipt`/`actual_route`. Falsifiable: the attested path has a defined writer such that those fields are legitimately absent/null and schema still validates.
+3. **`/review` consumes the attested shape end-to-end**: `/review` run against an attested build neither crashes (`review.ts:541` null `actual_route`, `:1084` null deref) nor silently passes the provenance gate it should not (`review.ts:1188`/`build.ts:107` fix-cycle eligibility). Falsifiable: a test exercises `/review` over an attested build and asserts a defined, non-degraded verdict.
+4. **Trust anchor is non-circular**: the attestation references something the attesting session did not author. Falsifiable: removing/forging the anchor causes `/review` (or `/ship`) to reject or downgrade; the anchor is not "the session says so."
+5. **Milestone is phase-bounded**: the milestone roadmap decomposes Problem A into phases each with its own bounded `/frame` scope; no phase is "design the whole model." Falsifiable: the roadmap exists with ≥3 phases, each phase frame-able independently, and the phase order is justified by dependency not convenience.
 
 ## 4. Non-goals
 
-1. **Not a v1.2 provenance schema redesign.** v1.1.2 adds only: (a) the minimal optional `provenance_kind` field to the four `Local*Raw` interfaces, (b) the CLI-seam early-exit, (c) the single `review.ts:540-546` attested-variant branch (B3) that stops `/review` crashing on a null `actual_route`. Full schema rollout, advisor logic changes, and `/review` re-grading intelligence (acting on `provenance_kind` to change a verdict) remain v1.2. The B3 branch is survival-only: don't throw, set `provenance_consistent`; it does not re-grade.
-2. **Not closing the v1.1.1 topology-partial streaming gap.** `agent_team`/`subagents` still lack the `stream_to_tty` tee + dispatch banner. Related, bounded, tracked separately — not in this fix.
-3. **Not changing `governed_ccb` or any non-claude / non-single-host dispatch.** CCB dispatching to codex/gemini is a legitimate spawn to a different process and must be untouched.
-4. **Not auto-committing the worktree.** The "build_recorded with empty diff" sibling bug (idea-brief Source 4) is only *detected* as a guardrail here, not fixed by auto-commit.
-5. **Not `/review` `/qa` `/ship` early-exit in this slice.** Structurally identical and a fast-follow, but all 3 recorded occurrences are `/build`; that is the recurrence surface this fix targets.
+1. **Not picking the solution in this frame.** This milestone frame does NOT decide that provenance is an `operator_attested` enum on `Local*Raw`, nor the trust-anchor mechanism (pre-execution ledger SHA vs CI signature vs lower-trust gating), nor the specific `review.ts` edits. Those are per-phase decisions. Pre-deciding them here repeats the verified v1.2 failure.
+2. **Not Problems B or C.** Streaming parity (Source 3) and lifecycle re-entry (Source 7) are independent, separately routed, explicitly excluded.
+3. **Not changing `governed_ccb` or non-claude/non-single-host dispatch.** CCB dispatch to codex/gemini is a legitimate separate-process execution and is untouched.
+4. **Not retroactively re-running historical fabricated artifacts** (novelWriter SP2 + prior). Their migration/annotation is a phase question, not a precondition; this milestone does not re-validate them.
+5. **Not a point release.** Explicitly not packageable as a hotfix; attempting that is the disproven error class.
 
 ## 5. Risks
 
-1. **False early-exit swallowing a legitimate spawn.** Mitigation: the predicate is NOT "inside Claude Code" alone — it requires `local_provider` AND `primary_provider=claude` AND a same-host claude topology AND not overridden. `governed_ccb` (mode≠local_provider), non-claude generators, and explicit overrides are all excluded by construction. Regression tests enumerate each excluded case.
-2. **Legacy operator-attested artifacts misclassified.** Already-committed runs (novelWriter SP2 + ≥2 prior) have no `provenance_kind` and carry fabricated dispatch fields. Mitigation: `/review` treats **absent `provenance_kind` as `unknown`, not `spawned`**, and falls back to scanning `build-result.md` for the Provenance Disclosure block. No destructive history rewrite. Accepted; retroactive annotation is out-of-scope (one-time pass, not gated on this fix).
-3. **Self-attestation trust gap.** Operator both does the work and writes "verified." Mitigation: `operator_attested` is only trustworthy with (a) git HEAD SHA bound into the artifact at write time, (b) verbatim test command + exit code + counts captured structurally (not paraphrased), (c) `dispatch_command`/`receipt` emitted null so schema cannot be satisfied by fabrication. Success criterion 4 enforces (a).
-4. **`NEXUS_ALLOW_NESTED_CLAUDE` semantic shift.** #160 made it "force the spawn instead of throwing"; v1.1.2 makes unset = graceful early-exit. Mitigation: keep the variable as an explicit opt-in to the *old spawn path* (escape hatch unchanged); document precedence; regression-test both branches. Accepted low risk — the override audience is small and explicit.
+1. **Scope re-collapse (the recurring failure).** This milestone could itself be under-scoped into a "v1.2" again. Mitigation: success criterion 5 forces a ≥3-phase decomposition with dependency-justified order; the frame is reviewed independently before `/plan` (this session's iron rule: no stage advance without grounded review — applied 3x, caught a blocker 3x).
+2. **Solutioning re-creeps via "open questions" that are design menus.** Mitigation: open questions below are sizing/sequencing only; any that name a mechanism are rewritten. codex 0.130 already flagged this exact pattern (Source 6) — it is a known relapse vector.
+3. **Ownership-model decision is itself unbounded.** "Who writes status.json when nothing spawns" (`build.ts:468`) may have no bounded answer. Mitigation: make that the FIRST phase's frame; if it proves unbounded, the milestone is re-scoped or paused honestly rather than forced.
+4. **Trust anchor may not exist non-circularly in the current architecture.** The ledger has no pre-execution base ref (verified earlier: `ledger.ts` `WorkspaceRecord` has none). Mitigation: a dedicated phase frames the anchor; "accept attested as explicitly lower-trust" is a legitimate phase outcome, not a failure.
+5. **Milestone never ships because each phase keeps expanding.** Mitigation: phase 1 (ownership model) is the riskiest; gate the milestone on phase 1's frame being bounded before committing to phases 2+.
 
 ## 6. Alternatives considered
 
-**Rejected: "Require a real terminal (or `governed_ccb`) for all governed stages."** This codifies the friction as the design. The idea-brief names in-Claude-Code `local_provider/claude` as the *most common* segment precisely because `governed_ccb` is higher-setup-friction. Forcing a context switch out of the front-door environment for every `/build` punishes the majority path to avoid building correct boundary detection, and does not even eliminate fabrication risk — it relocates the work and adds a rule operators will eventually bypass (re-introducing the hang via `NEXUS_ALLOW_NESTED_CLAUDE=1`). The correct answer is the bin knowing when it is the worker, not the operator memorizing where `/build` is safe to type.
+**Rejected: bounded hotfix (the v1.1.x and v1.2 framings).** Disproven three times by grounded independent review (idea-brief Source 6): early-exit orphans status.json/ledger ownership, attested shape crashes `/review` downstream, provenance has no honest carrier, the "survival branch" silently degrades the trust gate. The error was treating model-depth work as patch-depth.
 
-**Rejected: "Keep PR #160's throw as the final behavior."** A throw is better than a hang but still presents as a routing failure (`state: blocked`), not a recognized self-dispatch. It leaves the core workflow broken from the operator's primary environment every ~15 days. #160 is the right stopgap, not the right destination.
+**Rejected: codex's bounded steelman (keep #160 + fix streaming parity + bless direct-terminal + narrow import-review rule).** A real contender, NOT a strawman — codex (Source 6) noted the brief had not disproven it. It is rejected as the *answer to Problem A* because it accepts permanent context-switching as the design and leaves fabrication possible; but it is partially adopted as the *non-goal boundary* (it IS the right answer for Problems B/C and the interim, which is why #160 stays and B/C route separately). Recorded so the milestone does not re-litigate it.
+
+**Rejected: introduce GSD to manage the milestone.** Would create a second governance surface in `.planning/` (violates repo CLAUDE.md). Decided in idea-brief Vehicle Decision: Nexus-native milestone.
 
 ## 7. Decision rationale
 
-Why this scope: the minimal slice (single_agent / local_provider+claude / inside Claude Code / `/build`) removes the pain for every recorded occurrence with a bounded change — ~30 lines in `lib/nexus/cli/nexus.ts` at the handler-dispatch seam (lifting the already-present `defaultExecutionSelection()`), four additive optional schema fields in `lib/nexus/adapters/local.ts`, one SKILL.md template branch, and one `review.ts:540-546` survival branch (B3 — don't crash on null `actual_route` for attested builds). Nothing renamed, no migration, no `/review` re-grading (that distinction is v1.2). Why now: the failure recurs on a metronome (~15 days, monotonically increasing 1→2→3) and PR #160 (merged `857253cc8`) made it loud, not livable — every day it bakes, the operator context-switches or re-hangs via the override. What changes when it ships: at Step 9 the bin recognizes "I am the worker," exits 0 in seconds with an honest `operator_attested` contract, the in-session Claude authors artifacts that truthfully say "operator attested, no spawn, here is the git SHA and verbatim test output" — zero hang, zero fabrication, `/review` can finally tell attested from spawned. The governed lifecycle works from the operator's primary environment for the first time.
+Why this scope: Problem A is the one of the three decomposed problems that is genuinely structural and recurring; B and C are bounded and routed separately. Framing it as a milestone (not a release) is the honest correction of the error this whole work unit kept making. Why now: the failure recurs on a ~15-day cadence and #160 made it survivable but not solved — the audit-trail fabrication risk persists every time an operator routes around the context-switch. What changes when the milestone ships: the majority Nexus environment gains an honest, enforced way to record "I did this work myself," `/review` and `/ship` can trust the provenance field instead of unverifiable prose, and the fabricate-state anti-pattern this entire work unit exists to eliminate is structurally prevented rather than documented after the fact. What this frame deliberately does NOT do: pick how. The roadmap phases decide how, each under its own bounded frame, because every prior attempt to decide how at framing time was disproven.
 
 ---
 
 ## User stories (acceptance criteria)
 
-**Story 1 — in-session `/build` completes without hang (primary path)**
+**Story 1 — session-is-worker build records honest provenance**
 
-> **Given** an operator in an active Claude Code session with `execution_mode=local_provider`, `primary_provider=claude`, `provider_topology=single_agent`, having done the implementation work in-session and reached SKILL.md Step 9,
-> **when** they run `./bin/nexus build`,
-> **then** the bin exits 0 in <5s without spawning `claude -p`, emits a structured `operator_attested` contract JSON on stdout naming the artifact paths to author, and the resulting `adapter-output.json` carries `provenance_kind="operator_attested"` with null `dispatch_command`/`receipt`.
+> **Given** an operator in a Claude Code session, `local_provider`/`claude`, who performed the implementation in-session,
+> **when** they complete the governed `/build` for that work,
+> **then** the resulting artifact carries a schema-enforced provenance discriminator marking it session-attested (not spawned), with no hand-fabricated dispatch/receipt fields, and schema validation passes.
 
-**Story 2 — override preserves the old path**
+**Story 2 — `/review` handles the attested shape without crash or silent pass**
 
-> **Given** the same session **but** with `NEXUS_ALLOW_NESTED_CLAUDE=1` explicitly set,
-> **when** they run `./bin/nexus build`,
-> **then** the early-exit is skipped and the existing spawn path runs unchanged (PR #160 escape hatch preserved).
-
-**Story 3 — empty-diff guardrail**
-
-> **Given** an `operator_attested` build whose embedded `git diff --stat HEAD` capture is empty,
-> **when** `/review` consumes the artifact,
-> **then** it does not report `ready: true` for that build (the "completed with zero diff" sibling failure is blocked).
-
-**Story 4 — `/review` survives an attested build (B3)**
-
-> **Given** an `operator_attested` build with null `actual_route` (the by-design attested shape),
+> **Given** a session-attested build artifact (provenance discriminator set, `actual_route` legitimately absent),
 > **when** `/review` runs against it,
-> **then** `review.ts:540-546` does not throw `'Build must record requested and actual route before review'`; it sets `provenance_consistent` from the attested contract and records a verdict.
+> **then** `/review` neither throws on the null route nor records `provenance_consistent` in a way that silently grants fix-cycle eligibility it should not; it produces a defined verdict appropriate to attested provenance.
+
+**Story 3 — milestone is phase-decomposed before any solution is built**
+
+> **Given** this milestone frame is approved,
+> **when** the roadmap is created,
+> **then** Problem A is decomposed into ≥3 dependency-ordered phases, the first being the ownership-model question (`status.json`/ledger writer when nothing spawns), and no phase's scope is "design the entire model."
 
 ## Out-of-scope (distinct from non-goals)
 
-Adjacent things operators may expect this work to touch but it does not:
+Adjacent things an operator might expect this milestone to touch but it does not:
 
-1. **Retroactive migration/annotation of historical operator-attested artifacts** (novelWriter SP2 and the ≥2 prior). They stay disclosed via `build-result.md` prose; a one-time additive annotation pass is a separate, ungated task.
-2. **SKILL.md human-facing restructuring beyond the minimal Step 9 early-exit branch.** Operators may expect the whole `/build` skill prose to be rewritten for the new model; this fix adds only the one branch instruction needed.
-3. **`/review` re-grading logic that acts on `provenance_kind`.** v1.1.2 adds only the B3 *survival* branch (`review.ts:540-546` stops crashing on null `actual_route` for attested builds and sets `provenance_consistent`). `/review` issuing a structured advisory, weighting attested vs spawned differently, or changing its pass/fail verdict based on `provenance_kind` is v1.2.
-4. **The novelWriter SP2 run itself.** It stays as committed (operator-attested, disclosed). This fix does not retroactively re-run or re-validate it.
+1. **Problem B (streaming parity) and Problem C (lifecycle re-entry).** Independently routed; an operator seeing "execution-provenance milestone" might assume the silent-agent_team gap or the frame→discover rejection are included. They are not.
+2. **The novelWriter SP2 historical run.** Stays as committed (operator-attested, disclosed). This milestone does not retroactively fix or re-grade it; whether a migration ships is a phase question, not a milestone promise.
+3. **`governed_ccb` provenance.** Operators may expect "execution provenance" to also reshape CCB dispatch records. It does not; CCB is out.
+4. **A specific `provenance_kind` field name / schema.** Operators (and a future impatient pass) may expect this frame to specify the schema. It deliberately does not — that is the disproven solutioning-in-disguise.
+
+## Open questions for `/plan` (sizing/sequencing only — NOT solution menus)
+
+1. **Phase 1 boundary**: the ownership-model question (who writes `status.json`/advances ledger when nothing spawns, `build.ts:468`) is the riskiest and most likely unbounded. Is Phase 1 scoped as "frame the ownership model and decide if it is bounded" (a decision-gate phase) rather than "implement it"? `/plan` sequences; it does not answer the ownership question here.
+2. **Phase count and order**: success criterion 5 requires ≥3 dependency-ordered phases. What is the dependency spine — ownership model → provenance carrier → `/review` contract → trust anchor → (optional) migration? `/plan` proposes; each phase gets its own `/frame`.
+3. **Milestone gate**: should the milestone commit to phases 2+ only after Phase 1's frame proves bounded (Risk 5 mitigation)? i.e. is this a "frame Phase 1, then re-evaluate" milestone rather than a fully-pre-planned roadmap?
+4. **Independent-review gate placement**: per this session's iron rule, where do the grounded independent reviews sit — after this milestone frame (before `/plan`), and after each phase frame? `/plan` records the gate, does not skip it.
+5. **What is explicitly deferred to per-phase frames and must NOT leak here**: the provenance field shape, the trust-anchor mechanism, the exact `review.ts` edits, the migration policy. Recorded so the next pass does not re-smuggle them (the relapse vector codex flagged).
+
+---
+
+## Status
+
+Law 1 (7 sections): problem ✓ hypothesis ✓ success criteria ✓ non-goals (5) ✓ risks (5) ✓ alternatives (3 rejected incl. the non-strawman steelman) ✓ decision rationale ✓.
+Law 2 (hypothesis 4 clauses): action (introduce phased first-class provenance, no solution picked) ✓ users (operators local_provider/claude inside Claude Code) ✓ outcome (complete lifecycle in-session, no fabrication, distinguishable provenance) ✓ evidence (Sources 1/2/4/6 + 3 grounded reviews) ✓.
+Law 3 gate: success criteria observable/falsifiable ✓; non-goals ≥3 (5) ✓; ≥1 Given/When/Then story (3) ✓; out-of-scope non-empty and distinct (4) ✓; hypothesis present ✓.
+Anti-solutioning self-check: no provenance schema named; no trust-anchor mechanism picked; no `review.ts` edit specified; open questions are sizing/sequencing. The one verified relapse vector (solutioning-in-disguise, Source 6) is explicitly guarded in Non-goal 1, Risk 2, Out-of-scope 4, Open question 5.
+
+**Verdict: framing complete and Law-compliant. Per this session's iron rule (no stage advance without grounded independent review — applied 3x, caught a blocker 3x), this milestone frame is NOT auto-advanced to `/plan`; it requires an independent grounded review first.**
