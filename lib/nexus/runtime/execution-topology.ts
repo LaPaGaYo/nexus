@@ -107,6 +107,12 @@ function commandExists(command: string): boolean {
   return resolveCommandPath(command) !== null;
 }
 
+export function isInsideClaudeCodeHost(env: Record<string, string | undefined> = process.env): boolean {
+  return env.CLAUDECODE === '1'
+    || env.AI_AGENT?.startsWith('claude-code') === true
+    || (typeof env.CLAUDE_CODE_EXECPATH === 'string' && env.CLAUDE_CODE_EXECPATH.length > 0);
+}
+
 function mountedCcbProviders(): PrimaryProvider[] {
   const mountedCommand = resolveCommandPath('ccb-mounted');
   if (!mountedCommand) {

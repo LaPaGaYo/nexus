@@ -258,7 +258,7 @@ If A:
 ~/.claude/skills/nexus/bin/nexus-config set execution_mode local_provider
 ~/.claude/skills/nexus/bin/nexus-config set primary_provider claude
 ```
-Then explain that the current session can continue with `local_provider`, and if `PROVIDER_TOPOLOGY` is empty the default local topology is `single_agent`.
+Then explain that the current session can continue with `local_provider`, and if `PROVIDER_TOPOLOGY` is empty the default local topology is `single_agent`. Claude local-provider topologies invoke the local Claude CLI; inside Claude Code they are guarded unless `NEXUS_ALLOW_NESTED_CLAUDE=1` is set.
 
 If B:
 ```bash
