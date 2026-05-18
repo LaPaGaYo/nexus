@@ -861,8 +861,15 @@ async function runClaudeNamedAgentCommand(
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
   assertNestedClaudeAllowed('subagents');
+  emitDispatchBanner(`claude/subagents:${agent.name}`, timeoutMs);
   const argv = buildClaudeNamedAgentCommand(agent);
-  const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+  const result = await runCommand({
+    argv,
+    cwd,
+    stdin_text: prompt,
+    timeout_ms: timeoutMs,
+    stream_to_tty: true,
+  });
   if (result.exit_code !== 0) {
     throw new Error(localCommandFailureMessage(`claude subagent ${agent.name}`, result));
   }
@@ -1041,8 +1048,15 @@ async function runClaudeAgentTeamCommand(
   runCommand: (spec: LocalCommandSpec) => Promise<LocalCommandResult>,
 ): Promise<{ stdout: string; stderr: string; argv: string[] }> {
   assertNestedClaudeAllowed('agent_team');
+  emitDispatchBanner('claude/agent_team', timeoutMs);
   const argv = buildClaudeAgentTeamCommand();
-  const result = await runCommand({ argv, cwd, stdin_text: prompt, timeout_ms: timeoutMs });
+  const result = await runCommand({
+    argv,
+    cwd,
+    stdin_text: prompt,
+    timeout_ms: timeoutMs,
+    stream_to_tty: true,
+  });
   if (result.exit_code !== 0) {
     throw new Error(localCommandFailureMessage('claude agent team', result));
   }
