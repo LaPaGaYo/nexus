@@ -234,3 +234,82 @@ These are v1.2 schema+contract scope, multi-stage, not a hotfix. Per the Complet
 **Decision:** stop repolishing the v1.1.2 PRD. Re-run `/discover` → `/frame` at v1.2 depth. The fail-fast stopgap already shipped (PR #160, merged `857253c`) — the silent hang is gone; users get a clear error today. That removes the time pressure that was forcing the hotfix frame. v1.2 can be framed honestly as the structural fix.
 
 The prior `prd.md` / `decision-brief.md` / `design-intent.json` for v1.1.2 are retained on this branch as the disproven-frame record (do not advance them to `/plan`).
+
+---
+
+# v1.2 Re-Discovery (2026-05-18) — the missing concept, not the missing patch
+
+This section supersedes the hotfix framing above for `/frame` purposes. Sources 1-6 remain the evidence base. The hotfix framing (Problem / Hypothesis Hint / Open Questions / Reframe / Status / Scope-Escalation) is retained as the disproven-frame record; `/frame` reads THIS section, not those.
+
+## Look Inward (v1.2 prior — what the team believes NOW, after the disproof)
+
+Entering v1.2 discovery, after two grounded independent reviews disproved the bounded-hotfix frame, the team's prior has materially changed:
+
+1. The problem is **not** "the spawn hangs." The hang is one symptom. PR #160 already removed the silent hang (fail-fast shipped, `857253c`).
+2. The problem is **not** "we need an early-exit." Three revisions of that solution each failed verification — the early-exit orphans `status.json`/ledger ownership, the provenance fields have no honest carrier, the `/review` contract crashes on the attested shape.
+3. The team now believes the real problem is a **missing concept in the governed-execution model**: Nexus's contract assumes execution is always *delegated to a separate process* (spawn `claude -p`, dispatch via CCB). It has no first-class representation for "the orchestrating session IS the named executor." Every symptom across all 6 sources traces to that one absent concept.
+4. The team believes this is why a 30-line patch keeps failing: you cannot bolt "session is the worker" onto a model that structurally assumes "worker is always elsewhere." The model needs a first-class attested-execution path, which is schema + contract + ownership work, i.e. v1.2.
+
+These priors are recorded so the synthesis below can be checked for whether the evidence actually supports the "missing concept" reframe or whether the team is rationalizing three failed attempts.
+
+## The Problem (v1.2 framing — named user, structural pain, cost)
+
+**Named user segment:** unchanged from Source-based framing — operators running Nexus `local_provider` + `primary_provider=claude` who invoke canonical lifecycle commands (`/build`, `/review`, `/qa`, `/ship`) from inside an active Claude Code session (the majority Nexus environment; `governed_ccb` is higher-setup-friction).
+
+**Structural pain (the missing concept, evidenced):**
+
+Nexus's governed-execution model has exactly two representable execution provenances: *spawned local provider* (`runProviderCommand` → `claude -p`) and *governed CCB dispatch* (codex/gemini via `ask`). There is no third: *the calling session attested the work itself*. Because that concept does not exist:
+
+- The bin tries to delegate to a peer even when the caller is the worker → silent hang (Sources 1, 2; pre-#160).
+- After #160's fail-fast, the bin hard-errors instead — the workflow is still impossible from the majority environment, just loud instead of silent (Source 6).
+- When operators route around it by hand-authoring artifacts, there is no honest provenance value to write, so they fabricate `dispatch_command`/`receipt`/`actual_route` (Source 1) — and `/review`'s provenance gate (`review.ts:540`, `:1188`, `build.ts:100-111`) cannot tell fabricated from real (Source 6).
+- Every attempt to add the missing path as a patch collides with the model's spawn-centric assumptions: status.json/ledger ownership (`build.ts:468`), downstream `actualRoute` derefs (`review.ts:1084`), the `provenance_consistent` fix-cycle gate (Source 6 BLOCKER/MAJOR set).
+
+**Cost:** the majority Nexus environment cannot run the governed lifecycle at all. Operators either context-switch to a bare terminal for every governed stage, or hand-fabricate provenance that silently degrades the audit trail `/review` and `/ship` depend on. ≥3 recorded occurrences across 2 projects / ~15-day cadence (Sources 1-2) plus the structural disproof (Source 6) that no bounded patch closes it.
+
+## Hypothesis Hint (v1.2 depth — for `/frame` to sharpen)
+
+**If** Nexus's governed-execution model gains a first-class third execution provenance — `operator_attested` — represented as an enforced schema citizen in `StageStatus`/`Local*Raw` (not an operator-authored string), with a defined ownership model for who writes `status.json` and advances the ledger when no process is spawned, and an end-to-end `/review` contract that consumes the attested shape (null `actualRoute` handled at every deref, `provenance_consistent` gate semantics defined for attested, fix-cycle eligibility preserved), and a non-circular trust anchor (not authored by the attesting session), **then** operators in the majority `local_provider/claude` environment can complete the full governed lifecycle in-session with honest, distinguishable provenance, **because** all six evidence sources show the symptoms are not independent bugs but one absent concept, and the three disproven hotfix attempts establish that the concept must be modeled, not patched.
+
+This is deliberately framed as a model change, not an implementation. `/frame` decides the v1.2 scope boundary (which stages, which schema fields, migration of historical fabricated artifacts); `/plan` sequences it. Discovery's claim is only that the missing concept IS the problem.
+
+## Open Questions for `/frame` (v1.2)
+
+1. **Ownership model**: when execution is `operator_attested`, what component writes `status.json` and advances the ledger — a bin "attested mode" that writes a real status without spawning, or a contract where the in-session operator writes it under a schema the bin validates on a second invocation? (This is the BLOCKER-2 hole; v1.2 must answer it as a model decision, not a seam tweak.)
+2. **Trust anchor**: what makes `operator_attested` non-circular? Options to weigh: a pre-execution ledger SHA captured by the bin before the operator works (so the attestation references something the operator did not author), a required CI re-run signature, or accepting attested as explicitly lower-trust and gating `/ship` accordingly. Discovery does not pick; `/frame` must.
+3. **`/review` contract scope**: does v1.2 make `/review` *handle* attested (survive + record) only, or also *weight* it (advisory, gate, fix-cycle eligibility)? Source 6 proved "survive only" is incoherent because `provenance_consistent` feeds `build.ts:100-111`. `/frame` must define the full contract, not defer it.
+4. **Historical artifact migration**: novelWriter SP2 + ≥2 prior runs have fabricated provenance and no `provenance_kind`. Does v1.2 ship a one-time annotation/migration, a `/review`-side "absent = untrusted" rule, or leave them as disclosed-prose exceptions? Affects schema-required vs optional.
+5. **Stage coverage**: `/build` is the recurrence surface, but `/review` `/qa` `/ship` share the spawn path and the same missing concept. Does v1.2 model attested-execution once for all governed stages, or sequence `/build` first with the others explicitly phased? (Source 6 showed `/build`-only is a false minimal because the operator hits the next stage immediately.)
+6. **Relationship to #160**: #160's `assertNestedClaudeAllowed` throw is the current fail-fast. Does v1.2's attested path replace the throw, layer above it, or keep it as the `NEXUS_ALLOW_NESTED_CLAUDE`-off default? Must be a deliberate model decision, not an afterthought.
+
+## Reframe (where the disproof changed Look Inward)
+
+| Original Look Inward (hotfix framing) | v1.2 Look Inward (post-disproof) |
+|---|---|
+| The spawn hangs; add an early-exit | The hang is one symptom of a missing execution-provenance concept; #160 already fixed the hang |
+| ~30-line bounded hotfix | Schema + contract + ownership model = v1.2 multi-stage |
+| `provenance_kind` is an optional string field | `provenance_kind` must be an enforced schema citizen with a trust anchor, or it is fabrication-equivalent |
+| `/review` just needs to not crash | `/review` needs a defined end-to-end contract for the attested shape (gate semantics, fix-cycle eligibility), proven by Source 6 |
+| Three independent symptoms (hang, provenance, streaming) | One absent concept; the symptoms are its shadows across 6 sources |
+
+The reframe matters because it explains *why* three hotfix revisions each failed verification: they were patching shadows. v1.2 names the object casting them. The receipt that this discovery actually happened is that the team's entering prior ("add an early-exit") is now explicitly on record as disproven by its own evidence.
+
+## Status (v1.2 re-discovery)
+
+Law 2 checks:
+1. Named user segment — operators in `local_provider/claude` from inside Claude Code (specific, not "users")
+2. Observed pain with cost — majority environment cannot run governed lifecycle; fabricated provenance degrades audit trail; ≥3 occurrences + structural disproof
+3. ≥2 evidence sources — 6 sources (Sources 1-6 above, including two grounded independent reviews)
+4. Hypothesis hint — v1.2-depth If/Then/Because (model change, present)
+5. ≥3 open questions — 6 questions for `/frame`, all v1.2-structural
+
+Law 1 anti-pattern check:
+- Not a feature spec — names a missing concept, not fields/buttons
+- Not user testing — synthesizes existing evidence
+- Not substitute for shipping — #160 already shipped the stopgap; this is the structural follow-on
+- Not single-stakeholder — operator + `/review`/`/ship` audit consumers + Nexus governance model
+- Not solutioning in disguise — explicitly pulls back from the nexus.ts:139 / review.ts:540 solutioning the hotfix drifted into; the "missing concept" is a problem statement, solution deferred to `/frame`+`/plan`
+
+Law 3: Look Inward (v1.2 prior) recorded before synthesis; Look Outward = Sources 1-6; Reframe present.
+
+**Verdict: ready for `/frame` at v1.2 depth.**
