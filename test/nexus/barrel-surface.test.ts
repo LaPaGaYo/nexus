@@ -18,6 +18,21 @@
 
 import { describe, expect, test } from 'bun:test';
 import * as nexus from '../../lib/nexus';
+// Type-only re-exports are erased at runtime, so they can't be asserted via
+// `key in nexus`. Pin them at compile time instead: if the barrel stops
+// re-exporting one of these, this import fails to type-check and `bun run
+// build` / tsc breaks. SP6 consumes reader return types through the barrel,
+// so these must stay barreled.
+import type {
+  StageLearningCandidatesRecord,
+  RunLearningsRecord,
+} from '../../lib/nexus';
+
+// Reference the pinned types so an unused-import does not silently drop them.
+type _BarrelTypePin = [
+  StageLearningCandidatesRecord | undefined,
+  RunLearningsRecord | undefined,
+];
 
 const EXPECTED_VALUE_EXPORTS = [
   // ── Canonical identifiers ──
@@ -62,6 +77,16 @@ describe('lib/nexus barrel surface (#151)', () => {
   test('exposes every documented public value export', () => {
     const missing = EXPECTED_VALUE_EXPORTS.filter((key) => !(key in nexus));
     expect(missing).toEqual([]);
+  });
+
+  test('re-exports SP6 reader return types (compile-time pinned)', () => {
+    // StageLearningCandidatesRecord and RunLearningsRecord are type-only
+    // exports — erased at runtime, so there is nothing to assert in `nexus`.
+    // The `import type { ... } from '../../lib/nexus'` + `_BarrelTypePin`
+    // at the top of this file fail `bun run build` / tsc if the barrel
+    // drops either type. This test documents that the pin is intentional.
+    const pin: _BarrelTypePin = [undefined, undefined];
+    expect(pin).toHaveLength(2);
   });
 
   test('canonical command list resolves through the barrel', () => {

@@ -38,6 +38,8 @@ export type {
   DesignIntentRecord,
   InstalledSkillNamespace,
   NexusStageContentId,
+  StageLearningCandidatesRecord,
+  RunLearningsRecord,
 } from './contracts/types';
 
 // ─── Canonical identifiers (pinned across many tests + runtime call sites) ───
