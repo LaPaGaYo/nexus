@@ -1,6 +1,6 @@
 // test/nexus/learning/context/acceptance.test.ts
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { resolveLearningContext } from '../../../../lib/nexus/learning/context/resolver';
@@ -38,6 +38,7 @@ describe('SP6 acceptance criteria', () => {
     seed(3);
     const r = call();
     const rec = JSON.parse(readFileSync(r.recordPath, 'utf8'));
+    expect(rec.packet.length).toBeGreaterThan(0); // guard: AC#2 must not vacuously pass on empty packet
     for (const p of rec.packet) {
       for (const k of ['relevance', 'effective_confidence', 'evidence_strength', 'file_overlap', 'stage_match', 'contradiction_risk']) {
         expect(p.factors[k]).toHaveProperty('value');
@@ -50,6 +51,9 @@ describe('SP6 acceptance criteria', () => {
     const dir = join(home, '.nexus', 'projects', 'demo'); mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'learnings.jsonl'), '{bad json\n{"also":bad}\n');
     const r = call();
+    // Malformed lines are silently dropped by readLearningsJsonl (no throw) →
+    // status 'ok'; the reader-threw degrade + catastrophic 'failed' paths are
+    // covered in resolver.test.ts. AC#3 here proves "no crash, ranking returned".
     expect(r.boostedRanking.length).toBe(natural.length);
     expect(['ok', 'degraded']).toContain(r.status);
   });
@@ -64,8 +68,17 @@ describe('SP6 acceptance criteria', () => {
     seed(2);
     const r = call();
     expect(r.recordPath).toBe(join(cwd, '.planning', 'current', 'build', 'learning-context.json'));
-    for (const p of ['SKILL.md.tmpl', 'Nexus.md', 'CLAUDE.md', 'AGENTS.md']) {
-      expect(() => readFileSync(join(cwd, p))).toThrow();
-    }
+    // No mutation: the ONLY file the resolver creates under cwd is the single
+    // learning-context.json. Walk cwd and assert exactly that one file exists.
+    const found: string[] = [];
+    const walk = (d: string) => {
+      for (const name of readdirSync(d)) {
+        const fp = join(d, name);
+        if (statSync(fp).isDirectory()) walk(fp);
+        else found.push(fp);
+      }
+    };
+    walk(cwd);
+    expect(found).toEqual([join(cwd, '.planning', 'current', 'build', 'learning-context.json')]);
   });
 });
