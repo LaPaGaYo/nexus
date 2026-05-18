@@ -61,3 +61,19 @@ Code lives on branch `feat/problem-b-streaming-parity` off origin/main `891055c`
 ### B-3 — REMAINING (regression-lock test). Cold-start spec:
 
 Fails-pre-B-2 / passes-post-B-2 is the non-negotiable meaningfulness check (verify by checking out `df688d8` = pre-B-2). Invariant: for each claude dispatch path (single_agent runProviderCommand / subagents runClaudeNamedAgentCommand / agent_team runClaudeAgentTeamCommand), the `spec` passed to `runCommand` has `stream_to_tty===true` AND a `[nexus/local-provider] dispatching ...` banner hit `process.stderr` before that runCommand. Guard-ordering sub-case: with `CLAUDECODE=1` + no `NEXUS_ALLOW_NESTED_CLAUDE`, dispatch throws and ZERO specs/banner captured (banner is after the guard). Harness: reuse `test/nexus/runtime/local-provider-mode.test.ts` `runInTempRepo` + `createRuntimeLocalAdapter({now,runCommand:spy})`; mirror subagents-build (~L300), agent-team (~L1213, sets CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1), single_agent (~L139); spy also captures `spec.stream_to_tty`; capture `process.stderr.write`; guard sub-case uses `withEnv({CLAUDECODE:'1',AI_AGENT:undefined,CLAUDE_CODE_EXECPATH:undefined,NEXUS_ALLOW_NESTED_CLAUDE:undefined},...)` (mirror L1992). Then `bun test` full exit 0, atomic commit, open PR (B-1+B-2+Finding-D+B-3) "feat: streaming parity across claude dispatch paths + fix #160 test-env regression", cite idea-brief Source 11 (c) part 2 + Source 12.
+
+---
+
+## Problem B CLOSED (2026-05-18) — PR #163
+
+All 4 commits on `feat/problem-b-streaming-parity` (off origin/main 891055c), pushed, PR #163 open:
+- `cd26c81` Finding D fix (test host-env isolation)
+- `df688d8` B-1 emitDispatchBanner helper
+- `5d4c430` B-2 subagents+agent_team parity
+- `04b146b` B-3 regression lock (fails-pre-B2 / passes-post-B2 explicitly verified by reverting local.ts to df688d8 and back)
+
+Verification: local-provider-mode + local-provider-guards 39/0; full runtime dir 107/0; repo:inventory:check up to date; #160 guard suite still green (not weakened). All run inside Claude Code (CLAUDECODE=1 — the original break condition).
+
+PR: https://github.com/LaPaGaYo/nexus/pull/163 — "feat: streaming parity across claude dispatch paths + fix #160 test-env regression". Awaiting review/merge (standard PR flow). Sprint-contract fully satisfied; Problem B unit closed.
+
+Remaining from (c): parts 3 (bless direct-terminal doc), 4 (narrow attestation-import /review rule), 5 (Problem A deferral 1-line project-arch record). Problem C + codex-parser contributor-log remain independently routed.
