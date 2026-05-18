@@ -396,3 +396,15 @@ Law 1: not a feature spec ✓; not user testing ✓; not substitute for shipping
 Law 3: Look Inward (two disproven priors on record) → Look Outward (Sources 1-7) → Reframe ✓.
 
 **Verdict: the decomposition is ready for `/frame`. Recommended: take Problem B to a bounded `/frame`-or-`/plan` first (smallest, independently shippable, real user value), route Problem A to `/new-milestone` (flagged unbounded), and decide Problem C's ownership separately.**
+
+---
+
+## Vehicle Decision (2026-05-18) — Problem A is a Nexus-native milestone, not GSD
+
+Decomposition open question #2 ("A's home: /new-milestone or single large /frame?") is now answered.
+
+`gsd:new-milestone` was attempted and **correctly aborted**: (1) its precondition (an existing GSD `PROJECT.md`) is not met — this repo has zero GSD artifacts, `.planning/` is pure Nexus schema (`current/` only), `gsd-tools init` reports `project_exists:false`; (2) introducing GSD's `PROJECT.md`/`ROADMAP.md`/`STATE.md`/`REQUIREMENTS.md` into `.planning/` would create a second governance surface competing with Nexus `current/`, directly violating this repo's CLAUDE.md ("Nexus is the only active command, lifecycle, artifact, and governance surface" / no "second contract layer"). This was surfaced as a conflict, not silently reconciled.
+
+**Decision: Problem A is framed as a milestone-scale work unit inside Nexus's own lifecycle.** Vehicle = Nexus canonical `/frame`, with explicit milestone discipline: the frame MUST phase-decompose Problem A and MUST NOT pre-decide the solution shape (operator_attested schema / trust anchor / `/review` contract details). Pre-deciding the solution is precisely the solutioning-in-disguise that disproved the v1.2 framing (codex 0.130, Source 6/this section's predecessor). The frame's job is to bound and phase the problem, not answer it.
+
+Problems B (streaming parity) and C (lifecycle re-entry) remain explicitly out of this milestone and routed separately.
