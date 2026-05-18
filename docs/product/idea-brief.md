@@ -203,3 +203,34 @@ Law 3 structure check:
 - ✅ Reframe section showing prior-vs-evidence shift
 
 **Verdict**: ready for `/frame`.
+
+---
+
+## Scope-Escalation Decision (2026-05-18) — v1.1.2-as-hotfix DISPROVEN, escalate to v1.2
+
+### Source 6 — two grounded independent reviews disprove the bounded-hotfix frame
+
+The operator-attested early-exit was framed three times as a ~30-line bounded v1.1.2 hotfix (prd.md draft → B1-corrected → post-#160-merge revision). Two independent adversarial reviews, each re-verified against real merged `origin/main` (@ `857253c`), found the bounded frame structurally false:
+
+- **Red-team pass (2026-05-17):** B1 (PRD treated #160 as merged when unmerged — operator error), B2 (graded on wrong baseline), B3 (phantom `/review` consumption point; attested build crashes `review.ts`).
+- **codex 0.130 pass (2026-05-18, grounded on merged main):** revision did not resolve the blockers, only relocated them.
+  - BLOCKER: `prd.md:41` (empty-diff guardrail = `/review` changes readiness) directly contradicts `prd.md:47/104` (no `/review` re-grading in v1.1.2). The guardrail IS re-grading.
+  - BLOCKER: CLI early-exit at `nexus.ts:139` skips `invocation.handler` (`build.ts:468`), which owns ledger construction + `status.json` + stage advancement. No owner for status authorship; `decision-brief.md:23` admits this is unresolved.
+  - BLOCKER: B3 is not bounded to `review.ts:540-546`. Null `actualRoute` crashes downstream at `review.ts:1084` (`actualRoute.provider`). Every downstream deref needs handling.
+  - MAJOR: `review.ts:1188` hardcodes `provenance_consistent: true`; `build.ts:100-111` fix-cycle eligibility depends on it. A "survival" branch setting it true for attested/null-route builds is a silent trust-gate downgrade.
+  - MAJOR: M2's operator-captured diff-stat is self-attested with no carrier field (`types.ts:990`, `local.ts:35`) and no enforcement path — circular anti-fabrication, same defect class as the original B3.
+
+### The real signal
+
+This is the recurring pattern of this work unit applied to the work unit itself: a structurally deep problem repeatedly treated as a bounded one, with verification exposing the gap each time. The honest conclusion is not "the PRD needs another revision" — it is **the v1.1.2-hotfix frame is wrong**. The operator-attested model has irreducible architectural depth:
+
+1. **`status.json` / ledger ownership** — who writes governed artifacts and advances the stage when the bin does not spawn and does not run the normal handler path.
+2. **`provenance_kind` as a real schema citizen** — a carried, enforceable field in `StageStatus` + `Local*Raw`, not an operator-authored string.
+3. **`/review` contract change** — `review.ts` must handle the attested shape end-to-end (not just stop the first throw): null `actualRoute` derefs, the `provenance_consistent` gate semantics, fix-cycle eligibility.
+4. **Anti-fabrication that is not circular** — a trust anchor not authored by the same session being attested.
+
+These are v1.2 schema+contract scope, multi-stage, not a hotfix. Per the Completeness Principle: flag the unbounded reframe explicitly instead of pretending it is the same kind of task.
+
+**Decision:** stop repolishing the v1.1.2 PRD. Re-run `/discover` → `/frame` at v1.2 depth. The fail-fast stopgap already shipped (PR #160, merged `857253c`) — the silent hang is gone; users get a clear error today. That removes the time pressure that was forcing the hotfix frame. v1.2 can be framed honestly as the structural fix.
+
+The prior `prd.md` / `decision-brief.md` / `design-intent.json` for v1.1.2 are retained on this branch as the disproven-frame record (do not advance them to `/plan`).
