@@ -29,7 +29,7 @@ export function scoreEntry(
   const w = config.weights;
 
   const relVal = relevance(entry, ctx);
-  const confVal = computeEffectiveConfidence(entry, ctx.now || undefined) / 10;
+  const confVal = computeEffectiveConfidence(entry, ctx.now) / 10;
   const strVal = computeStrength(entry) / STRENGTH_MAX;
   const fileVal = fileOverlap(entry.files ?? [], ctx.changedFiles);
   const stageVal = stageMatch(ctx.stage, (entry as { subject_stage?: string }).subject_stage);
