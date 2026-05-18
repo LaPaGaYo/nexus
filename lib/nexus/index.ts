@@ -38,6 +38,8 @@ export type {
   DesignIntentRecord,
   InstalledSkillNamespace,
   NexusStageContentId,
+  StageLearningCandidatesRecord,
+  RunLearningsRecord,
 } from './contracts/types';
 
 // ─── Canonical identifiers (pinned across many tests + runtime call sites) ───
@@ -106,3 +108,10 @@ export { normalizeLearningLine } from './learning/normalize';
 export type { NormalizedEntry } from './learning/normalize';
 export { writeLearningCandidate } from './learning/candidates';
 export type { WriteLearningCandidateInput } from './learning/candidates';
+export { computeEffectiveConfidence } from './learning/decay';
+export {
+  readLearningsJsonl,
+  readStageCandidatesFile,
+  readCanonicalLearningsFile,
+  walkArchiveRunLearnings,
+} from './learning/read';
