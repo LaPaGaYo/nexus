@@ -999,10 +999,12 @@ describe('resolveLearningContext', () => {
 
   test('a strong on-topic learning for "investigate" boosts it and records disagreement', () => {
     writeJsonl('demo', [{
-      id: 'lrn_1', ts: new Date().toISOString(), skill: 'investigate', type: 'pitfall',
-      key: 'socket timeout build', insight: 'investigate socket timeout on build',
-      confidence: 9, source: 'observed', files: ['lib/net/socket.ts'],
-      subject_skill: 'investigate', subject_stage: 'build', evidence_type: 'test-output',
+      id: 'lrn_1', schema_version: 2, ts: new Date().toISOString(),
+      writer_skill: 'investigate', subject_skill: 'investigate', subject_stage: 'build',
+      type: 'pitfall', key: 'socket timeout build', insight: 'investigate socket timeout on build',
+      confidence: 9, evidence_type: 'test-output', source: 'observed', files: ['lib/net/socket.ts'],
+      cluster_id: null, supersedes: [], supersedes_reason: null, derived_from: [],
+      last_applied_at: null, mirror: null,
     }]);
     const r = resolveLearningContext({ cwd, home, stage: 'build', runId: 'r1', changedFiles: ['lib/net/socket.ts'], naturalRanking: natural, projectSlug: 'demo' });
     expect(r.packet.length).toBeGreaterThan(0);
@@ -1188,10 +1190,12 @@ afterEach(() => { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { 
 function seed(n: number) {
   const dir = join(home, '.nexus', 'projects', 'demo'); mkdirSync(dir, { recursive: true });
   const lines = Array.from({ length: n }, (_, i) => JSON.stringify({
-    id: `lrn_${i}`, ts: new Date().toISOString(), skill: 'investigate', type: 'pitfall',
-    key: `build socket timeout ${i}`, insight: `investigate build socket timeout case ${i}`,
-    confidence: 9, source: 'observed', files: ['lib/net/socket.ts'],
-    subject_skill: 'investigate', subject_stage: 'build', evidence_type: 'test-output',
+    id: `lrn_${i}`, schema_version: 2, ts: new Date().toISOString(),
+    writer_skill: 'investigate', subject_skill: 'investigate', subject_stage: 'build',
+    type: 'pitfall', key: `build socket timeout ${i}`, insight: `investigate build socket timeout case ${i}`,
+    confidence: 9, evidence_type: 'test-output', source: 'observed', files: ['lib/net/socket.ts'],
+    cluster_id: null, supersedes: [], supersedes_reason: null, derived_from: [],
+    last_applied_at: null, mirror: null,
   }));
   writeFileSync(join(dir, 'learnings.jsonl'), lines.join('\n'));
 }
