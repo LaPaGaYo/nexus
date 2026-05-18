@@ -501,3 +501,27 @@ Bun transpiles by stripping types without type-checking. **The project's real pi
 ### Disposition update
 
 (a) is closed with a decisive negative. The live decision is now (b) vs (c), and it is no longer a guess: (b) = "first give this Bun project a type-check gate it has never had, then do Problem A on top" (milestone + unmeasured tail); (c) = codex's bounded steelman (keep #160, ship Problem B, bless direct-terminal, narrow review rule). The decomposition (A/B/C independent) and B/C boundedness remain unaffected and are the only review-survived assets.
+
+---
+
+## Source 11 — DECISION RECORD (2026-05-18): adopt (c), the bounded steelman
+
+After Source 10 closed option (a) with a decisive negative (the project has no type-check gate; option (b) re-measured as milestone-scale with an unmeasured pre-existing-error tail), the operator decided: **adopt (c), codex's bounded steelman.** This is the data-aligned choice and is recorded as the work unit's resolution.
+
+### What (c) concretely is (4 bounded parts + 1 explicit deferral)
+
+1. **Keep #160 fail-fast.** Already merged (`857253c`). No action — just do not regress it. `assertNestedClaudeAllowed` stays as the in-Claude-Code guard.
+2. **Ship Problem B — streaming parity.** Add `stream_to_tty` + dispatch banner to the two dispatch paths that lack them: `runClaudeNamedAgentCommand` (subagents) and `runClaudeAgentTeamCommand` (agent_team), matching `runProviderCommand` (single_agent). Bounded; survived all six reviews as independently shippable; the only review-survived code deliverable. This is the concrete buildable piece.
+3. **Bless direct-terminal as a supported governed path.** Promote the #160 error message's "invoke from a terminal outside Claude Code" from incidental error text to an explicit, documented supported path (operator-facing doc + the message framed as guidance, not just rejection). No model change.
+4. **Add a narrow attestation-import review rule.** A small `/review`-side rule: when `build-result.md` carries an operator-attestation disclosure block, classify the build as a recognized lower-trust provenance class (not "indistinguishable from fabricated"). Narrow and rule-based — explicitly NOT the Problem A provenance model, NOT a schema change, NOT touching `review.ts:541/1188` semantics beyond reading the disclosure.
+5. **Problem A explicitly deferred / out-of-current-scope.** "Honest in-session execution provenance via a model change" requires type-check infrastructure the project deliberately does not have (Source 10). Its absence is a project-level architectural choice. Problem A is recorded as **blocked on a separate, prior project-architecture decision** (does this Bun project want a type-check gate at all?), not as a gap patchable under this work unit. Not abandoned — correctly sequenced behind a decision that is not ours to make inside Problem A.
+
+### Why this is the honest resolution, not a retreat
+
+Six grounded independent reviews + a representability spike + a working-env sweep converged here. (c) was codex's own steelman, raised against the framings and never disproven — the data ((b) is milestone+tail; the project has no type gate) makes it the rational stopping point, not a concession. The decomposition (A/B/C independent) is the one assertion that survived every review; (c) executes the bounded survivors (B + the two contract/doc changes) and honestly parks the unbounded one (A) behind its true precondition.
+
+### Disposition / next
+
+Execution sequence for (c): Problem B is the code deliverable and routes to its own bounded planning (it is small enough that the decomposition's open question "does B even need /frame?" applies — likely straight to a bounded plan). Parts 3 and 4 are bounded contract/doc changes that can follow B or run alongside. Part 5 (Problem A deferral) needs a one-line record in the project's architecture decisions, owned by the project, not reframed here. Problem C (lifecycle re-entry, Source 7) remains separately routed and unaffected.
+
+This closes the discovery/framing arc of the work unit. The resolution is bounded, review-survived, and honest about what it does not do.
