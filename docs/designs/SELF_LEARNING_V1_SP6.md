@@ -40,7 +40,21 @@ If v1 ships without (1)–(5) it does not satisfy the LearningContext contract.
 | Ranking combination function + per-factor weights | **Transparent weighted linear sum** over a fixed factor set (see §6). Explainable by construction. |
 | Packet cap mechanism | **Score floor (0.15) + dual cap (max-entries 12, token-budget ~1500), whichever binds first.** All operator-configurable. |
 | Where the resolver runs | **Lazy, synchronous, inside the completion-advisor build path** at stage completion. No daemon, no cache, no CLI preamble. Reads surfaces fresh each call. Sidecar/caching deferred to SP6.1 if telemetry shows need. |
-| Boost vs. natural rank — which wins, how recorded | **Bounded additive delta**, capped at the advisor ranking's own strong-signal increment so a boost can nudge ordering among comparable skills but never overtake a strong natural signal (structurally "boost, not override"). Any boosted-vs-natural ordering difference is recorded in `rank_disagreements[]`. |
+| Boost vs. natural rank — which wins, how recorded | **Bounded additive delta** applied to **`stageAwareAdvisor`'s `RecommendedSkill[]` numeric `score`** (the primary `recommended_skills` surface; see §4a), capped at that ranker's strong-signal increment (= manifest base score `5`) so a boost can nudge ordering among comparable skills but never overtake a strong natural signal (structurally "boost, not override"). Any boosted-vs-natural ordering difference is recorded in `rank_disagreements[]`. |
+
+> **§4a Boost-target decision (resolved during planning, 2026-05-18).** The
+> completion-advisor exposes two ranking surfaces: `stageAwareAdvisor`
+> (`stage-aware-advisor.ts` → `RecommendedSkill[]` with a numeric `score`, set on
+> the **primary** `record.recommended_skills` at `writer.ts:48`, pure fn) and
+> `rankInstalledSkillsForAdvisor` (`skill-registry/ranking.ts` →
+> `CompletionAdvisorActionRecord[]`, score discarded before return, set on the
+> secondary `record.recommended_external_skills`). SP6 v1 boosts
+> **`stageAwareAdvisor`** — it retains the numeric score the bounded-additive-delta
+> and `natural_score`/`boosted_score` disagreement recording require, it is the
+> primary recommendation surface, and it is a single clean pure seam. AC#4's
+> "SkillRegistry rank" intent is preserved: `stageAwareAdvisor` ranks
+> SkillRegistry-discovered `SkillRecord[]`; "natural rank" = its ordering over
+> those skills.
 
 ## 4. Architecture
 
@@ -59,6 +73,15 @@ Barreled SP1-followup contract consumed (already live on `main`, `lib/nexus/inde
 `walkArchiveRunLearnings`, `computeEffectiveConfidence`, `computeStrength`,
 `StageLearningCandidatesRecord`, `RunLearningsRecord`.
 
+Consumer seam: `stageAwareAdvisor` (`lib/nexus/completion-advisor/stage-aware-advisor.ts`),
+called at `lib/nexus/completion-advisor/writer.ts:48` where its `RecommendedSkill[]`
+is assigned to `record.recommended_skills`. Wiring is additive: the writer computes
+the natural `stageAwareAdvisor(...)` result, passes it to the resolver as
+`naturalRanking`, and assigns the resolver's `boostedRanking` to
+`record.recommended_skills` (falling back to the natural result on resolver failure).
+`RecommendedSkill` (from `lib/nexus/contracts/types`) carries `{ name, surface,
+namespace, summary, why_relevant, score, manifest_backed }`.
+
 ## 5. Data flow
 
 Resolver input contract (everything is already available to the completion-advisor at stage completion):
@@ -68,11 +91,16 @@ interface LearningContextInput {
   cwd: string;
   stage: 'discover'|'frame'|'plan'|'handoff'|'build'|'review'|'qa'|'ship'|'closeout';
   runId: string;
-  changedFiles: string[];        // files touched this run
-  naturalRanking: RankedSkill[]; // rankInstalledSkillsForAdvisor output, pre-boost
-  projectSlug: string;           // for ~/.nexus/projects/<slug>/learnings.jsonl
+  changedFiles: string[];            // files touched this run
+  naturalRanking: RecommendedSkill[]; // stageAwareAdvisor output, pre-boost (carries numeric score)
+  projectSlug: string;               // for ~/.nexus/projects/<slug>/learnings.jsonl
 }
 ```
+
+`RecommendedSkill` is the existing `lib/nexus/contracts/types` shape
+(`{ name, surface, namespace, summary, why_relevant, score, manifest_backed }`).
+The resolver matches a packet entry's `subject_skill` to a `RecommendedSkill` by
+`name` (or `surface` `/<name>`).
 
 Synchronous steps, inside the advisor build path:
 
@@ -88,13 +116,17 @@ Synchronous steps, inside the advisor build path:
 3. **Rank** — `scoreEntry` per entry (see §6).
 4. **Cap** — `capPacket`: drop `< score_floor`, then take top-scored until
    `max_entries` OR `token_budget` is hit, whichever first.
-5. **Boost** — for each packet entry with a `subject_skill`, accumulate a capped
-   additive delta onto that skill's natural advisor score.
+5. **Boost** — for each packet entry whose `subject_skill` matches a
+   `naturalRanking` `RecommendedSkill` (by `name`/`surface`), accumulate a capped
+   additive delta onto that skill's numeric `score`; re-sort the
+   `RecommendedSkill[]` by boosted score (stable, tie-break by `name` to mirror
+   `stageAwareAdvisor`'s own `localeCompare` tie-break).
 6. **Record** — diff boosted vs natural ordering; write `learning-context.json`
    with packet entries, per-factor value/weight/contribution, boost deltas, and
    any ordering disagreements.
-7. **Return** — `{ boostedRanking, packet, recordPath }` to the advisor; advisor
-   emits `boostedRanking` as its `recommended_skills`.
+7. **Return** — `{ boostedRanking, packet, recordPath }`; `writer.ts` assigns
+   `boostedRanking` to `record.recommended_skills` (on resolver failure it keeps
+   the unmodified natural `stageAwareAdvisor` result — additive, never blocking).
 
 ## 6. Ranking model
 
@@ -121,10 +153,17 @@ score = Σ(positive_factor_i × weight_i) − contradiction_risk × 0.50,   clam
 ```
 boost_delta(skill) = min(BOOST_CAP, Σ_{packet entries with subject_skill = skill} entry.score × BOOST_SCALE)
 ```
-`BOOST_CAP` is read from `ranking.ts`'s existing strong-signal increment scale
-(not a magic literal) so a boost can reorder among comparable skills but cannot
-overtake a genuinely strong natural signal — structurally "boost, not override."
-`BOOST_SCALE` default tuned so a single max-score learning ≈ a weak natural signal.
+`BOOST_CAP` default = `5` — `stageAwareAdvisor`'s strong-signal increment (its
+manifest base score: a skill whose `nexus.skill.yaml` declares the current
+lifecycle stage scores `5`; heuristic/no-manifest scores `1`; each matching
+intent tag adds `+1`). Capping the total boost at one manifest-base unit means a
+boost can lift a heuristic or weakly-matched skill up to roughly one
+manifest-declared tier, but cannot overtake a skill that is itself
+manifest-declared **and** tag-matched (score ≥ 6) — structurally "boost, not
+override." `BOOST_CAP` is operator-configurable; the default is sourced from the
+`stageAwareAdvisor` base-score constant, not a magic literal duplicated in SP6.
+`BOOST_SCALE` (default `1.0`) scales summed packet-entry scores into score-space
+so a single max-score (`1.0`) learning contributes ≈ one heuristic-signal unit.
 
 Weights/floor/caps are starting points, not claimed optimal; SP2 later learns
 from the telemetry this produces.
@@ -142,7 +181,7 @@ from the telemetry this produces.
   "limits": { "score_floor": 0.15, "max_entries": 12, "token_budget": 1500,
               "weights": { "relevance": 0.30, "effective_confidence": 0.25, "evidence_strength": 0.20,
                            "file_overlap": 0.15, "stage_match": 0.10, "contradiction_risk": -0.50 },
-              "boost_cap": "<derived from ranking strong-signal increment>", "boost_scale": "<default>" },
+              "boost_cap": 5, "boost_scale": 1.0 },
   "packet": [
     { "id": "lrn_...", "source_path": "~/.nexus/.../learnings.jsonl", "subject_skill": "investigate",
       "score": 0.82,
@@ -195,10 +234,13 @@ natural ordering (AC#4). Empty array = boost changed nothing material.
   (e.g., AC#5: resolver never write-opens `SKILL.md.tmpl` / `Nexus.md` /
   `CLAUDE.md` / `AGENTS.md` / lifecycle-contract paths; AC#4: disagreement
   recorded iff ordering differs).
-- **Behavior-preservation:** existing completion-advisor tests stay green —
-  wiring is additive (advisor calls resolver, falls back to natural ranking on
+- **Behavior-preservation:** existing `stage-aware-advisor` + completion-advisor
+  `writer` tests stay green — wiring at `writer.ts:48` is additive (writer computes
+  natural `stageAwareAdvisor(...)`, passes it to the resolver, assigns
+  `boostedRanking`, and falls back to the unmodified natural result on resolver
   failure). This is the SP1-followup-style proof that v1 doesn't regress the
-  advisor.
+  advisor: with no learnings present the boosted result must equal the natural
+  result entry-for-entry.
 
 ## 10. Out of scope (explicit non-goals for v1)
 
