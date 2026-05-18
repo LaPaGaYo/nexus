@@ -313,3 +313,19 @@ Law 1 anti-pattern check:
 Law 3: Look Inward (v1.2 prior) recorded before synthesis; Look Outward = Sources 1-6; Reframe present.
 
 **Verdict: ready for `/frame` at v1.2 depth.**
+
+---
+
+### Source 7 — the lifecycle state machine reproduces the same rigidity (2026-05-18)
+
+While running canonical `./bin/nexus discover` for this v1.2 re-discovery, the bin returned:
+
+```
+Illegal Nexus transition: frame -> discover
+```
+
+The shadow run-worktree ledger had advanced `discover → frame` during the disproven hotfix attempts. The canonical lifecycle state machine permits only forward transitions; it has no first-class representation for "the framing was disproven by review, legitimately re-enter discovery." This is the same defect class as the v1.2 thesis itself: a rigid governed model with no honest representation for a legitimate non-mainline state. Two layers (execution provenance, lifecycle transition) exhibit the same missing-concept shape — which strengthens, not weakens, the v1.2 framing: the fix target is the modeling discipline, not one code path.
+
+Per repo governance (surface tool/repo-state conflicts, do not silently reconcile): the repo-visible `idea-brief.md` on the active branch is the operator-attested system of record and is Law-1/2/3 compliant. The bin's shadow ledger could not record the re-discovery transition; that conflict is surfaced here rather than forced by resetting ledger state (which would be the fabricate-state anti-pattern this whole work unit exists to eliminate).
+
+`/frame` is the legal next bin transition from the current ledger position, and `/frame` will read THIS v1.2 section as its upstream. The frame→discover rejection does not block the v1.2 work; it is additional evidence for it.
