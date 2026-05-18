@@ -243,7 +243,9 @@ test('SP6 wiring is additive: empty learning store ⇒ recommended_skills unchan
   const home = mkdtempSync(pjoin(tmpdir(), 'sp6-wire-h-'));
   try {
     const skills = [
-      { name: 'investigate', surface: '/investigate', namespace: 'external_installed', tags: [], path: '/x', description: 'build debugging', manifest: undefined },
+      { name: 'investigate', surface: '/investigate', namespace: 'external_installed', tags: [], path: '/i', description: 'build debugging', manifest: undefined },
+      { name: 'analyze',     surface: '/analyze',     namespace: 'external_installed', tags: [], path: '/a', description: 'build analysis',  manifest: undefined },
+      { name: 'benchmark',   surface: '/benchmark',   namespace: 'external_installed', tags: [], path: '/b', description: 'build perf check', manifest: undefined },
     ] as unknown as Parameters<typeof buildCompletionAdvisorWrite>[1]['installedSkills'];
     const record = {
       run_id: 'r1', stage: 'build', stage_outcome: 'ok', interaction_mode: 'interactive',
@@ -251,6 +253,7 @@ test('SP6 wiring is additive: empty learning store ⇒ recommended_skills unchan
     } as unknown as Parameters<typeof buildCompletionAdvisorWrite>[0];
     const natural = stageAwareAdvisor({ skills: skills as never, stage: 'build' });
     buildCompletionAdvisorWrite(record, { cwd, home, installedSkills: skills });
+    expect((record as { recommended_skills?: unknown[] }).recommended_skills!.length).toBeGreaterThanOrEqual(2);
     expect((record as { recommended_skills?: unknown[] }).recommended_skills).toEqual(natural);
   } finally {
     rmSync(cwd, { recursive: true, force: true });
