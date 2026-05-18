@@ -408,3 +408,27 @@ Decomposition open question #2 ("A's home: /new-milestone or single large /frame
 **Decision: Problem A is framed as a milestone-scale work unit inside Nexus's own lifecycle.** Vehicle = Nexus canonical `/frame`, with explicit milestone discipline: the frame MUST phase-decompose Problem A and MUST NOT pre-decide the solution shape (operator_attested schema / trust anchor / `/review` contract details). Pre-deciding the solution is precisely the solutioning-in-disguise that disproved the v1.2 framing (codex 0.130, Source 6/this section's predecessor). The frame's job is to bound and phase the problem, not answer it.
 
 Problems B (streaming parity) and C (lifecycle re-entry) remain explicitly out of this milestone and routed separately.
+
+---
+
+## Source 8 + Final Disposition (2026-05-18) — solutioning is this domain's gravity well
+
+A sixth grounded independent review (codex 0.130 on merged origin/main) of the Problem A *milestone frame* returned NOT SOUND. Verified against real merged code:
+
+- **Anti-solutioning fix was cosmetic.** The frame bolted guard paragraphs (Non-goal 1, Risk 2, Out-of-scope 4, Open-question 5) onto a PRD whose success criteria and hypothesis still encode the solution: "schema-enforced provenance discriminator," "single typed field," "defined writer," "null/absent route fields," "non-circular trust anchor." Same disproven failure, third frame, guard prose attached. (prd.md:20,24-28,56,66)
+- **Representability precedes ownership (the true root I missed).** Verified: `types.ts:53` `EXECUTION_MODES=['governed_ccb','local_provider']` and `:470` `transport:'ccb'|'local'` are closed enums. The type system cannot express "session is worker" at all. The frame asserted Phase 1 = ownership ("who writes status.json"); the actual dependency root is whether the type model can represent the concept. Phase 1 was picked for scariness, not dependency.
+- **Stale code anchor — the B1 error class, recommitted.** The frame cited `build.ts:468` as the status/ownership writer. On merged main, `:468` is `buildRequestWrite`; adapter execution is ~794, completed-status writing ~1030. The anchor was carried from earlier analysis without re-grounding on merged main — the exact stale-baseline error this work unit has documented since B1, committed again at review six.
+
+### The meta-finding (the real output)
+
+Six independent grounded reviews, six NOT-SOUND/blocker verdicts, one invariant cause: every framing collapses toward specifying the solution. This is not repeated carelessness. **It is the gravity well of this problem domain.** codex MAJOR 6 shows the mechanism: Problem A cannot be stated precisely without referencing the type/contract model — and that model conflates "what execution happened" with "how it was dispatched," so the moment the problem is stated precisely it has named the solution surface. The difficulty of producing a solution-neutral frame for Problem A is itself first-class evidence FOR Problem A's thesis: Nexus's model has no honest separation between "the work's provenance" and "the dispatch mechanism," so even the framer cannot hold them apart.
+
+### Disposition
+
+Do not attempt a seventh frame revision in this form. Six reviews establish the form is wrong, not the wording. The honest forward options are narrowed and recorded for the next session (cold-start safe — the full evidence + every disproven framing is on this branch):
+
+1. **Representability spike (not a frame).** A tiny bounded investigation: attempt to add an attested variant to `EXECUTION_MODES`/`transport` in `types.ts` and observe what breaks across `build.ts`/`review.ts`/`ledger.ts`. Output is empirical constraint discovery, not a PRD. This is NOT solutioning because its deliverable is "here is what the type model forces," not "here is the design."
+2. **Adopt codex's bounded steelman as the actual answer.** Six failed frames is strong evidence the pragmatic truth is: keep #160 fail-fast, fix Problem B (streaming parity), bless direct-terminal as the supported governed path, add a narrow attestation-import review rule. Problem A's "honest in-session provenance" may simply not be cleanly frameable/buildable in the current model, and the bounded path is the rational stopping point.
+3. **Accept Problem A is a research problem, not a delivery problem.** It needs a different methodology (prototype-to-learn) before any lifecycle stage applies. Route to a spike/research track, not `/frame`→`/plan`.
+
+The v1.1.x-hotfix, v1.2-single-concept, decomposition-then-milestone-frame artifacts all remain on-branch as the disproven-framing record. The decomposition (Problems A/B/C as independent) survived review and stands. Only Problem A's *vehicle* (milestone frame) is disproven; B and C are unaffected and bounded.
