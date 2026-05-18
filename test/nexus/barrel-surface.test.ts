@@ -51,6 +51,11 @@ const EXPECTED_VALUE_EXPORTS = [
   'computeStrength',
   'normalizeLearningLine',
   'writeLearningCandidate',
+  'computeEffectiveConfidence',
+  'readLearningsJsonl',
+  'readStageCandidatesFile',
+  'readCanonicalLearningsFile',
+  'walkArchiveRunLearnings',
 ] as const;
 
 describe('lib/nexus barrel surface (#151)', () => {
