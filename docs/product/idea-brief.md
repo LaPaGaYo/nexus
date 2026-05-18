@@ -472,3 +472,32 @@ This is the genuine empirical constraint discovery the spike was for: Problem A'
 ### Disposition
 
 The spike did its job: it converted "Problem A is structurally deep" from assertion into a measured surface (~55 uncheckable branch sites, instrument-independent) plus an honest gap (tsc sweep needs `bun install`, procedure recorded). It proposes no design. Whether to (a) run the working-env tsc sweep to get the exact site list, (b) treat "introduce exhaustiveness enforcement first" as the true Phase 1 (a bounded, solution-neutral enabling step — add discriminated-union exhaustiveness so the ~55 sites become compiler-visible), or (c) adopt codex's bounded steelman given the measured cost, is the next decision. Decomposition (A/B/C independent) and B/C boundedness remain unaffected.
+
+---
+
+## Source 10 — Working-env tsc sweep (option a): the project has NO type-check gate
+
+Completed the Source 9 disposition's option (a): the deferred working-env tsc measurement. Scratch at merged origin/main `891055c`, `bun install` (120 packages), tsc instrument validated.
+
+### Instrument now validated (unlike Source 9)
+
+`bunx tsc --noEmit lib/nexus/contracts/types.ts` correctly reports a deliberately-injected error: `types.ts(54,69): error TS2322: Type 'string' is not assignable to type 'number'`. So tsc works in single-file mode after `bun install`. Source 9's "0 errors" artifact is explained: there is no `tsconfig.json` for a project-wide `tsc -p` to consume.
+
+### Decisive finding: the project has zero type-check gate
+
+Verified three ways, all negative:
+- No `tsconfig*.json` anywhere in the repo (`find -name 'tsconfig*.json'` empty).
+- No `tsc` / `typecheck` / `noEmit` in `package.json` or `scripts/test/unit.ts` (only `build` = `bun run scripts/build/index.ts`, `test` = `bun run scripts/test/unit.ts`).
+- No `tsc` / `typecheck` in `.github/workflows/`.
+
+Bun transpiles by stripping types without type-checking. **The project's real pipeline never type-checks.** The ~55 branch forks from Source 9 are not merely "compiler-invisible" — there is no compiler stage in the pipeline that would ever see them.
+
+### What this decisively does to the Source 9 options
+
+- **Option (b) "exhaustiveness-first as a solution-neutral Phase 1" is NOT a small enabling step.** Source 9 estimated it without measuring (the session's invariant unverified-as-verified pattern, one more time, at the option-sizing layer). Measured reality: (b) requires first introducing type-check *infrastructure to a project that has none* — author a `tsconfig.json` for a Bun codebase never compiled by tsc, add a `typecheck` script, wire it into `test`/CI, then fix whatever unknown pre-existing type errors surface across all of `lib/nexus` when tsc is turned on for the first time, AND still hand-audit the ~55 `===` ternary forks (which a fresh tsc still will not flag unless each is refactored into a discriminated-union exhaustive `switch`). That is its own milestone-scale undertaking with an unmeasured pre-existing-error tail. (b)'s true cost is an order of magnitude above the Source 9 estimate.
+- **Option (a) is now complete.** The deferred measurement is done; it did not produce a site list (tsc cannot produce one — non-exhaustive ternaries are not errors even with a working instrument; Source 9's grep remains the only viable enumeration: ~55 sites by hand). The honest output of (a) is the negative result above, which is more decisive than a site list would have been.
+- **Option (c) "adopt codex's bounded steelman" gains decisive relative weight.** With (b) re-measured as milestone-scale-with-an-unknown-tail, the rational stopping point is clearer: keep #160 fail-fast, fix Problem B (streaming parity, bounded, survived all reviews), bless direct-terminal as the supported governed path, add a narrow attestation-import review rule. Problem A's "honest in-session provenance" requires type-check infrastructure the project deliberately does not have — its absence is a project-level architectural choice, not a gap to patch under Problem A.
+
+### Disposition update
+
+(a) is closed with a decisive negative. The live decision is now (b) vs (c), and it is no longer a guess: (b) = "first give this Bun project a type-check gate it has never had, then do Problem A on top" (milestone + unmeasured tail); (c) = codex's bounded steelman (keep #160, ship Problem B, bless direct-terminal, narrow review rule). The decomposition (A/B/C independent) and B/C boundedness remain unaffected and are the only review-survived assets.
