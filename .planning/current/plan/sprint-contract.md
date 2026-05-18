@@ -47,3 +47,17 @@ Law 3: binding-handoff posture stated; no silent scope expansion. ✓
 Anti-pattern guard: every line number re-grounded on merged 891055c (no stale anchors — the session's B1 lesson); Problem A explicitly fenced out (the gravity-well lesson).
 
 **Verdict: bounded plan complete, Law 1/2/3 compliant. Ready for /handoff → /build. Per session iron rule, an independent grounded review before /build is recommended but B is bounded + already review-survived at the decomposition level — operator decides whether to re-review or proceed.**
+
+---
+
+## Execution status (2026-05-18 checkpoint)
+
+Code lives on branch `feat/problem-b-streaming-parity` off origin/main `891055c` (separate worktree; the sprint-contract + planning record stay on `claude/jovial-jang-9618ea`). 3 commits, working tree clean:
+
+- **B-1 DONE** `df688d8` — `emitDispatchBanner(label,timeoutMs)` extracted in lib/nexus/adapters/local.ts (~825); runProviderCommand uses it; single_agent byte-identical. Verified.
+- **B-2 DONE** `5d4c430` — runClaudeNamedAgentCommand (subagents, ~L863-864) + runClaudeAgentTeamCommand (agent_team, ~L1050-1051): `emitDispatchBanner(...)` + `stream_to_tty:true`, both AFTER `assertNestedClaudeAllowed` (guard not bypassed, #160 not regressed). Verified 37 pass / 0 fail (local-provider-mode + local-provider-guards) inside Claude Code (CLAUDECODE=1, the original break condition).
+- **Finding D DONE (bonus, gated B)** `cd26c81` — confirmed #160 regression (Source 12: assertNestedClaudeAllowed fires inside `bun test` when run in a Claude Code session). Root fix: describe-level beforeEach/afterEach in test/nexus/runtime/local-provider-mode.test.ts clears CLAUDECODE/AI_AGENT/CLAUDE_CODE_EXECPATH so tests are host-env-deterministic. Production guard untouched; guard-assertion tests still assert it FIRES. Verified.
+
+### B-3 — REMAINING (regression-lock test). Cold-start spec:
+
+Fails-pre-B-2 / passes-post-B-2 is the non-negotiable meaningfulness check (verify by checking out `df688d8` = pre-B-2). Invariant: for each claude dispatch path (single_agent runProviderCommand / subagents runClaudeNamedAgentCommand / agent_team runClaudeAgentTeamCommand), the `spec` passed to `runCommand` has `stream_to_tty===true` AND a `[nexus/local-provider] dispatching ...` banner hit `process.stderr` before that runCommand. Guard-ordering sub-case: with `CLAUDECODE=1` + no `NEXUS_ALLOW_NESTED_CLAUDE`, dispatch throws and ZERO specs/banner captured (banner is after the guard). Harness: reuse `test/nexus/runtime/local-provider-mode.test.ts` `runInTempRepo` + `createRuntimeLocalAdapter({now,runCommand:spy})`; mirror subagents-build (~L300), agent-team (~L1213, sets CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1), single_agent (~L139); spy also captures `spec.stream_to_tty`; capture `process.stderr.write`; guard sub-case uses `withEnv({CLAUDECODE:'1',AI_AGENT:undefined,CLAUDE_CODE_EXECPATH:undefined,NEXUS_ALLOW_NESTED_CLAUDE:undefined},...)` (mirror L1992). Then `bun test` full exit 0, atomic commit, open PR (B-1+B-2+Finding-D+B-3) "feat: streaming parity across claude dispatch paths + fix #160 test-env regression", cite idea-brief Source 11 (c) part 2 + Source 12.
