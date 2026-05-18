@@ -329,3 +329,70 @@ The shadow run-worktree ledger had advanced `discover → frame` during the disp
 Per repo governance (surface tool/repo-state conflicts, do not silently reconcile): the repo-visible `idea-brief.md` on the active branch is the operator-attested system of record and is Law-1/2/3 compliant. The bin's shadow ledger could not record the re-discovery transition; that conflict is surfaced here rather than forced by resetting ledger state (which would be the fabricate-state anti-pattern this whole work unit exists to eliminate).
 
 `/frame` is the legal next bin transition from the current ledger position, and `/frame` will read THIS v1.2 section as its upstream. The frame→discover rejection does not block the v1.2 work; it is additional evidence for it.
+
+---
+
+# DECOMPOSITION (2026-05-18) — three independent problems, not one concept
+
+This section supersedes BOTH prior framings for `/frame` purposes:
+- the v1.1.x-hotfix framing (disproven: too small — red-team + codex, Source 6)
+- the v1.2 "single missing concept" re-discovery (disproven: over-unified + overstated pain + solutioning-in-disguise + governed-model rewrite under-scoped as a milestone — codex 0.130 grounded on merged main, 2026-05-18)
+
+Both failures are the same error class at different sizes: the first treated a deep problem as shallow; the second treated three independent problems as one and smuggled the solution into discovery. A third grounded independent review forced the honest output below. Sources 1-7 remain the evidence base; this section is the canonical `/frame` input.
+
+## Corrected pain statement (was overstated)
+
+Prior framings claimed "the majority Nexus environment cannot run the governed lifecycle at all." Verified false against merged code: `lib/nexus/adapters/local.ts:812` (the `assertNestedClaudeAllowed` throw, shipped in #160) explicitly instructs the operator to run from a terminal outside Claude Code, switch to `governed_ccb`, or set `NEXUS_ALLOW_NESTED_CLAUDE=1`. Post-#160 the governed lifecycle IS runnable; the honest pain is: **operators in the majority `local_provider/claude`-inside-Claude-Code environment must context-switch out of their working session (or override) for every governed stage, and when they route around that by hand-authoring artifacts there is no honest provenance to record.** #160 made the failure survivable and self-documenting; it did not make the in-session governed path work.
+
+## The three problems (independent roots, different sizes)
+
+### Problem A — no execution-provenance for "the calling session is the worker"
+
+**Root:** Nexus's governed-execution model represents only *spawned local provider* and *governed CCB dispatch*. When the calling Claude session itself did the work, there is no honest provenance value; operators fabricate `dispatch_command`/`receipt`/`actual_route` (Source 1) and `/review`'s provenance gate (`review.ts:541`, `:1188`, `build.ts:107`) cannot distinguish fabricated from real.
+**Evidence:** Sources 1, 2, 4, 6.
+**Honest size: potentially unbounded / milestone-scale.** Touches schema (`StageStatus`/`Local*Raw`), status.json + ledger ownership when nothing is spawned (`build.ts:468`), the `/review` contract end-to-end (null `actualRoute` derefs `review.ts:1084`, `provenance_consistent` semantics, fix-cycle eligibility `build.ts:100-111`), a non-circular trust anchor, and historical-artifact migration. This is NOT a hotfix and likely NOT a single v1.2 item. Per the Completeness Principle this must be flagged as a model change requiring its own milestone with explicit phase decomposition — not packed into a point release. Discovery's claim is only that the missing provenance IS a real problem; sizing and solution are a milestone-planning question, deliberately NOT decided here (avoiding the solutioning-in-disguise that sank the v1.2 framing).
+
+### Problem B — topology-partial streaming/observability coverage
+
+**Root:** `stream_to_tty` + the dispatch banner are wired only into the `runProviderCommand` (single_agent) family (`local.ts:1457/1484/1511`); `runClaudeNamedAgentCommand` (subagents) and `runClaudeAgentTeamCommand` (agent_team) lack both, so those topologies are strictly more silent. This is orthogonal to Problem A — it is wrong whether or not the caller is the worker.
+**Evidence:** Source 3.
+**Honest size: genuinely bounded.** Add `stream_to_tty`/banner parity to the two missing dispatch paths + regression tests. This is a real, small, shippable fix on its own.
+
+### Problem C — lifecycle state machine has no legitimate re-entry
+
+**Root:** `lib/nexus/governance/transitions.ts:5-6` is strictly forward (`discover:['frame'], frame:['plan']`); `:32` throws `Illegal Nexus transition`. There is no representation for "the framing was disproven by review; legitimately re-enter discovery." Encountered live this session (Source 7). Orthogonal to A and B — a state-machine/backtracking-policy concern.
+**Evidence:** Source 7.
+**Honest size: bounded policy change.** Define which backward/re-entry transitions are legal and under what recorded justification. Small contract change, but it IS a governance-semantics decision (needs its own framing, not a code tweak).
+
+## Hypothesis hints (per problem, deliberately shallow — sizing/solution deferred to per-problem /frame)
+
+- **A:** *If* Nexus models a third execution provenance for session-is-worker, *then* operators stop fabricating provenance and `/review` can distinguish it, *because* Sources 1/2/4/6 show fabrication is forced by the absent concept. (Milestone-scale; flagged unbounded.)
+- **B:** *If* the two non-`runProviderCommand` dispatch paths get `stream_to_tty`+banner parity, *then* agent_team/subagents stop being silently worse than single_agent, *because* Source 3 shows the gap is path-specific and bounded.
+- **C:** *If* the lifecycle state machine allows recorded, justified re-entry, *then* a disproven framing can be honestly re-discovered without ledger-state fabrication, *because* Source 7 showed forward-only forces exactly the fabricate-state anti-pattern this work targets.
+
+## Open questions for `/frame` (decomposition-level, NOT per-problem solutioning)
+
+1. **Sequencing:** B is independently shippable today; C is a bounded governance decision; A is milestone-scale. Does B ship first as its own bounded fix while A goes to milestone planning, or are they bundled for release-coherence reasons the operator knows and discovery does not?
+2. **A's home:** is Problem A a `/new-milestone` (its own roadmap with phases) or a single large `/frame`? Discovery asserts it is milestone-scale; the operator decides the vehicle.
+3. **C's owner:** lifecycle re-entry is a Nexus-governance-semantics change. Is it in scope for this work unit at all, or a separate governance RFC? It surfaced incidentally; it may not belong here.
+4. **Does B even need /frame?** B may be small enough to route straight to a bounded `/plan` or even a direct fix-with-tests, skipping heavy framing. Operator calls the ceremony level.
+5. **What is explicitly NOT being decided here:** the operator_attested schema shape, the trust anchor mechanism, the /review contract details — all deferred to A's milestone planning. Recording this so the next pass does not re-smuggle them into discovery (the exact defect that sank the v1.2 framing).
+
+## Reframe (the receipt)
+
+| Entering prior (v1.2 re-discovery) | After third grounded review |
+|---|---|
+| One absent concept unifies all 7 sources | 3 independent roots; Sources 3 and 7 have distinct roots from the provenance gap |
+| Majority environment "cannot run governed lifecycle at all" | Post-#160 it runs (terminal/CCB/override); pain is forced context-switch + fabrication, not total block |
+| v1.2 milestone, scoped | Problem A is milestone-scale and must be flagged unbounded, not packed into a point release |
+| Open questions = structural | Prior open questions were pre-committed solution menus (solutioning-in-disguise); these are sizing/sequencing questions, solution explicitly deferred |
+
+The receipt that this discovery actually happened: the team's own prior across TWO prior framings is on record as disproven by its own evidence, and the correction was forced by independent review three times, not self-generated. The honest output of discovery here is the decomposition itself.
+
+## Status (decomposition)
+
+Law 2: named segment (operators in `local_provider/claude` inside Claude Code) ✓; observed pain with cost, corrected/not overstated ✓; ≥2 evidence sources (7) ✓; hypothesis hints (3, deliberately shallow) ✓; ≥3 open questions (5, sizing/sequencing not solutioning) ✓.
+Law 1: not a feature spec ✓; not user testing ✓; not substitute for shipping (#160 shipped the stopgap) ✓; not single-stakeholder ✓; **not solutioning in disguise** — solution shapes for A explicitly deferred and recorded as out-of-discovery ✓.
+Law 3: Look Inward (two disproven priors on record) → Look Outward (Sources 1-7) → Reframe ✓.
+
+**Verdict: the decomposition is ready for `/frame`. Recommended: take Problem B to a bounded `/frame`-or-`/plan` first (smallest, independently shippable, real user value), route Problem A to `/new-milestone` (flagged unbounded), and decide Problem C's ownership separately.**
