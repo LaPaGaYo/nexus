@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "run_label": "problem-b-streaming-parity",
+  "grounded_on": "origin/main 891055c",
+  "tasks": [
+    {"id": "B-1", "acceptance": "emitDispatchBanner helper exists; runProviderCommand uses it; single_agent banner byte-identical", "verify": "bun test test/nexus/runtime/local-provider-mode.test.ts"},
+    {"id": "B-2", "acceptance": "runClaudeNamedAgentCommand + runClaudeAgentTeamCommand call emitDispatchBanner + pass stream_to_tty:true, AFTER assertNestedClaudeAllowed", "verify": "bun test test/nexus/runtime/local-provider-mode.test.ts test/nexus/runtime/local-provider-guards.test.ts"},
+    {"id": "B-3", "acceptance": "regression test asserts 3-topology banner+stream_to_tty parity AND guard-ordering; fails pre-B-2, passes post-B-2", "verify": "bun test (full suite, exit 0)"}
+  ],
+  "out_of_scope": ["Problem A (provenance/schema/ownership/review-contract)", "governed_ccb", "non-claude paths", "defaultRunCommand tee internals", "#160 guard behavior (must not regress)"],
+  "boundaries": {"must_not_regress": "#160 assertNestedClaudeAllowed (additions strictly after the guard)", "must_not_touch": ["lib/nexus/commands/review.ts", "provenance fields", "status.json schema"]}
+}
