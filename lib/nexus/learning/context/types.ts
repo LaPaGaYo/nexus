@@ -22,9 +22,10 @@ export interface LearningContextWeights {
   evidence_strength: number;
   file_overlap: number;
   stage_match: number;
-  contradiction_risk: number;
+  contradiction_risk: number; // penalty: expected NEGATIVE; scorer adds it directly to the weighted sum (positive factors sum to 1.0; this one does not participate in that invariant)
 }
 
+// snake_case config keys are intentional — they match the operator JSONC/YAML config file keys (LearningContextInput stays camelCase to mirror RecommendedSkill)
 export interface LearningContextConfig {
   score_floor: number;
   max_entries: number;
