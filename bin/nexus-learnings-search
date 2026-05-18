@@ -59,8 +59,18 @@ const { walkArchiveRunLearnings } = await import('${SCRIPT_ROOT}/lib/nexus/learn
 
 const lines = (await Bun.stdin.text()).trim().split('\n').filter(Boolean);
 
-// Inject archived closeout learnings (replaces inline bash find+read).
-// Sort records by run_id to match the original 'find | sort' path ordering.
+// Inject archived closeout learnings (replaces the prior inline bash find+read).
+// INTENTIONAL CONVERGENCE (SP1-followup Task E): archive ingestion now routes
+// through the shared, *validated* readCanonicalLearningsFile (schema_version in
+// {1,2} + string run_id required) — the same canonical contract closeout and
+// SP6 use. The old inline path did a raw JSON.parse with no validation; a
+// pre-versioned or run_id-less archive file that the old path would have
+// ingested is now intentionally dropped. This kills the second, weaker parse
+// path (anti-drift is the whole point of this patch). Real Nexus archives are
+// always closeout-written with schema_version + run_id, so practical impact is
+// nil. Ordering relies on the closeout invariant run_id === <run dir name>
+// (so run_id-sort == the old 'find | sort' path-sort); Nexus run ids are unique
+// timestamp/ULID values, never a bare 'run' adjacent to 'run-1'.
 const archiveRecords = walkArchiveRunLearnings('${REPO_ROOT}');
 archiveRecords.sort((a, b) => a.run_id < b.run_id ? -1 : a.run_id > b.run_id ? 1 : 0);
 for (const record of archiveRecords) {
