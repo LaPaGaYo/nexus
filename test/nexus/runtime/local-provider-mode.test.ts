@@ -1121,6 +1121,146 @@ describe('nexus local_provider mode', () => {
     });
   });
 
+  // Problem B B-3 — regression lock: streaming/observability parity across
+  // claude dispatch paths. Pre-B-2, runClaudeNamedAgentCommand (subagents)
+  // and runClaudeAgentTeamCommand (agent_team) passed no stream_to_tty and
+  // emitted no dispatch banner (only single_agent did). These tests fail on
+  // pre-B-2 code and pass post-B-2.
+  test('B-3: claude subagents dispatch emits the banner + sets stream_to_tty (parity)', async () => {
+    await runInTempRepo(async ({ run }) => {
+      const specs: Array<{ argv: string[]; stream_to_tty?: boolean }> = [];
+      const stderrChunks: string[] = [];
+      const realStderrWrite = process.stderr.write.bind(process.stderr);
+      (process.stderr as unknown as { write: (c: string) => boolean }).write = (chunk: string) => {
+        stderrChunks.push(String(chunk));
+        return true;
+      };
+      try {
+        const adapters = getDefaultNexusAdapters();
+        adapters.local = createRuntimeLocalAdapter({
+          now: () => '2026-04-11T00:00:00.000Z',
+          runCommand: async (spec) => {
+            specs.push({ argv: spec.argv, stream_to_tty: spec.stream_to_tty });
+
+            if (spec.argv[0] === 'which') {
+              return { exit_code: 0, stdout: '/Users/henry/.local/bin/claude\n', stderr: '' };
+            }
+            if (spec.argv[0] === 'claude' && spec.argv.includes('--help')) {
+              return {
+                exit_code: 0,
+                stdout: 'Usage: claude [options]\n  --agent <agent>\n  --agents <json>\n',
+                stderr: '',
+              };
+            }
+            const agentIndex = spec.argv.indexOf('--agent');
+            const agent = agentIndex >= 0 ? spec.argv[agentIndex + 1] : null;
+            switch (agent) {
+              case 'nexus_builder':
+                return {
+                  exit_code: 0,
+                  stdout: '# Build Execution Summary\n\n- Status: completed\n- Actions: applied local subagent build\n- Files touched: README.md\n- Verification: pending verifier\n',
+                  stderr: '',
+                };
+              case 'nexus_verifier':
+                return {
+                  exit_code: 0,
+                  stdout: '- Verification: verifier checked the resulting repo state\n',
+                  stderr: '',
+                };
+              default:
+                throw new Error(`unexpected agent invocation: ${spec.argv.join(' ')}`);
+            }
+          },
+        });
+
+        await run('plan', adapters, LOCAL_SUBAGENT_EXECUTION);
+        await run('handoff', adapters, LOCAL_SUBAGENT_EXECUTION);
+        await run('build', adapters, LOCAL_SUBAGENT_EXECUTION);
+
+        // The actual dispatch calls (the named-agent invocations), not the
+        // `which` / `--help` capability probes, must carry stream_to_tty.
+        const dispatchSpecs = specs.filter((s) => s.argv.includes('--agent'));
+        expect(dispatchSpecs.length).toBeGreaterThan(0);
+        expect(dispatchSpecs.every((s) => s.stream_to_tty === true)).toBe(true);
+        // Capability probes must NOT carry stream_to_tty (not blanket-applied).
+        const probeSpecs = specs.filter(
+          (s) => s.argv[0] === 'which' || s.argv.includes('--help'),
+        );
+        expect(probeSpecs.every((s) => s.stream_to_tty !== true)).toBe(true);
+        // The dispatch banner was emitted to stderr for the subagents path.
+        const stderr = stderrChunks.join('');
+        expect(stderr).toContain('[nexus/local-provider] dispatching claude/subagents');
+        expect(stderr).toContain('streaming below:');
+      } finally {
+        (process.stderr as unknown as { write: typeof realStderrWrite }).write = realStderrWrite;
+      }
+    });
+  });
+
+  test('B-3: assertNestedClaudeAllowed fires BEFORE the banner / stream_to_tty (guard ordering)', async () => {
+    await withEnv(
+      {
+        CLAUDECODE: '1',
+        AI_AGENT: undefined,
+        CLAUDE_CODE_EXECPATH: undefined,
+        NEXUS_ALLOW_NESTED_CLAUDE: undefined,
+      },
+      async () => {
+        await runInTempRepo(async ({ run }) => {
+          const specs: Array<{ argv: string[]; stream_to_tty?: boolean }> = [];
+          const stderrChunks: string[] = [];
+          const realStderrWrite = process.stderr.write.bind(process.stderr);
+          (process.stderr as unknown as { write: (c: string) => boolean }).write = (chunk: string) => {
+            stderrChunks.push(String(chunk));
+            return true;
+          };
+          try {
+            const adapters = getDefaultNexusAdapters();
+            adapters.local = createRuntimeLocalAdapter({
+              now: () => '2026-04-11T00:00:00.000Z',
+              runCommand: async (spec) => {
+                specs.push({ argv: spec.argv, stream_to_tty: spec.stream_to_tty });
+                if (spec.argv[0] === 'which') {
+                  return { exit_code: 0, stdout: '/Users/henry/.local/bin/claude\n', stderr: '' };
+                }
+                if (spec.argv[0] === 'claude' && spec.argv.includes('--help')) {
+                  return {
+                    exit_code: 0,
+                    stdout: 'Usage: claude [options]\n  --agent <agent>\n  --agents <json>\n',
+                    stderr: '',
+                  };
+                }
+                return { exit_code: 0, stdout: '', stderr: '' };
+              },
+            });
+
+            await run('plan', adapters, LOCAL_SUBAGENT_EXECUTION);
+            await run('handoff', adapters, LOCAL_SUBAGENT_EXECUTION);
+            // The guard (assertNestedClaudeAllowed('subagents')) is the first
+            // line of runClaudeNamedAgentCommand; inside Claude Code with no
+            // override it throws, the generator is blocked, and runBuild
+            // rejects. Fail-fast working as #160 intends.
+            let buildThrew = false;
+            try {
+              await run('build', adapters, LOCAL_SUBAGENT_EXECUTION);
+            } catch {
+              buildThrew = true;
+            }
+            expect(buildThrew).toBe(true);
+            // Because the guard throws BEFORE emitDispatchBanner and BEFORE
+            // runCommand, no banner and no subagent dispatch spec is observed.
+            const stderr = stderrChunks.join('');
+            expect(stderr).not.toContain('[nexus/local-provider] dispatching claude/subagents');
+            const dispatchSpecs = specs.filter((s) => s.argv.includes('--agent'));
+            expect(dispatchSpecs.length).toBe(0);
+          } finally {
+            (process.stderr as unknown as { write: typeof realStderrWrite }).write = realStderrWrite;
+          }
+        });
+      },
+    );
+  });
+
   test('ignores malformed optional QA learning candidates without blocking a valid local QA result', async () => {
     await runInTempRepo(async ({ run }) => {
       const adapters = getDefaultNexusAdapters();
