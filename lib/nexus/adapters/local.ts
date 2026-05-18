@@ -817,6 +817,18 @@ function assertNestedClaudeAllowed(topology: ProviderTopology): void {
   );
 }
 
+// Long-running provider calls (build/review/qa) tee output to TTY so the user
+// sees progress and does not mistake a working subprocess for a hang. The
+// banner makes dispatch unmistakable. Single source of truth for the banner
+// format so all three local-claude topologies (single_agent / subagents /
+// agent_team) emit identical, parseable output.
+function emitDispatchBanner(label: string, timeoutMs: number): void {
+  const minutes = Math.max(1, Math.round(timeoutMs / 60_000));
+  process.stderr.write(
+    `\n[nexus/local-provider] dispatching ${label} (timeout: up to ${minutes} min) — streaming below:\n`,
+  );
+}
+
 function buildClaudeBuilderAgent(): LocalRoleAgent {
   return {
     name: 'nexus_builder',
@@ -1433,13 +1445,7 @@ async function runProviderCommand(
     assertNestedClaudeAllowed('single_agent');
   }
 
-  // Long-running provider calls (build/review/qa) tee output to TTY so the user
-  // sees progress and does not mistake a working subprocess for a hang. Default
-  // off everywhere else (health checks, version probes, capability discovery).
-  const minutes = Math.max(1, Math.round(timeoutMs / 60_000));
-  process.stderr.write(
-    `\n[nexus/local-provider] dispatching ${provider} (timeout: up to ${minutes} min) — streaming below:\n`,
-  );
+  emitDispatchBanner(provider, timeoutMs);
 
   if (provider === 'claude') {
     const argv = [
