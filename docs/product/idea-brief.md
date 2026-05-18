@@ -525,3 +525,33 @@ Six grounded independent reviews + a representability spike + a working-env swee
 Execution sequence for (c): Problem B is the code deliverable and routes to its own bounded planning (it is small enough that the decomposition's open question "does B even need /frame?" applies — likely straight to a bounded plan). Parts 3 and 4 are bounded contract/doc changes that can follow B or run alongside. Part 5 (Problem A deferral) needs a one-line record in the project's architecture decisions, owned by the project, not reframed here. Problem C (lifecycle re-entry, Source 7) remains separately routed and unaffected.
 
 This closes the discovery/framing arc of the work unit. The resolution is bounded, review-survived, and honest about what it does not do.
+
+---
+
+## Source 12 — CONFIRMED REGRESSION in #160 (our own approved merge): guard has no test-env exemption
+
+While verifying Problem B task B-1, the session's baseline discipline (measure before assuming) surfaced a confirmed regression in PR #160 — the PR this session reviewed, approved, re-verified after rebase, and merged.
+
+### Measured, three independent runs, consistent
+
+- pre-#160 (`857253c~1` = the #161 merge `08e82a0`): `bun test test/nexus/runtime/local-provider-mode.test.ts` → **31 pass / 0 fail**
+- post-#160 (origin/main `891055c`): → **29 pass / 6 fail** (test count 31→35; 6 subagent/agent-team tests fail)
+- post-#160 with `NEXUS_ALLOW_NESTED_CLAUDE=1`: → **35 pass / 0 fail**
+
+### Root cause (confirmed, not hypothesized)
+
+The `bun test` process, when run from inside a Claude Code session, inherits `CLAUDECODE=1` / `AI_AGENT=claude-code*` / `CLAUDE_CODE_EXECPATH`. #160's `assertNestedClaudeAllowed` (`local.ts:807`) throws whenever `isInsideClaudeCodeHost()` and no override. The 6 failing tests exercise `runClaudeNamedAgentCommand` / `runClaudeAgentTeamCommand`, whose first line is now `assertNestedClaudeAllowed('subagents'|'agent_team')`. So the guard fires *inside the unit tests* — it cannot distinguish "a real nested-dispatch attempt" from "a unit test of the dispatch function." CI is green because CI is not inside Claude Code (`isInsideClaudeCodeHost()` is false there); local `bun test` from inside Claude Code is red. #160 has no test-environment exemption.
+
+### Honest accounting
+
+This is the session's invariant bug class — treat a weak signal (CI-green + diff inspection) as a strong signal (tests pass) — committed by the operator, on the merge the operator personally approved and re-verified. The approve comment cited "CLEAN / CI green"; it did not run `bun test` in the environment (inside Claude Code) where the regression manifests. Six adversarial reviews caught others' instances; this one was caught only because B-1's verification forced a real `bun test` + a baseline comparison. Recorded plainly: the discipline works, and it just convicted its own user.
+
+### Recursion (why this is on-theme, not a tangent)
+
+#160 fixed the nested-claude *hang* with a fail-fast guard. The guard is correct for real `/build` dispatch. But it also misfires on the *test suite* run inside Claude Code, because tests legitimately call the dispatch functions and the guard cannot tell a test from a real dispatch. This is structurally the same defect family as the original bug (an env/guard that misfires in a context it should permit) — now one layer up, in the fix for that bug.
+
+### Disposition
+
+This is a **distinct, bounded, confirmed regression** (call it Finding D, separate root from Problems A/B/C). It is higher priority than Problem B and it *gates* B: B-3 adds a regression test exercising the dispatch paths, which will also trip this guard inside Claude Code, and B's sprint-contract verification commands ("`bun test ... exit 0`") are unmeetable from inside Claude Code regardless of B's correctness. B-1 itself is sound (verified zero-regression against the correct delta baseline: 29/6 → 29/6, identical fail list) but is parked uncommitted, not advanced.
+
+Candidate fix shapes for Finding D (NOT decided here — recorded, not solutioned, per the session's hardest-won discipline): a test-environment exemption in `assertNestedClaudeAllowed` (e.g., detect a test runner / `NODE_ENV=test` / a `NEXUS_TEST` sentinel), OR the test harness sets `NEXUS_ALLOW_NESTED_CLAUDE=1`, OR the dispatch-function unit tests inject a stub that does not reach the guard. Which one is a bounded design decision for Finding D's own routing — it is small but it is a real decision, and the session's entire lesson is to not pre-pick it in the finding record.
