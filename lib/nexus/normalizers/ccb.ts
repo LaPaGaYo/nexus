@@ -120,7 +120,10 @@ export function expectedProvidersForRequestedRoute(requestedRoute: RequestedRout
   ]
     .filter((route): route is string => typeof route === 'string')
     .map((route) => route.startsWith('codex') ? 'codex' : route.startsWith('gemini') ? 'gemini' : null)
-    .filter((provider): provider is string => provider !== null))];
+    // The predicate must narrow to a SUBTYPE of the element type ('codex' | 'gemini'
+    // | null); `provider is string` is not assignable to it (TS2677) and leaves the
+    // null in the result (TS2322). Narrow to the non-null members instead.
+    .filter((provider): provider is 'codex' | 'gemini' => provider !== null))];
 }
 
 export function validateGovernedHandoffRouteValidation(
