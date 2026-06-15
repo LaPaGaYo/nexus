@@ -450,6 +450,21 @@ export const COMMAND_HISTORY_VIAS = [
 ] as const;
 export type CommandHistoryVia = (typeof COMMAND_HISTORY_VIAS)[number] | null;
 
+/**
+ * Narrow an arbitrary value to a `CommandHistoryVia`. `null` (no via) is valid;
+ * any other value must be a recognized via. Lets callers tighten a raw
+ * `string | null` (e.g. an alias name from command resolution) to the typed
+ * union without an unchecked cast — unrecognized strings fall back to `null`
+ * at the call site rather than being asserted into the type.
+ */
+export function isCommandHistoryVia(value: unknown): value is CommandHistoryVia {
+  return (
+    value === null
+    || (typeof value === 'string'
+      && (COMMAND_HISTORY_VIAS as readonly string[]).includes(value))
+  );
+}
+
 export interface ArtifactPointer {
   kind: 'markdown' | 'json';
   path: string;
