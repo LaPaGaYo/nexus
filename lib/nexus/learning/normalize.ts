@@ -15,8 +15,15 @@ type LegacyV1 = {
   files?: string[];
 };
 
-/** Read-time normalized entry. schema_version: 1 marks a legacy origin. */
-export type NormalizedEntry = LearningEntry & { schema_version: 1 | 2 };
+/**
+ * Read-time normalized entry. schema_version: 1 marks a legacy origin.
+ *
+ * Omit-then-re-add the discriminant: LearningEntry pins schema_version to the
+ * literal `2`, so a plain intersection (`LearningEntry & { schema_version: 1 | 2 }`)
+ * collapses back to `2` and the v1-origin branch below (`schema_version: 1`)
+ * becomes unrepresentable. The Omit lets this type honestly carry either version.
+ */
+export type NormalizedEntry = Omit<LearningEntry, 'schema_version'> & { schema_version: 1 | 2 };
 
 export function normalizeLearningLine(line: string): NormalizedEntry | null {
   let parsed: unknown;
