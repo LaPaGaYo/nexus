@@ -77,7 +77,7 @@ Random port between 10000-60000 (retry up to 5 on collision). This means 10 Cond
 
 ### Version auto-restart
 
-The build writes `git rev-parse HEAD` to `browse/dist/.version`. On each CLI invocation, if the binary's version doesn't match the running server's `binaryVersion`, the CLI kills the old server and starts a new one. This prevents the "stale binary" class of bugs entirely — rebuild the binary, next command picks it up automatically.
+The build writes the resolved build version (a git SHA in a dev checkout, or the `release.json` tag in a release tarball; see `scripts/build/versions.ts`) to `runtimes/browse/dist/.version`. On each CLI invocation, if the binary's version doesn't match the running server's `binaryVersion`, the CLI kills the old server and starts a new one. This prevents the "stale binary" class of bugs entirely — rebuild the binary, next command picks it up automatically.
 
 ## Security model
 

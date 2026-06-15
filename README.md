@@ -504,6 +504,8 @@ Legacy aliases remain compatibility-only:
 - `/plan-eng-review -> /frame`
 - `/autoplan -> /plan`
 
+Four more legacy names resolve through the runtime (`resolveCommandName`) for backward compatibility but have no dedicated slash-command skill (programmatic-only): `start-work -> discover`, `execute-wave -> build`, `governed-execute -> build`, `verify-close -> closeout`.
+
 ## See it work
 
 ```text
