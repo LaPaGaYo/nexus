@@ -49,7 +49,11 @@ export function validateRemoteReleaseSmokeReport(report: unknown): RemoteRelease
   assertString(report.version, 'version');
   assertStringArray(report.issues, 'issues');
 
-  return report;
+  // Every RemoteReleaseSmokeReport field has now been runtime-validated above;
+  // assert the validated shape. The asserts narrow properties, not the whole
+  // Record<string, unknown>, and the Record does not sufficiently overlap the
+  // report interface, so the assertion hops through `unknown` (TS2352).
+  return report as unknown as RemoteReleaseSmokeReport;
 }
 
 export async function buildRemoteReleaseSmokeReport(input: {
