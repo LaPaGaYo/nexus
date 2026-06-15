@@ -47,7 +47,10 @@ function nextLedger(
   at: string,
   via: CommandHistoryVia,
 ): RunLedger {
-  const allowedNextStages = status === 'active' ? getAllowedNextStages('handoff') : ['handoff'];
+  // Type the array so the `['handoff']` literal is checked against the stage union
+  // (otherwise the ternary widens to string[], which RunLedger rejects).
+  const allowedNextStages: ReturnType<typeof getAllowedNextStages> =
+    status === 'active' ? getAllowedNextStages('handoff') : ['handoff'];
 
   return {
     ...ledger,

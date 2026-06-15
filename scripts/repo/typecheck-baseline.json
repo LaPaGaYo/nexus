@@ -1,10 +1,6 @@
 {
   "_comment": "Type-check ratchet baseline. Pre-existing strict errors tolerated by scripts/repo/typecheck.ts --check; new errors beyond this set fail CI. This list should only shrink. Do not hand-edit; run `bun run typecheck`.",
   "config": "tsconfig.json",
-  "count": 3,
-  "errors": [
-    "lib/nexus/commands/handoff.ts|TS2322|Type 'string[]' is not assignable to type '(\"discover\" | \"frame\" | \"plan\" | \"handoff\" | \"build\" | \"review\" | \"qa\" | \"ship\" | \"closeout\")[]'.",
-    "lib/nexus/commands/review.ts|TS2322|Type 'ActualRouteRecord | null | undefined' is not assignable to type 'ActualRouteRecord | null'.",
-    "lib/nexus/intent-classifier/keyword.ts|TS18048|'skill.manifest' is possibly 'undefined'."
-  ]
+  "count": 0,
+  "errors": []
 }
