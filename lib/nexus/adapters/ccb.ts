@@ -59,7 +59,7 @@ export interface CcbExecuteGeneratorRaw {
   exit_code?: number;
   stdout?: string;
   stderr?: string;
-  request_id?: string;
+  request_id?: string | null;
   latency_summary?: CcbDispatchLatencySummary | null;
 }
 
@@ -71,7 +71,7 @@ export interface CcbExecuteAuditRaw {
   exit_code?: number;
   stdout?: string;
   stderr?: string;
-  request_id?: string;
+  request_id?: string | null;
   latency_summary?: CcbDispatchLatencySummary | null;
 }
 
@@ -86,7 +86,7 @@ export interface CcbExecuteQaRaw {
   exit_code?: number;
   stdout?: string;
   stderr?: string;
-  request_id?: string;
+  request_id?: string | null;
   latency_summary?: CcbDispatchLatencySummary | null;
 }
 
@@ -386,9 +386,20 @@ function defaultRunCommand(spec: CcbCommandSpec): Promise<CcbCommandResult> {
   });
 }
 
-function envForCwd(cwd: string, env: Record<string, string> = {}): Record<string, string> {
+function envForCwd(
+  cwd: string,
+  env: Record<string, string | null | undefined> = {},
+): Record<string, string> {
+  // Omit null/undefined values rather than setting an env var to a missing
+  // value (e.g. CCB_SESSION_FILE when there is no session file for a provider).
+  const cleaned: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === 'string') {
+      cleaned[key] = value;
+    }
+  }
   return {
-    ...env,
+    ...cleaned,
     PWD: cwd,
   };
 }
@@ -1173,7 +1184,7 @@ async function runRouteVerification(
           providers,
           mounted: mountedProviders,
           verification_commands: verificationCommands,
-          provider_checks,
+          provider_checks: providerChecks,
           ping_command: describeCommand(pingArgv),
           ping_output: pingOutput,
           mounted_command: describeCommand(mountedArgv),
