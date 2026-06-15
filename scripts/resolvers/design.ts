@@ -415,7 +415,7 @@ If \`"regenerated": false\`: proceed with the approved variant.
 
 \`\`\`bash
 _APPROVED_VARIANT="<VARIANT>"
-_APPROVED_LETTER=$(basename "$_APPROVED_VARIANT" | sed -E 's/.*variant-([A-Z]).*/\1/')
+_APPROVED_LETTER=$(basename "$_APPROVED_VARIANT" | sed -E 's/.*variant-([A-Z]).*/\\1/')
 _APPROVED_BRIEF="$_DESIGN_DIR/brief-"$_APPROVED_LETTER".json"
 bun -e '
 const fs = require("fs");
