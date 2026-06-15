@@ -108,13 +108,13 @@ export async function runHandoff(ctx: CommandContext): Promise<CommandResult> {
   const resolvedWorkspace = resolveExecutionWorkspace(
     ctx.cwd,
     ledger.execution.workspace
-      ?? (ledger.current_stage === 'review' ? reviewStatus?.workspace ?? null : null)
-      ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.workspace ?? null : null),
+      ?? (ledger.current_stage === 'review' ? reviewStatus?.workspace : null)
+      ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.workspace : null),
   );
   const workspace = ensureFreshRunWorkspaceBaseline(ctx.cwd, resolvedWorkspace) ?? resolvedWorkspace;
   const sessionRoot = ledger.execution.session_root
-    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root ?? null : null)
-    ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.session_root ?? null : null)
+    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root : null)
+    ?? (ledger.current_stage === 'handoff' ? priorHandoffStatus?.session_root : null)
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const reviewScope = ledger.current_stage === 'review'

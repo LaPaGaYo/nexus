@@ -565,7 +565,7 @@ export async function runReviewWithWriteAtomicFile(
   );
   const sessionRoot = ledger.execution.session_root
     ?? buildStatus.session_root
-    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root ?? null : null)
+    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root : null)
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const commandHistoryVia = reviewCommandHistoryVia(ledger, ctx.via);
