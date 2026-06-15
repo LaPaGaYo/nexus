@@ -1,13 +1,8 @@
 {
   "_comment": "Type-check ratchet baseline. Pre-existing strict errors tolerated by scripts/repo/typecheck.ts --check; new errors beyond this set fail CI. This list should only shrink. Do not hand-edit; run `bun run typecheck`.",
   "config": "tsconfig.json",
-  "count": 12,
+  "count": 7,
   "errors": [
-    "lib/nexus/commands/closeout.ts|TS2322|Type '{ status: string; previous_stage: \"review\" | \"qa\" | \"ship\"; current_command: \"closeout\"; current_stage: \"closeout\"; allowed_next_stages: never[]; command_history: { command: string; at: string; via: CommandHistoryVia; }[]; ... 6 more ...; route_check?: RouteCheckRecord | null; }' is not assignable to type 'RunLedger'.",
-    "lib/nexus/commands/closeout.ts|TS2345|Argument of type '{ next_action: string | null; ship_handoff_current: boolean | null; merge_status: string | null; deploy_status: string | null; verification_status: string | null; failure_kind: string | null; ship_handoff_head_sha: string | null; pull_request_head_sha: string | null; } | null' is not assignable to parameter of type 'LandingReentryGuidance | null'.",
-    "lib/nexus/commands/closeout.ts|TS2352|Conversion of type '(LearningCandidate & { origin_stage: \"build\" | \"review\" | \"qa\" | \"ship\"; } & { id: string; })[]' to type 'LearningEntry[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
-    "lib/nexus/commands/closeout.ts|TS7053|Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ \".planning/current/closeout/CLOSEOUT-RECORD.md\": ArtifactPointer; }'.",
-    "lib/nexus/commands/closeout.ts|TS7053|Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ \".planning/current/closeout/CLOSEOUT-RECORD.md\": ArtifactPointer; }'.",
     "lib/nexus/commands/handoff.ts|TS2322|Type 'string[]' is not assignable to type '(\"discover\" | \"frame\" | \"plan\" | \"handoff\" | \"build\" | \"review\" | \"qa\" | \"ship\" | \"closeout\")[]'.",
     "lib/nexus/commands/review.ts|TS2322|Type 'ActualRouteRecord | null | undefined' is not assignable to type 'ActualRouteRecord | null'.",
     "lib/nexus/intent-classifier/keyword.ts|TS18048|'skill.manifest' is possibly 'undefined'.",
