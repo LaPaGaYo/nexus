@@ -1,0 +1,46 @@
+name: Typecheck
+
+# Type-check ratchet gate. The repo adopted `tsc` on a codebase that never had
+# one (~46 pre-existing strict errors in lib/**, see scripts/repo/typecheck.ts).
+# Fixing all of them first is milestone-scale, so this gate uses a baseline
+# ratchet: it fails only on NEW type errors beyond the recorded baseline
+# (scripts/repo/typecheck-baseline.json). Existing errors are a tracked
+# burndown; the baseline should only shrink.
+#
+# Scope: lib/** (the Bun-environment governance core, where the union-branch /
+# hard-throw defect family lives). runtimes/browse etc. run in a browser
+# environment (need DOM lib) and are intentionally out of this gate's scope;
+# expand the tsconfig `include` + rebaseline when adding them.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: typecheck-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type-check ratchet (fail on NEW errors beyond baseline)
+        run: bun run typecheck:check

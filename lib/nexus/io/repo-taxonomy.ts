@@ -573,6 +573,7 @@ const ROOT_FILES = new Set([
   'package.json',
   'release.json',
   'setup',
+  'tsconfig.json',
 ]);
 
 function normalizeRepoPath(repoPath: string): string {
