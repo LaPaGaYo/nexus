@@ -5,11 +5,13 @@ import type { ExecutionSelection } from '../runtime/execution-topology';
 import { assertCanonicalLifecycleEntrypoint } from '../io/migration-safety';
 import type {
   CanonicalCommandId,
+  CommandHistoryVia,
   CompletionAdvisorRecord,
   ContinuationMode,
   ReviewAdvisoryDisposition,
   StageStatus,
 } from '../contracts/types';
+import { isCommandHistoryVia } from '../contracts/types';
 import { resolveRepositoryRoot } from '../runtime/workspace-substrate';
 import { runBuild } from './build';
 import { runCloseout } from './closeout';
@@ -24,7 +26,7 @@ import { runShip } from './ship';
 export interface CommandContext {
   cwd: string;
   clock: () => string;
-  via: string | null;
+  via: CommandHistoryVia;
   adapters: NexusAdapters;
   execution: ExecutionSelection;
   continuation_mode_override?: ContinuationMode | null;
@@ -41,7 +43,7 @@ export interface CommandResult {
 
 interface CommandInvocation {
   command: CanonicalCommandId;
-  via: string | null;
+  via: CommandHistoryVia;
   handler: (ctx: CommandContext) => Promise<CommandResult>;
   contract: (typeof CANONICAL_MANIFEST)[CanonicalCommandId];
 }
@@ -74,7 +76,11 @@ const COMMAND_HANDLERS: Record<CanonicalCommandId, CommandHandler> = {
 export function resolveInvocation(name: string): CommandInvocation {
   assertCanonicalLifecycleEntrypoint(name);
   const command = resolveCommandName(name);
-  const via = name === command ? null : name;
+  const rawVia = name === command ? null : name;
+  // rawVia is null (direct invocation) or the alias name used. Alias names are
+  // all members of COMMAND_HISTORY_VIAS; narrow with the guard rather than cast,
+  // falling back to null for any unrecognized via.
+  const via: CommandHistoryVia = isCommandHistoryVia(rawVia) ? rawVia : null;
   const handler = COMMAND_HANDLERS[command];
 
   return {

@@ -8,7 +8,7 @@ import { applyNormalizationPlan } from '../normalizers';
 import { canonicalNextStages, normalizeDiscoveryFrame, buildDiscoveryTraceabilityPayloads } from '../normalizers/discovery';
 import { assertLegalTransition } from '../governance/transitions';
 import type { DiscoveryFrameRaw } from '../adapters/discovery';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
 import { buildFrameCompletionAdvisor } from '../completion-advisor';
 import { buildCompletionAdvisorWrite } from '../completion-advisor/writer';
@@ -24,7 +24,7 @@ function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
 ): RunLedger {
   return {
     ...ledger,

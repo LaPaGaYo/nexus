@@ -26,6 +26,7 @@ import { generateLearningId } from '../learning/id';
 import type { CcbExecuteQaRaw } from '../adapters/ccb';
 import type { LocalExecuteQaRaw } from '../adapters/local';
 import { LEARNING_SOURCES, LEARNING_TYPES } from '../contracts/types';
+import type { CommandHistoryVia } from '../contracts/types';
 import type {
   ArtifactPointer,
   ConflictRecord,
@@ -259,7 +260,7 @@ function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
   allowedNextStages: RunLedger['allowed_next_stages'] = status === 'active' ? QA_READY_NEXT_STAGES : [],
 ): RunLedger {
   return {

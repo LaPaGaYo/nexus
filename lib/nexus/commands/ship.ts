@@ -36,6 +36,7 @@ import {
 import type { ExecutionShipDisciplineRaw } from '../adapters/execution';
 import type { LocalExecuteShipPersonasRaw } from '../adapters/local';
 import { LEARNING_SOURCES, LEARNING_TYPES, LOCAL_SHIP_PERSONA_ROLES } from '../contracts/types';
+import type { CommandHistoryVia } from '../contracts/types';
 import type {
   ArtifactPointer,
   ConflictRecord,
@@ -319,7 +320,7 @@ function nextLedger(
   previousStage: 'review' | 'qa',
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
 ): RunLedger {
   return {
     ...ledger,
