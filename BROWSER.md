@@ -336,7 +336,7 @@ The browser automation layer is built on [Playwright](https://playwright.dev/) b
 bun install              # install dependencies + Playwright Chromium
 bun test                 # run integration tests (~3s)
 bun run dev <cmd>        # run CLI from source (no compile)
-bun run build            # compile to browse/dist/browse
+bun run build            # compile to runtimes/browse/dist/browse
 ```
 
 ### Dev mode vs compiled binary
@@ -350,7 +350,7 @@ bun run dev snapshot -i
 bun run dev click @e3
 ```
 
-The compiled binary (`bun run build`) is only needed for distribution. It produces a single ~58MB executable at `browse/dist/browse` using Bun's `--compile` flag.
+The compiled binary (`bun run build`) is only needed for distribution. It produces a single ~58MB executable at `runtimes/browse/dist/browse` using Bun's `--compile` flag.
 
 ### Running tests
 
@@ -388,7 +388,7 @@ The active skill lives at `~/.claude/skills/nexus/`. After making changes:
 2. Pull in the skill directory: `cd ~/.claude/skills/nexus && git pull`
 3. Rebuild: `cd ~/.claude/skills/nexus && bun run build`
 
-Or copy the binary directly: `cp browse/dist/browse ~/.claude/skills/nexus/browse/dist/browse`
+Or copy the binary directly: `cp runtimes/browse/dist/browse ~/.claude/skills/nexus/runtimes/browse/dist/browse`
 
 ### Adding a new command
 
