@@ -151,7 +151,7 @@ function requestedBuildRouteForExecution(
   ledgerWithExecution: RunLedger,
 ): NonNullable<StageStatus['requested_route']> {
   return handoffRequestedRoute
-    ?? (currentStage === 'review' ? reviewRequestedRoute ?? null : null)
+    ?? (currentStage === 'review' ? reviewRequestedRoute : null)
     ?? requestedBuildRouteFromLedger(ledgerWithExecution);
 }
 
@@ -386,10 +386,10 @@ export async function runBuild(ctx: CommandContext): Promise<CommandResult> {
   const workspace = ensureFreshRunWorkspaceBaseline(ctx.cwd, resolvedWorkspace) ?? resolvedWorkspace;
   const sessionRoot = ledger.execution.session_root
     ?? (ledger.current_stage === 'qa'
-      ? qaStatus?.session_root ?? reviewStatus?.session_root ?? null
+      ? qaStatus?.session_root ?? reviewStatus?.session_root
       : fixCycle
-        ? reviewStatus?.session_root ?? null
-        : handoffStatus.session_root ?? null)
+        ? reviewStatus?.session_root
+        : handoffStatus.session_root)
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const buildRequestPath = '.planning/current/build/build-request.json';
