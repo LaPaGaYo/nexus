@@ -1,6 +1,9 @@
 import type { InstalledSkillRecord } from '../contracts/types';
 import type { NexusSkillManifest } from './manifest-schema';
 
+// Re-exported so this directory's barrel (index.ts) can surface it from './types'.
+export type { InstalledSkillRecord };
+
 export interface SkillRecord extends InstalledSkillRecord {
   /**
    * Parsed `nexus.skill.yaml` manifest if present alongside SKILL.md.

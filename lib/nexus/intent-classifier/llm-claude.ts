@@ -1,5 +1,6 @@
 import type { SkillRecord } from '../skill-registry/types';
-import type { IntentCandidate, IntentOutcome, LLMClassifier } from './llm';
+import type { LLMClassifier } from './llm';
+import type { IntentCandidate, IntentOutcome } from './types';
 
 /**
  * Real LLM classifier backed by the Anthropic Claude API.
