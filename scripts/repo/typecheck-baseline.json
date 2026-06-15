@@ -1,16 +1,8 @@
 {
   "_comment": "Type-check ratchet baseline. Pre-existing strict errors tolerated by scripts/repo/typecheck.ts --check; new errors beyond this set fail CI. This list should only shrink. Do not hand-edit; run `bun run typecheck`.",
   "config": "tsconfig.json",
-  "count": 32,
+  "count": 24,
   "errors": [
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string | undefined'.",
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string | undefined'.",
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string | undefined'.",
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string | undefined'.",
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string'.",
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string'.",
-    "lib/nexus/adapters/ccb.ts|TS2322|Type 'string | null' is not assignable to type 'string'.",
-    "lib/nexus/adapters/ccb.ts|TS2552|Cannot find name 'provider_checks'. Did you mean 'providerChecks'?",
     "lib/nexus/commands/build.ts|TS2871|This expression is always nullish.",
     "lib/nexus/commands/build.ts|TS2871|This expression is always nullish.",
     "lib/nexus/commands/closeout.ts|TS2322|Type '{ status: string; previous_stage: \"review\" | \"qa\" | \"ship\"; current_command: \"closeout\"; current_stage: \"closeout\"; allowed_next_stages: never[]; command_history: { command: string; at: string; via: CommandHistoryVia; }[]; ... 6 more ...; route_check?: RouteCheckRecord | null; }' is not assignable to type 'RunLedger'.",
