@@ -1,7 +1,7 @@
 {
   "_comment": "Type-check ratchet baseline. Pre-existing strict errors tolerated by scripts/repo/typecheck.ts --check; new errors beyond this set fail CI. This list should only shrink. Do not hand-edit; run `bun run typecheck`.",
   "config": "tsconfig.json",
-  "count": 15,
+  "count": 12,
   "errors": [
     "lib/nexus/commands/closeout.ts|TS2322|Type '{ status: string; previous_stage: \"review\" | \"qa\" | \"ship\"; current_command: \"closeout\"; current_stage: \"closeout\"; allowed_next_stages: never[]; command_history: { command: string; at: string; via: CommandHistoryVia; }[]; ... 6 more ...; route_check?: RouteCheckRecord | null; }' is not assignable to type 'RunLedger'.",
     "lib/nexus/commands/closeout.ts|TS2345|Argument of type '{ next_action: string | null; ship_handoff_current: boolean | null; merge_status: string | null; deploy_status: string | null; verification_status: string | null; failure_kind: string | null; ship_handoff_head_sha: string | null; pull_request_head_sha: string | null; } | null' is not assignable to parameter of type 'LandingReentryGuidance | null'.",
@@ -11,12 +11,9 @@
     "lib/nexus/commands/handoff.ts|TS2322|Type 'string[]' is not assignable to type '(\"discover\" | \"frame\" | \"plan\" | \"handoff\" | \"build\" | \"review\" | \"qa\" | \"ship\" | \"closeout\")[]'.",
     "lib/nexus/commands/review.ts|TS2322|Type 'ActualRouteRecord | null | undefined' is not assignable to type 'ActualRouteRecord | null'.",
     "lib/nexus/intent-classifier/keyword.ts|TS18048|'skill.manifest' is possibly 'undefined'.",
-    "lib/nexus/learning/candidates.ts|TS2367|This comparison appears to be unintentional because the types '2 | undefined' and '1' have no overlap.",
-    "lib/nexus/learning/normalize.ts|TS2322|Type '1' is not assignable to type '2'.",
     "lib/nexus/normalizers/ccb.ts|TS2322|Type '(\"codex\" | \"gemini\" | null)[]' is not assignable to type 'string[]'.",
     "lib/nexus/normalizers/ccb.ts|TS2677|A type predicate's type must be assignable to its parameter's type.",
     "lib/nexus/release/publish.ts|TS2740|Type 'Record<string, unknown>' is missing the following properties from type 'ReleasePreflightReport': schema_version, status, version, tag, and 2 more.",
-    "lib/nexus/release/remote.ts|TS2739|Type 'Record<string, unknown>' is missing the following properties from type 'RemoteReleaseSmokeReport': schema_version, status, tag, version, issues",
-    "lib/nexus/runtime/ccb-runtime-state.ts|TS2367|This comparison appears to be unintentional because the types '3 | undefined' and '2' have no overlap."
+    "lib/nexus/release/remote.ts|TS2739|Type 'Record<string, unknown>' is missing the following properties from type 'RemoteReleaseSmokeReport': schema_version, status, tag, version, issues"
   ]
 }
