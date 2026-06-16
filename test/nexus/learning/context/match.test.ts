@@ -1,6 +1,6 @@
 // test/nexus/learning/context/match.test.ts
 import { describe, test, expect } from 'bun:test';
-import { fileOverlap, stageMatch, relevance, contradictionRisk } from '../../../../lib/nexus/learning/context/match';
+import { fileOverlap, stageMatch, relevance, contradictionRisk, dropSuperseded } from '../../../../lib/nexus/learning/context/match';
 import type { NormalizedEntry } from '../../../../lib/nexus/learning/normalize';
 
 function e(over: Partial<NormalizedEntry> = {}): NormalizedEntry {
@@ -59,5 +59,20 @@ describe('contradictionRisk', () => {
   test('0 when nothing supersedes it', () => {
     const a = e({ id: 'lrn_a' });
     expect(contradictionRisk(a, [a])).toBe(0);
+  });
+});
+
+describe('dropSuperseded (Decision D1)', () => {
+  test('hard-excludes entries superseded by a live peer; keeps the rest', () => {
+    const a = e({ id: 'lrn_a' });
+    const b = e({ id: 'lrn_b', supersedes: ['lrn_a'] } as Partial<NormalizedEntry>);
+    const { live, supersededIds } = dropSuperseded([a, b]);
+    expect(live.map((x) => x.id)).toEqual(['lrn_b']);
+    expect(supersededIds).toContain('lrn_a');
+  });
+  test('no supersedes links → nothing dropped', () => {
+    const a = e({ id: 'lrn_a' });
+    const c = e({ id: 'lrn_c' });
+    expect(dropSuperseded([a, c]).live).toHaveLength(2);
   });
 });

@@ -14,7 +14,7 @@ export interface BuildRecordInput {
   status: ResolverStatus;
   warnings: string[];
   packet: ScoredEntry[];
-  dropped: { below_floor: number; over_cap: number };
+  dropped: { below_floor: number; over_cap: number; superseded: number };
   boosts: BoostDelta[];
   disagreements: RankDisagreement[];
   generatedAt: string;
@@ -32,7 +32,7 @@ export interface LearningContextRecord {
     id: string; source_path?: string; subject_skill?: string; score: number;
     factors: ScoredEntry['factors'];
   }>;
-  dropped: { below_floor: number; over_cap: number };
+  dropped: { below_floor: number; over_cap: number; superseded: number };
   boosts: BoostDelta[];
   rank_disagreements: RankDisagreement[];
 }

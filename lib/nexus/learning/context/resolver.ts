@@ -6,6 +6,7 @@ import {
 } from '../../index';
 import type { NormalizedEntry } from '../normalize';
 import { scoreEntry, computeBoostDeltas, applyBoost } from './ranking';
+import { dropSuperseded } from './match';
 import { capPacket } from './packet';
 import { buildLearningContextRecord, writeLearningContextRecord } from './record';
 import {
@@ -47,22 +48,26 @@ export function resolveLearningContext(input: LearningContextInput): LearningCon
     if (!config || !config.weights || typeof config.weights.relevance !== 'number') {
       throw new Error('invalid learning_context config');
     }
-    const all = gatherEntries(input, home, warnings);
+    const gathered = gatherEntries(input, home, warnings);
+    // Decision D1: drop superseded (stale) learnings before they can score/boost.
+    const { live } = dropSuperseded(gathered);
+    const supersededCount = gathered.length - live.length;
     const skillNames = input.naturalRanking.map((s) => s.name);
     const ctx = { stage, changedFiles: input.changedFiles, skillNames, now: input.now };
 
-    const scored: ScoredEntry[] = all.map((e) => scoreEntry(e, all, ctx, config));
-    const { packet, dropped } = capPacket(scored, {
+    const scored: ScoredEntry[] = live.map((e) => scoreEntry(e, live, ctx, config));
+    const { packet, dropped: capDropped } = capPacket(scored, {
       score_floor: config.score_floor, max_entries: config.max_entries, token_budget: config.token_budget,
     });
+    const dropped = { ...capDropped, superseded: supersededCount };
 
     const boosts = computeBoostDeltas(packet, { boost_cap: config.boost_cap, boost_scale: config.boost_scale });
-    const { boosted, disagreements } = applyBoost(input.naturalRanking, boosts);
+    const { boosted, disagreements, appliedBoosts } = applyBoost(input.naturalRanking, boosts);
 
     const status = warnings.length > 0 ? 'degraded' : 'ok';
     const record = buildLearningContextRecord({
       stage, runId: input.runId, projectSlug: input.projectSlug, config, status, warnings,
-      packet, dropped, boosts, disagreements,
+      packet, dropped, boosts: appliedBoosts, disagreements,
       generatedAt: new Date(input.now ?? Date.now()).toISOString(),
     });
     const recordPath = writeLearningContextRecord(input.cwd, stage, record);
@@ -74,7 +79,7 @@ export function resolveLearningContext(input: LearningContextInput): LearningCon
         stage, runId: input.runId, projectSlug: input.projectSlug,
         config: config ?? DEFAULT_LEARNING_CONTEXT_CONFIG,
         status: 'failed', warnings: [...warnings, `resolver failed: ${(e as Error).message}`],
-        packet: [], dropped: { below_floor: 0, over_cap: 0 }, boosts: [], disagreements: [],
+        packet: [], dropped: { below_floor: 0, over_cap: 0, superseded: 0 }, boosts: [], disagreements: [],
         generatedAt: new Date(input.now ?? Date.now()).toISOString(),
       });
       writeLearningContextRecord(input.cwd, stage, rec);

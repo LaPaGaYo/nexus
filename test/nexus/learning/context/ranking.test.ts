@@ -92,17 +92,32 @@ describe('computeBoostDeltas', () => {
   });
 });
 
-describe('applyBoost', () => {
-  test('adds delta to matching RecommendedSkill score and re-sorts (stable, name tiebreak)', () => {
-    const natural = [rs('design', 5), rs('investigate', 4), rs('simplify', 4)];
-    const { boosted, disagreements } = applyBoost(natural, [{ skill: 'investigate', delta: 2, from_entries: ['l1'] }]);
-    expect(boosted[0].name).toBe('investigate'); // 4+2=6 > 5
-    expect(boosted[0].score).toBe(6);
-    expect(disagreements.length).toBeGreaterThan(0);
-    expect(disagreements[0].skill).toBe('investigate');
-    expect(disagreements[0].natural_rank).toBe(1);
-    expect(disagreements[0].boosted_rank).toBe(0);
+describe('applyBoost (Decision D2: boost, not override)', () => {
+  test('reorders a skill BELOW the natural top without overtaking it', () => {
+    // maxNatural = 6 (design). investigate 2 + delta 3 = 5 → clamped to min(5,6)=5,
+    // which lifts it above simplify (4) but leaves design (6) on top.
+    const natural = [rs('design', 6), rs('simplify', 4), rs('investigate', 2)];
+    const { boosted, disagreements } = applyBoost(natural, [{ skill: 'investigate', delta: 3, from_entries: ['l1'] }]);
+    expect(boosted[0].name).toBe('design');        // naturally-strongest never displaced
+    expect(boosted[1].name).toBe('investigate');   // lifted above simplify
+    expect(boosted.find((s) => s.name === 'investigate')!.score).toBe(5);
+    const dis = disagreements.find((d) => d.skill === 'investigate')!;
+    expect(dis.natural_rank).toBe(2);
+    expect(dis.boosted_rank).toBe(1);
   });
+
+  test('clamps to the top natural score — a boost can never overtake the strongest', () => {
+    // investigate 4 + delta 10 = 14 → clamped to maxNatural 5; ties design but the
+    // name tiebreak keeps design first, so investigate does NOT overtake it.
+    const natural = [rs('design', 5), rs('investigate', 4), rs('simplify', 4)];
+    const { boosted, appliedBoosts } = applyBoost(natural, [{ skill: 'investigate', delta: 10, from_entries: ['l1'] }]);
+    expect(boosted[0].name).toBe('design');        // D2 guarantee: top is not overridden
+    expect(boosted.find((s) => s.name === 'investigate')!.score).toBe(5);
+    const applied = appliedBoosts.find((b) => b.skill === 'investigate')!;
+    expect(applied.applied_delta).toBe(1);         // 5 - 4, not the raw 10
+    expect(applied.clamped).toBe(true);            // clamp bound the boost (recorded for AC#2)
+  });
+
   test('no delta application leaves order identical and yields zero disagreements', () => {
     const natural = [rs('a', 5), rs('b', 3)];
     const { boosted, disagreements } = applyBoost(natural, []);

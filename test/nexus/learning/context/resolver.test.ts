@@ -65,4 +65,27 @@ describe('resolveLearningContext', () => {
     expect(r.status).toBe('failed');
     expect(r.boostedRanking).toEqual(natural);
   });
+
+  test('Decision D1: a superseded learning is excluded from the packet and counted as dropped', () => {
+    const base = {
+      schema_version: 2, ts: new Date().toISOString(), writer_skill: 'investigate',
+      subject_skill: 'investigate', subject_stage: 'build', type: 'pitfall',
+      key: 'socket timeout build', confidence: 9, evidence_type: 'test-output',
+      source: 'observed', files: ['lib/net/socket.ts'], cluster_id: null,
+      supersedes_reason: null, derived_from: [], last_applied_at: null, mirror: null,
+    };
+    writeJsonl('demo', [
+      { ...base, id: 'lrn_old', insight: 'old guidance, superseded', supersedes: [] },
+      { ...base, id: 'lrn_new', insight: 'new guidance replaces old', supersedes: ['lrn_old'] },
+    ]);
+    const r = resolveLearningContext({
+      cwd, home, stage: 'build', runId: 'r1', changedFiles: ['lib/net/socket.ts'],
+      naturalRanking: natural, projectSlug: 'demo',
+    });
+    const ids = r.packet.map((p) => String(p.entry.id));
+    expect(ids).toContain('lrn_new');
+    expect(ids).not.toContain('lrn_old'); // superseded → hard-dropped, never boosts
+    const rec = JSON.parse(readFileSync(r.recordPath, 'utf8'));
+    expect(rec.dropped.superseded).toBe(1);
+  });
 });

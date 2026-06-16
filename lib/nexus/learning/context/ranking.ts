@@ -86,15 +86,26 @@ function rankIndexByName(list: RecommendedSkill[]): Map<string, number> {
 export function applyBoost(
   natural: RecommendedSkill[],
   deltas: BoostDelta[],
-): { boosted: RecommendedSkill[]; disagreements: RankDisagreement[] } {
+): { boosted: RecommendedSkill[]; disagreements: RankDisagreement[]; appliedBoosts: BoostDelta[] } {
   const deltaBy = new Map(deltas.map((d) => [d.skill, d]));
   const naturalIdx = rankIndexByName(natural);
   const naturalScore = new Map(natural.map((s) => [s.name, s.score]));
 
+  // Decision D2: clamp every boosted score to the highest NATURAL score. SP6 v1
+  // is boost-only (additive, positive — no demotion), so capping at the top
+  // natural signal makes "boost, not override" structurally true: a boost can
+  // reshuffle skills below the naturally-strongest and lift a weak one up to (at
+  // most) parity, but can never push a skill past the strongest natural signal.
+  const maxNatural = natural.length > 0 ? Math.max(...natural.map((s) => s.score)) : 0;
+  const appliedByName = new Map<string, number>();
+
   const boosted = natural
     .map((s) => {
       const d = deltaBy.get(s.name) ?? deltaBy.get(s.surface.replace(/^\//, ''));
-      return d ? { ...s, score: s.score + d.delta } : { ...s };
+      if (!d) return { ...s };
+      const clampedScore = Math.min(s.score + d.delta, maxNatural);
+      appliedByName.set(d.skill, clampedScore - s.score);
+      return { ...s, score: clampedScore };
     })
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 
@@ -113,5 +124,11 @@ export function applyBoost(
     });
   });
 
-  return { boosted, disagreements };
+  // Enrich each delta with the post-clamp effective delta (AC#2 explainability).
+  const appliedBoosts: BoostDelta[] = deltas.map((d) => {
+    const applied = appliedByName.has(d.skill) ? appliedByName.get(d.skill)! : 0;
+    return { ...d, applied_delta: applied, clamped: applied < d.delta - 1e-9 };
+  });
+
+  return { boosted, disagreements, appliedBoosts };
 }

@@ -67,3 +67,21 @@ export function contradictionRisk(entry: NormalizedEntry, all: NormalizedEntry[]
   }
   return 0;
 }
+
+/**
+ * Decision D1: superseded learnings must never influence ranking. An entry is
+ * stale iff its id appears in another gathered entry's `supersedes[]`; those are
+ * hard-excluded before scoring (a soft penalty could still leave a strong stale
+ * entry above the floor). The `contradiction_risk` factor is retained for a
+ * future *live mutual-conflict* signal (two non-superseded peers disagreeing),
+ * which SP1 does not yet model — so post-drop it contributes 0 in the resolver.
+ */
+export function dropSuperseded(all: NormalizedEntry[]): { live: NormalizedEntry[]; supersededIds: string[] } {
+  const supersededIds = new Set<string>();
+  for (const e of all) {
+    const sup = (e as { supersedes?: string[] }).supersedes;
+    if (Array.isArray(sup)) for (const id of sup) if (id) supersededIds.add(id);
+  }
+  const live = all.filter((e) => !(e.id && supersededIds.has(e.id)));
+  return { live, supersededIds: [...supersededIds] };
+}

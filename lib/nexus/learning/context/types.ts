@@ -49,8 +49,16 @@ export interface ScoredEntry {
 
 export interface BoostDelta {
   skill: string;
+  /** Raw delta requested (Σ packet-entry scores × boost_scale, capped at boost_cap). */
   delta: number;
   from_entries: string[];
+  /**
+   * Decision D2: the effective delta actually added after clamping the boosted
+   * score to the highest natural score (≤ delta). Set by applyBoost.
+   */
+  applied_delta?: number;
+  /** True iff the relative-to-top clamp bound the boost (applied_delta < delta). */
+  clamped?: boolean;
 }
 
 export interface RankDisagreement {

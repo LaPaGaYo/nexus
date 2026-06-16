@@ -257,3 +257,24 @@ On SP6 v1 landing, update `SELF_LEARNING_V1_META.md`: §4 SP6 row →
 in-progress/landed; §9 trigger log row ("SP6 v1 lands"); note SP6.1 (remaining
 3 consumers) + SP2 (now unblocked once SP6 ships to production, per glaocon V1
 feedback) as the next candidates.
+
+## 12. Post-review decisions (ratified 2026-06-16)
+
+An independent review of this spec (PR #176) surfaced two ranking-correctness
+issues. Both were ratified and are now implemented in this branch; they refine
+§5/§6/§7 above:
+
+- **D1 — superseded learnings are hard-dropped, not soft-penalized.** §6 originally
+  modeled supersession only as a `contradiction_risk` `−0.50` factor, but a
+  strongly-positive superseded entry could still clear the `0.15` floor and boost.
+  The resolver now **excludes** any entry whose `id` appears in a live peer's
+  `supersedes[]` *before* scoring (`dropSuperseded`), and records the count in
+  `learning-context.json.dropped.superseded`. The `contradiction_risk` factor is
+  retained for a future *live mutual-conflict* signal (not yet modeled by SP1), so
+  it contributes 0 in the current resolver path.
+- **D2 — boost is clamped to the top natural score ("boost, not override").** §6's
+  absolute `BOOST_CAP` alone let a mid-strength skill (e.g. natural score 5) be
+  boosted past the strongest (score 6). `applyBoost` now also clamps each boosted
+  score to `max(naturalScore)`; since SP6 v1 is boost-only, the naturally-strongest
+  skill can never be displaced. The effective post-clamp delta and a `clamped` flag
+  are recorded per boost (`boosts[].applied_delta` / `boosts[].clamped`) for AC#2.
