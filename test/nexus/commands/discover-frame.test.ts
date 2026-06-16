@@ -970,7 +970,14 @@ describe('nexus discover/frame PM seams', () => {
       );
       expect(() => readJson('.planning/current/plan/status.json')).toThrow();
     });
-  });
+    // Heavy lifecycle integration test: spawns git worktrees and runs a full
+    // closeout->discover rollover (10 governed commands). The default 5000ms
+    // per-test limit is occasionally exceeded by tens of ms on loaded CI
+    // runners (observed 5141ms on run 27569658959), so allow extra headroom to
+    // absorb load-induced jitter without masking a genuine regression. Matches
+    // the custom-timeout convention used by the heavy E2E tests in
+    // test/skill-e2e-sidebar.test.ts.
+  }, 15000);
 
   test('fresh discover seeds continuation advice after archived closeout', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
