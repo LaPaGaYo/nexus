@@ -202,7 +202,7 @@ function persistReviewAuditReceiptForResult(input: {
       request_id: requestIdFromAuditRaw(input.result.raw_output),
       generated_at: input.generatedAt,
       requested_route: requestedReviewRoute(input.requestedRoute, input.provider),
-      actual_route: input.result.actual_route,
+      actual_route: input.result.actual_route ?? null,
       verdict: parseAuditVerdict(markdown, input.provider === 'codex' ? 'Codex' : 'Gemini'),
       markdown_path: reviewAttemptAuditMarkdownPath(input.reviewAttemptId, input.provider),
     }),
@@ -565,7 +565,7 @@ export async function runReviewWithWriteAtomicFile(
   );
   const sessionRoot = ledger.execution.session_root
     ?? buildStatus.session_root
-    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root ?? null : null)
+    ?? (ledger.current_stage === 'review' ? reviewStatus?.session_root : null)
     ?? resolveSessionRootRecord(ctx.cwd);
   const ledgerWithExecution = withExecutionSessionRoot(withExecutionWorkspace(ledger, workspace), sessionRoot);
   const commandHistoryVia = reviewCommandHistoryVia(ledger, ctx.via);

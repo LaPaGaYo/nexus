@@ -57,6 +57,13 @@ These remain compatibility-only entrypoints. They route through the same Nexus r
 - `/plan-eng-review -> /frame`
 - `/autoplan -> /plan`
 
+The following legacy names also resolve through `resolveCommandName` (see `lib/nexus/contracts/command-manifest.ts`) for backward compatibility, but have no dedicated slash-command skill — they are programmatic-only:
+
+- `start-work -> discover`
+- `execute-wave -> build`
+- `governed-execute -> build`
+- `verify-close -> closeout`
+
 ## Build commands
 
 ```bash

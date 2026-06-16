@@ -115,7 +115,7 @@ function scoreManifest(
   return {
     name: skill.name,
     surface: `/${skill.name}`,
-    namespace: skill.manifest.classification?.namespace ?? skill.namespace,
+    namespace: manifest.classification?.namespace ?? skill.namespace,
     score,
     matched_keywords: matched,
     manifest_backed: true,

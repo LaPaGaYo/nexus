@@ -58,7 +58,11 @@ export function validateReleasePreflightReport(report: unknown): ReleasePrefligh
   assertString(report.release_notes_path, 'release_notes_path');
   assertStringArray(report.issues, 'issues');
 
-  return report;
+  // Every ReleasePreflightReport field has now been runtime-validated above;
+  // assert the validated shape. The asserts narrow properties, not the whole
+  // Record<string, unknown>, and the Record does not sufficiently overlap the
+  // report interface, so the assertion hops through `unknown` (TS2352).
+  return report as unknown as ReleasePreflightReport;
 }
 
 export function buildReleasePreflightReport(input: {

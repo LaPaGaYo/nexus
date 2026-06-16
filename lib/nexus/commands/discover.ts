@@ -42,7 +42,7 @@ import {
 } from '../runtime/workspace-substrate';
 import { readStageStatus, writeStageStatus } from '../io/status';
 import type { DiscoveryDiscoverRaw } from '../adapters/discovery';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
 
 function artifactPointerFor(path: string): ArtifactPointer {
@@ -60,7 +60,7 @@ function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
 ): RunLedger {
   return {
     ...ledger,

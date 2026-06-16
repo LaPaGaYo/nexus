@@ -13,7 +13,7 @@ export type RepoTaxonomyCategory =
   | 'docs'
   | 'test';
 
-export type RepoPathInventoryCategory = RepoTaxonomyCategory | 'root' | 'ci';
+export type RepoPathInventoryCategory = RepoTaxonomyCategory | 'root' | 'ci' | 'unclassified';
 export type RepoMovePolicy = 'keep_in_place' | 'compat_required' | 'future_move';
 export type RepoRiskLevel = 'low' | 'medium' | 'high';
 
@@ -573,6 +573,7 @@ const ROOT_FILES = new Set([
   'package.json',
   'release.json',
   'setup',
+  'tsconfig.json',
 ]);
 
 function normalizeRepoPath(repoPath: string): string {
@@ -649,7 +650,23 @@ export function classifyRepoPath(repoPath: string): RepoPathClassification {
     };
   }
 
-  throw new Error(`No repo taxonomy classification for path: ${normalized}`);
+  // No rule matched. `git ls-files` can return any tracked path, so an
+  // unanticipated path is legitimate runtime input (a new top-level dir,
+  // committed run-state, etc.), not a programming error. Degrade to an
+  // explicit 'unclassified' bucket rather than throwing — one stray file must
+  // not crash the whole inventory. The inventory tool decides the gate policy
+  // (it fails actionably when any path is unclassified; see path-inventory.ts).
+  return {
+    current_path: normalized,
+    category: 'unclassified',
+    target_path: normalized,
+    move_policy: 'keep_in_place',
+    risk_level: 'medium',
+    rule: 'unclassified-fallback',
+    rationale:
+      'No taxonomy rule matched this path. Add a rule in lib/nexus/io/repo-taxonomy.ts, '
+      + 'or relocate/remove the file. Left in place pending classification.',
+  };
 }
 
 export function plannedTopLevelRoots(): string[] {

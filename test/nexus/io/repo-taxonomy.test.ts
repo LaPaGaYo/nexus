@@ -497,6 +497,26 @@ describe('nexus repo taxonomy v2', () => {
     });
   });
 
+  test('returns an unclassified classification (does not throw) for an unanticipated path', () => {
+    // git ls-files can return any tracked path. A path with no taxonomy rule is
+    // legitimate runtime input (a new top-level dir, committed run-state, etc.),
+    // not a programming error. The classifier must degrade to an explicit
+    // 'unclassified' bucket so one stray file does not crash the whole inventory
+    // gate; the inventory tool decides the gate policy on top of that signal.
+    expect(() => classifyRepoPath('.planning/current/frame/design-intent.json')).not.toThrow();
+    expect(classifyRepoPath('.planning/current/frame/design-intent.json')).toMatchObject({
+      current_path: '.planning/current/frame/design-intent.json',
+      category: 'unclassified',
+      target_path: '.planning/current/frame/design-intent.json',
+      move_policy: 'keep_in_place',
+      rule: 'unclassified-fallback',
+    });
+    expect(classifyRepoPath('some/brand/new/top-level-thing.xyz')).toMatchObject({
+      category: 'unclassified',
+      rule: 'unclassified-fallback',
+    });
+  });
+
   test('repo path inventory documents every tracked file plus the inventory generator itself', () => {
     const inventoryPath = join(ROOT, 'docs/architecture/repo-path-inventory.md');
     const inventory = readFileSync(inventoryPath, 'utf8');

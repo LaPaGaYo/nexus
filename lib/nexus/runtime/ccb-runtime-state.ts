@@ -176,7 +176,14 @@ export function readCcbProviderState(repoRoot: string, now: string): CcbProvider
 }
 
 export function readCcbDispatchState(repoRoot: string, dispatchId: string): CcbDispatchStateRecord | null {
-  const parsed = readJsonPartial<CcbDispatchStateRecord>(dispatchStateAbsolutePath(repoRoot, dispatchId));
+  // Read tolerantly: the on-disk record may be a lingering v2 dispatch file from
+  // before the bump to v3. CcbDispatchStateRecord (the WRITE type) pins
+  // schema_version to `3`, which would make the `!== 2` acceptance check below
+  // dead. Widen only the parse type's discriminant to `2 | 3`; the normalized
+  // return value is still emitted as v3.
+  const parsed = readJsonPartial<Omit<CcbDispatchStateRecord, 'schema_version'> & { schema_version: 2 | 3 }>(
+    dispatchStateAbsolutePath(repoRoot, dispatchId),
+  );
   if (parsed === null) {
     return null;
   }

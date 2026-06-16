@@ -10,7 +10,7 @@ import { applyNormalizationPlan } from '../normalizers';
 import { buildPlanningTraceabilityPayloads, normalizePlanningPlan } from '../normalizers/planning';
 import { makeRunId, readLedger, startLedger } from '../governance/ledger';
 import type { PlanningPlanRaw } from '../adapters/planning';
-import type { ArtifactPointer, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
+import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
 import { readStageStatus } from '../io/status';
 import { buildVerificationMatrix } from '../review/verification-matrix';
@@ -29,7 +29,7 @@ function nextLedger(
   ledger: RunLedger,
   status: RunLedger['status'],
   at: string,
-  via: string | null,
+  via: CommandHistoryVia,
 ): RunLedger {
   return {
     ...ledger,

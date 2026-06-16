@@ -63,6 +63,7 @@ import {
   enrichFollowOnEvidenceSummary,
   readLandingReentryGuidance,
   renderLandingReentryMarkdown,
+  type LandingReentryGuidance,
 } from '../observability/closeout-follow-on-refresh';
 import type { PlanningCloseoutRaw } from '../adapters/planning';
 import type {
@@ -139,16 +140,10 @@ function closeoutAttachedEvidenceSummary(
   canaryEvidencePath: string | null,
   deployResultPath: string | null,
   documentationSyncPath: string | null,
-  landingReentry: {
-    next_action: string | null;
-    ship_handoff_current: boolean | null;
-    merge_status: string | null;
-    deploy_status: string | null;
-    verification_status: string | null;
-    failure_kind: string | null;
-    ship_handoff_head_sha: string | null;
-    pull_request_head_sha: string | null;
-  } | null,
+  // Use the canonical guidance type rather than an inline structural copy: the
+  // hand-written shape had drifted (it omitted `deploy_result_path`), so a real
+  // LandingReentryGuidance value was no longer assignable here.
+  landingReentry: LandingReentryGuidance | null,
 ): string {
   if (
     !perfVerificationPath
@@ -454,7 +449,12 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
       archive_state: archiveRequired ? 'archived' : 'not_required',
       provenance_consistent: true,
     };
-    const nextLedger = {
+    // Annotate as RunLedger so the literal is contextually typed: `status` narrows
+    // to RunStatus (not string), the appended command_history entry's `command`
+    // narrows to CanonicalCommandId, and `artifact_index` is a Record<string, …>
+    // (the computed string keys below would otherwise infer a single-key type,
+    // breaking the dynamic `delete` calls).
+    const nextLedger: RunLedger = {
       ...ledgerWithRetiredWorkspace,
       status: result.raw_output.merge_ready ? 'completed' : 'blocked',
       previous_stage: (shipStatus ? 'ship' : qaStatus ? 'qa' : 'review') as 'review' | 'qa' | 'ship',
@@ -569,7 +569,11 @@ export async function runCloseout(ctx: CommandContext): Promise<CommandResult> {
           slug,
           runId: ledger.run_id,
           sourcePath: closeoutLearningsJsonPath(),
-          canonical: mirrorableEntries as Parameters<typeof mirrorCanonicalToJsonl>[0]['canonical'],
+          // id-filtered v2 candidates from the canonical learnings record. They
+          // serialize as LearningEntry (mirror only spreads + adds a mirror block),
+          // but LearningCandidate is a distinct nominal type, so the assertion must
+          // hop through `unknown` (TS2352).
+          canonical: mirrorableEntries as unknown as Parameters<typeof mirrorCanonicalToJsonl>[0]['canonical'],
         });
       } catch (mirrorError) {
         const message = mirrorError instanceof Error ? mirrorError.message : String(mirrorError);

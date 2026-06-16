@@ -53,7 +53,10 @@ export function writeLearningCandidate(params: WriteLearningCandidateInput): voi
   let record: StageRecord;
   if (existsSync(path)) {
     try {
-      const existing = JSON.parse(readFileSync(path, 'utf8')) as Partial<StageRecord & { schema_version: 1 | 2 }>;
+      // Omit the discriminant before widening it: StageRecord pins schema_version
+      // to the literal `2`, so intersecting it with `{ schema_version: 1 | 2 }`
+      // collapses to `2` and the legacy v1 branch (`=== 1`) below would be dead.
+      const existing = JSON.parse(readFileSync(path, 'utf8')) as Partial<Omit<StageRecord, 'schema_version'>> & { schema_version?: 1 | 2 };
       if (
         (existing.schema_version === 1 || existing.schema_version === 2)
         && existing.stage === params.stage

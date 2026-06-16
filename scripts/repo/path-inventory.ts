@@ -86,10 +86,31 @@ ${rows}
 `;
 }
 
-const content = renderInventory(allInventoryPaths());
+const inventoryPaths = allInventoryPaths();
+const content = renderInventory(inventoryPaths);
 const outputAbs = join(ROOT, OUTPUT_PATH);
 
+// The taxonomy degrades unanticipated paths to 'unclassified' rather than
+// crashing (see lib/nexus/io/repo-taxonomy.ts). The gate decision lives here:
+// any tracked path without a taxonomy rule must be classified or relocated, so
+// surface them actionably instead of letting them pass silently.
+const unclassified = inventoryPaths.filter(
+  (path) => classifyRepoPath(path).category === 'unclassified',
+);
+
+function reportUnclassified(): void {
+  console.error(
+    `${unclassified.length} tracked path(s) have no repo taxonomy rule:\n`
+    + unclassified.map((path) => `  - ${path}`).join('\n')
+    + `\n\nAdd a rule in lib/nexus/io/repo-taxonomy.ts, or relocate/remove the file(s).`,
+  );
+}
+
 if (process.argv.includes('--check')) {
+  if (unclassified.length > 0) {
+    reportUnclassified();
+    process.exit(1);
+  }
   const existing = existsSync(outputAbs) ? readFileSync(outputAbs, 'utf8') : '';
   if (existing !== content) {
     console.error(`${OUTPUT_PATH} is stale. Run: bun run scripts/repo/path-inventory.ts`);
@@ -98,5 +119,10 @@ if (process.argv.includes('--check')) {
   console.log(`${OUTPUT_PATH} is up to date`);
 } else {
   writeFileSync(outputAbs, content);
-  console.log(`Wrote ${OUTPUT_PATH}`);
+  if (unclassified.length > 0) {
+    reportUnclassified();
+    console.log(`Wrote ${OUTPUT_PATH} (with ${unclassified.length} unclassified path(s) flagged above)`);
+  } else {
+    console.log(`Wrote ${OUTPUT_PATH}`);
+  }
 }

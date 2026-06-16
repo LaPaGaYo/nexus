@@ -1,0 +1,6 @@
+{
+  "_comment": "Type-check ratchet baseline. Pre-existing strict errors tolerated by scripts/repo/typecheck.ts --check; new errors beyond this set fail CI. This list should only shrink. Do not hand-edit; run `bun run typecheck`.",
+  "config": "tsconfig.json",
+  "count": 0,
+  "errors": []
+}
