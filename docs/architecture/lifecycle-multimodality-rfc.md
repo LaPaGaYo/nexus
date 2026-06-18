@@ -138,3 +138,43 @@ Adopt lane-tiering + the three missing primitives (spike, decomposition, legal b
 5. **Hand Hole 5 to Problem A**; do not duplicate.
 
 **Decision returned to the operator:** adopt diagnosis + decomposition + backward-transitions now; gate the lane taxonomy on resolving #2/#3; defer spike. This disposition satisfies the RFC's own "grounded independent review before adoption" requirement.
+
+---
+
+## Adoption decision (operator-ratified, 2026-06-18)
+
+**Status: PROPOSED → ADOPTED (amend & phase).** The operator ratifies the review disposition. This section resolves the two prerequisites that gate the lane taxonomy and specifies the build-ready phase 1, so the program can execute without re-opening the design.
+
+### Prerequisite resolved — the lane classifier (review concern #3)
+
+- **When:** the lane is proposed at `discover` exit and confirmed at `frame` entry.
+- **Where:** a typed field on the discover/frame artifact (not chat) → the lane is a repo-visible decision.
+- **Who reviews:** the lane assignment is **the first reviewable gate**; a wrong lane is a routing defect, audited exactly like scope creep is today.
+- **Fail-safe rule (resolves Risk 1):** when classification is uncertain, **round *up* to the heavier lane**, never down. Misclassifying a milestone as bounded (treating-deep-as-shallow) is the dangerous direction; rounding up costs ceremony, rounding down costs correctness. The `spike` lane is the escape hatch once it exists.
+
+### Prerequisite resolved — the gate doctrine (review concern #2)
+
+The C2 tension ("trivial/bounded lanes remove the gates the RFC calls non-negotiable") is resolved by separating *the universal gate* from *the scalable stages*:
+
+- **Universal, every lane:** **evidence-before-claims.** Any stage that makes a completion claim MUST show the verification backing it. This is the non-negotiable property — it is cheap and applies even to `trivial`.
+- **Scalable by lane risk:** the *review/qa **stages*** are what vary. `trivial` → self-verified evidence recorded in the ship artifact; `bounded` → merged review+qa (the regression test *is* the QA); `feature`/`milestone` → full independent `/review` + `/qa` stages.
+
+Precedent: this session's type-burndown (9 bounded PRs) ran typecheck + the unit gate before every merge with no separate `/review` stage — evidence-before-claims held without the heavyweight stages. That is the bounded lane, already dogfooded.
+
+### Phase 1 (build-ready) — the decomposition step
+
+- **Mechanism:** a required check between `discover` and `frame`. The artifact must answer *"one problem or several?"* via a typed field — e.g. `decomposition: { problems: [{ id, summary, lane }] }`. Default is a single atomic problem, but the field must be **explicit** (the point is to force the question that Source 1 skipped).
+- **Gate:** `frame` will not proceed on a multi-problem brief; each sub-problem routes to its own framing at its assigned lane.
+- **Why first:** highest-leverage, lowest-risk, most generic evidence — the one hole that, applied at idea-brief Source 1, would have saved most of the evidence-base work unit.
+
+### Sequenced backlog (each independently shippable + reviewable)
+
+| # | Item | Status | Risk | Notes |
+|---|---|---|---|---|
+| 1 | Decomposition step | **ready to build** | low | spec above |
+| 2 | `trivial`/`bounded` lanes | **unblocked** (prereqs resolved) | med | classifier + gate doctrine now decided |
+| 3 | Legalize early backward transitions (`frame→discover`, `plan→frame`) + justification artifact | queued | med-high | extends the existing `review→build`/`qa→build` fix-cycle precedent; touches `transitions.ts` + `CANONICAL_MANIFEST.legal_predecessors` (cross-checked at import) |
+| 4 | `spike` lane | **deferred** | — | pending evidence beyond the n=1 unit |
+| 5 | Hole 5 (operator-is-worker) | **reassigned** | — | owned by Problem A milestone, not this RFC |
+
+Implementation of items 1–3 routes through the normal lifecycle (each is its own bounded `/frame`→`/build`).
