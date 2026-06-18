@@ -26,12 +26,18 @@ import * as nexus from '../../lib/nexus';
 import type {
   StageLearningCandidatesRecord,
   RunLearningsRecord,
+  LearningContextInput,
+  LearningContextResult,
+  LearningContextConfig,
 } from '../../lib/nexus';
 
 // Reference the pinned types so an unused-import does not silently drop them.
 type _BarrelTypePin = [
   StageLearningCandidatesRecord | undefined,
   RunLearningsRecord | undefined,
+  LearningContextInput | undefined,
+  LearningContextResult | undefined,
+  LearningContextConfig | undefined,
 ];
 
 const EXPECTED_VALUE_EXPORTS = [
@@ -71,6 +77,9 @@ const EXPECTED_VALUE_EXPORTS = [
   'readStageCandidatesFile',
   'readCanonicalLearningsFile',
   'walkArchiveRunLearnings',
+  // ── Learning context surface (SP6) ──
+  'resolveLearningContext',
+  'DEFAULT_LEARNING_CONTEXT_CONFIG',
 ] as const;
 
 describe('lib/nexus barrel surface (#151)', () => {
@@ -80,13 +89,14 @@ describe('lib/nexus barrel surface (#151)', () => {
   });
 
   test('re-exports SP6 reader return types (compile-time pinned)', () => {
-    // StageLearningCandidatesRecord and RunLearningsRecord are type-only
-    // exports — erased at runtime, so there is nothing to assert in `nexus`.
+    // StageLearningCandidatesRecord, RunLearningsRecord, LearningContextInput,
+    // LearningContextResult, and LearningContextConfig are type-only exports —
+    // erased at runtime, so there is nothing to assert in `nexus`.
     // The `import type { ... } from '../../lib/nexus'` + `_BarrelTypePin`
     // at the top of this file fail `bun run build` / tsc if the barrel
-    // drops either type. This test documents that the pin is intentional.
-    const pin: _BarrelTypePin = [undefined, undefined];
-    expect(pin).toHaveLength(2);
+    // drops any of these types. This test documents that the pin is intentional.
+    const pin: _BarrelTypePin = [undefined, undefined, undefined, undefined, undefined];
+    expect(pin).toHaveLength(5);
   });
 
   test('canonical command list resolves through the barrel', () => {

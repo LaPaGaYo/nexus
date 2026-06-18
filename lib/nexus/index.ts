@@ -115,3 +115,14 @@ export {
   readCanonicalLearningsFile,
   walkArchiveRunLearnings,
 } from './learning/read';
+
+// ─── Learning context (SP6) — consumer surface only ───
+export {
+  resolveLearningContext,
+  DEFAULT_LEARNING_CONTEXT_CONFIG,
+} from './learning/context';
+export type {
+  LearningContextInput,
+  LearningContextResult,
+  LearningContextConfig,
+} from './learning/context';
