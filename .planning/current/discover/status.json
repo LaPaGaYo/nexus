@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-06-18T14-50-00-320Z",
+  "stage": "discover",
+  "execution_mode": "local_provider",
+  "primary_provider": "claude",
+  "provider_topology": "agent_team",
+  "workspace": {
+    "path": "/Users/henry/Documents/nexus/.nexus-worktrees/run-2026-06-18T14-50-00-320Z",
+    "kind": "worktree",
+    "branch": "branch/run-2026-06-18T14-50-00-320Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-06-18T14-50-00-320Z",
+    "retirement_state": "active"
+  },
+  "session_root": {
+    "path": "/Users/henry/Documents/nexus",
+    "kind": "repo_root",
+    "source": "ccb_root"
+  },
+  "requested_execution_path": "claude-local-agent_team",
+  "actual_execution_path": null,
+  "state": "completed",
+  "decision": "ready",
+  "ready": true,
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "markdown",
+      "path": "docs/product/idea-brief.md"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/discover/status.json"
+    }
+  ],
+  "started_at": "2026-06-18T14:50:00.723Z",
+  "completed_at": "2026-06-18T14:50:00.723Z",
+  "errors": []
+}
