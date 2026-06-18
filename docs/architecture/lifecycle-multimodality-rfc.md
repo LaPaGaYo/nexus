@@ -108,3 +108,33 @@ Each step is independently shippable and independently reviewable. No big-bang.
 ## Decision requested
 
 Adopt lane-tiering + the three missing primitives (spike, decomposition, legal backtransition) as the lifecycle's modality model, keeping all current disciplines, with the incremental adoption order above? Or reject / amend. Per the discipline this RFC argues for, route this RFC itself through a grounded independent review before any adoption decision.
+
+---
+
+## Review disposition (independent, 2026-06-18)
+
+| | |
+|---|---|
+| **Reviewer** | Claude Fable 5 — independent of the Opus 4.7 that co-synthesized this RFC |
+| **Method** | Grounded against `lib/nexus/governance/transitions.ts` + the evidence-base work unit (idea-brief Sources 1–13), not prose-only |
+| **Verdict** | **AMEND & PHASE** — adopt the diagnosis + the two lowest-risk primitives now; reframe one doctrine and gather more evidence before the rest. Not adopt-as-one-package; not reject. |
+
+### Verified sound
+- Diagnosis is **code-accurate**: 9 canonical stages confirmed; no lane/mode/tier concept exists anywhere in `lib/nexus` → the **mono-modal premise holds**. Disciplines-preservation instinct and incremental adoption order are right. The RFC correctly routes itself through review.
+
+### Concerns (ranked)
+1. **Evidence base is n=1 and self-referential.** All five holes come from one ~30-turn unit that was *Nexus fixing Nexus* — over-sampling spike/decomposition/backtransition needs. Counter-evidence in the same session: the type-burndown (9 PRs) and SP6 flowed through bounded/feature shapes fine. Validate lanes against ordinary work units before institutionalizing five of them.
+2. **Internal tension: `trivial`/`bounded` lanes remove the gates the RFC calls non-negotiable** (`trivial = build→ship`, no review/qa). Reconcile by reframing: **evidence-before-claims applies to every lane; review/qa *intensity* scales with lane risk.** This session's burndown proves the safe form — every PR ran typecheck + the unit gate before merge with no separate `/review` stage.
+3. **"Who classifies the lane, and when" is the keystone, left open.** Misclassification re-creates the Problem-A failure (RFC's own Risk 1). Cannot adopt lane-tiering without it. Recommend: lane assigned at intake, itself the first reviewable gate; spike is the escape hatch when classification is uncertain.
+4. **Hole 5 ("operator is the worker") duplicates Problem A** (session-is-worker provenance), which already has its own milestone frame. Reference Problem A as the owner; don't create a second governance surface.
+5. **"Strictly forward" is imprecise — and that helps addition D.** Backward edges already exist (`review → {handoff, build}`, `qa → build` fix-cycles). Legalizing `frame→discover`/`plan→frame` *extends an existing primitive to early stages*, not invents one — lower-risk than framed.
+6. *(Minor)* **"No new machinery" is overstated** — spike lane, decomposition step, and backtransition justification artifacts are new contracts; the "not bureaucracy" claim depends on trivial/bounded actually being tiny.
+
+### Recommended adoption path (amended)
+1. **Now:** the **decomposition step** (discover→frame: "one problem or several, what size each?") — highest-leverage, lowest-risk, most generic evidence.
+2. **Resolve concerns #3 (classifier) and #2 (gate doctrine) first, *then*** adopt `trivial`/`bounded` lanes — these answers are prerequisites, not follow-ups.
+3. **Legalize early backward transitions** with a recorded justification artifact, framed as extending the existing fix-cycle precedent.
+4. **Defer the `spike` lane** until 2–3 more high-uncertainty units confirm it's needed first-class.
+5. **Hand Hole 5 to Problem A**; do not duplicate.
+
+**Decision returned to the operator:** adopt diagnosis + decomposition + backward-transitions now; gate the lane taxonomy on resolving #2/#3; defer spike. This disposition satisfies the RFC's own "grounded independent review before adoption" requirement.
