@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "run_label": "lifecycle-decomposition-step-frame",
+  "scope_class": "bounded-single-module-low-uncertainty",
+  "hypothesis": {
+    "action": "add a required, explicit decomposition record to the discover->frame boundary (one problem or several, and how big is each), gating frame on multi-problem briefs",
+    "users": "operators running the Nexus lifecycle on non-trivial, multi-faceted work units",
+    "outcome": "multi-problem briefs are split into independently-routed sub-problems at intake instead of after N failed reviews; a fused brief can no longer silently become a fused frame",
+    "evidence": "idea-brief Sources 1-6 + RFC Hole 2: one brief fused Problems A/B/C and took six review passes to separate; the failure mode is the decomposition question never being asked, not operators being unable to answer it"
+  },
+  "success_criteria": [
+    "A frame run on a single-problem brief records decomposition.problems with exactly one entry and proceeds (test asserts present + length===1).",
+    "A frame run on a multi-problem brief returns not_ready and enumerates each sub-problem (test feeds a 2-problem brief, asserts decision==='not_ready' + listed sub-problems).",
+    "The decomposition field is required and explicit: a brief with an absent/empty decomposition record does not reach ready.",
+    "bun run scripts/test/unit.ts exits 0 with 0 fail markers; bun run typecheck:check shows baseline 0, 0 new."
+  ],
+  "non_goals": [
+    "The lane taxonomy itself (RFC item #2) - size_hint is free-text; the typed lane binding lands with #2.",
+    "Backward transitions (#3), the spike lane (#4), and Hole 5 / operator-is-worker (owned by Problem A).",
+    "Auto-decomposition - the step forces the operator to answer 'one or several?', it does not split problems for them.",
+    "Changing /discover's content contract beyond carrying the decomposition record."
+  ],
+  "out_of_scope": [
+    "Retro-actively decomposing already-framed runs.",
+    "Changing how /plan consumes a single-problem frame.",
+    "Per-sub-problem worktrees or routing automation - each sub-problem is framed through the normal path."
+  ],
+  "acceptance_criteria": [
+    "Given a discover brief that names two independent problems, when the operator runs /frame, then the frame returns not_ready, lists both sub-problems, and does not emit a single fused design-intent.json.",
+    "Given a single-problem brief, when /frame runs, then decomposition.problems has one explicit entry and the frame proceeds to ready.",
+    "Given a brief with no decomposition record, when /frame runs, then it does not reach ready (the field is required, not defaulted silently)."
+  ],
+  "open_questions_to_plan": [
+    "Where the check lives: a typed field on the discover-exit artifact, a gate at frame-entry, or both (the gate is what gives it teeth).",
+    "Whether the decomposition record requires a lane per sub-problem now (depends on RFC item #2) or defers lane to free-text size_hint so decomposition ships independently first.",
+    "Gate behavior on a multi-problem brief: hard not_ready with enumerated sub-problems, vs route-and-continue (frame the first, queue the rest)."
+  ],
+  "provenance": {
+    "upstream_idea_brief": "docs/product/idea-brief.md (run-2026-06-18T14-50-00-320Z)",
+    "parent": "docs/architecture/lifecycle-multimodality-rfc.md (Adoption decision, item #1)",
+    "lane": "bounded",
+    "review_gate": "bounded lane: merged review+qa; the frame-stage regression tests are the QA"
+  }
+}

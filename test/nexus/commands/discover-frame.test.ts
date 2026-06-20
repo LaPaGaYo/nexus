@@ -883,6 +883,45 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('frame decomposition gate blocks a multi-problem brief (RFC phase 1)', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('discover');
+      mkdirSync(join(cwd, '.planning/current/discover'), { recursive: true });
+      writeFileSync(
+        join(cwd, '.planning/current/discover/decomposition.json'),
+        JSON.stringify({
+          problems: [
+            { id: 'streaming-parity', summary: 'streaming parity' },
+            { id: 'lifecycle-reentry', summary: 'lifecycle re-entry' },
+          ],
+        }),
+      );
+      await expect(run('frame')).rejects.toThrow(/multi-problem/);
+      expect(await run.readJson('.planning/current/frame/status.json')).toMatchObject({
+        stage: 'frame',
+        decision: 'not_ready',
+        ready: false,
+      });
+    });
+  });
+
+  test('frame decomposition gate allows a single explicit problem (RFC phase 1)', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('discover');
+      mkdirSync(join(cwd, '.planning/current/discover'), { recursive: true });
+      writeFileSync(
+        join(cwd, '.planning/current/discover/decomposition.json'),
+        JSON.stringify({ problems: [{ id: 'one-thing', summary: 'one bounded change', size_hint: 'bounded' }] }),
+      );
+      await run('frame');
+      expect(await run.readJson('.planning/current/frame/status.json')).toMatchObject({
+        stage: 'frame',
+        decision: 'ready',
+        ready: true,
+      });
+    });
+  });
+
   test('rolls over to a fresh discover run after a completed closeout', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
       const legacyWorktreePath = createLinkedWorktree(cwd, '.worktrees');

@@ -7,6 +7,7 @@ import { frameDesignIntentPath, stageCompletionAdvisorPath, stageStatusPath } fr
 import { applyNormalizationPlan } from '../normalizers';
 import { canonicalNextStages, normalizeDiscoveryFrame, buildDiscoveryTraceabilityPayloads } from '../normalizers/discovery';
 import { assertLegalTransition } from '../governance/transitions';
+import { evaluateDecompositionGate, readDecompositionRecord } from '../governance/decomposition';
 import type { DiscoveryFrameRaw } from '../adapters/discovery';
 import type { ArtifactPointer, CommandHistoryVia, ConflictRecord, RunLedger, StageStatus } from '../contracts/types';
 import type { CommandContext, CommandResult } from './index';
@@ -113,6 +114,28 @@ export async function runFrame(ctx: CommandContext): Promise<CommandResult> {
       ledger: nextLedger(ledger, 'blocked', at, ctx.via),
     });
     throw new Error(`Missing required input artifact: ${inputPath}`);
+  }
+
+  // Decomposition gate (RFC phase 1): a multi-problem brief must be split before
+  // framing, so a fused brief can no longer silently become a fused frame.
+  // Additive in v1 — enforced only when a decomposition record is present; an
+  // absent record proceeds as before (hard-required-for-every-frame is a follow-up
+  // that also teaches /discover to emit the record).
+  const decompositionGate = evaluateDecompositionGate(readDecompositionRecord(ctx.cwd));
+  if (!decompositionGate.ok) {
+    const status = buildStatus(ledger, at, null, 'blocked', 'not_ready', false, [decompositionGate.reason]);
+    const completionAdvisor = buildFrameCompletionAdvisor(status, at);
+    await applyNormalizationPlan({
+      cwd: ctx.cwd,
+      stage: 'frame',
+      statusPath: stageStatusPath('frame'),
+      canonicalWrites: [buildCompletionAdvisorWrite(completionAdvisor, { cwd: ctx.cwd })],
+      traceWrites: [],
+      status,
+      mirrorWorkspace: ledger.execution.workspace,
+      ledger: nextLedger(ledger, 'blocked', at, ctx.via),
+    });
+    throw new Error(decompositionGate.reason);
   }
 
   const result = await ctx.adapters.discovery.frame({
