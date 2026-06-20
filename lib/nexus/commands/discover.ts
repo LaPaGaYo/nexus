@@ -7,6 +7,7 @@ import {
   writeLedger,
 } from '../governance/ledger';
 import { CANONICAL_MANIFEST } from '../contracts/command-manifest';
+import { evaluateBacktrack, readBacktrackJustification } from '../governance/backtrack';
 import { executionFieldsFromLedger } from '../runtime/execution-topology';
 import { applyNormalizationPlan } from '../normalizers';
 import {
@@ -107,12 +108,29 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
   const existingLedger = readLedger(repositoryRoot);
   const requestedContinuationMode = ctx.continuation_mode_override ?? null;
   let predecessorArtifacts: ArtifactPointer[] = [];
+  // RFC item #3 — legal, recorded backward transition. A retreat to discover
+  // (e.g. frame -> discover after framing is disproven) is legal only when a
+  // justification is recorded at .planning/current/discover/backtrack-justification.json;
+  // otherwise forward-only stands. An allowed retreat reuses the existing run
+  // (continuity), reset to the discover stage by nextLedger below.
+  const backtrackToDiscover =
+    existingLedger
+    && existingLedger.current_stage !== 'discover'
+    && !isCompletedCloseoutLedger(existingLedger, repositoryRoot)
+      ? evaluateBacktrack(
+          existingLedger.current_stage,
+          'discover',
+          readBacktrackJustification(repositoryRoot, 'discover'),
+        )
+      : null;
   if (
     existingLedger
     && existingLedger.current_stage !== 'discover'
     && !isCompletedCloseoutLedger(existingLedger, repositoryRoot)
+    && !backtrackToDiscover?.allowed
   ) {
-    throw new Error(`Illegal Nexus transition: ${existingLedger.current_stage} -> discover`);
+    const why = backtrackToDiscover ? ` (${backtrackToDiscover.reason})` : '';
+    throw new Error(`Illegal Nexus transition: ${existingLedger.current_stage} -> discover${why}`);
   }
 
   if (existingLedger && existingLedger.current_stage === 'closeout') {
@@ -153,7 +171,7 @@ export async function runDiscover(ctx: CommandContext): Promise<CommandResult> {
       || artifact.path === discoverBootstrapMarkdownPath(),
   );
 
-  const ledger = existingLedger && existingLedger.current_stage === 'discover'
+  const ledger = existingLedger && (existingLedger.current_stage === 'discover' || backtrackToDiscover?.allowed)
     ? existingLedger
     : (() => {
       const freshRunId = makeRunId(ctx.clock);

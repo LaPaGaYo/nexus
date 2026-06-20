@@ -922,6 +922,33 @@ describe('nexus discover/frame PM seams', () => {
     });
   });
 
+  test('backward transition: frame → discover is legal only with a recorded justification (RFC item #3)', async () => {
+    await runInTempRepo(async ({ cwd, run }) => {
+      await run('discover');
+      const firstRunId = (await run.readJson('.planning/nexus/current-run.json')).run_id;
+      await run('frame'); // ledger now at frame
+
+      // Forward-only stands: an unjustified retreat to discover is illegal.
+      await expect(run('discover')).rejects.toThrow(/Illegal Nexus transition: frame -> discover/);
+
+      // Record the justification → the retreat becomes legal, continuing the same run.
+      writeFileSync(
+        join(cwd, '.planning/current/discover/backtrack-justification.json'),
+        JSON.stringify({
+          from: 'frame',
+          to: 'discover',
+          reason: 'framing disproven by a spike; re-discover the constraint surface',
+        }),
+      );
+      await run('discover');
+
+      const ledger = await run.readJson('.planning/nexus/current-run.json');
+      expect(ledger.current_stage).toBe('discover');
+      expect(ledger.previous_stage).toBe('frame'); // the retreat is recorded
+      expect(ledger.run_id).toBe(firstRunId); // continuity: same run, not a fresh one
+    });
+  });
+
   test('rolls over to a fresh discover run after a completed closeout', async () => {
     await runInTempGitRepo(async ({ cwd, run, readJson }) => {
       const legacyWorktreePath = createLinkedWorktree(cwd, '.worktrees');
